@@ -56,6 +56,7 @@ plot(sum_trial_durs,'ro-');
 %%
 poss_base_blocks = [6 15 27]; %set of blocks to try fitting initial models on
 target_probes = 1:n_probes;
+raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
 
 %% SET CLUSTERING PARAMETERS
 clear clust_params
@@ -69,6 +70,8 @@ clust_params.target_rate = 50; %target rate for spike detection
 %% PERFORM INITIAL CLUSTERING
 for bb = 1:length(poss_base_blocks) %loop over initial set of blocks
     cur_base_block = poss_base_blocks(bb);
+    cur_raw_block = raw_block_nums(cur_base_block);
+    
     full_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',cur_base_block)];
     second_dat_name = [base_save_dir sprintf('/Block%d_initClusters.mat',cur_base_block)];
     if exist(full_dat_name,'file');
@@ -85,17 +88,17 @@ for bb = 1:length(poss_base_blocks) %loop over initial set of blocks
        fprintf('\nClustering probe %d of %d\n',probe_num,n_probes);
         
         if Expt_name(1) == 'G' %for UTAH array data Load in Voltage signasl for each probe
-            loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',cur_base_block,probe_num)];
+            loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',cur_raw_block,probe_num)];
             use_chs = [];
         else %for Laminar probe data load in all voltage signals for a given block
-            sfile_name = [data_dir sprintf('/Expt%dFullV.mat',cur_base_block)];
+            sfile_name = [data_dir sprintf('/Expt%dFullV.mat',cur_raw_block)];
             use_chs = [probe_num-1 probe_num probe_num + 1];
             use_chs(use_chs < 1 | use_chs > n_probes) = [];
 %             use_chs = probe_num;
-            if Vloaded ~= cur_base_block
+            if Vloaded ~= cur_raw_block
                 fprintf('Loading data file %s\n',sfile_name);
                 [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
-                Vloaded = cur_base_block;
+                Vloaded = cur_raw_block;
             end
         end
         

@@ -1,11 +1,11 @@
-% clear all
-% close all
+clear all
+close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'M296';
-% bar_ori = 0;
+Expt_name = 'M296';
+bar_ori = 0;
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -154,12 +154,15 @@ expt_ijump(has_data) = cellfun(@(x) x.Stimvals.ijump,Expts(has_data),'UniformOut
 
 included_type(has_data) = ismember(expt_names(has_data),include_expts);
 
+if strcmp(rec_type,'LP')
+    expt_bar_ori(expt_bar_ori > 360) = bar_ori;
+end
+
 %select blocks for analysis
 if strcmp(rec_type,'UA')
     cur_block_set = find(included_type & expt_Fr == 1 & expt_bar_ori == bar_ori & expt_ce == 1);
 else
-    cur_block_set = find(included_type & expt_ce == 1 & expt_Fr == 1 & expt_ce == 1);
-    expt_bar_ori(cur_block_set) = bar_ori;
+    cur_block_set = find(included_type & expt_ce == 1 & expt_Fr == 1 & expt_ce == 1 & expt_bar_ori == bar_ori);
 end
 if strcmp(Expt_name,'G081')
     expt_has_ds = (expt_ijump==0)';
@@ -443,7 +446,9 @@ rpt_trials = find(all_trial_se == rpt_seed);
 used_inds(ismember(all_trialvec(used_inds),rpt_trials)) = [];
 
 %% PROCESS EYE TRACKING DATA
-[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset,good_coils);
+em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+
+[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,em_block_nums,Expt_name,trial_toffset,good_coils);
 interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);
 
 %compute corrected eye data in bar-oriented frame

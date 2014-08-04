@@ -55,14 +55,15 @@ force_new_clusters = false; %if you want to
 
 elen = cellfun(@(x) length(x),Expts);
 target_blocks = find(elen > 0);
+raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
 
 %don't apply to blocks where we dont have the FullV data
 missing_Vdata = [];
 for bb = target_blocks
     if Expt_name(1) == 'M'
-        check_name = [data_dir sprintf('/Expt%dFullV.mat',bb)];
+        check_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
     else
-        check_name = [data_dir sprintf('/Expt%d.p1FullV.mat',bb)];
+        check_name = [data_dir sprintf('/Expt%d.p1FullV.mat',raw_block_nums(bb))];
     end
     if ~exist(check_name,'file')
         missing_Vdata = [missing_Vdata bb];
@@ -107,11 +108,11 @@ all_clust_stds = cell(n_probes,1);
 for bb = target_blocks
     %for LP load all Voltage signals for this block
     if Expt_name(1) == 'M'
-        sfile_name = [data_dir sprintf('/Expt%dFullV.mat',bb)];
+        sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
         if Vloaded ~= bb
             fprintf('Loading data file %s\n',sfile_name);
             [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
-            Vloaded = bb;
+            Vloaded = raw_block_nums(bb);
         end
     end
     
@@ -128,7 +129,7 @@ for bb = target_blocks
     for probe_num = target_probes
         fprintf('Applying clustering for probe %d\n',probe_num);
         if Expt_name(1) == 'G'
-            loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',bb,probe_num)];
+            loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(bb),probe_num)];
         end
         
         %look for existing full scatter figure and open if it exists
