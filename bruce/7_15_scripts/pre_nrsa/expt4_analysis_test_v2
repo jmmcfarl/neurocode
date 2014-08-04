@@ -1,0 +1,236 @@
+clear all
+close all
+cd
+addpath('~/Data/bruce/7_15_12/')
+
+cd ~/Data/bruce/7_15_12/G029/
+
+load ./jbeG029.em.mat
+em_data = Expt; clear Expt
+load ./CellList.mat
+load ./G029Expts.mat
+load ./eye_calibration_data
+
+dt = 118/1e4;
+frames_per_jump = 44;
+ims_per_trial = 4;
+dt_per_jump = frames_per_jump*dt;
+fst = 1/dt;
+
+Pix2Deg = 0.018837;
+dsfrac = 1;
+Fsd = 1/Pix2Deg/dsfrac;
+Nyp = 1024;
+Nxp = 1280;
+Ny = round(Nyp/dsfrac);
+Nx = round(Nxp/dsfrac);
+RF_patch = [-0.5 1.3; -1.3 0.5]; %location of RFs in degrees [x1 x2;y1 y2]
+% RF_patch = [-1 2; -2. 1]; %location of RFs in degrees [x1 x2;y1 y2]
+RF_patch_pix = Fsd*RF_patch;
+RF_patch_cent = mean(RF_patch,2);
+RF_patch_width = diff(RF_patch,[],2);
+xax = linspace(-Nx/2,Nx/2,Nx)/Fsd; yax = linspace(-Ny/2,Ny/2,Ny)/Fsd;
+xpatch_inds = find(xax >= RF_patch(1,1) & xax <= RF_patch(1,2));
+ypatch_inds = find(yax >= RF_patch(2,1) & yax <= RF_patch(2,2));
+
+
+%%
+Expt_nu = [14 22 27]; %these are the grating expts
+spk_win = 0.15; %in sec
+n_allunits = 96;
+min_trial_dur = 1.5+spk_win;
+all_xo_vec = [];
+all_yo_vec = [];
+all_image_vec = [];
+all_angles = [];
+all_jump_sizes = [];
+all_expt_vec = [];
+all_trial_vec = [];
+all_binned_spks = [];
+all_stim_num = [];
+
+single_units = find(CellList(Expt_nu(1),:,1) > 0);
+multi_units = setdiff(1:n_allunits,single_units);
+for ee = 1:length(Expt_nu)
+    
+    fprintf('Analyzing Expt %d of %d\n',ee,length(Expt_nu));
+    n_sus = length(single_units);
+    load(sprintf('Expt%dClusterTimes.mat',Expt_nu(ee)));
+    Trial_starts = [Expts{Expt_nu(ee)}.Trials(:).Start]/1e4;
+    Trial_ends = [Expts{Expt_nu(ee)}.Trials(:).End]/1e4;
+    endEvents = [Expts{Expt_nu(ee)}.Trials(:).endevent];
+    Trial_durs = (Trial_ends-Trial_starts);
+    %     completed_trials = 1:length(Trial_durs); %use all trials
+    completed_trials = find(Trial_durs > min_trial_dur);
+    Trial_im_nums = [Expts{Expt_nu(ee)}.Trials(:).se];
+    Trial_angles = [Expts{Expt_nu(ee)}.Trials(:).Fa];
+    jump_sizes = [Expts{Expt_nu(ee)}.Trials(:).sz];
+    
+    %     Trial_angles = Trial_angles + 90;
+    
+    for i = 1:length(completed_trials)
+        cur_images = repmat(Trial_im_nums(completed_trials(i)),ims_per_trial,1);
+        
+        cur_xo = (0:(ims_per_trial-1))*jump_sizes(completed_trials(i))*cos(degtorad(Trial_angles(completed_trials(i))));
+        cur_yo = (0:(ims_per_trial-1))*jump_sizes(completed_trials(i))*sin(degtorad(Trial_angles(completed_trials(i))));
+        
+        cur_t_starts = Trial_starts(completed_trials(i)) + (0:3)*dt_per_jump;
+        cur_t_stops = cur_t_starts + spk_win;
+        cur_t_edges = sort([cur_t_starts cur_t_stops]);
+        
+        cur_binned_spks = nan(n_allunits,length(cur_t_edges));
+        for j = 1:n_allunits
+            cur_binned_spks(j,:) = histc(Clusters{(j)}.times,cur_t_edges);
+        end
+        cur_binned_spks = cur_binned_spks(:,1:2:length(cur_t_edges));
+        
+        all_image_vec = [all_image_vec; cur_images];
+        all_xo_vec = [all_xo_vec; cur_xo'];
+        all_yo_vec = [all_yo_vec; cur_xo'];
+        all_expt_vec = [all_expt_vec; ones(length(cur_images),1)*Expt_nu(ee)];
+        all_trial_vec = [all_trial_vec; ones(length(cur_images),1)*completed_trials(i)];
+        all_binned_spks = [all_binned_spks; cur_binned_spks'];
+        all_angles = [all_angles; repmat(Trial_angles(completed_trials(i)),ims_per_trial,1)];
+        all_jump_sizes = [all_jump_sizes; repmat(jump_sizes(completed_trials(i)),ims_per_trial,1)];
+        all_stim_num = [all_stim_num; (1:ims_per_trial)'];
+    end
+end
+
+%%
+% rand_xo_vec = circshift(all_xo_vec,400);
+% rand_yo_vec = circshift(all_yo_vec,340);
+rand_xo_vec = rand(size(all_xo_vec))*8-4;
+rand_yo_vec = rand(size(all_xo_vec))*8-4;
+
+cd ~/James_scripts/data_processing/Images/image_set_A
+tot_images = length(unique(all_image_vec));
+used_images = unique(all_image_vec);
+tot_samps = length(all_image_vec);
+all_im_patches = nan(tot_samps,length(ypatch_inds),length(xpatch_inds));
+all_im_patches_xshift = nan(tot_samps,length(ypatch_inds),length(xpatch_inds));
+all_im_patches_yshift = nan(tot_samps,length(ypatch_inds),length(xpatch_inds));
+for i = 1:tot_images
+    filename = sprintf('%.4d.png',used_images(i));
+    IMAGEorg = imread(filename);
+    IMAGEorg = double(IMAGEorg); % convert to double format
+    IMAGEorg = IMAGEorg - 127.5; %shift range to [-127.5:127.5]
+    IMAGE = flipud(IMAGEorg);
+    IMAGE = imresize(IMAGE,1/dsfrac); %image downsampling
+    
+    cur_samp_set = find(all_image_vec == used_images(i));
+    fprintf('Analyzing image %d, %d samps\n',i,length(cur_samp_set));
+    
+    for j = 1:length(cur_samp_set)
+        ypatch_inds_adj = round(ypatch_inds - all_yo_vec(cur_samp_set(j))*Fsd);
+        xpatch_inds_adj = round(xpatch_inds - all_xo_vec(cur_samp_set(j))*Fsd);
+        cur_im = IMAGE(ypatch_inds_adj,xpatch_inds_adj);
+        all_im_patches(cur_samp_set(j),:,:) = cur_im - mean(cur_im(:));
+
+        ypatch_inds_adj = round(ypatch_inds - rand_yo_vec(cur_samp_set(j))*Fsd);
+        xpatch_inds_adj = round(xpatch_inds - all_xo_vec(cur_samp_set(j))*Fsd);
+        cur_im = IMAGE(ypatch_inds_adj,xpatch_inds_adj);
+        all_im_patches_yshift(cur_samp_set(j),:,:) = cur_im - mean(cur_im(:));
+        
+        ypatch_inds_adj = round(ypatch_inds - all_yo_vec(cur_samp_set(j))*Fsd);
+        xpatch_inds_adj = round(xpatch_inds - rand_xo_vec(cur_samp_set(j))*Fsd);
+        cur_im = IMAGE(ypatch_inds_adj,xpatch_inds_adj);
+        all_im_patches_xshift(cur_samp_set(j),:,:) = cur_im - mean(cur_im(:));
+    end
+end
+
+%%
+fullX = reshape(all_im_patches,size(all_im_patches,1),length(ypatch_inds)*length(xpatch_inds));
+fullX_xshift = reshape(all_im_patches_xshift,size(all_im_patches,1),length(ypatch_inds)*length(xpatch_inds));
+fullX_yshift = reshape(all_im_patches_yshift,size(all_im_patches,1),length(ypatch_inds)*length(xpatch_inds));
+
+xv_frac = 0.2;
+NT = size(fullX,1);
+xv_NT = round(xv_frac*NT);
+xv_samp = randperm(NT);
+% xv_samp = 1:NT;
+xv_samp(xv_NT+1:end) = [];
+tr_samp = setdiff(1:NT,xv_samp);
+
+tr_samp(all_stim_num(tr_samp)==1) = [];
+xv_samp(all_stim_num(xv_samp)==1) = [];
+%%
+cd ~/Data/bruce/7_15_12/
+cd G029/
+load ./grating_mu_data
+gr_oris = unique_oris;
+load ./oned_fixation_fits_v3.mat
+
+sdim = length(xpatch_inds);
+bandwidth = 0.3;
+ar = 1.25;
+kern_len = 21-1;
+[XX,YY] = meshgrid(xax(xpatch_inds),yax(ypatch_inds));
+
+for t = 1:96
+    init_params(1) = mean_x(t); %x0
+    init_params(2) = mean_y(t); %y0
+    %     init_params(1) = rand*0.6+0.1; %x0
+    %     init_params(2) = rand*0.6-0.8; %y0
+    init_params(3) = degtorad(pref_mu_ori(t)); %theta
+    %     init_params(3) = degtorad(pref_mu_ori(t))+rand*2*pi; %theta
+    init_params(4) = 1/6; %lambda
+    init_params(5) = 0.3*init_params(4); %sigma
+    init_params(6) = 1; %eccentricity of gaussian ellipse
+    gabor_emp1 = get_pgabor_mask_v2(XX,YY,init_params,0);
+    gabor_emp2 = get_pgabor_mask_v2(XX,YY,init_params,pi/2);
+    gabor_emp1_filt(t,:) = gabor_emp1(:);
+    gabor_emp2_filt(t,:) = gabor_emp2(:);
+end
+
+
+%%
+all_gabor_outs1 = gabor_emp1_filt*fullX';
+all_gabor_outs2 = gabor_emp2_filt*fullX';
+all_gabor_outs = all_gabor_outs1.^2 + all_gabor_outs2.^2;
+all_gabor_outs = sqrt(all_gabor_outs)';
+
+all_gabor_outs1 = gabor_emp1_filt*fullX_xshift';
+all_gabor_outs2 = gabor_emp2_filt*fullX_xshift';
+all_gabor_outs_xshift = all_gabor_outs1.^2 + all_gabor_outs2.^2;
+all_gabor_outs_xshift = sqrt(all_gabor_outs_xshift)';
+
+all_gabor_outs1 = gabor_emp1_filt*fullX_yshift';
+all_gabor_outs2 = gabor_emp2_filt*fullX_yshift';
+all_gabor_outs_yshift = all_gabor_outs1.^2 + all_gabor_outs2.^2;
+all_gabor_outs_yshift = sqrt(all_gabor_outs_yshift)';
+
+for t = 1:96
+    cur_binned_spks = all_binned_spks(:,t);
+    [beta(t,:),dev(t),stats(t)] = glmfit(squeeze(all_gabor_outs(tr_samp,t)),cur_binned_spks(tr_samp),'poisson');
+    p_vals(t,:) = stats.p;
+    pred_r = squeeze(all_gabor_outs(tr_samp,t))*beta(t,2) + beta(t,1);
+    pred_r = exp(pred_r);
+    LL(t) = -sum(cur_binned_spks(tr_samp).*log(pred_r) - pred_r)/sum(cur_binned_spks(tr_samp));
+    pred_r = squeeze(all_gabor_outs(xv_samp,t))*beta(t,2) + beta(t,1);
+    pred_r = exp(pred_r);
+    xvLL(t) = -sum(cur_binned_spks(xv_samp).*log(pred_r) - pred_r)/sum(cur_binned_spks(xv_samp));
+
+    [beta_xshift(t,:),dev(t),stats(t)] = glmfit(squeeze(all_gabor_outs_xshift(tr_samp,t)),cur_binned_spks(tr_samp),'poisson');
+    p_vals(t,:) = stats.p;
+    pred_r = squeeze(all_gabor_outs_xshift(tr_samp,t))*beta_xshift(t,2) + beta_xshift(t,1);
+    pred_r = exp(pred_r);
+    LL_xshift(t) = -sum(cur_binned_spks(tr_samp).*log(pred_r) - pred_r)/sum(cur_binned_spks(tr_samp));
+    pred_r = squeeze(all_gabor_outs_xshift(xv_samp,t))*beta_xshift(t,2) + beta_xshift(t,1);
+    pred_r = exp(pred_r);
+    xvLL_xshift(t) = -sum(cur_binned_spks(xv_samp).*log(pred_r) - pred_r)/sum(cur_binned_spks(xv_samp));
+
+    [beta_yshift(t,:),dev(t),stats(t)] = glmfit(squeeze(all_gabor_outs_yshift(tr_samp,t)),cur_binned_spks(tr_samp),'poisson');
+    p_vals(t,:) = stats.p;
+    pred_r = squeeze(all_gabor_outs_yshift(tr_samp,t))*beta_yshift(t,2) + beta_yshift(t,1);
+    pred_r = exp(pred_r);
+    LL_yshift(t) = -sum(cur_binned_spks(tr_samp).*log(pred_r) - pred_r)/sum(cur_binned_spks(tr_samp));
+    pred_r = squeeze(all_gabor_outs_yshift(xv_samp,t))*beta_yshift(t,2) + beta_yshift(t,1);
+    pred_r = exp(pred_r);
+    xvLL_yshift(t) = -sum(cur_binned_spks(xv_samp).*log(pred_r) - pred_r)/sum(cur_binned_spks(xv_samp));
+    
+    
+    avg_rate(t) = mean(cur_binned_spks(tr_samp));
+    null_LL(t) = -sum(bsxfun(@minus,cur_binned_spks(tr_samp)*log(avg_rate(t)),avg_rate(t)))/sum(cur_binned_spks(tr_samp));
+    null_xvLL(t) = -sum(bsxfun(@minus,cur_binned_spks(xv_samp)*log(avg_rate(t)),avg_rate(t)))/sum(cur_binned_spks(xv_samp));
+end
+%%

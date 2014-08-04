@@ -1,0 +1,83 @@
+K 25
+svn:wc:ra_dav:version-url
+V 98
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/3740/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox
+END
+PR670measspd.m
+K 25
+svn:wc:ra_dav:version-url
+V 113
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2895/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670measspd.m
+END
+PR670measxyz.m
+K 25
+svn:wc:ra_dav:version-url
+V 113
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670measxyz.m
+END
+PR670rawspd.m
+K 25
+svn:wc:ra_dav:version-url
+V 112
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670rawspd.m
+END
+PR670init.m
+K 25
+svn:wc:ra_dav:version-url
+V 110
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/3740/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670init.m
+END
+PR670rawxyz.m
+K 25
+svn:wc:ra_dav:version-url
+V 112
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670rawxyz.m
+END
+PR670close.m
+K 25
+svn:wc:ra_dav:version-url
+V 111
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2895/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670close.m
+END
+PR670config.m
+K 25
+svn:wc:ra_dav:version-url
+V 112
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670config.m
+END
+PR670setsyncfreq.m
+K 25
+svn:wc:ra_dav:version-url
+V 117
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670setsyncfreq.m
+END
+PR670getserialnumber.m
+K 25
+svn:wc:ra_dav:version-url
+V 121
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670getserialnumber.m
+END
+PR670getsyncfreq.m
+K 25
+svn:wc:ra_dav:version-url
+V 117
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670getsyncfreq.m
+END
+PR670parsespdstr.m
+K 25
+svn:wc:ra_dav:version-url
+V 117
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2895/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670parsespdstr.m
+END
+PR670write.m
+K 25
+svn:wc:ra_dav:version-url
+V 111
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670write.m
+END
+PR670read.m
+K 25
+svn:wc:ra_dav:version-url
+V 110
+/Psychtoolbox-3/Psychtoolbox-3/!svn/ver/2800/branches/beta/Psychtoolbox/PsychHardware/PR670Toolbox/PR670read.m
+END

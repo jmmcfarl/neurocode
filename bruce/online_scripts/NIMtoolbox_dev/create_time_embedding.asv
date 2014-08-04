@@ -1,0 +1,32 @@
+function Xmat = create_time_embedding(stim,nlags,lag_spacing)
+
+% Takes a Txd stimulusand creates a time-embedded matrix of size Tx(d*L), where L
+% is the desired number of time lags. Optional input lag_spacing determines
+% whether to shift by multiple time bins per lag dimension. Assumes
+% zeros-padding.
+
+INPUTS:
+stim: Txd matrix containing the stimulus (time must be in the first dim.)
+nlags: number of time lags 
+[lag_spacing]: 
+
+if nargin < 3
+    lag_spacing = 1;
+end
+sz = size(stim);
+if length(sz) > 2
+    error('Need to format stim into 1 or 2d matrix')
+end
+[NT,Npix] = size(stim);
+
+%for temporal only stimuli (if you're using all lags) this method can be
+%faster
+if Npix == 1 && lag_spacing == 1 
+    Xmat = toeplitz(stim,[stim(1) zeros(1,nlags-1)]);
+else
+    %otherwise loop over lags and manually shift the stim matrix
+    Xmat = zeros( NT, nlags*Npix );
+    for n = 1:nlags
+        Xmat(:,n+(0:(Npix-1))*nlags) = shift_mat_zpad( stim, lag_spacing*(n-1), 1);
+    end    
+end

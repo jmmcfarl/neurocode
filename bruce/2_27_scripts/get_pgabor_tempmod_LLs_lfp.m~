@@ -1,0 +1,9 @@
+function LLs = get_pgabor_tempmod_LLs_lfp(gabor_params,avg_pow,X_gabor_out,err_sigma)
+
+[~,NT,K] = size(X_gabor_out);
+
+X_energy_out = squeeze(sqrt(X_gabor_out(1,:,:).^2 + X_gabor_out(2,:,:).^2));
+gmat = gabor_params(7)*X_energy_out + gabor_params(8);
+
+cur_resid = bsxfun(@minus,gmat,avg_pow');
+LLs = sum(cur_resid.^2/(2*err_sigma^2)) - NT*log(1/2*pi)

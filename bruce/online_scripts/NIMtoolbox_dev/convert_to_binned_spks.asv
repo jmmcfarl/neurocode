@@ -1,0 +1,11 @@
+function binned_spikes = convert_to_binned_spks(spike_bins,NT)
+
+% takes input spike bins and converts into a binned spike count vector of
+% length NT
+
+max_count = max(spike_bins);
+
+
+T = tabulate(spike_bins);
+binned_spikes = zeros(NT,1);
+binned_spikes(T(:,1)) = T(:,2);

@@ -1,0 +1,159 @@
+function [desynch_times,desynch_ids,P,f,t] = hsmm_uds_locate_desynch_times(sig,Fs_orig,SO_thresh,HF_thresh,params)
+
+% locate any 'desynchronized epochs' based on spectral properties of a
+% univariate continuous signal
+%
+% Input: 
+%       sig:        signal to be analyzed
+%       Fs_orig:    sample frequency of sig
+%       SO_thresh:  threshold defining the maximum relative log power in the
+%        slow-oscillation range (0.2-1.5Hz). Default=-6
+%       HF_thresh:  threshold for the minimum normalized integral relative
+%        power in the high-frequency band (> 4Hz) to be identified as a
+%        desynchronized epoch.  Default=-2
+%       params:     parameter structure containing the following fields
+%            dsf    desired down-sampling factor for computing spectrogram
+%            lcf    preprocessing low-cutoff frequency. Default = 0.1Hz
+%            hcf    preprocessing high-cutoff frequency. Default = 40Hz
+%            tapers (TW K): taper parameters for multi-taper spectrogram.
+%             See chronux documentation. Default=[4 7]
+%            fpass  frequency range over which to compute spectrogram.
+%             Default = [0 40]
+%            movingwin (windowlength windowslide): windowing parameters for
+%            spectrogram.  See chronux documentation. Default = [15 2.5]
+%            (in seconds)
+%              
+% Output:
+%        desynch_times: Nx2 matrix containing the start and stop times (in
+%        s) of each of the N located desynchronized epochs
+
+
+niqf = Fs_orig/2; %nyquist freq
+
+%first, perform any filtering of the input signal using a symmetric
+%Butterworth filter
+if isfield(params,'lcf') && isfield(params,'hcf')
+    [b,a] = butter(2,[params.lcf params.hcf]/niqf);
+    sig = filtfilt(b,a,sig);
+elseif isfield(params,'lcf')
+    [b,a] = butter(2,[params.lcf]/niqf,'high');
+    sig = filtfilt(b,a,sig);
+elseif isfield(params,'hcf')
+    [b,a] = butter(2,[params.hcf]/niqf,'low');
+    sig = filtfilt(b,a,sig);
+end
+    
+if isfield(params,'dsf')
+    dsf = params.dsf;
+else
+    dsf = 1;
+end
+Fsd = Fs_orig/dsf;
+sig = zscore(downsample(sig,dsf)); %z-score and downsample signal
+  
+if isfield(params,'tapers')
+    mt_params.tapers = params.tapers;
+else
+    mt_params.tapers = [4 7];
+end
+if isfield(params,'fpass')
+    mt_params.fpass = params.fpass;
+else
+    mt_params.fpass = [0 40];
+end
+mt_params.Fs = Fsd;
+mt_params.err = 0;
+if isfield(params,'movingwin')
+    movingwin = params.movingwin;
+else
+    movingwin = [15 2.5];
+end
+
+removal_window = 1.5*round(winlength/winslide)+1; %number of window slides to remove around offending position
+max_ds_dur = 30; %(in seconds) longest duration which we will check if the potential desynchronized epoch is just a really long down state
+
+%% compute multi-taper spectrogram
+[P,t,f] = mtspecgramc(sig,movingwin,mt_params);
+df = f(2)-f(1); %frequency spacing (Hz)
+f_so = f > 0.2 & f < 1.5; %define the slow-oscillation band as 0.2-1.5Hz
+f_hf = f > 4; %define the 'high-frequency' band as > 4Hz
+
+%find max log power in theta and SO freq bands
+max_so = max(10*log10(P(:,f_so)),[],2); %maximum log relative power in the SO range
+net_hf = zscore(trapz(log10(P(:,f_hf)),2)*df); %z-score of the integral HF power
+
+%%
+%mark points where the SO power crosses below threshold
+desynch_indicator = zeros(size(t));
+desynch_indicator(max_so <= SO_thresh) = 1;
+desynch_start_ids = 1+find(desynch_indicator(1:end-1) == 0 & desynch_indicator(2:end) == 1);
+desynch_stop_ids = 1+find(desynch_indicator(1:end-1) == 1 & desynch_indicator(2:end) == 0);
+
+%find potential instances of super-long down states 
+low_hf_indicator = find(net_hf <= HF_thresh);
+
+%make sure you start and stop in desynchronized epochs in correct order
+if ~isempty(desynch_start_ids)
+    if isempty(desynch_stop_ids)
+        desynch_stop_ids = length(t);
+    else
+        if desynch_start_ids(1) > desynch_stop_ids(1)
+            desynch_start_ids = [1 desynch_start_ids];
+        end
+        if desynch_start_ids(end) > desynch_stop_ids(end)
+            desynch_stop_ids = [desynch_stop_ids length(t)];
+        end
+    end
+end
+
+if length(desynch_start_ids) ~= length(desynch_stop_ids)
+    disp('error start and stop IDs not equal!')
+end
+
+%compute the duration of each putative desynchronized epoch (in seconds)
+desynch_durs = (desynch_stop_ids-desynch_start_ids)*winslide;
+short_desynchs = find(desynch_durs < max_ds_dur); %these are the putative desynchronized epochs which could be instead long down statas
+
+%find an remove putative desynchronized epochs which are really long down
+%states
+long_ds = [];
+for i = 1:length(short_desynchs)
+    if any(ismember(desynch_start_ids(short_desynchs(i)):desynch_stop_ids(short_desynchs(i)),low_hf_indicator))
+        long_ds = [long_ds short_desynchs(i)];
+    end
+end
+desynch_start_ids(long_ds) = [];
+desynch_stop_ids(long_ds) = [];
+
+%now make a window around desynchronized times for data exclusion
+for w = 1:length(desynch_start_ids)
+    if desynch_start_ids(w) <= removal_window
+        desynch_start_ids(w) = 1;
+    else
+        desynch_start_ids(w) = desynch_start_ids(w)-removal_window;
+    end
+    if length(t)-desynch_stop_ids(w) <= removal_window
+        desynch_stop_ids(w) = length(t);
+    else
+        desynch_stop_ids(w) = desynch_stop_ids(w)+removal_window;
+    end
+end
+
+%now make sure there are no overlapping windows
+bad_desynch_start = [];
+for w = 2:length(desynch_start_ids)
+    if desynch_start_ids(w) < desynch_stop_ids(w-1)
+        bad_desynch_start = [bad_desynch_start w];
+    end
+end
+desynch_start_ids(bad_desynch_start) = [];
+desynch_stop_ids(bad_desynch_start-1) = [];
+
+desynch_start_times = t(desynch_start_ids);
+desynch_stop_times = t(desynch_stop_ids);
+desynch_times = [desynch_start_times(:) desynch_stop_times(:)];
+desynch_ids = [desynch_start_ids(:) desynch_stop_ids(:)];
+
+
+
+

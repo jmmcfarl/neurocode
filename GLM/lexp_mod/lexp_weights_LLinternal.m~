@@ -1,0 +1,165 @@
+function [LL, LLgrad] = lexp_weights_LLinternal(params, Robs, X, model)
+%
+% Usage: [LL, LLgrad] = RG_LLinternal_elog( params, Robs, X, Skb, model, targets, lamrange, fprimes )
+%
+
+Nmods = length(model.mods);
+stimlen = size(X,1);
+SDIM = model.mods(1).SDIM;
+klen = length(model.mods(1).k);
+flen = klen/SDIM;
+
+b = params(end);
+k = params(1:end-1)';
+g = X*k;
+
+g(g > 100) = 100;
+expg = exp(g + b)';
+if strcmp(model.spk_nl,'logexp')
+    r = log(1+expg);
+elseif strcmp(model.spk_nl,'exp')
+    r = expg;
+else
+    error('invalid spk nl');
+end
+r(r < 1e-20) = 1e-20; %minimum predicted rate
+
+LL = sum(Robs(flen:end) .* log(r(flen:end)) - r(flen:end));
+
+if strcmp(model.spk_nl,'logexp')
+    residual = (Robs./r - 1) .* expg ./ (1+expg);
+else
+    residual = Robs - r;
+end
+
+%initialize LL gradient
+LLgrad = zeros(length(params),1);
+
+% Calculate derivatives with respect to constant
+LLgrad(end) = sum(residual);
+
+% Calculate output of derivative module
+for n = 1:Nmods
+    LLgrad(((n-1)*klen+1):(n*klen)) = residual(flen:end) * X(flen:end,n);
+end
+
+
+%%********Add penalty terms for smoothness*******
+fsdim = model.mods(1).fsdim;
+kern_t = klen/fsdim;
+if strcmp(model.image_type,'2d')
+    sdim = sqrt(fsdim);
+elseif strcmp(model.image_type,'1d')
+    sdim = fsdim;
+end
+
+smooth_penalty = zeros(Nmods,1);
+loc_penalty = zeros(Nmods,1);
+l2_penalty = zeros(Nmods,1);
+if strcmp(model.image_type,'1d')
+    dist_mat = repmat(1:sdim,kern_t,1);
+elseif strcmp(model.image_type,'2d')
+    [xo,yo] = meshgrid(1:sdim,1:sdim);
+    coords = [xo(:) yo(:)];
+    dist_mat = repmat(coords,[1 1 kern_t]);
+else
+    error('Invalid image type')
+end
+for n = 1:Nmods
+    cur_kern = params((n-1)*klen + (1:klen));
+    if model.mods(n).lambda_dX > 0 || model.mods(n).locLambda > 0 || model.mods(n).lambda_dT > 0
+        if strcmp(model.image_type,'2d')
+            kern_mat{n} = reshape(cur_kern,[kern_t,sdim,sdim]);
+            if model.mods(n).lambda_dX > 0
+                x_derivs = (kern_mat{n}(:,2:end,:) - kern_mat{n}(:,1:end-1,:));
+                y_derivs = (kern_mat{n}(:,:,2:end) - kern_mat{n}(:,:,1:end-1));
+                t_derivs = (kern_mat{n}(2:end,:,:) - kern_mat{n}(1:end-1,:,:));
+                smooth_penalty(n) = (model.mods(n).lambda_dX*sum(x_derivs(:).^2) + model.mods(n).lambda_dX*sum(y_derivs(:).^2) + model.mods(n).lambda_dT*sum(t_derivs(:).^2));
+            end
+            if model.mods(n).locLambda > 0
+                com_dist_mat = squeeze(sum((dist_mat - repmat(model.mods(n).filt_com,[fsdim 1 kern_t])).^2,2))';
+                pen_mat = exp(com_dist_mat/2/model.mods(n).locSigma^2);
+                pen_mat(pen_mat > model.mods(n).maxLocPen) = model.mods(n).maxLocPen;
+                pen_mat = reshape(kern_mat{n}.^2,[kern_t fsdim]).*pen_mat*model.mods(n).locLambda;
+                loc_penalty(n) = sum(pen_mat(:));
+            end
+        elseif strcmp(model.image_type,'1d')
+            kern_mat{n} = reshape(cur_kern,[kern_t,sdim]);
+            if model.mods(n).lambda_dX > 0
+                x_derivs = (kern_mat{n}(:,2:end) - kern_mat{n}(:,1:end-1));
+                t_derivs = (kern_mat{n}(2:end,:) - kern_mat{n}(1:end-1,:));
+                smooth_penalty(n) = (model.mods(n).lambda_dX*sum(x_derivs(:).^2) + model.mods(n).lambda_dT*sum(t_derivs(:).^2));
+            end
+            if model.mods(n).locLambda > 0
+                pen_mat = exp((dist_mat - model.mods(n).filt_com).^2/2/model.mods(n).locSigma^2);
+                pen_mat(pen_mat > model.mods(n).maxLocPen) = model.mods(n).maxLocPen;
+                pen_mat = kern_mat{n}.^2.*pen_mat*model.mods(n).locLambda;
+                loc_penalty(n) = sum(pen_mat(:));
+            end
+        end
+    end
+    if isfield(model.mods(n),'lambda_L2x')
+       l2_penalty(n) = 0.5*model.mods(n).lambda_L2x*sum(cur_kern.^2); 
+    end
+end
+
+LL = LL - sum(smooth_penalty) - sum(loc_penalty) - sum(l2_penalty);
+
+% zerovec = zeros(1,klen)';
+LLgrad_pen = zeros(size(LLgrad));
+for n = 1:Nmods
+    if model.mods(n).lambda_dX > 0 | model.mods(n).lambda_dT > 0
+        if strcmp(model.image_type,'2d')
+            
+            [t_gradmat,x_gradmat,y_gradmat] = deal(zeros(size(kern_mat{n})));
+            x_gradmat(:,2:end,:) = kern_mat{n}(:,2:end,:) - kern_mat{n}(:,1:end-1,:);
+            x_gradmat(:,1:end-1,:) = x_gradmat(:,1:end-1,:) + kern_mat{n}(:,1:end-1,:) - kern_mat{n}(:,2:end,:);
+            
+            y_gradmat(:,:,2:end) = kern_mat{n}(:,:,2:end) - kern_mat{n}(:,:,1:end-1);
+            y_gradmat(:,:,1:end-1) = y_gradmat(:,:,1:end-1) + kern_mat{n}(:,:,1:end-1) - kern_mat{n}(:,:,2:end);
+            
+            t_gradmat(2:end,:,:) = kern_mat{n}(2:end,:,:) - kern_mat{n}(1:end-1,:,:);
+            t_gradmat(1:end-1,:,:) = t_gradmat(1:end-1,:,:) + kern_mat{n}(1:end-1,:,:) - kern_mat{n}(2:end,:,:);
+            
+            gradmat = model.mods(n).lambda_dX*x_gradmat + model.mods(n).lambda_dX*y_gradmat + model.mods(n).lambda_dT*t_gradmat;
+        elseif strcmp(model.image_type,'1d')
+            
+            [t_gradmat,x_gradmat] = deal(zeros(size(kern_mat{n})));
+            x_gradmat(:,2:end) = kern_mat{n}(:,2:end) - kern_mat{n}(:,1:end-1);
+            x_gradmat(:,1:end-1) = x_gradmat(:,1:end-1) + kern_mat{n}(:,1:end-1) - kern_mat{n}(:,2:end);
+            
+            t_gradmat(2:end,:) = kern_mat{n}(2:end,:) - kern_mat{n}(1:end-1,:);
+            t_gradmat(1:end-1,:) = t_gradmat(1:end-1,:) + kern_mat{n}(1:end-1,:) - kern_mat{n}(2:end,:);
+            
+            gradmat = model.mods(n).lambda_dX*x_gradmat + model.mods(n).lambda_dT*t_gradmat;
+        end
+        LLgrad_pen((n-1)*klen + (1:klen)) = 2*gradmat(:);
+    end
+    if model.mods(n).locLambda > 0
+        if strcmp(model.image_type,'2d')
+            com_dist_mat = squeeze(sum((dist_mat - repmat(model.mods(n).filt_com,[fsdim 1 kern_t])).^2,2))';
+            pen_mat = exp(com_dist_mat/2/model.mods(n).locSigma^2);
+            pen_mat(pen_mat > model.mods(n).maxLocPen) = model.mods(n).maxLocPen;
+            gradmat = 2*model.mods(n).locLambda*pen_mat(:).*kern_mat{n}(:);
+        elseif strcmp(model.image_type,'1d')
+            pen_mat = exp((dist_mat - model.mods(n).filt_com).^2/2/model.mods(n).locSigma^2);
+            pen_mat(pen_mat > model.mods(n).maxLocPen) = model.mods(n).maxLocPen;
+            gradmat = 2*model.mods(n).locLambda*pen_mat(:).*kern_mat{n}(:);
+        else
+            error('Invalid image type')
+        end
+        LLgrad_pen((n-1)*klen+(1:klen)) = LLgrad_pen((n-1)*klen+(1:klen)) + gradmat;
+    end
+    if isfield(model.mods(n),'lambda_L2x')
+        cur_kern = params((n-1)*klen + (1:klen));
+        LLgrad_pen((n-1)*klen+(1:klen)) = LLgrad_pen((n-1)*klen+(1:klen)) + model.mods(n).lambda_L2x*cur_kern;
+    end
+end
+
+LLgrad = LLgrad - LLgrad_pen;
+%%****************************
+
+Nspks = sum(Robs);
+LL = -LL/Nspks;
+LLgrad = -LLgrad/Nspks;
+

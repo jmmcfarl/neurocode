@@ -1,0 +1,883 @@
+%!PS-Adobe-3.0 EPSF-3.0
+%%Creator: MATLAB, The MathWorks, Inc. Version 7.14.0.739 (R2012a). Operating System: Darwin 10.8.0 Darwin Kernel Version 10.8.0: Tue Jun  7 16:33:36 PDT 2011; root:xnu-1504.15.3~1/RELEASE_I386 i386.
+%%Title: /Users/James/James_scripts/surrogate_modeling/sim_figs/quad_mod_stc.eps
+%%CreationDate: 08/07/2012  12:00:40
+%%DocumentNeededFonts: Helvetica
+%%DocumentProcessColors: Cyan Magenta Yellow Black
+%%LanguageLevel: 2
+%%Pages: 1
+%%BoundingBox:  -259   225   871   566
+%%EndComments
+
+%%BeginProlog
+% MathWorks dictionary
+/MathWorks 160 dict begin
+% definition operators
+/bdef {bind def} bind def
+/ldef {load def} bind def
+/xdef {exch def} bdef
+/xstore {exch store} bdef
+% operator abbreviations
+/c  /clip ldef
+/cc /concat ldef
+/cp /closepath ldef
+/gr /grestore ldef
+/gs /gsave ldef
+/mt /moveto ldef
+/np /newpath ldef
+/cm /currentmatrix ldef
+/sm /setmatrix ldef
+/rm /rmoveto ldef
+/rl /rlineto ldef
+/s {show newpath} bdef
+/sc {setcmykcolor} bdef
+/sr /setrgbcolor ldef
+/sg /setgray ldef
+/w /setlinewidth ldef
+/j /setlinejoin ldef
+/cap /setlinecap ldef
+/rc {rectclip} bdef
+/rf {rectfill} bdef
+% page state control
+/pgsv () def
+/bpage {/pgsv save def} bdef
+/epage {pgsv restore} bdef
+/bplot /gsave ldef
+/eplot {stroke grestore} bdef
+% orientation switch
+/portraitMode 0 def /landscapeMode 1 def /rotateMode 2 def
+% coordinate system mappings
+/dpi2point 0 def
+% font control
+/FontSize 0 def
+/FMS {/FontSize xstore findfont [FontSize 0 0 FontSize neg 0 0]
+  makefont setfont} bdef
+/reencode {exch dup where {pop load} {pop StandardEncoding} ifelse
+  exch dup 3 1 roll findfont dup length dict begin
+  { 1 index /FID ne {def}{pop pop} ifelse } forall
+  /Encoding exch def currentdict end definefont pop} bdef
+/isroman {findfont /CharStrings get /Agrave known} bdef
+/FMSR {3 1 roll 1 index dup isroman {reencode} {pop pop} ifelse
+  exch FMS} bdef
+/csm {1 dpi2point div -1 dpi2point div scale neg translate
+ dup landscapeMode eq {pop -90 rotate}
+  {rotateMode eq {90 rotate} if} ifelse} bdef
+% line types: solid, dotted, dashed, dotdash
+/SO { [] 0 setdash } bdef
+/DO { [.5 dpi2point mul 4 dpi2point mul] 0 setdash } bdef
+/DA { [6 dpi2point mul] 0 setdash } bdef
+/DD { [.5 dpi2point mul 4 dpi2point mul 6 dpi2point mul 4
+  dpi2point mul] 0 setdash } bdef
+% macros for lines and objects
+/L {lineto stroke} bdef
+/MP {3 1 roll moveto 1 sub {rlineto} repeat} bdef
+/AP {{rlineto} repeat} bdef
+/PDlw -1 def
+/W {/PDlw currentlinewidth def setlinewidth} def
+/PP {closepath eofill} bdef
+/DP {closepath stroke} bdef
+/MR {4 -2 roll moveto dup  0 exch rlineto exch 0 rlineto
+  neg 0 exch rlineto closepath} bdef
+/FR {MR stroke} bdef
+/PR {MR fill} bdef
+/L1i {{currentfile picstr readhexstring pop} image} bdef
+/tMatrix matrix def
+/MakeOval {newpath tMatrix currentmatrix pop translate scale
+0 0 1 0 360 arc tMatrix setmatrix} bdef
+/FO {MakeOval stroke} bdef
+/PO {MakeOval fill} bdef
+/PD {currentlinewidth 2 div 0 360 arc fill
+   PDlw -1 eq not {PDlw w /PDlw -1 def} if} def
+/FA {newpath tMatrix currentmatrix pop translate scale
+  0 0 1 5 -2 roll arc tMatrix setmatrix stroke} bdef
+/PA {newpath tMatrix currentmatrix pop	translate 0 0 moveto scale
+  0 0 1 5 -2 roll arc closepath tMatrix setmatrix fill} bdef
+/FAn {newpath tMatrix currentmatrix pop translate scale
+  0 0 1 5 -2 roll arcn tMatrix setmatrix stroke} bdef
+/PAn {newpath tMatrix currentmatrix pop translate 0 0 moveto scale
+  0 0 1 5 -2 roll arcn closepath tMatrix setmatrix fill} bdef
+/vradius 0 def /hradius 0 def /lry 0 def
+/lrx 0 def /uly 0 def /ulx 0 def /rad 0 def
+/MRR {/vradius xdef /hradius xdef /lry xdef /lrx xdef /uly xdef
+  /ulx xdef newpath tMatrix currentmatrix pop ulx hradius add uly
+  vradius add translate hradius vradius scale 0 0 1 180 270 arc 
+  tMatrix setmatrix lrx hradius sub uly vradius add translate
+  hradius vradius scale 0 0 1 270 360 arc tMatrix setmatrix
+  lrx hradius sub lry vradius sub translate hradius vradius scale
+  0 0 1 0 90 arc tMatrix setmatrix ulx hradius add lry vradius sub
+  translate hradius vradius scale 0 0 1 90 180 arc tMatrix setmatrix
+  closepath} bdef
+/FRR {MRR stroke } bdef
+/PRR {MRR fill } bdef
+/MlrRR {/lry xdef /lrx xdef /uly xdef /ulx xdef /rad lry uly sub 2 div def
+  newpath tMatrix currentmatrix pop ulx rad add uly rad add translate
+  rad rad scale 0 0 1 90 270 arc tMatrix setmatrix lrx rad sub lry rad
+  sub translate rad rad scale 0 0 1 270 90 arc tMatrix setmatrix
+  closepath} bdef
+/FlrRR {MlrRR stroke } bdef
+/PlrRR {MlrRR fill } bdef
+/MtbRR {/lry xdef /lrx xdef /uly xdef /ulx xdef /rad lrx ulx sub 2 div def
+  newpath tMatrix currentmatrix pop ulx rad add uly rad add translate
+  rad rad scale 0 0 1 180 360 arc tMatrix setmatrix lrx rad sub lry rad
+  sub translate rad rad scale 0 0 1 0 180 arc tMatrix setmatrix
+  closepath} bdef
+/FtbRR {MtbRR stroke } bdef
+/PtbRR {MtbRR fill } bdef
+/stri 6 array def /dtri 6 array def
+/smat 6 array def /dmat 6 array def
+/tmat1 6 array def /tmat2 6 array def /dif 3 array def
+/asub {/ind2 exch def /ind1 exch def dup dup
+  ind1 get exch ind2 get sub exch } bdef
+/tri_to_matrix {
+  2 0 asub 3 1 asub 4 0 asub 5 1 asub
+  dup 0 get exch 1 get 7 -1 roll astore } bdef
+/compute_transform {
+  dmat dtri tri_to_matrix tmat1 invertmatrix 
+  smat stri tri_to_matrix tmat2 concatmatrix } bdef
+/ds {stri astore pop} bdef
+/dt {dtri astore pop} bdef
+/db {2 copy /cols xdef /rows xdef mul dup 3 mul string
+  currentfile 
+  3 index 0 eq {/ASCIIHexDecode filter}
+  {/ASCII85Decode filter 3 index 2 eq {/RunLengthDecode filter} if }
+  ifelse exch readstring pop
+  dup 0 3 index getinterval /rbmap xdef
+  dup 2 index dup getinterval /gbmap xdef
+  1 index dup 2 mul exch getinterval /bbmap xdef pop pop}bdef
+/it {gs np dtri aload pop moveto lineto lineto cp c
+  cols rows 8 compute_transform 
+  rbmap gbmap bbmap true 3 colorimage gr}bdef
+/il {newpath moveto lineto stroke}bdef
+currentdict end def
+%%EndProlog
+
+%%BeginSetup
+MathWorks begin
+
+0 cap
+
+end
+%%EndSetup
+
+%%Page: 1 1
+%%BeginPageSetup
+%%PageBoundingBox:  -259   225   871   566
+MathWorks begin
+bpage
+%%EndPageSetup
+
+%%BeginObject: obj1
+bplot
+
+/dpi2point 12 def
+portraitMode -3108 6792 csm
+
+    0     0 13560  4092 rc
+85 dict begin %Colortable dictionary
+/c0 { 0.000000 0.000000 0.000000 sr} bdef
+/c1 { 1.000000 1.000000 1.000000 sr} bdef
+/c2 { 0.900000 0.000000 0.000000 sr} bdef
+/c3 { 0.000000 0.820000 0.000000 sr} bdef
+/c4 { 0.000000 0.000000 0.800000 sr} bdef
+/c5 { 0.910000 0.820000 0.320000 sr} bdef
+/c6 { 1.000000 0.260000 0.820000 sr} bdef
+/c7 { 0.000000 0.820000 0.820000 sr} bdef
+c0
+1 j
+1 sg
+   0    0 13561 4093 rf
+6 w
+0 -1396 1386 0 0 1396 1763 307 4 MP
+PP
+-1386 0 0 -1396 1386 0 0 1396 1763 307 5 MP stroke
+gs 1763 307 1387 1397 rc
+/mwscm { [/Indexed /DeviceRGB 63
+  <
+    000000 040404 080808 0c0c0c 101010 141414 181818 1c1c1c 202020 242424 
+    282828 2c2c2c 303030 343434 383838 3c3c3c 404040 444444 484848 4c4c4c 
+    505050 555555 595959 5d5d5d 616161 656565 696969 6d6d6d 717171 757575 
+    797979 7d7d7d 818181 858585 898989 8d8d8d 919191 959595 999999 9d9d9d 
+    a1a1a1 a5a5a5 aaaaaa aeaeae b2b2b2 b6b6b6 bababa bebebe c2c2c2 c6c6c6 
+    cacaca cecece d2d2d2 d6d6d6 dadada dedede e2e2e2 e6e6e6 eaeaea eeeeee 
+    f2f2f2 f6f6f6 fafafa ffffff 
+  >
+] setcolorspace } bdef mwscm
+gs np 1763 307 mt 0 1396 rl 1386 0 rl 0 -1396 rl cp c np
+[1386 0 0 1396 1763 307] cc
+<< % Image dictionary
+  /ImageType 1
+  /Width 20 /Height 14
+  /BitsPerComponent 8
+  /Decode [0 255]
+  /ImageMatrix [20.000000 0 0 14.000000 0 0]
+  /DataSource currentfile
+  /ASCII85Decode filter
+  /RunLengthDecode filter
+>>
+image
+Ii&eB,U4$O&K)`-+r_.J(EsqL,r-_k*[`*S/2.\P)]BM9/K>`P()eD1+<qd:-lO*J(F9V4.24<^-Rg/L
+*Y024()\A6)_iBF/MoC++!N9Z+;#nK-R9o`'-%i=*[2X>.NBZO+VP&$&LS>=.P2ST)%do4*Zl[S,T.LK
+%t>]J,p"$;$oJkA,9IXP()e;='.Y:S1*I/F*]55X*[rEj(^_,k#<!MD*$c:F*A89Z0G53A)]&Ji+<D^M
+*@<H^&KW;I58P%H*@N0I-6alc&KhZ.+!)"++VZUC)^c76+;YUp(+g@N)(?^I.P`(c/fu2R1`@JV'dbV!
+%hKO&,UOWJ+<qsZ+<qs\)At+H.5)bd2'!Wd
+~>
+gr
+gr
+
+4 w
+DO
+SO
+6 w
+0 sg
+1763  307 mt 3149  307 L
+1763 1703 mt 3149 1703 L
+1763  307 mt 1763 1703 L
+3149  307 mt 3149 1703 L
+1763 1703 mt 3149 1703 L
+1763  307 mt 1763 1703 L
+2074 1703 mt 2074 1689 L
+2074  307 mt 2074  320 L
+%%IncludeResource: font Helvetica
+/Helvetica /ISOLatin1Encoding 120 FMSR
+
+2041 1848 mt 
+(5) s
+2421 1703 mt 2421 1689 L
+2421  307 mt 2421  320 L
+2355 1848 mt 
+(10) s
+2767 1703 mt 2767 1689 L
+2767  307 mt 2767  320 L
+2701 1848 mt 
+(15) s
+3114 1703 mt 3114 1689 L
+3114  307 mt 3114  320 L
+3048 1848 mt 
+(20) s
+1763  456 mt 1776  456 L
+3149  456 mt 3135  456 L
+1662  500 mt 
+(2) s
+1763  656 mt 1776  656 L
+3149  656 mt 3135  656 L
+1662  700 mt 
+(4) s
+1763  855 mt 1776  855 L
+3149  855 mt 3135  855 L
+1662  899 mt 
+(6) s
+1763 1054 mt 1776 1054 L
+3149 1054 mt 3135 1054 L
+1662 1098 mt 
+(8) s
+1763 1254 mt 1776 1254 L
+3149 1254 mt 3135 1254 L
+1595 1298 mt 
+(10) s
+1763 1453 mt 1776 1453 L
+3149 1453 mt 3135 1453 L
+1595 1497 mt 
+(12) s
+1763 1653 mt 1776 1653 L
+3149 1653 mt 3135 1653 L
+1595 1697 mt 
+(14) s
+1763  307 mt 3149  307 L
+1763 1703 mt 3149 1703 L
+1763  307 mt 1763 1703 L
+3149  307 mt 3149 1703 L
+1 sg
+0 -1396 1386 0 0 1396 1763 2246 4 MP
+PP
+-1386 0 0 -1396 1386 0 0 1396 1763 2246 5 MP stroke
+gs 1763 2246 1387 1397 rc
+/mwscm { [/Indexed /DeviceRGB 63
+  <
+    000000 040404 080808 0c0c0c 101010 141414 181818 1c1c1c 202020 242424 
+    282828 2c2c2c 303030 343434 383838 3c3c3c 404040 444444 484848 4c4c4c 
+    505050 555555 595959 5d5d5d 616161 656565 696969 6d6d6d 717171 757575 
+    797979 7d7d7d 818181 858585 898989 8d8d8d 919191 959595 999999 9d9d9d 
+    a1a1a1 a5a5a5 aaaaaa aeaeae b2b2b2 b6b6b6 bababa bebebe c2c2c2 c6c6c6 
+    cacaca cecece d2d2d2 d6d6d6 dadada dedede e2e2e2 e6e6e6 eaeaea eeeeee 
+    f2f2f2 f6f6f6 fafafa ffffff 
+  >
+] setcolorspace } bdef mwscm
+gs np 1763 2246 mt 0 1396 rl 1386 0 rl 0 -1396 rl cp c np
+[1386 0 0 1396 1763 2246] cc
+<< % Image dictionary
+  /ImageType 1
+  /Width 20 /Height 14
+  /BitsPerComponent 8
+  /Decode [0 255]
+  /ImageMatrix [20.000000 0 0 14.000000 0 0]
+  /DataSource currentfile
+  /ASCII85Decode filter
+  /RunLengthDecode filter
+>>
+image
+"s+j-*?Q@Dr>umt*$$%A*?Q:C*?H4B+!)LD*?ZFG*ZZ4@*rR/k*ZcCE+!2CA+!;^I*ZZ7Br>c=g+<M^J
+*>ok@,9e*I*r[.(*ZZ=B*ZlOH)]'J>,pO?I*$-.A*ul:A+<_mN(_e&@.3T?@*?QCE*ZlIF+!DaG&ecZI
+/0#-9+!;aK*?Q=D+X.pC&K!A^-4U;#+sJ-M*?H4@+X%[9'IuC"(B=gh-mKcQ*?Q=F*ul+7+Z_Fr"p#bt
+-m9KK)u^or*?#k>-7fuC&K<;K*ZZ4B*ZlCE*ZZ=D*W7&s*ZlCD*?H:C*$67C*uuCA*ZcCF*ZZ1@+T3>p
++!)CC*??1B*?H:D+<;FB*ZZ=DJ,
+~>
+gr
+gr
+
+4 w
+DO
+SO
+6 w
+0 sg
+1763 2246 mt 3149 2246 L
+1763 3642 mt 3149 3642 L
+1763 2246 mt 1763 3642 L
+3149 2246 mt 3149 3642 L
+1763 3642 mt 3149 3642 L
+1763 2246 mt 1763 3642 L
+2074 3642 mt 2074 3628 L
+2074 2246 mt 2074 2259 L
+2041 3787 mt 
+(5) s
+2421 3642 mt 2421 3628 L
+2421 2246 mt 2421 2259 L
+2355 3787 mt 
+(10) s
+2767 3642 mt 2767 3628 L
+2767 2246 mt 2767 2259 L
+2701 3787 mt 
+(15) s
+3114 3642 mt 3114 3628 L
+3114 2246 mt 3114 2259 L
+3048 3787 mt 
+(20) s
+1763 2395 mt 1776 2395 L
+3149 2395 mt 3135 2395 L
+1662 2439 mt 
+(2) s
+1763 2595 mt 1776 2595 L
+3149 2595 mt 3135 2595 L
+1662 2639 mt 
+(4) s
+1763 2794 mt 1776 2794 L
+3149 2794 mt 3135 2794 L
+1662 2838 mt 
+(6) s
+1763 2993 mt 1776 2993 L
+3149 2993 mt 3135 2993 L
+1662 3037 mt 
+(8) s
+1763 3193 mt 1776 3193 L
+3149 3193 mt 3135 3193 L
+1595 3237 mt 
+(10) s
+1763 3392 mt 1776 3392 L
+3149 3392 mt 3135 3392 L
+1595 3436 mt 
+(12) s
+1763 3592 mt 1776 3592 L
+3149 3592 mt 3135 3592 L
+1595 3636 mt 
+(14) s
+1763 2246 mt 3149 2246 L
+1763 3642 mt 3149 3642 L
+1763 2246 mt 1763 3642 L
+3149 2246 mt 3149 3642 L
+1 sg
+0 -1396 1387 0 0 1396 3587 2246 4 MP
+PP
+-1387 0 0 -1396 1387 0 0 1396 3587 2246 5 MP stroke
+gs 3587 2246 1388 1397 rc
+/mwscm { [/Indexed /DeviceRGB 63
+  <
+    000000 040404 080808 0c0c0c 101010 141414 181818 1c1c1c 202020 242424 
+    282828 2c2c2c 303030 343434 383838 3c3c3c 404040 444444 484848 4c4c4c 
+    505050 555555 595959 5d5d5d 616161 656565 696969 6d6d6d 717171 757575 
+    797979 7d7d7d 818181 858585 898989 8d8d8d 919191 959595 999999 9d9d9d 
+    a1a1a1 a5a5a5 aaaaaa aeaeae b2b2b2 b6b6b6 bababa bebebe c2c2c2 c6c6c6 
+    cacaca cecece d2d2d2 d6d6d6 dadada dedede e2e2e2 e6e6e6 eaeaea eeeeee 
+    f2f2f2 f6f6f6 fafafa ffffff 
+  >
+] setcolorspace } bdef mwscm
+gs np 3587 2246 mt 0 1396 rl 1387 0 rl 0 -1396 rl cp c np
+[1387 0 0 1396 3587 2246] cc
+<< % Image dictionary
+  /ImageType 1
+  /Width 20 /Height 14
+  /BitsPerComponent 8
+  /Decode [0 255]
+  /ImageMatrix [20.000000 0 0 14.000000 0 0]
+  /DataSource currentfile
+  /ASCII85Decode filter
+  /RunLengthDecode filter
+>>
+image
+',MQ((`F5.(Dn)/(`=50)&=),(]G9_)B'J/'c7l-()Ro-(E",/r>5t]*#]V/(E45-)B'P4(]>1F(D[u1
+(D[W$*>K5**?,n1(`4&*()S&4(D75r+VYS2+WV@4(`=,-(Dn26'+G?j,Rk>2-63g6(`4,.(E=Y=%0d1f
+,R5&:-l`^-)&`Dj&0E,/!sBAu*s!]J-5-Uq)]J\n6QdES!"LVE%gP0T('FaW*>oY2)BKCj%jO(a!$4?E
+!!3WT*YoV1)&Wnt*[`<F$Rm5(#SS:')&=)-(`F;0(Dn#-)#Y=((`!r+)&a>0(`4#*)&X8-(E"#+)&F,.
+()[o+(`*r((Dmr*)&F/-(`+#-(E.f
+~>
+gr
+gr
+
+4 w
+DO
+SO
+6 w
+0 sg
+3587 2246 mt 4974 2246 L
+3587 3642 mt 4974 3642 L
+3587 2246 mt 3587 3642 L
+4974 2246 mt 4974 3642 L
+3587 3642 mt 4974 3642 L
+3587 2246 mt 3587 3642 L
+3899 3642 mt 3899 3628 L
+3899 2246 mt 3899 2259 L
+3866 3787 mt 
+(5) s
+4245 3642 mt 4245 3628 L
+4245 2246 mt 4245 2259 L
+4179 3787 mt 
+(10) s
+4592 3642 mt 4592 3628 L
+4592 2246 mt 4592 2259 L
+4526 3787 mt 
+(15) s
+4939 3642 mt 4939 3628 L
+4939 2246 mt 4939 2259 L
+4873 3787 mt 
+(20) s
+3587 2395 mt 3600 2395 L
+4974 2395 mt 4960 2395 L
+3486 2439 mt 
+(2) s
+3587 2595 mt 3600 2595 L
+4974 2595 mt 4960 2595 L
+3486 2639 mt 
+(4) s
+3587 2794 mt 3600 2794 L
+4974 2794 mt 4960 2794 L
+3486 2838 mt 
+(6) s
+3587 2993 mt 3600 2993 L
+4974 2993 mt 4960 2993 L
+3486 3037 mt 
+(8) s
+3587 3193 mt 3600 3193 L
+4974 3193 mt 4960 3193 L
+3419 3237 mt 
+(10) s
+3587 3392 mt 3600 3392 L
+4974 3392 mt 4960 3392 L
+3419 3436 mt 
+(12) s
+3587 3592 mt 3600 3592 L
+4974 3592 mt 4960 3592 L
+3419 3636 mt 
+(14) s
+3587 2246 mt 4974 2246 L
+3587 3642 mt 4974 3642 L
+3587 2246 mt 3587 3642 L
+4974 2246 mt 4974 3642 L
+1 sg
+0 -1396 1386 0 0 1396 5412 2246 4 MP
+PP
+-1386 0 0 -1396 1386 0 0 1396 5412 2246 5 MP stroke
+gs 5412 2246 1387 1397 rc
+/mwscm { [/Indexed /DeviceRGB 63
+  <
+    000000 040404 080808 0c0c0c 101010 141414 181818 1c1c1c 202020 242424 
+    282828 2c2c2c 303030 343434 383838 3c3c3c 404040 444444 484848 4c4c4c 
+    505050 555555 595959 5d5d5d 616161 656565 696969 6d6d6d 717171 757575 
+    797979 7d7d7d 818181 858585 898989 8d8d8d 919191 959595 999999 9d9d9d 
+    a1a1a1 a5a5a5 aaaaaa aeaeae b2b2b2 b6b6b6 bababa bebebe c2c2c2 c6c6c6 
+    cacaca cecece d2d2d2 d6d6d6 dadada dedede e2e2e2 e6e6e6 eaeaea eeeeee 
+    f2f2f2 f6f6f6 fafafa ffffff 
+  >
+] setcolorspace } bdef mwscm
+gs np 5412 2246 mt 0 1396 rl 1386 0 rl 0 -1396 rl cp c np
+[1386 0 0 1396 5412 2246] cc
+<< % Image dictionary
+  /ImageType 1
+  /Width 20 /Height 14
+  /BitsPerComponent 8
+  /Decode [0 255]
+  /ImageMatrix [20.000000 0 0 14.000000 0 0]
+  /DataSource currentfile
+  /ASCII85Decode filter
+  /RunLengthDecode filter
+>>
+image
+&getO,pjr`-R9ua-7'ua-7'uarZcn>-7:)b-7'o`-R:#b,UF``-7'l`-7C/b,pso`-R:&a,:Ouc,pOW]
+.4l_f-RL&b,pjl],q(,e,pjf]/2&%c.3p)_,psr\,Ut/f,UFZ]1bT^e/L)A`-RKlU.5*"n-7'oe3%#.W
+0I%P_.46)W0/+^u-71#l3>M]E/K,Tu,pt#U,<@G#+sS<Z2(\e73$oCb.OcS[1d<<,+XSNc0GXX74WYLl
+/12Ja4u4#q,Ub#h-57CX/KH2h.3g&h0HM2[-7C,<-3Y\A-7:,er?Vq%,:"Q],UOi_,pXf^,p`I:(*b%Q
+,pX`_-7'ua,pXfa,UF`a,:=c`rZqLjJ,
+~>
+gr
+gr
+
+4 w
+DO
+SO
+6 w
+0 sg
+5412 2246 mt 6798 2246 L
+5412 3642 mt 6798 3642 L
+5412 2246 mt 5412 3642 L
+6798 2246 mt 6798 3642 L
+5412 3642 mt 6798 3642 L
+5412 2246 mt 5412 3642 L
+5723 3642 mt 5723 3628 L
+5723 2246 mt 5723 2259 L
+5690 3787 mt 
+(5) s
+6070 3642 mt 6070 3628 L
+6070 2246 mt 6070 2259 L
+6004 3787 mt 
+(10) s
+6416 3642 mt 6416 3628 L
+6416 2246 mt 6416 2259 L
+6350 3787 mt 
+(15) s
+6763 3642 mt 6763 3628 L
+6763 2246 mt 6763 2259 L
+6697 3787 mt 
+(20) s
+5412 2395 mt 5425 2395 L
+6798 2395 mt 6784 2395 L
+5311 2439 mt 
+(2) s
+5412 2595 mt 5425 2595 L
+6798 2595 mt 6784 2595 L
+5311 2639 mt 
+(4) s
+5412 2794 mt 5425 2794 L
+6798 2794 mt 6784 2794 L
+5311 2838 mt 
+(6) s
+5412 2993 mt 5425 2993 L
+6798 2993 mt 6784 2993 L
+5311 3037 mt 
+(8) s
+5412 3193 mt 5425 3193 L
+6798 3193 mt 6784 3193 L
+5244 3237 mt 
+(10) s
+5412 3392 mt 5425 3392 L
+6798 3392 mt 6784 3392 L
+5244 3436 mt 
+(12) s
+5412 3592 mt 5425 3592 L
+6798 3592 mt 6784 3592 L
+5244 3636 mt 
+(14) s
+5412 2246 mt 6798 2246 L
+5412 3642 mt 6798 3642 L
+5412 2246 mt 5412 3642 L
+6798 2246 mt 6798 3642 L
+1 sg
+0 -1396 1387 0 0 1396 7236 2246 4 MP
+PP
+-1387 0 0 -1396 1387 0 0 1396 7236 2246 5 MP stroke
+gs 7236 2246 1388 1397 rc
+/mwscm { [/Indexed /DeviceRGB 63
+  <
+    000000 040404 080808 0c0c0c 101010 141414 181818 1c1c1c 202020 242424 
+    282828 2c2c2c 303030 343434 383838 3c3c3c 404040 444444 484848 4c4c4c 
+    505050 555555 595959 5d5d5d 616161 656565 696969 6d6d6d 717171 757575 
+    797979 7d7d7d 818181 858585 898989 8d8d8d 919191 959595 999999 9d9d9d 
+    a1a1a1 a5a5a5 aaaaaa aeaeae b2b2b2 b6b6b6 bababa bebebe c2c2c2 c6c6c6 
+    cacaca cecece d2d2d2 d6d6d6 dadada dedede e2e2e2 e6e6e6 eaeaea eeeeee 
+    f2f2f2 f6f6f6 fafafa ffffff 
+  >
+] setcolorspace } bdef mwscm
+gs np 7236 2246 mt 0 1396 rl 1387 0 rl 0 -1396 rl cp c np
+[1387 0 0 1396 7236 2246] cc
+<< % Image dictionary
+  /ImageType 1
+  /Width 20 /Height 14
+  /BitsPerComponent 8
+  /Decode [0 255]
+  /ImageMatrix [20.000000 0 0 14.000000 0 0]
+  /DataSource currentfile
+  /ASCII85Decode filter
+  /RunLengthDecode filter
+>>
+image
+"r\?p(`*u,r"g1e()%K%(E"#+'c@c')B'>,)&=#*'c%T'rYQt"(E!r&)&X/,)AO#+(_mf)(D[i((`!f#
+)&O&))ANr&(D7K%()[#eF;>E&)]B;*)\Wi)(C_6((`=)*(`*\r+;te2*YB&.'F5d,(`+#,(`3Yq,o7+7
+*t&o2%gOO6()If)(DI<"-kQt9)[[f;"V<XA&JZ0!'G(s1-4CeA&e-K9!%^>P$543k((q`A(C_]8$QL],
+%6ZBG$PiXV()\57%Mg0!&0Ml#*%;=%(E42-)&a;-rY[.$(`3u((`4&+(Dmo()&O2,(`!r((`=,,'H.c'
+(`=/.(`=)*()Ri))#Y6S)&F/+(DhT
+~>
+gr
+gr
+
+4 w
+DO
+SO
+6 w
+0 sg
+7236 2246 mt 8623 2246 L
+7236 3642 mt 8623 3642 L
+7236 2246 mt 7236 3642 L
+8623 2246 mt 8623 3642 L
+7236 3642 mt 8623 3642 L
+7236 2246 mt 7236 3642 L
+7548 3642 mt 7548 3628 L
+7548 2246 mt 7548 2259 L
+7515 3787 mt 
+(5) s
+7894 3642 mt 7894 3628 L
+7894 2246 mt 7894 2259 L
+7828 3787 mt 
+(10) s
+8241 3642 mt 8241 3628 L
+8241 2246 mt 8241 2259 L
+8175 3787 mt 
+(15) s
+8588 3642 mt 8588 3628 L
+8588 2246 mt 8588 2259 L
+8522 3787 mt 
+(20) s
+7236 2395 mt 7249 2395 L
+8623 2395 mt 8609 2395 L
+7135 2439 mt 
+(2) s
+7236 2595 mt 7249 2595 L
+8623 2595 mt 8609 2595 L
+7135 2639 mt 
+(4) s
+7236 2794 mt 7249 2794 L
+8623 2794 mt 8609 2794 L
+7135 2838 mt 
+(6) s
+7236 2993 mt 7249 2993 L
+8623 2993 mt 8609 2993 L
+7135 3037 mt 
+(8) s
+7236 3193 mt 7249 3193 L
+8623 3193 mt 8609 3193 L
+7068 3237 mt 
+(10) s
+7236 3392 mt 7249 3392 L
+8623 3392 mt 8609 3392 L
+7068 3436 mt 
+(12) s
+7236 3592 mt 7249 3592 L
+8623 3592 mt 8609 3592 L
+7068 3636 mt 
+(14) s
+7236 2246 mt 8623 2246 L
+7236 3642 mt 8623 3642 L
+7236 2246 mt 7236 3642 L
+8623 2246 mt 8623 3642 L
+1 sg
+0 -1396 1386 0 0 1396 9061 2246 4 MP
+PP
+-1386 0 0 -1396 1386 0 0 1396 9061 2246 5 MP stroke
+gs 9061 2246 1387 1397 rc
+/mwscm { [/Indexed /DeviceRGB 63
+  <
+    000000 040404 080808 0c0c0c 101010 141414 181818 1c1c1c 202020 242424 
+    282828 2c2c2c 303030 343434 383838 3c3c3c 404040 444444 484848 4c4c4c 
+    505050 555555 595959 5d5d5d 616161 656565 696969 6d6d6d 717171 757575 
+    797979 7d7d7d 818181 858585 898989 8d8d8d 919191 959595 999999 9d9d9d 
+    a1a1a1 a5a5a5 aaaaaa aeaeae b2b2b2 b6b6b6 bababa bebebe c2c2c2 c6c6c6 
+    cacaca cecece d2d2d2 d6d6d6 dadada dedede e2e2e2 e6e6e6 eaeaea eeeeee 
+    f2f2f2 f6f6f6 fafafa ffffff 
+  >
+] setcolorspace } bdef mwscm
+gs np 9061 2246 mt 0 1396 rl 1386 0 rl 0 -1396 rl cp c np
+[1386 0 0 1396 9061 2246] cc
+<< % Image dictionary
+  /ImageType 1
+  /Width 20 /Height 14
+  /BitsPerComponent 8
+  /Decode [0 255]
+  /ImageMatrix [20.000000 0 0 14.000000 0 0]
+  /DataSource currentfile
+  /ASCII85Decode filter
+  /RunLengthDecode filter
+>>
+image
+IjZ6\+<D4R1F=(a,q^Dl/gV_h)_*Wl*?m'h/2\Rj1+=@r.MaHT'eV!T,:5)s+Wi->1,Lg%1aOM#+sANa
+,p+?X,;1&;5:Rm1/hnG#.2acd1*nY#+XSWn1*@Da/gr%c0/F\*.2a`I,p!pH)CcsU/KG6;)(.!q.j$5i
+-\!Km-n6Vq0cqtu(_mi/1EdVa,U=QO)^d$c0HVGe)^?:I-7'c`,:=i_+"&'V+Y=l[)&=qJ2'aP#&1\kV
+)'1.I,9@^K,W6/S0ISD*/1E;!*Zu@J.j6>`-T!.p2BXh/)`elZ,9J'J+;Yq@.juts*[)FF+>4uh.iofS
++sn*V0In^s(+q!Z*u?7W-RBig,pXZc+!3"`
+~>
+gr
+gr
+
+4 w
+DO
+SO
+6 w
+0 sg
+9061 2246 mt 10447 2246 L
+9061 3642 mt 10447 3642 L
+9061 2246 mt 9061 3642 L
+10447 2246 mt 10447 3642 L
+9061 3642 mt 10447 3642 L
+9061 2246 mt 9061 3642 L
+9372 3642 mt 9372 3628 L
+9372 2246 mt 9372 2259 L
+9339 3787 mt 
+(5) s
+9719 3642 mt 9719 3628 L
+9719 2246 mt 9719 2259 L
+9653 3787 mt 
+(10) s
+10065 3642 mt 10065 3628 L
+10065 2246 mt 10065 2259 L
+9999 3787 mt 
+(15) s
+10412 3642 mt 10412 3628 L
+10412 2246 mt 10412 2259 L
+10346 3787 mt 
+(20) s
+9061 2395 mt 9074 2395 L
+10447 2395 mt 10433 2395 L
+8960 2439 mt 
+(2) s
+9061 2595 mt 9074 2595 L
+10447 2595 mt 10433 2595 L
+8960 2639 mt 
+(4) s
+9061 2794 mt 9074 2794 L
+10447 2794 mt 10433 2794 L
+8960 2838 mt 
+(6) s
+9061 2993 mt 9074 2993 L
+10447 2993 mt 10433 2993 L
+8960 3037 mt 
+(8) s
+9061 3193 mt 9074 3193 L
+10447 3193 mt 10433 3193 L
+8893 3237 mt 
+(10) s
+9061 3392 mt 9074 3392 L
+10447 3392 mt 10433 3392 L
+8893 3436 mt 
+(12) s
+9061 3592 mt 9074 3592 L
+10447 3592 mt 10433 3592 L
+8893 3636 mt 
+(14) s
+9061 2246 mt 10447 2246 L
+9061 3642 mt 10447 3642 L
+9061 2246 mt 9061 3642 L
+10447 2246 mt 10447 3642 L
+1 sg
+0 -1396 1387 0 0 1396 10885 2246 4 MP
+PP
+-1387 0 0 -1396 1387 0 0 1396 10885 2246 5 MP stroke
+gs 10885 2246 1388 1397 rc
+/mwscm { [/Indexed /DeviceRGB 63
+  <
+    000000 040404 080808 0c0c0c 101010 141414 181818 1c1c1c 202020 242424 
+    282828 2c2c2c 303030 343434 383838 3c3c3c 404040 444444 484848 4c4c4c 
+    505050 555555 595959 5d5d5d 616161 656565 696969 6d6d6d 717171 757575 
+    797979 7d7d7d 818181 858585 898989 8d8d8d 919191 959595 999999 9d9d9d 
+    a1a1a1 a5a5a5 aaaaaa aeaeae b2b2b2 b6b6b6 bababa bebebe c2c2c2 c6c6c6 
+    cacaca cecece d2d2d2 d6d6d6 dadada dedede e2e2e2 e6e6e6 eaeaea eeeeee 
+    f2f2f2 f6f6f6 fafafa ffffff 
+  >
+] setcolorspace } bdef mwscm
+gs np 10885 2246 mt 0 1396 rl 1387 0 rl 0 -1396 rl cp c np
+[1387 0 0 1396 10885 2246] cc
+<< % Image dictionary
+  /ImageType 1
+  /Width 20 /Height 14
+  /BitsPerComponent 8
+  /Decode [0 255]
+  /ImageMatrix [20.000000 0 0 14.000000 0 0]
+  /DataSource currentfile
+  /ASCII85Decode filter
+  /RunLengthDecode filter
+>>
+image
+Ij,dP(DeGH'.+_C-Op\3$5k`V*YU.Y*?,kC/f"F./K5uf1-R$</K#le,p>8g(,.Kn)DaT2)E&Wf'dOV;
+/Jfrf+YG/a/fGi>%jaA%*\%aZ1EcoN//]Ea1+=M*(F(OV&L]1U+Y4Qf2)?L$*[VR[/.3UK&K<PO,pF]I
+/UnTW,q:)b,p4?H0,u_e0I%eq*\8ua0.SP%/12r)))`Ee1FFLo+uLkj0dRko.4#r_*[_ON$5kTB-8->o
++t5#[*?QI@,:P/b*]tW(+>joe.k<&$,oI41.OcZ$/K5WG+<r-U.2![/(Ek^Z.k)r&1(Y*J,:5#g+X.L)
+2(f[t2AmAV)B0>M+t4fl.4I&#3]8)t*&J4W
+~>
+gr
+gr
+
+4 w
+DO
+SO
+6 w
+0 sg
+10885 2246 mt 12272 2246 L
+10885 3642 mt 12272 3642 L
+10885 2246 mt 10885 3642 L
+12272 2246 mt 12272 3642 L
+10885 3642 mt 12272 3642 L
+10885 2246 mt 10885 3642 L
+11197 3642 mt 11197 3628 L
+11197 2246 mt 11197 2259 L
+11164 3787 mt 
+(5) s
+11543 3642 mt 11543 3628 L
+11543 2246 mt 11543 2259 L
+11477 3787 mt 
+(10) s
+11890 3642 mt 11890 3628 L
+11890 2246 mt 11890 2259 L
+11824 3787 mt 
+(15) s
+12237 3642 mt 12237 3628 L
+12237 2246 mt 12237 2259 L
+12171 3787 mt 
+(20) s
+10885 2395 mt 10898 2395 L
+12272 2395 mt 12258 2395 L
+10784 2439 mt 
+(2) s
+10885 2595 mt 10898 2595 L
+12272 2595 mt 12258 2595 L
+10784 2639 mt 
+(4) s
+10885 2794 mt 10898 2794 L
+12272 2794 mt 12258 2794 L
+10784 2838 mt 
+(6) s
+10885 2993 mt 10898 2993 L
+12272 2993 mt 12258 2993 L
+10784 3037 mt 
+(8) s
+10885 3193 mt 10898 3193 L
+12272 3193 mt 12258 3193 L
+10717 3237 mt 
+(10) s
+10885 3392 mt 10898 3392 L
+12272 3392 mt 12258 3392 L
+10717 3436 mt 
+(12) s
+10885 3592 mt 10898 3592 L
+12272 3592 mt 12258 3592 L
+10717 3636 mt 
+(14) s
+10885 2246 mt 12272 2246 L
+10885 3642 mt 12272 3642 L
+10885 2246 mt 10885 3642 L
+12272 2246 mt 12272 3642 L
+
+end %%Color Dict
+
+eplot
+%%EndObject
+
+epage
+end
+
+showpage
+
+%%Trailer
+%%EOF

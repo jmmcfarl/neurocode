@@ -1,0 +1,40 @@
+function gabor_model = fit_gnm_gabormodel(X,Robs)
+
+n_kerns = size(X,2);
+w_init = ones(n_kerns,1);
+c_init = 0;
+
+initial_params = [w_init; c_init];
+[params LL exitflag] = minFunc( @(K) gabormodel_LL(K, Robs, X), initial_params);
+
+
+end
+
+function [LL,LLgrad] = gabormodel_LL(K,Robs,X)
+
+    n_kerns = size(X,2);
+    c = K(end);
+    w = K(1:end-1);
+    
+    g = X*w+c;
+    expg = exp(g);
+    r = log(1+expg);
+    r(r < 1e-20) = 1e-20; %minimum predicted rate
+    
+    LL = sum(Robs.*log(r)-r);    
+
+    residual = (Robs./r - 1) .* expg ./ (1+expg);
+
+    %initialize LL gradient
+    LLgrad = zeros(length(K),1);
+
+    % Calculate derivatives with respect to constant
+    LLgrad(end) = sum(residual);
+  
+    LLgrad(1:end-1) = sum(bsxfun(@times,X,residual));
+    
+    Nspks = sum(Robs);
+    LL = -LL/Nspks;
+    LLgrad = -LLgrad/Nspks;
+
+end

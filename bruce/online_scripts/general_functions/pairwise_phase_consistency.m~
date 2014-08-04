@@ -1,0 +1,15 @@
+function ppc = pairwise_phase_consistency(spike_phases,spike_trials)
+
+
+max_spks = 10000;
+n_spks = length(spike_phases);
+if n_spks > max_spks
+    error('No support for this many spikes')
+end
+phase_dist = @(XI,XJ) XJ(:,1)*XI(1) + XJ(:,2)*XI(2);
+
+spike_phases = spike_phases(:);
+
+spike_phase_vecs = [cos(spike_phases) sin(spike_phases)];
+
+spike_phase_dist = pdist(spike_phase_vecs,@phase_dist);

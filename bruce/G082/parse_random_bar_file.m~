@@ -1,0 +1,58 @@
+function X = parse_random_bar_file(fname)
+
+fid = fopen(fname);
+data = textscan(fid,'%s','delimiter','\n');
+data = data{1};
+n_lines = length(data);
+fclose(fid);
+
+trial_id = nan(n_lines,1);
+se_id = nan(n_lines,1);
+is_ds = false(n_lines,1);
+frame_num = nan(n_lines,1);
+pix_tdata = repmat('-',n_lines,25);
+for i = 1:n_lines
+    if strcmp(data{i}(1:2),'id')
+        seloc = find(data{i} == 's');
+        trial_id(i) = str2num(data{i}(3:seloc-1));
+        se_id(i) = str2num(data{i}(seloc+2:end));
+    elseif strcmp(data{i}(1:2),'ds')
+        is_ds(i) = true;
+    else
+        cloc = find(data{i} == ':');
+        frame_num(i) = hex2dec(data{i}(1:cloc-1));
+        pix_tdata(i,:) = data{i}(cloc+1:end);        
+    end
+end
+left_pix = nan(n_lines,25);
+right_pix = nan(n_lines,25);
+
+%Hex   Left  Right
+%0   =    B      B
+%1   =    G      B
+%2   =    W      B
+%4   =    B      G
+%5   =    G      G
+%6   =    W      G
+%8   =    B      W
+%9   =    G      W
+%a   =    W      W
+
+
+left_pix(pix_tdata == '0') = -1;
+right_pix(pix_tdata == '0') = -1;
+
+left_pix(pix_tdata == '1') = 0;
+right_pix(pix_tdata == '1') = -1;
+
+left_pix(pix_tdata == '2') = 1;
+right_pix(pix_tdata == '2') = -1;
+
+left_pix(pix_tdata == '4') = -1;
+right_pix(pix_tdata == '4') = 0;
+
+left_pix(pix_tdata == '5') = 0;
+right_pix(pix_tdata == '5') = 0;
+
+left_pix(pix_tdata == '5') = 0;
+right_pix(pix_tdata == '5') = 0;

@@ -1,0 +1,33 @@
+clear all
+close all
+cd /Users/James/Data/bruce/2_27_12
+load ./Blocks.mat
+
+blockid = 2;
+
+load(sprintf('lemM232A.5%d.lfp.mat',blockid));
+
+lfp_start_t = zeros(length(LFP.Trials),1);
+lfp_end_t = zeros(length(LFP.Trials),1);
+for i = 1:length(LFP.Trials)
+    lfp_start_t(i) = LFP.Trials(i).Start/1e4;
+    lfp_end_t(i) = LFP.Trials(i).End/1e4;
+end
+
+cd ~/Data/bruce/2_27_12/saccades/
+load(sprintf('lemM232.' num2str(50+blockid) '.em.sac.mat']);
+
+% left eye
+lEye = [Expt.Trials.Eyevals.lh Expt.Trials.Eyevals.lv];
+% right eye
+rEye = [Expt.Trials.Eyevals.rh Expt.Trials.Eyevals.rv];
+
+EyeStartT = Expt.Trials.Start/10000; % time of first eye sample
+EyeEndT = Expt.Trials.End/10000; % time of last eye sample
+Eyedt = Expt.Header.CRrates(1); % resolution of eye signal (sec)
+eyets = EyeStartT:Eyedt:EyeEndT; %eye tracking time axis (sec)
+
+    
+Blocks{2}.blocktimes'
+
+[lfp_start_t lfp_end_t]

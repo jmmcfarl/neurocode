@@ -1,0 +1,24 @@
+function L2mat_params = create_L2mat_params(prev_struc,krange,kdims,deriv_order,direction,boundaries)
+
+%
+
+%%
+if nargin < 3
+    kdims = 
+end
+if nargin < 4
+    deriv_order = 2; 
+end
+if nargin < 5
+    direction = 1; %[1= first dim, 2 = second dim, 3 = mixed]
+end
+if nargin < 6
+    if length(kdims) == 1
+        boundaries = [0];
+    else
+        boundaries = [0 0];
+    end
+end
+
+cur_L2mat_params = struct('krange',krange,'dims',dims,'deriv_order',deriv_order,'direction',direction,'boundaries',boundaries);
+L2mat_params = cat(1,prev_struc,cur_L2mat_params);

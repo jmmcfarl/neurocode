@@ -1,0 +1,29 @@
+clear all
+close all
+cd ~/Data/bruce/2_27_12
+
+%% load parallel data
+load lemM232.Cells.rls.Pp.mat
+
+par_means = AllCellRes.means;
+par_xpos = AllCellRes.xpos;
+par_ypos = AllCellRes.ypos;
+
+%% load orthoganol data
+load lemM232.Cells.rls.Op.mat
+
+orth_means = AllCellRes.means;
+orth_xpos = AllCellRes.xpos;
+orth_ypos = AllCellRes.ypos;
+
+
+%%
+cd ~/James_scripts/bruce
+
+for i = 1:10
+    subplot(2,1,1)
+    plot(par_xpos,par_means,orth_xpos,orth_means,'r')
+    subplot(2,1,2)
+    plot(par_ypos,par_means,orth_ypos,orth_means,'r')
+pause(2)
+end

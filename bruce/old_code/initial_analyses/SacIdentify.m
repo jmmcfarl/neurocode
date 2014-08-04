@@ -1,0 +1,72 @@
+% The script performs three tasks:
+% (1) calibrate eye signal used saved gain/offset
+% (2) identify saccade
+% (3) label data as 'off-screen' 0 'fixating' 1 and 'saccading '2'
+% Yuwei Cui
+
+addpath('./Data');
+
+load EyeCalParas.mat
+% eye data
+for id = 51
+    filename = ['./Data/lemM232.' num2str(id) '.em.mat'];
+    load(filename)
+    SamplingFreq = 1./Expt.Header.CRrates(1);
+    Expt.Header
+%     continue
+    
+    TrialN = length(Expt.Trials);
+    for triali=1:TrialN
+        Start = Expt.Trials.Start;
+        End = Expt.Trials.End;
+        
+        Tlength = (End-Start)/10000;
+        lEyeXY0 = [Expt.Trials(triali).Eyevals.lh Expt.Trials(triali).Eyevals.lv];
+        rEyeXY0 = [Expt.Trials(triali).Eyevals.rh Expt.Trials(triali).Eyevals.rv];
+        
+        % use calibration parameters
+        lEyeXY = CalibrateEyeSignal(lEyeXY0, EyePara.gain(1:2,:),EyePara.offset(1:2));
+        rEyeXY = CalibrateEyeSignal(rEyeXY0, EyePara.gain(3:4,:),EyePara.offset(3:4));       
+        
+        EM = EyeM(rEyeXY,SamplingFreq);
+        EM = EM.AssignStatus([-9.9 9.9 -9.9 9.9], 50);
+        
+        % process saccade
+        sacN = length(EM.saccades);
+        
+        saccades = EM.saccades;
+        sacT = [];
+        direction = [];
+        duration = [];
+        amplitude = [];
+        peakV = [];
+        for i=1:sacN
+            if strcmp( EM.saccades(i).label, 'good')
+                sacT(end+1) = saccades(i).Tstart;
+                direction(end+1) = saccades(i).direction;
+                duration(end+1) = saccades(i).Tend-saccades(i).Tstart;
+                amplitude(end+1) = saccades(i).Amp;
+                peakV(end+1) = saccades(i).PeakVel;
+            end
+        end
+        % peakV = peakV(peakV<1000);
+        status = EM.status;
+        sacT = Start/10000+sacT/SamplingFreq;
+        EyeMsac = struct('status',status,'Start',Start, 'sacT',sacT,'direction',direction,'duration',duration,...
+            'amplitude',amplitude,'peakV', peakV);
+        
+        % save('saccades','saccades');
+        % save('saccadeTstart','sacT');
+        % save('status','status');
+        avgsacfreq = length(sacT)/(sum(EM.status~=0)*EM.tres);
+        disp(['Exp Length (sec) : ', num2str(Tlength), ' Avg Saccade Frequency: ',num2str(avgsacfreq)]);
+        Expt.Trials(triali).EyeMsac=EyeMsac;
+        Expt.Trials(triali).Eyevals.rh = rEyeXY(:,1);
+        Expt.Trials(triali).Eyevals.rv = rEyeXY(:,2);
+        Expt.Trials(triali).Eyevals.lh = lEyeXY(:,1);
+        Expt.Trials(triali).Eyevals.lv = lEyeXY(:,2);
+    end
+    save(['./Data/lemM232.' num2str(id) '.em.sac.mat'],'Expt');
+end
+
+EM.DisplayEyeM(21,27)

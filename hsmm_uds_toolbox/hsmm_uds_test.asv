@@ -1,0 +1,153 @@
+%specify path here
+cur_dir = 'G:\WC_Germany\hsmm_uds_code';
+cd(cur_dir)
+
+%% Load test LFP data (Fs is sample-frequency =252Hz)
+load ./test_lfp_data
+
+%% Locate desynchronized epochs within the data (without clear UDS)
+%set parameters
+SO_thresh = -6; %threshold log relative power in the slow-oscillation band (0.2-1.5Hz)
+HF_thresh = -2; %maximal power in the HF-band (>4Hz) to be considered a desynchronized epoch 
+params.dsf = 1; %down-sample-factor for computing spectrogram
+params.lcf = 0.1; %low-cutoff frequency 
+params.hcf = 40; %high-cutoff frequency
+params.movingwin = [15 2.5]; %windowing parameter for computing spectrogram (in seconds)
+
+%compute desynchronized epochs and the spectrogram of the data
+[desynch_times,desynch_ids,P,f,t] = hsmm_uds_locate_desynch_times(lfp,Fs,params,SO_thresh,HF_thresh);
+
+%plot spectrogram and highlight desynchronized epochs
+figure
+pcolor(t,f,log10(P)');shading flat, colorbar
+ylim([.1 40])
+set(gca,'yscale','log')
+yl = ylim();
+for i = 1:size(desynch_times,1)
+   line([desynch_times(i,1) desynch_times(i,1)],yl,'color','w','linewidth',2);
+   line([desynch_times(i,2) desynch_times(i,2)],yl,'color','w','linewidth',2);   
+end
+xlabel('Time','fontsize',14), ylabel('Frequency (Hz)','fontsize',14)
+
+%% Compute signal features to use for UDS classification
+hmm_dsf = 5; %down-sample-factor for HMM signal featurs
+hmm_Fs = Fs/hmm_dsf; %sample-frequency of HMM signal features (Hz)
+lf_cut_off_freqs = [0.05 2]; %for "low-frequency amplitude" features, these are the cutoff-frequencies for the bandpass filter
+hf_cut_off_freqs = [20 80]; %for "high-frequency power" features, these are the cutoff-frequencies for the bandpass filter
+smooth_sigma = 0.15; %smoothing sigma for computing HF power in seconds
+[sig_features,t_axis] = hsmm_uds_get_lf_features(lfp,Fs,hmm_dsf,lf_cut_off_freqs); %'low-frequency amplitude'
+% [sig_features,t_axis] = hsmm_uds_get_lf_features(lfp,Fs,hmm_dsf,hf_cut_off_freqs,smooth_sigma); %'high-frequency power'
+
+%% LOCATE THE SEGMENTS CONTAINING UDS
+T = length(sig_features); %number of samples
+min_seg_dur = 60; %minimum duration of UDS segments used for analysis (in sec)
+UDS_segs = hsmm_uds_get_uds_segments(desynch_times,hmm_Fs,T,min_seg_dur); %Nx2 matrix containing the index values of the beginning and end of each UDS segment
+
+%% INITIALIZE THE HMM
+params.meantype = 'variable'; %use 'variable' for time-varying state means. otherwise use 'fixed'
+params.UDS_segs = UDS_segs;
+params.movingwin = [50 10];
+[hmm] = hsmm_uds_initialize(lf_features,hmm_Fs,params);
+% [hmm] = hsmm_uds_initialize(hf_features,hmm_Fs,params);
+
+%% FIT AN HMM
+hmm.min_mllik = -8; %set minimum value of the maximal log likelihood for either state before switching to robust estimator.  If you don't want to use this feature, set this to -Inf
+hmm.windowSize = 50;
+hmm = hsmm_uds_train_hmm(hmm,lf_features);
+
+%% DETERMINE THE VITERBI SEQUENCE
+[state_seq,llik_best] = hsmm_uds_viterbi_hmm(hmm,lf_features);
+
+%%
+dsf_bb = 1;
+bb_lcf = 0.05;
+bb_hcf = 20;
+pert_range_bb = [-0.15 0.15];
+[bb_features,t_axis,Fsd] = hsmm_uds_get_lf_features(lfp,Fs,dsf_bb,[bb_lcf bb_hcf]); %'low-frequency amplitude'
+
+min_state_dur = 1;
+max_state_dur = round(hmm_Fs*30);
+dur_range = (1:max_state_dur)/hmm_Fs;
+for i = 1:hmm.K
+    hmm.state(i).dur_type = 'hmm';
+    hmm4.state(i).dur_type = 'hmm';
+end
+hmm.dur_range = dur_range;
+hmm.max_state_dur = max_state_dur;
+hmm.min_state_dur = min_state_dur;
+[hmm_bb_state_seq] = hsmm_uds_pert_optimize_transitions(bb_features,hmm,state_seq,hmm.gamma,hmm.Fs,Fs_bb,pert_range_bb);
+
+%%
+smoothed_seq = hsmm_uds_smooth_stateseq(state_seq,hmm_Fs,100,100);
+state_durations = hsmm_uds_compute_state_durations(smoothed_seq,hmm_Fs);
+
+%%
+min_state_dur = 1;
+max_state_dur = round(hmm_Fs*30);
+dur_range = (1:max_state_dur)/hmm_Fs;
+
+for i = 1:hmm.K
+    %estimate the empirical state duration pmf
+    emp_pmf(i,:) = hist(state_durations{i},dur_range);
+    emp_pmf(i,:) = emp_pmf(i,:)/sum(emp_pmf(i,:));   
+    p_fit = 1/nanmedian(state_durations{i}*hmm_Fs);
+    geo_pmf(i,:) = geometric_pmf(1:length(dur_range),p_fit);   
+    [mu,lambda] = inverse_gauss_mlfit(state_durations{i});%compute the ML parameters of the inverse gaussian dist
+    ig_pmf(i,:) = inverse_gauss_pmf(dur_range,mu,lambda);%estimate the IG PMF    
+    [alpha,beta] = gamma_mlfit(state_durations{i}); %compute the ML parameters of the gamma
+    gam_pmf(i,:) = gamma_pmf(dur_range,alpha,beta); %estimate the gamma PMF
+end
+figure
+subplot(2,1,1)
+bar(dur_range,emp_pmf(1,:))
+hold on
+plot(dur_range,ig_pmf(1,:),'k',dur_range,gam_pmf(1,:),'r',dur_range,geo_pmf(i,:),'g','linewidth',2)
+xlim([0 3.5])
+title('DOWN State','fontsize',16)
+xlabel('Duration (s)','fontsize',16)
+ylabel('Relative frequency','fontsize',16)
+legend('Empirical Distribution','Inverse Gaussian','Gamma','Geometric')
+subplot(2,1,2)
+bar(dur_range,emp_pmf(2,:))
+hold on
+plot(dur_range,ig_pmf(2,:),'k',dur_range,gam_pmf(2,:),'r',dur_range,geo_pmf(i,:),'g','linewidth',2)
+xlim([0 3.5])
+title('UP State','fontsize',16)
+xlabel('Duration (s)','fontsize',16)
+ylabel('Relative frequency','fontsize',16)
+
+%%
+%select duration model.  Choices are: 'inv_gauss', and 'gamma'
+hmm.state(1).dur_type = 'inv_gauss';
+hmm.state(2).dur_type = 'inv_gauss';
+% hmm.state(1).dur_type = 'gamma';
+% hmm.state(2).dur_type = 'gamma';
+%initialize state duration model parameters
+for i = 1:hmm.K
+    if strcmp(hmm.state(i).dur_type,'inv_gauss')
+        hmm.state(i).dur_pars = [mu lambda];
+        hmm.P(i,:) = ig_pmf(i,:);
+    else
+        hmm.state(i).dur_pars = [alpha beta];
+        hmm.P(i,:) = gam_pmf(i,:);
+    end
+end
+hmm.dur_range = dur_range;
+hmm.max_state_dur = max_state_dur;
+hmm.min_state_dur = min_state_dur;
+
+% enforce any minimum state duration and renormalize
+for i = 1:hmm.K
+    if min_state_dur > 1
+        hmm.P(i,1:min_state_dur-1) = zeros(1,min_state_dur-1);
+        hmm.P(i,:) = hmm.P(i,:)/sum(hmm.P(i,:));
+    end
+end
+
+%%
+[hmm,gamma,hmm_window_post]=hsmm_uds_train_hsmm(hmm,lf_features);
+%%
+[hsmm_state_seq,max_lik] = hsmm_uds_viterbi_hsmm(hmm,lf_features);
+%%
+[hsmm_bb_state_seq] = hsmm_uds_pert_optimize_transitions_v2(bb_features,hmm,hsmm_state_seq,gamma,hmm.Fs,Fs_bb,pert_range_bb);
+

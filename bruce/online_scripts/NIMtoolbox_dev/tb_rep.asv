@@ -1,0 +1,22 @@
+function Xout = tb_rep(gin, NLx)
+
+%stim is the input stimulus
+%tentx is the tent basis boundary positions
+%outputs brfstim which is (NTxNBFs)
+
+n_tbs =length(NLx);
+Xout = zeros(length(stim),n_tbs);
+
+for n = 1:NN
+    if n == 1
+      brfstim(:,n) = piece_proc_stim(stim, tentx(n), tentx(n+1) );
+    else
+      if n == NN
+        brfstim(:,n) = piece_proc_stim(stim, tentx(n), tentx(n-1) );
+      else
+        brfstim(:,n) = piece_proc_stim(stim, tentx(n), [tentx(n-1) tentx(n+1)] );
+      end
+    end
+end
+
+end

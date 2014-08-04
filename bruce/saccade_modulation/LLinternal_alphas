@@ -1,0 +1,1 @@
+function [params] = LLinternal_alphas( mod, K, Robs, Xmat, Jmat, Gmults)

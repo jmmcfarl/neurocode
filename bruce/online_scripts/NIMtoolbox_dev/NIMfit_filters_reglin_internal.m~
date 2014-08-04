@@ -1,0 +1,206 @@
+function [LL, LLgrad] = NIMfit_filters_reglin_internal(nim, params, Robs, Xstim, Xspkhst, XLin, L2_mats, targets, nt_gout, fprimes, linL2_mats,lin_lambdas)
+%
+% [LL, LLgrad] = NIMfit_filters_internal(nim, params, Robs, Xstim, Xspkhst, XLin, L2_mats, targets, nt_gout, fprimes)
+%
+% Internal function for computing LL and LLgradient with respect to the
+% stimulus filters
+
+%% USEFUL PARAMETERS
+Ntargets = sum(targets > 0);
+filtLen = prod(nim.stim_params.stim_dims);
+lin_dims = nim.stim_params.lin_dims;
+spkhstlen = nim.spk_hist.spkhstlen;
+nPix = squeeze(nim.stim_params.stim_dims(2:3));
+
+%% ESTIMATE GENERATING FUNCTIONS (OVERALL AND INTERNAL)
+theta = params(end); %offset
+G = theta;%initialize overall generating function G
+if ~isempty(nt_gout) 
+    G = G + nt_gout; %add contributions from non-targets if there are any
+end
+kmat = reshape(params(1:Ntargets*filtLen),filtLen,Ntargets);
+gint = Xstim*kmat;
+for ii = 1:Ntargets
+    
+    %process subunit g's with upstream NLs
+    if strcmp(nim.mods(targets(ii)).NLtype,'nonpar')
+        fgint = piecelin_process(gint(:,ii),nim.mods(targets(ii)).NLy,nim.mods(targets(ii)).NLx);
+    elseif strcmp(nim.mods(targets(ii)).NLtype,'quad')
+        fgint = gint(:,ii).^2;
+    elseif strcmp(nim.mods(targets(ii)).NLtype,'lin')
+        fgint = gint(:,ii);
+    elseif strcmp(nim.mods(targets(ii)).NLtype,'threshlin')
+        fgint = gint(:,ii);
+        fgint(fgint < 0) = 0;
+    else
+        error('Invalid internal NL');
+    end
+    
+    %multiply by weight and add to generating function
+    G = G + fgint*nim.mods(targets(ii)).sign;
+end
+
+%add contribution from spike history filter
+if spkhstlen > 0 && ismember(-1,targets)
+        G = G + Xspkhst*params((Ntargets*filtLen + 1):(Ntargets*filtLen + spkhstlen));
+end
+%add contribution from linear filter
+if lin_dims > 0 && ismember(-2,targets)
+        G = G + XLin*params((Ntargets*filtLen+spkhstlen+1):(Ntargets*filtLen+spkhstlen+lin_dims));
+end
+
+%% Compute predicted firing rate
+if strcmp(nim.spk_NL_type,'logexp')
+    max_gbeta = 50; %to prevent numerical overflow
+    bgint = G*nim.spk_NL_params(2); %g*beta
+    expg = exp(bgint);
+    too_large = (bgint > max_gbeta);
+    r = nim.spk_NL_params(3)*log(1+expg); %alpha*log(1+exp(gbeta))
+    r(too_large) = nim.spk_NL_params(3)*bgint(too_large); %log(1+exp(x)) ~ x in limit of large x
+elseif strcmp(nim.spk_NL_type,'exp')
+    expg = exp(G);
+    r = expg;
+else
+    error('invalid spk nl');
+end
+%enforce minimum predicted firing rate to avoid nan LLs
+min_pred_rate = 1e-50;
+if min(r) < min_pred_rate
+    r(r < min_pred_rate) = min_pred_rate; %minimum predicted rate
+end
+
+%% COMPUTE LL and LL gradient
+LL = sum(Robs.* log(r) - r); %up to an overall constant
+
+%'residual' = (R/r - 1)*F'[] where F[.] is the spk NL
+if strcmp(nim.spk_NL_type,'logexp')
+    residual = nim.spk_NL_params(3)*nim.spk_NL_params(2)*(Robs./r - 1) .* expg ./ (1+expg);
+    residual(too_large) = nim.spk_NL_params(3)*nim.spk_NL_params(2)*(Robs(too_large)./r(too_large) - 1);
+elseif strcmp(nim.spk_NL_type,'exp')
+    residual = Robs - r;
+else
+    error('Unsupported spiking NL')
+end
+
+%initialize LL gradient
+LLgrad = zeros(length(params),1);
+
+% Calculate derivatives with respect to constant term (theta)
+LLgrad(end) = sum(residual);
+
+% Calculate derivative with respect to spk history filter
+if spkhstlen > 0 && ismember(-1,targets)
+    LLgrad((Ntargets*filtLen+1):(Ntargets*filtLen+spkhstlen)) = residual'*Xspkhst;
+end
+% Calculate derivative with respect to linear term
+if lin_dims > 0 && ismember(-2,targets)
+    LLgrad((Ntargets*filtLen+spkhstlen+1):(Ntargets*filtLen+spkhstlen+lin_dims)) = residual'*XLin;
+end
+
+%NOW COMPUTE LL grad WRT STIMULUS FILTERS
+% Calculate output of derivative module
+chunk_size = 1000; %maximum chunk size for processing high-dimensional stim filters
+if filtLen <= chunk_size
+    use_chunking = 0;
+else
+    use_chunking = 1;
+    NChunks = ceil(filtLen/chunk_size); %divide stim filters into this many chunks for piecewise processing
+end
+for ii = 1:Ntargets
+    %for quad and nonparm NLs, compute f'(gint) explicitly
+    if any(strcmp(nim.mods(targets(ii)).NLtype,{'nonpar','quad'}))
+        %compute f'(gint)
+        if strcmp(nim.mods(targets(ii)).NLtype,'nonpar')
+            fpg = piececonst_process(gint(:,ii),fprimes{ii}, nim.mods(targets(ii)).NLx);
+        elseif strcmp(nim.mods(targets(ii)).NLtype,'quad')
+            fpg = 2*gint(:,ii);
+        end
+        if use_chunking %compute LL gradient wrt stim filter in pieces
+            for cc = 1:NChunks
+                cs = (cc-1)*chunk_size + 1; %chunk start ind
+                ce = min(filtLen,cs+chunk_size); %chunk end ind
+                temp = bsxfun(@times,Xstim(:,cs:ce),fpg)*nim.mods(targets(ii)).sign;
+                LLgrad(((ii-1)*filtLen+cs):((ii-1)*filtLen+ce)) = residual'*temp;
+            end
+        else
+            LLgrad(((ii-1)*filtLen+1):(ii*filtLen)) = residual'*bsxfun(@times,Xstim,fpg)*nim.mods(targets(ii)).sign;
+        end
+        
+        %for 'lin and threshlin NLs can use a faster method for computing
+        %LL grad
+    elseif strcmp(nim.mods(targets(ii)).NLtype,'lin')
+        LLgrad(((ii-1)*filtLen+1):(ii*filtLen)) = residual'*Xstim*nim.mods(targets(ii)).sign;
+    elseif strcmp(nim.mods(targets(ii)).NLtype,'threshlin')
+        uset = gint(:,ii) >= 0;
+        LLgrad(((ii-1)*filtLen+1):(ii*filtLen)) = residual(uset)'*Xstim(uset,:)*nim.mods(targets(ii)).sign;
+    else
+        error('Unsupported NL type')
+    end
+end
+
+%% COMPUTE L2 PENALTIES AND ASSOCIATED CONTRIBUTIONS TO THE LL GRADIENT
+smooth_penalty = zeros(Ntargets,1);
+deriv_penalty = zeros(Ntargets,1);
+ridge_penalty = zeros(Ntargets,1);
+
+LLgrad_pen = zeros(size(LLgrad));
+for ii = 1:Ntargets
+    
+    %temporal regularization
+    if nim.mods(targets(ii)).reg_params.lambda_dT > 0
+        deriv_penalty(ii) = deriv_penalty(ii) + nim.mods(targets(ii)).reg_params.lambda_dT*sum((L2_mats.L2_dT * kmat(:,ii)).^2);
+        cur_grad_pen = 2*nim.mods(targets(ii)).reg_params.lambda_dT*(L2_mats.L2_dT' * L2_mats.L2_dT * kmat(:,ii));
+        LLgrad_pen((ii-1)*filtLen + (1:filtLen)) = cur_grad_pen;
+    end
+    if nim.mods(targets(ii)).reg_params.lambda_d2T > 0
+        smooth_penalty(ii) = smooth_penalty(ii) + nim.mods(targets(ii)).reg_params.lambda_d2T*sum((L2_mats.L2_d2T * kmat(:,ii)).^2);
+        cur_grad_pen = 2*nim.mods(targets(ii)).reg_params.lambda_d2T*(L2_mats.L2_d2T' * L2_mats.L2_d2T * kmat(:,ii));
+        LLgrad_pen((ii-1)*filtLen + (1:filtLen)) = cur_grad_pen;
+    end
+    
+    %spatial (and spatiotemporal) regularization
+    if nPix(1) > 1 %for spatial stimuli
+%         if nPix(2) == 1 %for 1d stim
+            if nim.mods(targets(ii)).reg_params.lambda_dX > 0
+                deriv_penalty(ii) = deriv_penalty(ii) + nim.mods(targets(ii)).reg_params.lambda_dX*sum((L2_mats.L2_dX * kmat(:,ii)).^2);
+                cur_grad_pen = 2*nim.mods(targets(ii)).reg_params.lambda_dX*(L2_mats.L2_dX' * L2_mats.L2_dX * kmat(:,ii));
+                LLgrad_pen((ii-1)*filtLen + (1:filtLen)) = cur_grad_pen;
+            end
+            if nim.mods(targets(ii)).reg_params.lambda_d2X > 0
+                smooth_penalty(ii) = smooth_penalty(ii) + nim.mods(targets(ii)).reg_params.lambda_d2X*sum((L2_mats.L2_d2X * kmat(:,ii)).^2);
+                cur_grad_pen = 2*nim.mods(targets(ii)).reg_params.lambda_d2X*(L2_mats.L2_d2X' * L2_mats.L2_d2X * kmat(:,ii));
+                LLgrad_pen((ii-1)*filtLen + (1:filtLen)) = cur_grad_pen;
+            end
+            if nim.mods(targets(ii)).reg_params.lambda_d2XT > 0
+                smooth_penalty(ii) = smooth_penalty(ii) + nim.mods(targets(ii)).reg_params.lambda_d2XT*sum((L2_mats.L2_d2XT * kmat(:,ii)).^2);
+                cur_grad_pen = 2*nim.mods(targets(ii)).reg_params.lambda_d2XT*(L2_mats.L2_d2XT' * L2_mats.L2_d2XT * kmat(:,ii));
+                LLgrad_pen((ii-1)*filtLen + (1:filtLen)) = cur_grad_pen;
+            end
+%         else %2d stim
+%             error('Only support for up to one spatial dimension now');
+%         end
+    end
+    
+    if nim.mods(targets(ii)).reg_params.lambda_L2 > 0
+        ridge_penalty(ii) = nim.mods(targets(ii)).reg_params.lambda_L2x*(kmat(:,ii)' * kmat(:,ii));
+        LLgrad_pen((ii-1)*filtLen+(1:filtLen)) = LLgrad_pen((ii-1)*filtLen+(1:filtLen)) + nim.mods(targets(ii)).reg_params.lambda_L2x*kmat(:,ii);
+    end
+end
+
+lin_penalty = 0;
+lingrad_pen = zeros(size(LLgrad));
+for ii = 1:length(linL2_mats)
+    lin_penalty = lin_penalty + lin_lambdas(ii)*sum((linL2_mats{ii} * kmat(:,ii)).^2);
+    cur_grad_pen = 2*nim.mods(targets(ii)).reg_params.lambda_d2X*(L2_mats.L2_d2X' * L2_mats.L2_d2X * kmat(:,ii));
+    
+end
+
+LL = LL - sum(smooth_penalty) - sum(ridge_penalty) - sum(deriv_penalty);
+LLgrad = LLgrad - LLgrad_pen;
+
+
+%% CONVERT TO NEGATIVE LLS AND NORMALIZE BY NSPKS
+Nspks = sum(Robs);
+LL = -LL/Nspks;
+LLgrad = -LLgrad/Nspks;
+

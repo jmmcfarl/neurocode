@@ -1,0 +1,146 @@
+close all
+clear all
+fig_dir = '/home/james/Analysis/bruce/saccade_modulation/';
+
+%% LOAD JBE HORIZONTAL
+sname = 'sacStimProc_sta';
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
+rmfield_list = {};
+
+all_hor_data = [];
+all_hor_tdata = [];
+for ee = 1:length(Expt_list)
+    Expt_name = Expt_list{ee};
+    Expt_num = str2num(Expt_name(2:end));
+    save_dir = ['~/Analysis/bruce/' Expt_name '/sac_mod'];
+    cd(save_dir)
+    load(sname)
+    
+    ucells = arrayfun(@(x) length(x.ModData),sacStimProc) > 0;
+    cur_data = sacStimProc(ucells);
+    cur_data = rmfields(cur_data,rmfield_list);
+    [cur_data.expt_num] = deal(Expt_num);
+    [cur_data.bar_ori] = deal(0);
+    
+    all_hor_data = cat(2,all_hor_data,cur_data);
+    cur_SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,cur_data);
+
+end
+
+%%
+xx = linspace(-5,5,500);
+pp = normpdf(xx,0,1);
+pp = pp/sum(pp);
+
+alpha = 1;
+beta_range = linspace(0.01,1.5,200);
+theta_range = linspace(-6,3,100);
+% theta_range = 0;
+
+info = nan(length(beta_range),length(theta_range));
+for bb = 1:length(beta_range)
+    for tt = 1:length(theta_range)
+        rr = alpha*log(1+exp(beta_range(bb)*xx+theta_range(tt)));
+        mr = sum(pp.*rr);
+        info(bb,tt) = sum(pp.*rr.*log2(rr/mr))/mr;
+        mrate(bb,tt) = mr;
+    end
+end
+
+%%
+
+betas = [all_hor_data(:).ov_beta];
+thetas = [all_hor_data(:).ov_theta];
+
+h1 = figure;
+imagesc(beta_range,theta_range,sqrt(info)'); set(gca,'ydir','normal');
+hold on
+plot(betas,thetas,'wo','linewidth',2);
+plot(mean(betas),mean(thetas),'g*','linewidth',2,'markersize',12);
+plot(1,mean(thetas),'r*','linewidth',2,'markersize',12);
+plot(0.1,mean(thetas),'m*','linewidth',2,'markersize',12);
+xlabel('Beta');
+ylabel('Theta');
+title('SS Info');
+
+h2=figure;
+imagesc(beta_range,theta_range,sqrt(mrate)');set(gca,'ydir','normal');
+hold on
+plot(betas,thetas,'wo','linewidth',2);
+plot(mean(betas),mean(thetas),'g*','linewidth',2,'markersize',12);
+plot(1,mean(thetas),'r*','linewidth',2,'markersize',12);
+plot(0.1,mean(thetas),'m*','linewidth',2,'markersize',12);
+xlabel('Beta');
+ylabel('Theta');
+title('Mean rate');
+
+h3=figure;
+rr = alpha*log(1+exp(mean(betas)*xx+mean(thetas)));
+plot(xx,rr,'g');
+yy = ylim();
+hold on
+plot(xx,pp/max(pp)*yy(2)*0.8,'k');
+rr = alpha*log(1+exp(1*xx+mean(thetas)));
+plot(xx,rr/max(rr)*yy(2),'r');
+rr = alpha*log(1+exp(0.1*xx+mean(thetas)));
+rr = rr-min(rr);
+plot(xx,rr/max(rr)*yy(2),'m');
+xlabel('Generating signal');
+ylabel('Firing rate');
+
+%%
+fig_width = 6; rel_height = 0.8;
+figufy(h1);
+fname = [fig_dir 'Beta_theta_info.pdf'];
+exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(h1);
+
+figufy(h2);
+fname = [fig_dir 'Beta_theta_rate.pdf'];
+exportfig(h2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(h2);
+
+figufy(h3);
+fname = [fig_dir 'Beta_theta_examps.pdf'];
+exportfig(h3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(h3);
+
+%%
+h1 = figure;
+imagesc(beta_range,theta_range,sqrt(info)'); set(gca,'ydir','normal');
+hold on
+plot(betas,thetas,'wo','linewidth',2);
+plot(mean(betas),mean(thetas),'g*','linewidth',2,'markersize',12);
+plot(1,mean(thetas),'r*','linewidth',2,'markersize',12);
+plot(0.1,mean(thetas),'m*','linewidth',2,'markersize',12);
+xlabel('Beta');
+ylabel('Theta');
+title('SS Info');
+xlim([0 0.75]);
+ylim([-4 0])
+caxis([0 0.6])
+
+h2=figure;
+imagesc(beta_range,theta_range,sqrt(mrate)');set(gca,'ydir','normal');
+hold on
+plot(betas,thetas,'wo','linewidth',2);
+plot(mean(betas),mean(thetas),'g*','linewidth',2,'markersize',12);
+plot(1,mean(thetas),'r*','linewidth',2,'markersize',12);
+plot(0.1,mean(thetas),'m*','linewidth',2,'markersize',12);
+xlabel('Beta');
+ylabel('Theta');
+title('Mean rate');
+xlim([0 0.75]);
+ylim([-4 0])
+caxis([0 0.6])
+
+fig_width = 6; rel_height = 0.8;
+figufy(h1);
+fname = [fig_dir 'Beta_theta_info_zoom.pdf'];
+exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(h1);
+
+figufy(h2);
+fname = [fig_dir 'Beta_theta_rate_zoom.pdf'];
+exportfig(h2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(h2);

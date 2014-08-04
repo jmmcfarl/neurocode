@@ -1,0 +1,30 @@
+function [lf_features,t_axis,Fs] = hsmm_uds_get_lf_features(sig,Fs_orig,dsf,cut_off_freqs)
+
+% compute 'low-frequency amplitude' signal feature from input signal sig
+%
+% Input: 
+%       sig: signal to be analyzed
+%       Fs_orig:  sample frequency of sig (Hz)
+%       dsf: desired down-sample factor
+%       cut_off_freqs: 2-element vector containing the desired low and
+%       high-cutoff frequencies in Hz (Default: [0.05 2]).  Setting either
+%       cutoff frequency to Nan will produce either high-pass or low-pass
+%       filtering rather than band-pass filtering
+%              
+% Output:
+%        lf_features: filtered and down-sampled signal amplitude
+%        t_axis: associated time-axis (in seconds)
+%        Fs: sample-frequency of lf_features
+
+Fs = raw_Fs/dsf;
+niqf = raw_Fs/2;
+lcf = cut_off_freqs(1); %low cut-off for the low-freq filter
+hcf = cut_off_freqs(2); %high cut-off for the low-freq filter
+
+[b,a] = butter(2,[lcf/niqf hcf/niqf]);
+
+%compute low-freq observations
+obs_lf = filtfilt(b,a,raw_data);
+obs_lf = zscore(downsample(obs_lf,dsf));
+lf_features = obs_lf(:);
+t_axis = (1:length(lf_features))/Fs;
