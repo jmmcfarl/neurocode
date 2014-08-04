@@ -1,7 +1,0 @@
-function [dev,full_LL,mod_LL] = deviance(mod_r,r_obs)
-
-mod_LL = nansum(r_obs.*log(mod_r) - mod_r);
-full_LL = nansum(r_obs.*log(r_obs) - r_obs);
-dev = 2*(full_LL-mod_LL);
-
-null_rate = mean(r_obs

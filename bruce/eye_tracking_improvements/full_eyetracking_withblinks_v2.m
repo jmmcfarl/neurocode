@@ -159,7 +159,7 @@ if ismember(Expt_num,[287 289 294])
     spatial_usfac = 4;
 elseif ismember(Expt_num,[296 297])
     use_nPix = 22;
-    spatial_usfac = 2;
+    spatial_usfac = 1;
 end
 
 n_fix_inf_it = 3; %3
@@ -408,7 +408,7 @@ for ee = 1:n_blocks;
         end
     end
     trial_cnt = trial_cnt + n_trials;
-            all_trial_rptframes = [all_trial_rptframes; cur_nrpt_frames];
+    all_trial_rptframes = [all_trial_rptframes; cur_nrpt_frames];
     
     %need to keep track of block time offsets for LP recordings
     if strcmp(rec_type,'LP')
@@ -480,8 +480,10 @@ for i = 1:n_blocks
 end
 
 %% PROCESS EYE TRACKING DATA
+em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+
 % [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset);
-[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset,good_coils);
+[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,em_block_nums,Expt_name,trial_toffset,good_coils);
 interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);
 
 %compute corrected eye data in bar-oriented frame

@@ -1,7 +1,0 @@
-function mod = update_ARD_priors(mod)
-
-nmods = length(mod.mods);
-
-for i = 1:nmods
-   mod.mods(i).lambda_L2x = nmods/sum(mod.mods(i).k.^2);     
-end
