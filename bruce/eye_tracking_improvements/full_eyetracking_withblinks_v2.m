@@ -5,11 +5,11 @@ addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV
 
-Expt_name = 'M296';
+Expt_name = 'M297';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
-recompute_init_mods = 0; %use existing initial models?
+recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
 use_sac_kerns = 1; %use sac-modulation kernels
 
@@ -42,6 +42,10 @@ if strcmp(rec_type,'LP')
             bar_ori = 40;
         case 296
             bar_ori = 45;
+        case 297
+            if ~ismember(bar_ori,[0 90])
+                error('M297 is either 0 or 90 deg bars');
+            end
     end
 end
 
@@ -153,10 +157,9 @@ spatial_usfac = 2;
 if ismember(Expt_num,[287 289 294])
     use_nPix = 15;
     spatial_usfac = 4;
-elseif ismember(Expt_num,[296])
+elseif ismember(Expt_num,[296 297])
     use_nPix = 22;
-%     spatial_usfac = 2;
-    spatial_usfac = 1;
+    spatial_usfac = 2;
 end
 
 n_fix_inf_it = 3; %3

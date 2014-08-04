@@ -1,5 +1,5 @@
 clear all
-Expt_name = 'M296';
+Expt_name = 'M297';
 Expt_num = str2num(Expt_name(2:end));
 if Expt_num > 280 
     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
@@ -35,7 +35,7 @@ end
 %    end
 %     
 % end
-% 
+
 %%
 
 if strcmp(rec_type,'LP')
@@ -58,6 +58,8 @@ if strcmp(rec_type,'LP')
             bar_ori = 40;
         case 296
             bar_ori = 45;
+        case 297
+            bar_ori = [0 90];
     end
 end
 
@@ -97,10 +99,10 @@ expt_has_ds(expt_has_ds == -1) = 0;
 expt_binoc(isnan(expt_binoc)) = 0;
 
 if strcmp(rec_type,'LP')
-    expt_bar_ori(expt_bar_ori > 360) = bar_ori;
+    expt_bar_ori(expt_bar_ori > 360) = bar_ori(1);
 end
 
-cur_block_set = find(included_type & expt_Fr == 1 & expt_bar_ori == bar_ori);
+cur_block_set = find(included_type & expt_Fr == 1 & ismember(expt_bar_ori,bar_ori));
 
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
 n_blocks = length(cur_block_set);
@@ -144,6 +146,9 @@ for ee = 1:n_blocks;
     for tt = 1:n_trials
         if isfield(Expts{cur_block}.Trials(tt),'rptframes')
             cur_rpt_frames = Expts{cur_block}.Trials(tt).rptframes;
+            
+%             cur_rpt_frames(cur_rpt_frames == 1) = [];
+            
             if ~isempty(cur_rpt_frames)
                 n_frames = size(left_stim_mats{use_trials(tt)},1);
                 frame_vec = 1:n_frames;
@@ -160,8 +165,8 @@ for ee = 1:n_blocks;
         end
     end
     
-%     out_fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
-%     save(out_fname,'left_stim_mats','right_stim_mats','stim_nframes','stim_binoc');
+    out_fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
+    save(out_fname,'left_stim_mats','right_stim_mats','stim_nframes','stim_binoc');
     
 end
 

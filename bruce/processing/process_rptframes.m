@@ -1,5 +1,5 @@
 clear all
-Expt_name = 'M296';
+Expt_name = 'M297';
 Expt_num = str2num(Expt_name(2:end));
 if Expt_num > 280 
     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
@@ -35,7 +35,7 @@ end
 %    end
 %     
 % end
-% 
+
 %%
 
 if strcmp(rec_type,'LP')
@@ -58,6 +58,8 @@ if strcmp(rec_type,'LP')
             bar_ori = 40;
         case 296
             bar_ori = 45;
+        case 297
+            bar_ori = [0 90];
     end
 end
 
@@ -97,10 +99,10 @@ expt_has_ds(expt_has_ds == -1) = 0;
 expt_binoc(isnan(expt_binoc)) = 0;
 
 if strcmp(rec_type,'LP')
-    expt_bar_ori(expt_bar_ori > 360) = bar_ori;
+    expt_bar_ori(expt_bar_ori > 360) = bar_ori(1);
 end
 
-cur_block_set = find(included_type & expt_Fr == 1 & expt_bar_ori == bar_ori);
+cur_block_set = find(included_type & expt_Fr == 1 & ismember(expt_bar_ori,bar_ori));
 
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
 n_blocks = length(cur_block_set);

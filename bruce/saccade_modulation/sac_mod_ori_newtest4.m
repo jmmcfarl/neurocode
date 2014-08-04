@@ -2,7 +2,7 @@ clear all
 % close all
 addpath('~/James_scripts/bruce/eye_tracking/');
 
-fig_dir = '/home/James/Analysis/bruce/saccade_modulation/ori_tuning/';
+fig_dir = '/home/james/Analysis/bruce/saccade_modulation/ori_tuning/';
 
 %run on 86 [0, 90];
 Expt_num = 296;
@@ -457,8 +457,8 @@ L2_mat = generate_L2_mat(L2_params,flen*full_nPix);
 
 other_reg_params = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'lambda_L2',lambda_L2,'boundary_conds',[0 0 0]);
 init_reg_params = NMMcreate_reg_params('lambda_custom',[lambda_custom],'lambda_L2',[lambda_L2]);
-% for ss = 1:length(su_probes)
-ss=1;
+for ss = 1:length(su_probes)
+% ss=1;
 fprintf('Computing base LLs for SU %d of %d\n',ss,length(su_probes));
     cur_tr_inds = tr_inds(~isnan(all_binned_sua(used_inds(tr_inds),ss)));
     cur_xv_inds = xv_inds(~isnan(all_binned_sua(used_inds(xv_inds),ss)));
@@ -478,26 +478,26 @@ fprintf('Computing base LLs for SU %d of %d\n',ss,length(su_probes));
         [~,~,cprate] = NMMmodel_eval(gqm1,Robs,get_Xcell_tInds(X,cur_tr_inds));
         all_su_mods(ss) = gqm1;
     end
-% end
+end
 
 %%
-blag = 2;
-flag = 20;
-all_SU_tavgs = nan(length(su_probes),length(poss_oris),blag+flag+1);
-for ss = 1:length(su_probes)
-    fprintf('SU %d of %d\n',ss,length(su_probes));
-    cur_tr_inds = tr_inds(~isnan(all_binned_sua(used_inds(tr_inds),ss)));
-    tr_NT = length(cur_tr_inds);
-    cur_Robs = all_binned_sua(used_inds(cur_tr_inds),ss);
-    if ~isempty(cur_Robs)
-        for ii = 1:length(poss_oris)
-            [all_SU_tavgs(ss,ii,:),ori_lags] = get_event_trig_avg_v3(cur_Robs,find(all_stim_or(used_inds(cc_uinds)) == poss_oris(ii)),blag,flag);
-        end
-    end
-    su_avgrate(ss) = mean(cur_Robs);
-end
-all_SU_Navgs = bsxfun(@minus,all_SU_tavgs,su_avgrate');
-all_SU_NRavgs = bsxfun(@rdivide,all_SU_Navgs,std(all_SU_Navgs,[],3));
+% blag = 2;
+% flag = 20;
+% all_SU_tavgs = nan(length(su_probes),length(poss_oris),blag+flag+1);
+% for ss = 1:length(su_probes)
+%     fprintf('SU %d of %d\n',ss,length(su_probes));
+%     cur_tr_inds = tr_inds(~isnan(all_binned_sua(used_inds(tr_inds),ss)));
+%     tr_NT = length(cur_tr_inds);
+%     cur_Robs = all_binned_sua(used_inds(cur_tr_inds),ss);
+%     if ~isempty(cur_Robs)
+%         for ii = 1:length(poss_oris)
+%             [all_SU_tavgs(ss,ii,:),ori_lags] = get_event_trig_avg_v3(cur_Robs,find(all_stim_or(used_inds(cc_uinds)) == poss_oris(ii)),blag,flag);
+%         end
+%     end
+%     su_avgrate(ss) = mean(cur_Robs);
+% end
+% all_SU_Navgs = bsxfun(@minus,all_SU_tavgs,su_avgrate');
+% all_SU_NRavgs = bsxfun(@rdivide,all_SU_Navgs,std(all_SU_Navgs,[],3));
 %%
 %create L2 mat
 L2_params = create_L2_params([],[1 uflen*full_nPix],[uflen full_nPix],2,3,[Inf -1]);
