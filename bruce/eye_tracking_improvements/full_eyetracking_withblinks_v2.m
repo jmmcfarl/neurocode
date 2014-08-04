@@ -6,7 +6,7 @@ addpath('~/James_scripts/bruce/processing/');
 global Expt_name bar_ori use_LOOXV
 
 Expt_name = 'M296';
-use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
+use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
 recompute_init_mods = 0; %use existing initial models?
@@ -356,7 +356,7 @@ for ee = 1:n_blocks;
     end
     
     fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
-    load(fname);
+   load(fname);
     buffer_pix = floor((expt_npix(cur_block) - full_nPix)/2);
     if buffer_pix == -1
         for ii = 1:length(left_stim_mats)
@@ -583,67 +583,68 @@ for ii = 1:n_fixs
     pfix_ids(cur_inds) = ii;
 end
 %% INCORPORATE MEASURED EYE-POSITIONS
-% if use_measured_pos > 0
-%     fprintf('Incorporating measured eye-corrections\n');
-%     
-%     if good_coils(1) == 1 && good_coils(2) == 0
-%         init_eyepos = corrected_eye_vals_interp(:,2);
-%     elseif good_coils(2) == 1 && good_coils(1) == 0
-%         init_eyepos = corrected_eye_vals_interp(:,4);
-%     elseif all(good_coils == 1)
-%         init_eyepos = mean(corrected_eye_vals_interp(:,[2 4]),2);
-%     end
-%     init_eyepos(isnan(init_eyepos)) = 0;
-%     
-%     %smooth out fast transients in eye signal
-%     eye_smooth_sig = round(0.025/dt);
-%     interp_inds = [];
-%     for ii = 1:n_fixs
-%         cur_inds = fix_start_inds(ii):fix_stop_inds(ii);
-%         if length(cur_inds) > eye_smooth_sig*5;
-%             init_eyepos(used_inds(cur_inds)) = jmm_smooth_1d_cor(init_eyepos(used_inds(cur_inds)),eye_smooth_sig,2);
-%         end
-%         interp_inds = [interp_inds; cur_inds'];
-%     end
-%     interp_inds = unique(interp_inds);
-%     init_eyepos(used_inds) = interp1(used_inds(interp_inds),init_eyepos(used_inds(interp_inds)),used_inds);
-%     
-%     %subtract off within-block median
-%     for ii = 1:length(cur_block_set)
-%         cur_inds = find(all_blockvec(used_inds) == ii);
-%         init_eyepos(cur_inds,:) = bsxfun(@minus,init_eyepos(cur_inds,:),nanmedian(init_eyepos(cur_inds,:)));
-%     end
-%     
-%     if use_measured_pos == 2
-%         %subtract off within-trial median
-%         for ii = 1:length(trial_start_inds)
-%             cur_inds = trial_start_inds(ii):trial_end_inds(ii);
-%             init_eyepos(used_inds(cur_inds),:) = bsxfun(@minus,init_eyepos(used_inds(cur_inds),:),nanmedian(init_eyepos(used_inds(cur_inds),:)));
-%         end
-%     end
-%     
-%     if use_measured_pos == 3
-%         fprintf('Using random init eye-positions\n');
-%         init_eye_SD = 0.075;
-%         rand_fixpos = randn(n_fixs,1)*init_eye_SD;
-%         for nn = 1:n_fixs
-%             init_eyepos(used_inds(fix_ids == nn)) = rand_fixpos(nn);
-%         end
-%     end
-%     
-%     %maximum initial corrections
-%     max_sim_pos = 0.85; %in deg
-%     init_eyepos(init_eyepos > max_sim_pos) = max_sim_pos;
-%     init_eyepos(init_eyepos < - max_sim_pos) = -max_sim_pos;
-%     
-%     init_eyepos_rnd = round(init_eyepos/sp_dx);
-%     init_eyepos_rnd(isnan(init_eyepos_rnd)) = 0;
-%     all_stimmat_shift = all_stimmat_up;
-%     for ii = 1:NT
-%         all_stimmat_shift(used_inds(ii),:) = shift_matrix_Nd(all_stimmat_up(used_inds(ii),:),-init_eyepos_rnd(used_inds(ii)),2);
-%     end
-%     all_Xmat_us = create_time_embedding(all_stimmat_shift,stim_params_us);
-% end
+rand_fixpos = nan(n_fixs,1);
+if use_measured_pos > 0
+    fprintf('Incorporating measured eye-corrections\n');
+    
+    if good_coils(1) == 1 && good_coils(2) == 0
+        init_eyepos = corrected_eye_vals_interp(:,2);
+    elseif good_coils(2) == 1 && good_coils(1) == 0
+        init_eyepos = corrected_eye_vals_interp(:,4);
+    elseif all(good_coils == 1)
+        init_eyepos = mean(corrected_eye_vals_interp(:,[2 4]),2);
+    end
+    init_eyepos(isnan(init_eyepos)) = 0;
+    
+    %smooth out fast transients in eye signal
+    eye_smooth_sig = round(0.025/dt);
+    interp_inds = [];
+    for ii = 1:n_fixs
+        cur_inds = fix_start_inds(ii):fix_stop_inds(ii);
+        if length(cur_inds) > eye_smooth_sig*5;
+            init_eyepos(used_inds(cur_inds)) = jmm_smooth_1d_cor(init_eyepos(used_inds(cur_inds)),eye_smooth_sig,2);
+        end
+        interp_inds = [interp_inds; cur_inds'];
+    end
+    interp_inds = unique(interp_inds);
+    init_eyepos(used_inds) = interp1(used_inds(interp_inds),init_eyepos(used_inds(interp_inds)),used_inds);
+    
+    %subtract off within-block median
+    for ii = 1:length(cur_block_set)
+        cur_inds = find(all_blockvec(used_inds) == ii);
+        init_eyepos(cur_inds,:) = bsxfun(@minus,init_eyepos(cur_inds,:),nanmedian(init_eyepos(cur_inds,:)));
+    end
+    
+    if use_measured_pos == 2
+        %subtract off within-trial median
+        for ii = 1:length(trial_start_inds)
+            cur_inds = trial_start_inds(ii):trial_end_inds(ii);
+            init_eyepos(used_inds(cur_inds),:) = bsxfun(@minus,init_eyepos(used_inds(cur_inds),:),nanmedian(init_eyepos(used_inds(cur_inds),:)));
+        end
+    end
+    
+    if use_measured_pos == 3
+        fprintf('Using random init eye-positions\n');
+        init_eye_SD = 0.075;
+        rand_fixpos = randn(n_fixs,1)*init_eye_SD;
+        for nn = 1:n_fixs
+            init_eyepos(used_inds(fix_ids == nn)) = rand_fixpos(nn);
+        end
+    end
+    
+    %maximum initial corrections
+    max_sim_pos = 0.85; %in deg
+    init_eyepos(init_eyepos > max_sim_pos) = max_sim_pos;
+    init_eyepos(init_eyepos < - max_sim_pos) = -max_sim_pos;
+    
+    init_eyepos_rnd = round(init_eyepos/sp_dx);
+    init_eyepos_rnd(isnan(init_eyepos_rnd)) = 0;
+    all_stimmat_shift = all_stimmat_up;
+    for ii = 1:NT
+        all_stimmat_shift(used_inds(ii),:) = shift_matrix_Nd(all_stimmat_up(used_inds(ii),:),-init_eyepos_rnd(used_inds(ii)),2);
+    end
+    all_Xmat_us = create_time_embedding(all_stimmat_shift,stim_params_us);
+end
 
 %% Create set of TR and XV trials
 use_trials = unique(all_trialvec(used_inds));
@@ -1847,6 +1848,7 @@ et_params = struct('beg_buffer',beg_buffer,'end_buffer',end_buffer,'min_trial_du
     'drift_dsf',drift_dsf,'n_fix_inf_it',n_fix_inf_it,'n_drift_inf_it',n_drift_inf_it,'use_sac_kerns',use_sac_kerns,'shifts',shifts,...
     'use_measured_pos',use_measured_pos,'sac_bincents',sac_bincents,'spatial_usfac',spatial_usfac,'sac_shift',sac_shift,'use_coils',use_coils,'sp_dx',sp_dx);
 
+et_rand_fixpos = rand_fixpos;
 et_used_inds = used_inds;
 et_tr_set = tr_set;
 et_tr_trials = tr_trials;
@@ -1855,7 +1857,7 @@ et_saccades = saccades;
 et_is_blink = is_blink;
 et_clust_data = Clust_data;
 cd(anal_dir);
-save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set','et_clust_data','et_saccades','et_is_blink','et_params','et_tr_trials','et_xv_trials');
+save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set','et_clust_data','et_saccades','et_is_blink','et_params','et_tr_trials','et_xv_trials','et_rand_fixpos');
 
 %%
 fin_fix_corr = nan(NT,1);

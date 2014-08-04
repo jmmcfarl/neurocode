@@ -3,7 +3,7 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData
-Expt_name = 'M296';
+Expt_name = 'M297';
 
 Expt_num = str2num(Expt_name(2:end));
 if Expt_name(1) == 'M'
@@ -270,7 +270,7 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-pair = [25 26];
+pair = [29 31];
 spk_pts = [-12:27];
 
 probe1 = SU_clust_data(pair(1)).probe_num;
@@ -333,6 +333,8 @@ switch Expt_name
         init_use_SUs = [3 6 8 9 10 11 13 15 18 22]; %M294
     case 'M296'
         init_use_SUs = [11 13 15 16 17 18 21 23 26];
+    case 'M297'
+        init_use_SUs = [1 2 3 4 5 6 10 13 14 18 23 24 25 31 32];
 
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
@@ -480,6 +482,23 @@ switch Expt_name
         SU_ID_mat([4 5 6],21) = nan;
         SU_ID_mat([1:4 12 13],23) = nan;
         SU_ID_mat([14:end],26) = nan;
+    case 'M297'
+        SU_ID_mat([1:2 26:29],1) = nan;
+        SU_ID_mat([1:2 6 30],2) = nan;
+        SU_ID_mat(~isnan(SU_ID_mat(:,2)),2) = 1; %probe 2 and 1 are picking up the same unit
+        SU_ID_mat([2],3) = nan;
+        SU_ID_mat([1:16],4) = nan;
+        SU_ID_mat([2],5) = nan;
+        SU_ID_mat([1 2],6) = nan;
+        SU_ID_mat([2 7],10) = nan;
+        SU_ID_mat([1 2],13) = nan;
+        SU_ID_mat([2],14) = nan;
+        SU_ID_mat([2 5 6 7 16:29],18) = nan;
+        SU_ID_mat([1:9],23) = nan;
+        SU_ID_mat([7],24) = nan;
+        SU_ID_mat([1 3 18:30],25) = nan;
+        SU_ID_mat([1:5],31) = nan;
+        SU_ID_mat([1:11],32) = nan;
 end
 
 % figure;
@@ -558,14 +577,6 @@ fprintf('Saving final clustering to %s\n',fname);
 SU_target_blocks = target_blocks;
 save(fname,'SU_clust_data','SU_ID_mat','SU_target_blocks','SU_allBlock_Data');
 
-% load(fname);
-% tempr = ones(length(final_SU_set),1);
-% tempc = ones(max(target_blocks),1);
-% SU_allBlock_Data = struct('Lratios',mat2cell(clust_Lratios,tempr,tempc),'isoDists',mat2cell(clust_iso_dists,tempr,tempc),...
-%     'isoReliable',mat2cell(clust_iso_reliable,tempr,tempc),'dprimes',mat2cell(clust_dprimes,tempr,tempc),...
-%     'refract',mat2cell(clust_refracts,tempr,tempc));
-% 
-% save(fname,'SU_clust_data','SU_ID_mat','SU_target_blocks','SU_allBlock_Data');
 
 %% CREATE SCATTERPLOTS FOR EACH BLOCK [STILL DOESN"T WORK FOR SUS THAT ARE CLUSTERED ON MULTIPLE PROBES ACROSS BLOCKS]
 fin_save_dir = [base_save_dir '/final'];
@@ -581,39 +592,51 @@ for cc = 1:length(final_SU_set)
     cur_SU_num = final_SU_set(cc);
     uu = find(SU_ID_mat == cur_SU_num);
     used_clusts = grid_CLUSTnums(uu);
-    cur_SU_probes = su_pnums(used_clusts);
-    cur_SU_clusts = su_cnums(used_clusts);
-    cur_SU_blocks = grid_BLOCKS(uu);
-    best_probe = mode(cur_SU_probes);
-    best_clust = mode(cur_SU_clusts);
-%     probe_num = su_pnums(ii);
-%     clust_num = su_cnums(ii);
-    fprintf('Printing final cluster figures for Probe %d Unit %d\n',best_probe,cur_SU_num);
-    
-    ref_block = RefClusters{best_probe}.base_block;
-    probe_nums = ones(max(target_blocks),1)*best_probe;
-    probe_nums(cur_SU_blocks) = cur_SU_probes;
-    
-    clust_nums = ones(max(target_blocks),1)*best_clust;
-    clust_nums(cur_SU_blocks) = cur_SU_clusts;
-    
-    clust_ids = ones(max(target_blocks),1)*mode(used_clusts);
-    clust_ids(cur_SU_blocks) = used_clusts;
-%     [full_scatter_fig] = regenerate_allblock_xyscatters_v2(best_probe,target_blocks,best_clust,0);
-    [full_scatter_fig] = regenerate_allblock_xyscatters_v2(ref_block,probe_nums,target_blocks,clust_nums);    set(0,'CurrentFigure',full_scatter_fig);
-    for bb = 1:length(target_blocks)
-        subplot(n_cols,n_rows,bb)
-        if ~isnan(SU_ID_mat(target_blocks(bb),clust_ids(bb)))
-            title(sprintf('Block %d',target_blocks(bb)),'Color','r');
-        else
-            title(sprintf('Block %d',target_blocks(bb)),'Color','k');
+    if ~isempty(used_clusts)
+        cur_SU_probes = su_pnums(used_clusts);
+        cur_SU_clusts = su_cnums(used_clusts);
+        cur_SU_blocks = grid_BLOCKS(uu);
+        best_probe = mode(cur_SU_probes);
+        best_clust = mode(cur_SU_clusts);
+        %     probe_num = su_pnums(ii);
+        %     clust_num = su_cnums(ii);
+        fprintf('Printing final cluster figures for Probe %d Unit %d\n',best_probe,cur_SU_num);
+        
+        ref_block = RefClusters{best_probe}.base_block;
+        probe_nums = ones(max(target_blocks),1)*best_probe;
+        probe_nums(cur_SU_blocks) = cur_SU_probes;
+        
+        clust_nums = ones(max(target_blocks),1)*best_clust;
+        clust_nums(cur_SU_blocks) = cur_SU_clusts;
+        
+        clust_ids = ones(max(target_blocks),1)*mode(used_clusts);
+        clust_ids(cur_SU_blocks) = used_clusts;
+        %     [full_scatter_fig] = regenerate_allblock_xyscatters_v2(best_probe,target_blocks,best_clust,0);
+        [full_scatter_fig] = regenerate_allblock_xyscatters_v2(ref_block,probe_nums,target_blocks,clust_nums);
+        set(0,'CurrentFigure',full_scatter_fig);
+        for bb = 1:length(target_blocks)
+            subplot(n_cols,n_rows,bb)
+            if ~isnan(SU_ID_mat(target_blocks(bb),clust_ids(bb)))
+                title(sprintf('Block %d',target_blocks(bb)),'Color','r');
+            else
+                title(sprintf('Block %d',target_blocks(bb)),'Color','k');
+            end
         end
+        
+        fillPage(full_scatter_fig,'papersize',[14 14]);
+        if length(unique(probe_nums)) > 1
+            pfname_sc = [fin_save_dir sprintf('/Unit%d_Probe',cur_SU_num)];
+            un_pnums = unique(probe_nums);
+            for jj = 1:length(un_pnums)
+               pfname_sc = strcat(pfname_sc,sprintf('%d_',un_pnums(jj))); 
+            end
+            pfname_sc = strcat(pfname_sc,'scatter');
+        else
+            pfname_sc = [fin_save_dir sprintf('/Unit%d_Probe%d_scatter',cur_SU_num,best_probe)];
+        end
+        print(full_scatter_fig,pfname_sc,'-dpng');
+        close(full_scatter_fig);
     end
-    
-    fillPage(full_scatter_fig,'papersize',[14 14]);
-    pfname_sc = [fin_save_dir sprintf('/Unit%d_Probe%d_scatter',cur_SU_num,best_probe)];
-    print(full_scatter_fig,pfname_sc,'-dpng');
-    close(full_scatter_fig);
 end
 
 

@@ -1,12 +1,12 @@
 
 %% JUST PLOT CLUSTER
-block_num = 18;
+block_num = 11;
 probe_num = 23;
 spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_num)];
 plot_GMM_cluster(block_num,probe_num,spk_data_name);
 
 %% SPLIT COMPONENTS
-block_num = 7;
+block_num = 11;
 probe_num = 23;
 spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_num)];
 split_GMM_component(block_num,probe_num,spk_data_name);

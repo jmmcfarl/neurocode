@@ -1,9 +1,9 @@
 
 %% RETRIGGERING
-block_num = 15;
-probe_num = 17;
+block_num = 27;
+probe_num = 23;
 trig_rate = 100;
-trig_sign = 1;
+trig_sign = -1;
 reapply = 0;
 clear add_params
 add_params.try_features = [1 2 4];

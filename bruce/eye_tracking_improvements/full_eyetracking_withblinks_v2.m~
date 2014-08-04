@@ -9,7 +9,7 @@ Expt_name = 'M296';
 use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
-recompute_init_mods = 0; %use existing initial models?
+recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
 use_sac_kerns = 1; %use sac-modulation kernels
 
@@ -355,8 +355,9 @@ for ee = 1:n_blocks;
         all_trial_wi = cat(1,all_trial_wi,nan(length(use_trials),1));
     end
     
-    fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
-    load(fname);
+%     fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
+     fname = sprintf('%s/stims/Expt%d_stim_NZ',data_dir,cur_block);
+   load(fname);
     buffer_pix = floor((expt_npix(cur_block) - full_nPix)/2);
     if buffer_pix == -1
         for ii = 1:length(left_stim_mats)
@@ -583,67 +584,67 @@ for ii = 1:n_fixs
     pfix_ids(cur_inds) = ii;
 end
 %% INCORPORATE MEASURED EYE-POSITIONS
-if use_measured_pos > 0
-    fprintf('Incorporating measured eye-corrections\n');
-    
-    if good_coils(1) == 1 && good_coils(2) == 0
-        init_eyepos = corrected_eye_vals_interp(:,2);
-    elseif good_coils(2) == 1 && good_coils(1) == 0
-        init_eyepos = corrected_eye_vals_interp(:,4);
-    elseif all(good_coils == 1)
-        init_eyepos = mean(corrected_eye_vals_interp(:,[2 4]),2);
-    end
-    init_eyepos(isnan(init_eyepos)) = 0;
-    
-    %smooth out fast transients in eye signal
-    eye_smooth_sig = round(0.025/dt);
-    interp_inds = [];
-    for ii = 1:n_fixs
-        cur_inds = fix_start_inds(ii):fix_stop_inds(ii);
-        if length(cur_inds) > eye_smooth_sig*5;
-            init_eyepos(used_inds(cur_inds)) = jmm_smooth_1d_cor(init_eyepos(used_inds(cur_inds)),eye_smooth_sig,2);
-        end
-        interp_inds = [interp_inds; cur_inds'];
-    end
-    interp_inds = unique(interp_inds);
-    init_eyepos(used_inds) = interp1(used_inds(interp_inds),init_eyepos(used_inds(interp_inds)),used_inds);
-    
-    %subtract off within-block median
-    for ii = 1:length(cur_block_set)
-        cur_inds = find(all_blockvec(used_inds) == ii);
-        init_eyepos(cur_inds,:) = bsxfun(@minus,init_eyepos(cur_inds,:),nanmedian(init_eyepos(cur_inds,:)));
-    end
-    
-    if use_measured_pos == 2
-        %subtract off within-trial median
-        for ii = 1:length(trial_start_inds)
-            cur_inds = trial_start_inds(ii):trial_end_inds(ii);
-            init_eyepos(used_inds(cur_inds),:) = bsxfun(@minus,init_eyepos(used_inds(cur_inds),:),nanmedian(init_eyepos(used_inds(cur_inds),:)));
-        end
-    end
-    
-    if use_measured_pos == 3
-        fprintf('Using random init eye-positions\n');
-        init_eye_SD = 0.075;
-        rand_fixpos = randn(n_fixs,1)*init_eye_SD;
-        for nn = 1:n_fixs
-            init_eyepos(used_inds(fix_ids == nn)) = rand_fixpos(nn);
-        end
-    end
-    
-    %maximum initial corrections
-    max_sim_pos = 0.85; %in deg
-    init_eyepos(init_eyepos > max_sim_pos) = max_sim_pos;
-    init_eyepos(init_eyepos < - max_sim_pos) = -max_sim_pos;
-    
-    init_eyepos_rnd = round(init_eyepos/sp_dx);
-    init_eyepos_rnd(isnan(init_eyepos_rnd)) = 0;
-    all_stimmat_shift = all_stimmat_up;
-    for ii = 1:NT
-        all_stimmat_shift(used_inds(ii),:) = shift_matrix_Nd(all_stimmat_up(used_inds(ii),:),-init_eyepos_rnd(used_inds(ii)),2);
-    end
-    all_Xmat_us = create_time_embedding(all_stimmat_shift,stim_params_us);
-end
+% if use_measured_pos > 0
+%     fprintf('Incorporating measured eye-corrections\n');
+%     
+%     if good_coils(1) == 1 && good_coils(2) == 0
+%         init_eyepos = corrected_eye_vals_interp(:,2);
+%     elseif good_coils(2) == 1 && good_coils(1) == 0
+%         init_eyepos = corrected_eye_vals_interp(:,4);
+%     elseif all(good_coils == 1)
+%         init_eyepos = mean(corrected_eye_vals_interp(:,[2 4]),2);
+%     end
+%     init_eyepos(isnan(init_eyepos)) = 0;
+%     
+%     %smooth out fast transients in eye signal
+%     eye_smooth_sig = round(0.025/dt);
+%     interp_inds = [];
+%     for ii = 1:n_fixs
+%         cur_inds = fix_start_inds(ii):fix_stop_inds(ii);
+%         if length(cur_inds) > eye_smooth_sig*5;
+%             init_eyepos(used_inds(cur_inds)) = jmm_smooth_1d_cor(init_eyepos(used_inds(cur_inds)),eye_smooth_sig,2);
+%         end
+%         interp_inds = [interp_inds; cur_inds'];
+%     end
+%     interp_inds = unique(interp_inds);
+%     init_eyepos(used_inds) = interp1(used_inds(interp_inds),init_eyepos(used_inds(interp_inds)),used_inds);
+%     
+%     %subtract off within-block median
+%     for ii = 1:length(cur_block_set)
+%         cur_inds = find(all_blockvec(used_inds) == ii);
+%         init_eyepos(cur_inds,:) = bsxfun(@minus,init_eyepos(cur_inds,:),nanmedian(init_eyepos(cur_inds,:)));
+%     end
+%     
+%     if use_measured_pos == 2
+%         %subtract off within-trial median
+%         for ii = 1:length(trial_start_inds)
+%             cur_inds = trial_start_inds(ii):trial_end_inds(ii);
+%             init_eyepos(used_inds(cur_inds),:) = bsxfun(@minus,init_eyepos(used_inds(cur_inds),:),nanmedian(init_eyepos(used_inds(cur_inds),:)));
+%         end
+%     end
+%     
+%     if use_measured_pos == 3
+%         fprintf('Using random init eye-positions\n');
+%         init_eye_SD = 0.075;
+%         rand_fixpos = randn(n_fixs,1)*init_eye_SD;
+%         for nn = 1:n_fixs
+%             init_eyepos(used_inds(fix_ids == nn)) = rand_fixpos(nn);
+%         end
+%     end
+%     
+%     %maximum initial corrections
+%     max_sim_pos = 0.85; %in deg
+%     init_eyepos(init_eyepos > max_sim_pos) = max_sim_pos;
+%     init_eyepos(init_eyepos < - max_sim_pos) = -max_sim_pos;
+%     
+%     init_eyepos_rnd = round(init_eyepos/sp_dx);
+%     init_eyepos_rnd(isnan(init_eyepos_rnd)) = 0;
+%     all_stimmat_shift = all_stimmat_up;
+%     for ii = 1:NT
+%         all_stimmat_shift(used_inds(ii),:) = shift_matrix_Nd(all_stimmat_up(used_inds(ii),:),-init_eyepos_rnd(used_inds(ii)),2);
+%     end
+%     all_Xmat_us = create_time_embedding(all_stimmat_shift,stim_params_us);
+% end
 
 %% Create set of TR and XV trials
 use_trials = unique(all_trialvec(used_inds));
@@ -731,7 +732,7 @@ if ~exist(['./' mod_data_name '.mat'],'file') || recompute_init_mods == 1
     all_mod_SU = zeros(tot_nUnits,1);
     all_mod_SUnum = zeros(tot_nUnits,1);
     
-    for ss = 25:tot_nUnits
+    for ss = 1:tot_nUnits
         fprintf('Computing base LLs for Unit %d of %d\n',ss,n_probes+tot_sus);
         cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
         cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
@@ -841,7 +842,7 @@ if ~exist(['./' mod_data_name '.mat'],'file') || recompute_init_mods == 1
            null_xvLL(ss) = nan;
         end
     end
-%     save(mod_data_name,'all_mod*','all_nullmod','Clust_data','null_xvLL','null_LL','*_trials');
+    save(mod_data_name,'all_mod*','all_nullmod','Clust_data','null_xvLL','null_LL','*_trials');
 else
     fprintf('Loading pre-computed initial models\n');
     load(mod_data_name);
