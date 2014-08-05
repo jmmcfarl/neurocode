@@ -2,7 +2,7 @@ clear all
 close all
 addpath('~/James_scripts/autocluster/');
 
-global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData
+global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
 Expt_name = 'M297';
 
 Expt_num = str2num(Expt_name(2:end));
@@ -75,14 +75,15 @@ elseif strcmp(Expt_name,'G093')
     target_blocks(target_blocks == 28 | target_blocks == 52) = [];
 end
 
+raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
 
 %don't apply to blocks where we dont have the FullV data
 missing_Vdata = [];
 for bb = target_blocks
     if Expt_name(1) == 'M'
-        check_name = [data_dir sprintf('/Expt%dFullV.mat',bb)];
+        check_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
     else
-        check_name = [data_dir sprintf('/Expt%d.p1FullV.mat',bb)];
+        check_name = [data_dir sprintf('/Expt%d.p1FullV.mat',raw_block_nums(bb))];
     end
     if ~exist(check_name,'file')
         missing_Vdata = [missing_Vdata bb];
@@ -218,18 +219,18 @@ end
 % caxis([2 ca(2)]);
 
 %% CHECK SPIKE CORRELATIONS
-block_num = 15;
+block_num = 20;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
 if Expt_name(1) == 'G'
-    sfile = [data_dir sprintf('/Expt%d.p%dFullV.mat',block_num,1)];
+    sfile = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(block_num),1)];
     [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile, false, [100 nan],1);
 else
-    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',block_num)];
-    if Vloaded ~= block_num
+    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(block_num))];
+    if Vloaded ~= raw_block_nums(block_num)
         fprintf('Loading data file %s\n',sfile_name);
         [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
-        Vloaded = block_num;
+        Vloaded = raw_block_nums(block_num);
     end
 end
 
@@ -261,7 +262,7 @@ for ii = 1:length(good_SUs)-1
 end
 max_cond_prob = max(cond_p1,cond_p2);
 
-figure
+figure('name',sprintf('Block %d',block_num));
 imagesc(max_cond_prob); set(gca,'ydir','normal');
 set(gca,'xtick',1:length(good_SUs),'xticklabel',good_SUs);
 set(gca,'ytick',1:length(good_SUs),'yticklabel',good_SUs);
@@ -270,8 +271,23 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-pair = [29 31];
+block_num = 6;
+pair = [25 26];
 spk_pts = [-12:27];
+
+cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
+load(cur_dat_name,'Clusters');
+if Expt_name(1) == 'G'
+    sfile = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(block_num),1)];
+    [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile, false, [100 nan],1);
+else
+    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(block_num))];
+    if Vloaded ~= raw_block_nums(block_num)
+        fprintf('Loading data file %s\n',sfile_name);
+        [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
+        Vloaded = raw_block_nums(block_num);
+    end
+end
 
 probe1 = SU_clust_data(pair(1)).probe_num;
 probe2 = SU_clust_data(pair(2)).probe_num;
@@ -334,7 +350,7 @@ switch Expt_name
     case 'M296'
         init_use_SUs = [11 13 15 16 17 18 21 23 26];
     case 'M297'
-        init_use_SUs = [1 2 3 4 5 6 10 13 14 18 23 24 25 31 32];
+        init_use_SUs = [1 2 4 6 7 10 11 14 19 21 22 23 25 27 28 29];
 
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
@@ -483,22 +499,32 @@ switch Expt_name
         SU_ID_mat([1:4 12 13],23) = nan;
         SU_ID_mat([14:end],26) = nan;
     case 'M297'
-        SU_ID_mat([1:2 26:29],1) = nan;
-        SU_ID_mat([1:2 6 30],2) = nan;
-        SU_ID_mat(~isnan(SU_ID_mat(:,2)),2) = 1; %probe 2 and 1 are picking up the same unit
-        SU_ID_mat([2],3) = nan;
-        SU_ID_mat([1:16],4) = nan;
-        SU_ID_mat([2],5) = nan;
-        SU_ID_mat([1 2],6) = nan;
-        SU_ID_mat([2 7],10) = nan;
-        SU_ID_mat([1 2],13) = nan;
-        SU_ID_mat([2],14) = nan;
-        SU_ID_mat([2 5 6 7 16:29],18) = nan;
-        SU_ID_mat([1:9],23) = nan;
-        SU_ID_mat([7],24) = nan;
-        SU_ID_mat([1 3 18:30],25) = nan;
-        SU_ID_mat([1:5],31) = nan;
-        SU_ID_mat([1:11],32) = nan;
+        SU_ID_mat([5],2) = nan;
+        SU_ID_mat([25],1) = nan;
+%         SU_ID_mat(~isnan(SU_ID_mat(:,2)),2) = 1; %units 1 and 2 are the same
+        
+        SU_ID_mat([6],4) = nan;
+        SU_ID_mat([3:5],11) = nan;
+        SU_ID_mat([3:5 12:end],19) = nan;
+        SU_ID_mat([2:4],23) = nan;
+        SU_ID_mat([3 7:end],25) = nan;
+        SU_ID_mat([19:end],27) = nan;
+        SU_ID_mat([1:2],28) = nan;
+        SU_ID_mat([11:end],29) = nan;
+%         SU_ID_mat(~isnan(SU_ID_mat(:,2)),2) = 1; %probe 2 and 1 are picking up the same unit
+%         SU_ID_mat([2],3) = nan;
+%         SU_ID_mat([1:16],4) = nan;
+%         SU_ID_mat([2],5) = nan;
+%         SU_ID_mat([1 2],6) = nan;
+%         SU_ID_mat([2 7],10) = nan;
+%         SU_ID_mat([1 2],13) = nan;
+%         SU_ID_mat([2],14) = nan;
+%         SU_ID_mat([2 5 6 7 16:29],18) = nan;
+%         SU_ID_mat([1:9],23) = nan;
+%         SU_ID_mat([7],24) = nan;
+%         SU_ID_mat([1 3 18:30],25) = nan;
+%         SU_ID_mat([1:5],31) = nan;
+%         SU_ID_mat([1:11],32) = nan;
 end
 
 % figure;
@@ -721,13 +747,13 @@ for bb = blocks_with_clusters'
         
         
         if Expt_name(1) == 'G'
-            loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',bb,probe_num)];
+            loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(bb),probe_num)];
         else
-            sfile_name = [data_dir sprintf('/Expt%dFullV.mat',bb)];
-            if Vloaded ~= bb
+            sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
+            if Vloaded ~= raw_block_nums(bb)
                 fprintf('Loading data file %s\n',sfile_name);
                 [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
-                Vloaded = bb;
+                Vloaded = raw_block_nums(bb);
             end
         end
     

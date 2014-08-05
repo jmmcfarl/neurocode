@@ -781,9 +781,6 @@ trig_avg_params = struct('mua_sm_sig',mua_sm_sig,'sua_sm_sig',sua_sm_sig,'dt',dt
 
 cd(save_dir)
 sname = 'sac_trig_avg_data';
-% if strcmp(rec_type,'UA') && bar_ori == 90
-%     sname = [sname '_vbars'];
-% end
 sname = [sname sprintf('_ori%d',bar_ori)];
 save(sname,'sua_data','mua_data','gen_data','trig_avg_params');
 

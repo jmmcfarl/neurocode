@@ -16,7 +16,7 @@ all_jbehor_mua_exptnum = [];
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
-    save_dir = ['~/Analysis/bruce/' Expt_name '/sac_mod'];
+    save_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod'];
     cd(save_dir)
     load(sname)
     
