@@ -26,4 +26,6 @@ fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:N
 fin_tot_corr = fin_fix_corr + fin_drift_corr;
 fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
 
-
+%in case you start or within a saccade
+fin_tot_corr(isnan(fin_tot_corr)) = 0;
+fin_tot_std(isnan(fin_tot_std)) = nan;

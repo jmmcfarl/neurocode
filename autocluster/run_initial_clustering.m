@@ -2,7 +2,7 @@ clear all
 close all
 addpath('~/James_scripts/autocluster/');
 
-global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData
+global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
 Expt_name = 'M297';
 
 data_loc = '/media/NTlab_data3/Data/bruce/';

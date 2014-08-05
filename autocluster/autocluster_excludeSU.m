@@ -1,19 +1,19 @@
 function [] = autocluster_excludeSU(block_num,probe_num,exclude_SUs,clust_params)
 
-global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData
+global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
 
 fprintf('Loading block %d Clusters\n',block_num);
 cur_clust_data = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_clust_data,'Clusters');
 
 if Expt_name(1) == 'G'
-    loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',block_num,probe_num)];
+    loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(block_num),probe_num)];
 else
-    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',block_num)];
-    if Vloaded ~= block_num
+    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(block_num))];
+    if Vloaded ~= raw_block_nums(block_num)
         fprintf('Loading data file %s\n',sfile_name);
         [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
-        Vloaded = block_num;
+        Vloaded = raw_block_nums(block_num);
     end
 end
 params = Clusters{probe_num}.params;

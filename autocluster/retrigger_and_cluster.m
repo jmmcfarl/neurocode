@@ -1,6 +1,6 @@
 function [Cdump] = retrigger_and_cluster(RefClusters,block_num,probe_num,trig_rate,trig_sign,reapply,additional_params)
 
-global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData
+global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
 
 if nargin < 5 || isempty(trig_sign)
     trig_sign = -1;
@@ -13,13 +13,13 @@ if nargin < 7
 end
 
 if Expt_name(1) == 'G'
-    loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',block_num,probe_num)];
+    loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(block_num),probe_num)];
 else
-    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',block_num)];
-    if Vloaded ~= block_num
+    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(block_num))];
+    if Vloaded ~= raw_block_nums(block_num)
         fprintf('Loading data file %s\n',sfile_name);
         [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
-        Vloaded = block_num;
+        Vloaded = raw_block_nums(block_num);
     end
 end
 

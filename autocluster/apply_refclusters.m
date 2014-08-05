@@ -2,7 +2,7 @@ clear all
 close all
 addpath('~/James_scripts/autocluster/');
 
-global data_dir base_save_dir init_save_dir spkdata_dir Expt_name Vloaded n_probes loadedData
+global data_dir base_save_dir init_save_dir spkdata_dir Expt_name Vloaded n_probes loadedData raw_block_nums
 Expt_name = 'M297';
 
 Expt_num = str2num(Expt_name(2:end));
@@ -109,7 +109,7 @@ for bb = target_blocks
     %for LP load all Voltage signals for this block
     if Expt_name(1) == 'M'
         sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
-        if Vloaded ~= bb
+        if Vloaded ~= raw_block_nums(bb)
             fprintf('Loading data file %s\n',sfile_name);
             [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
             Vloaded = raw_block_nums(bb);
