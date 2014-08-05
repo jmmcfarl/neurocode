@@ -23,10 +23,13 @@ fitMsacs = false;
 
 
 %%
-n_Gbins = 35;
 poss_gain_d2T = [0 1 5 10 50 100 500 1e3];
 poss_sub_d2T = [1 10 100 1e3 1e4];
+poss_TB_lambdas = [1 5 10 50 100 500];
 
+n_Gbins = 35;
+% TB_lambda = 20;
+TB_relsac_pen = 0.05;
 
 %%
 
@@ -869,7 +872,7 @@ for cc = targs
             %select best lambda using xvLL
             [~,optloc] = max(subspace_xvLL);
             subspace_optL2 = poss_sub_d2T(optloc);
-            sacStimProc(cc).gsac_optL2 = subspace_optL2;
+            sacStimProc(cc).gsac_subspace_optL2 = subspace_optL2;
             
             %now initialize model with optimal d2T lambda and fit to all
             %used data
@@ -971,9 +974,8 @@ for cc = targs
         
         Xtick = -(backlag-1/2):(1):(forlag+1/2);
         n_sbins = length(Xtick);
-%         [LL, penLL, pred_rate, G,gint,fgint] = NMMmodel_eval(cur_GQM, cur_Robs, all_Xmat_shift);
-%         g_tot = G - cur_GQM.spk_NL_params(1);
         
+        %compute a single-valued 'time-since-saccade' parameter
         cur_sac_starts = saccade_start_inds(big_sacs);
         cur_sac_stops = saccade_stop_inds(big_sacs);
         t_since_sac_start = nan(NT,1);
@@ -985,16 +987,47 @@ for cc = targs
             t_since_sac_start(cur_inds(cur_uset)) = slags(cur_uset);
         end
         
+        %initialize 2D TB data using t-since-sac and G
         TB_stim = [t_since_sac_start(cc_uinds) stimG];
-        Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.1),my_prctile(TB_stim(any_sac_inds,2),100-1),n_Gbins);
+        
+        %set G-bins based on prctiles
+        Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.1),my_prctile(TB_stim(any_sac_inds,2),99.9),n_Gbins);
+        
+        %initialize TBs
         TB = TentBasis2D(Xtick, Ytick);
         
+        %this is data within range of the TB centers
         used_data = find(TB_stim(:,1) >= Xtick(1) & TB_stim(:,1) <= Xtick(end) & ...
             TB_stim(:,2) >= Ytick(1) & TB_stim(:,2) <= Ytick(end));
+        
+        udata_tr = find(ismember(used_data,cur_tr_inds));
+        udata_xv = find(ismember(used_data,cur_xv_inds));
+        
+        %process data with TBs
         [TB_Xmat,TB_counts] = TB.InputNL2D(TB_stim(used_data,:));
-        L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[0.05 1]);
+        
+        TB_xvLL = nan(1,length(poss_TB_lambdas));
+        for ll = 1:length(poss_TB_lambdas)
+            fprintf('Fitting TB gsac model lambda %d/%d\n',ll,length(poss_TB_lambdas));
+            cur_TB_lambda = poss_TB_lambdas(ll);
+             %fit a penalized GLM on the TB outputs
+           L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
+            TB_fitmod = regGLM_fit(TB_Xmat(udata_tr,:),cur_Robs(used_data(udata_tr)),L2_params,cur_TB_lambda,[],[],silent);
+            [TB_xvLL(ll)] = regGLM_eval(TB_fitmod,cur_Robs(used_data(udata_xv)),TB_Xmat(udata_xv,:));
+        end
+        
+        %select optimal regularization lambda
+        [~,optloc] = max(poss_TB_lambdas);
+        TB_optL2 = poss_TB_lambdas(optloc);
+        sacStimProc(cc).gsac_TB_optL2 = TB_optL2;
+
+        %fit a penalized GLM on the TB outputs
+        L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
         TB_fitmod = regGLM_fit(TB_Xmat,cur_Robs(used_data),L2_params,TB_lambda,[],[],silent);
         [LL, penLL, pred_rate, G] = regGLM_eval(TB_fitmod,cur_Robs(used_data),TB_Xmat);
+
+        
+        %compute output of TB model
         TB_K = reshape(TB_fitmod.K,n_sbins,n_Gbins)';
         bin_areas = TB.GetBinAreas();
         gsac_TB_dist = TB_counts./bin_areas;

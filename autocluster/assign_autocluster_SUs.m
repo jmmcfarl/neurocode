@@ -350,7 +350,7 @@ switch Expt_name
     case 'M296'
         init_use_SUs = [11 13 15 16 17 18 21 23 26];
     case 'M297'
-        init_use_SUs = [1 2 4 6 7 10 11 14 19 21 22 23 25 27 28 29];
+        init_use_SUs = [1 2 4 6 7 10 11 14 19 21 22 23 27 28 29];
 
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
@@ -499,32 +499,17 @@ switch Expt_name
         SU_ID_mat([1:4 12 13],23) = nan;
         SU_ID_mat([14:end],26) = nan;
     case 'M297'
+        SU_ID_mat([25:28],1) = nan;
         SU_ID_mat([5],2) = nan;
-        SU_ID_mat([25],1) = nan;
-%         SU_ID_mat(~isnan(SU_ID_mat(:,2)),2) = 1; %units 1 and 2 are the same
-        
+        SU_ID_mat(~isnan(SU_ID_mat(:,2)),2) = SU_ID_mat(find(~isnan(SU_ID_mat(:,1)),1),1); %units 1 and 2 are the same
         SU_ID_mat([6],4) = nan;
         SU_ID_mat([3:5],11) = nan;
         SU_ID_mat([3:5 12:end],19) = nan;
         SU_ID_mat([2:4],23) = nan;
-        SU_ID_mat([3 7:end],25) = nan;
         SU_ID_mat([19:end],27) = nan;
-        SU_ID_mat([1:2],28) = nan;
+        SU_ID_mat([1:10],28) = nan;
         SU_ID_mat([11:end],29) = nan;
-%         SU_ID_mat(~isnan(SU_ID_mat(:,2)),2) = 1; %probe 2 and 1 are picking up the same unit
-%         SU_ID_mat([2],3) = nan;
-%         SU_ID_mat([1:16],4) = nan;
-%         SU_ID_mat([2],5) = nan;
-%         SU_ID_mat([1 2],6) = nan;
-%         SU_ID_mat([2 7],10) = nan;
-%         SU_ID_mat([1 2],13) = nan;
-%         SU_ID_mat([2],14) = nan;
-%         SU_ID_mat([2 5 6 7 16:29],18) = nan;
-%         SU_ID_mat([1:9],23) = nan;
-%         SU_ID_mat([7],24) = nan;
-%         SU_ID_mat([1 3 18:30],25) = nan;
-%         SU_ID_mat([1:5],31) = nan;
-%         SU_ID_mat([1:11],32) = nan;
+        SU_ID_mat(~isnan(SU_ID_mat(:,29)),29) = SU_ID_mat(find(~isnan(SU_ID_mat(:,28)),1),28); %units 28 and 29 are the same
 end
 
 % figure;
