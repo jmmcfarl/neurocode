@@ -1,14 +1,14 @@
-% clear all
+clear all
 
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-% Expt_name = 'G086';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-% use_MUA = false;
-% fit_unCor = true; %fit models to uncorrected stim?
+Expt_name = 'M297';
+bar_ori = 90; %bar orientation to use (only for UA recs)
+use_MUA = false;
+fit_unCor = true; %fit models to uncorrected stim?
 
 %%
 %load in array RF position data
@@ -42,6 +42,11 @@ if strcmp(rec_type,'LP')
             bar_ori = 40;
         case 296
             bar_ori = 45;
+        case 297
+            if ~ismember(bar_ori,[0 90])
+                error('M297 is either 0 or 90 deg bars');
+            end
+            
     end
 end
 
@@ -147,7 +152,7 @@ spatial_usfac = 2;
 if ismember(Expt_num,[287 289 294])
     use_nPix = 15;
     spatial_usfac = 4;
-elseif ismember(Expt_num,[296])
+elseif ismember(Expt_num,[296 297])
     use_nPix = 22;
     spatial_usfac = 2;
 end
@@ -168,8 +173,8 @@ switch Expt_num
         full_nPix = 22;
     case 294
         full_nPix = 20;
-    case 296
-        full_nPix = 54;
+%     case 296
+%         full_nPix = 54;
 end
 
 %exclude data at beginning and end of each trial
@@ -222,6 +227,7 @@ all_nfs = cellfun(@(x) x.Stimvals.nf,Expts(cur_block_set));
 if length(unique(all_nfs)) > 1
     fprintf('Warning, multiple different nfs detected: %.4f\n',all_nfs);
 end
+
 %% Spatial resolution
 all_dws = cellfun(@(x) x.Stimvals.dw,Expts(cur_block_set));
 base_sp_dx = mode(all_dws);
@@ -254,7 +260,9 @@ all_trial_end_times = [];
 all_bin_edge_pts = [];
 all_spk_times = cell(n_probes,1);
 all_clust_ids = cell(n_probes,1);
-all_spk_inds = cell(n_probes,1);
+all_spk_inds = cell(n_probes,1);   
+all_trial_rptframes = [];
+
 trial_toffset = zeros(length(cur_block_set),1);
 cur_toffset = 0;
 cur_spkind_offset = 0;
@@ -321,10 +329,14 @@ for ee = 1:n_blocks;
     cur_use_pix = (1:full_nPix) + buffer_pix;
     
     n_trials = length(use_trials);
+    cur_nrpt_frames = zeros(n_trials,1);
     for tt = 1:n_trials
         cur_stim_times = Expts{cur_block}.Trials(use_trials(tt)).Start'/1e4;
         n_frames = size(left_stim_mats{use_trials(tt)},1);
-        if n_frames > 0
+         if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes')
+            cur_nrpt_frames(tt) = length(Expts{cur_block}.Trials(use_trials(tt)).rptframes);
+        end
+       if n_frames > 0
             if length(cur_stim_times) == 1
                 cur_stim_times = (cur_stim_times:dt*Fr:(cur_stim_times + (n_frames-1)*dt*Fr))';
                 cur_stim_times(cur_stim_times > trial_end_times(use_trials(tt))) = [];
@@ -355,7 +367,8 @@ for ee = 1:n_blocks;
         end
     end
     trial_cnt = trial_cnt + n_trials;
-    
+        all_trial_rptframes = [all_trial_rptframes; cur_nrpt_frames];
+
     %need to keep track of block time offsets for LP recordings
     if strcmp(rec_type,'LP')
         trial_toffset(ee) = all_t_bin_edges(end);
@@ -423,7 +436,9 @@ tr_set = et_tr_set;
 
 %% PROCESS EYE TRACKING DATA
 cd(data_dir)
-[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset,good_coils);
+em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+
+[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,em_block_nums,Expt_name,trial_toffset,good_coils);
 interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);
 
 %compute corrected eye data in bar-oriented frame

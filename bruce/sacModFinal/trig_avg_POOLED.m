@@ -3,6 +3,43 @@ close all
 clear all
 fig_dir = '/home/james/Analysis/bruce/saccade_modulation/';
 
+
+
+%% LOAD JBE
+base_sname = 'corrected_models';
+base_tname = 'sac_trig_avg_data';
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
+ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+rmfield_list = {};
+
+% all_hor_data = [];
+% all_hor_tdata = [];
+% all_jbehor_sua_exptnum = [];
+% all_jbehor_mua_exptnum = [];
+for ee = 1:length(Expt_list)
+    Expt_name = Expt_list{ee};
+    Expt_num = str2num(Expt_name(2:end));
+    sac_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+    mod_dir = ['~/Analysis/bruce/' Expt_name '/models/'];
+    
+    for ii =  1:2
+        if ~isnan(ori_list(ii,ee))
+            sname = strcat(mod_dir,base_sname,sprintf('_ori%d',ori_list(ii,ee)));
+            load(sname);
+            tname = strcat(sac_dir,base_tname,sprintf('_ori%d',ori_list(ii,ee)));
+            load(tname);
+            
+            ucells = arrayfun(@(x) length(x.unit_data),ModData) > 0;
+            ModData = ModData(ucells);
+            cur_SU_numbers = arrayfun(@(x) x.unit_data.SU_number,ModData);
+            
+            
+            clear ModData
+        end
+    end
+        
+end
+
 %% LOAD JBE HORIZONTAL
 sname = 'sacStimProc_v2';
 tname = 'sac_trig_avg_data6';
