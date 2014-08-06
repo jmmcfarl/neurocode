@@ -1082,9 +1082,9 @@ for cc = targs
         
         %% CREATE TENT_BASIS MODEL OF SACCADE-MODULATION
         fprintf('Estimating tent-basis model\n');
-        xbuff = 3;
+        xbuff = 5;
         
-        Xtick = -(backlag-xbuff-1/2):(1):(forlag+xbuff+1/2);
+        Xtick = -(backlag+xbuff+1/2):(1):(forlag+xbuff+1/2);
         n_sbins = length(Xtick);
         
         %compute a single-valued 'time-since-saccade' parameter
@@ -1094,9 +1094,10 @@ for cc = targs
         for ii = 1:length(cur_sac_starts)
             prev_tstart = find(trial_start_inds <= cur_sac_starts(ii),1,'last');
             next_tstop = find(trial_end_inds >= cur_sac_starts(ii),1,'first');
-            cur_inds = (cur_sac_starts(ii) - backlag):(cur_sac_starts(ii) + forlag);
+            cur_inds = (cur_sac_starts(ii) - backlag - xbuff):(cur_sac_starts(ii) + forlag + xbuff);
             cur_uset = find(cur_inds > trial_start_inds(prev_tstart) & cur_inds < trial_end_inds(next_tstop));
-            t_since_sac_start(cur_inds(cur_uset)) = slags(cur_uset);
+%             t_since_sac_start(cur_inds(cur_uset)) = slags(cur_uset);
+            t_since_sac_start(cur_inds(cur_uset)) = Xtick(cur_uset)+0.5;
         end
         
         %initialize 2D TB data using t-since-sac and G
@@ -1147,7 +1148,7 @@ for cc = targs
         gsac_TB_dist = TB_counts./bin_areas;
         gsac_TB_dist = gsac_TB_dist'/sum(gsac_TB_dist(:));
         gsac_TB_rate = log(1 + exp(TB_K + TB_fitmod.theta));
-        sacStimProc(cc).gsac_TB_rate = gsac_TB_rate;
+        sacStimProc(cc).gsac_TB_rate = gsac_TB_rate(:,xbuff+1:end-xbuff);
         
         %INFO CALS
         cur_avg_rate = mean(cur_Robs(used_data));
@@ -1163,8 +1164,8 @@ for cc = targs
         
         sacStimProc(cc).gsac_ov_TB_info = sum(marg_gdist.*marg_grate.*log2(marg_grate/cur_avg_rate))/cur_avg_rate;
         
-        sacStimProc(cc).gsac_TB_avg_rate = marg_gsacrate;
-        sacStimProc(cc).gsac_TB_info = gsacdep_info./marg_gsacrate;
+        sacStimProc(cc).gsac_TB_avg_rate = marg_gsacrate(xbuff+1:end-xbuff);
+        sacStimProc(cc).gsac_TB_info = gsacdep_info(xbuff+1:end-xbuff)./marg_gsacrate(xbuff+1:end-xbuff);
         sacStimProc(cc).gsac_TB_gdist = marg_gdist;
         sacStimProc(cc).gsac_TB_grate = marg_grate;
                             
