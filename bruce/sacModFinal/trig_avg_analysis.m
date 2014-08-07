@@ -4,7 +4,7 @@ close all
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'M296';
+Expt_name = 'M297';
 bar_ori = 0;
 
 %%
@@ -446,7 +446,11 @@ rpt_trials = find(all_trial_se == rpt_seed);
 used_inds(ismember(all_trialvec(used_inds),rpt_trials)) = [];
 
 %% PROCESS EYE TRACKING DATA
-em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+if isfield(Expts{cur_block_set(1)}.Header,'exptno')
+    em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+else
+    em_block_nums = cur_block_set;
+end
 
 [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,em_block_nums,Expt_name,trial_toffset,good_coils);
 interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);

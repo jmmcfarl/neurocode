@@ -436,7 +436,12 @@ tr_set = et_tr_set;
 
 %% PROCESS EYE TRACKING DATA
 cd(data_dir)
-em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+
+if isfield(Expts{cur_block_set(1)}.Header,'exptno')
+    em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+else
+    em_block_nums = cur_block_set;
+end
 
 [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,em_block_nums,Expt_name,trial_toffset,good_coils);
 interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);
