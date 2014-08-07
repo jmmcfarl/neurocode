@@ -4,7 +4,7 @@ close all
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'M297';
+Expt_name = 'M296';
 bar_ori = 0;
 
 %%
@@ -129,7 +129,7 @@ if any(strcmp(Expt_name,{'G095','M266','M270'}))
     is_sim_msac_expt = true;
 end
 expt_has_simBlanks = false;
-if any(strcmp(Expt_name,{'M296'}))
+if any(strcmp(Expt_name,{'M296','M297'}))
     expt_has_simBlanks = true;
 end
 

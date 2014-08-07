@@ -812,8 +812,8 @@ for cc = targs
         
         %only use indices during guided saccade expts here
         any_sac_inds = find(ismember(cc_uinds,gs_inds));
-        tr_sac_inds = find(ismember(cc_uinds(cur_tr_inds),gs_inds));
-        xv_sac_inds = find(ismember(cc_uinds(cur_xv_inds),gs_inds));
+        tr_sac_inds = cur_tr_inds(ismember(cc_uinds(cur_tr_inds),gs_inds));
+        xv_sac_inds = cur_xv_inds(ismember(cc_uinds(cur_xv_inds),gs_inds));
         
         %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
         cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
@@ -987,7 +987,7 @@ for cc = targs
         %% COMPUTE MODEL-BASED INFORMATION
         n_stim_resamps = 10;
         [sac_spost_info,sac_subpost_info,sac_info] = deal(nan(n_stim_resamps,length(slags)));
-        for jj = 1:n_sac_jitters
+        for jj = 1:n_stim_resamps
             jj
             %             %randomly sample the stimulus and compute firing rate
             %             predictions of models
@@ -1200,7 +1200,7 @@ for cc = targs
             cur_Xsac = Xmsac(cc_uinds,:); %saccade indicator Xmat
                         
             %use all indices for msacs (they happen in all expt types)
-            any_sac_inds = cc_uinds;
+            any_sac_inds = 1:length(cc_uinds);
             tr_sac_inds = cur_tr_inds;
             xv_sac_inds = cur_xv_inds;
             
@@ -1376,7 +1376,7 @@ for cc = targs
             %% COMPUTE MODEL-BASED INFORMATION
             n_stim_resamps = 10;
             [sac_spost_info,sac_subpost_info,sac_info] = deal(nan(n_stim_resamps,length(slags)));
-            for jj = 1:n_sac_jitters
+            for jj = 1:n_stim_resamps
                 jj
                 %             %randomly sample the stimulus and compute firing rate
                 %             predictions of models
