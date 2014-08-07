@@ -1,5 +1,5 @@
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -8,17 +8,17 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% Expt_name = 'M296';
-Expt_name = 'G093';
-% use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% % Expt_name = 'M296';
+% Expt_name = 'G093';
+% % use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
 fit_subMod = true;
-fitUpstream = false;
+fitUpstream = true;
 fitSTA = true;
-fitMsacs = true;
+fitMsacs = false;
 
 
 %%
@@ -795,13 +795,7 @@ for cc = targs
         
         %% FOR GSACS
         cur_Xsac = Xsac(cc_uinds,:); %saccade indicator Xmat
-        
-        %         %set of indices within trange of a saccade (set of data use for
-        %         %fitting sac-kernels)
-        %         any_sac_inds = find(any(Xsac(cc_uinds,:) > 0,2));
-        %         tr_sac_inds = cur_tr_inds(any(Xsac(cc_uinds(cur_tr_inds),:) > 0,2));
-        %         xv_sac_inds = cur_xv_inds(any(Xsac(cc_uinds(cur_xv_inds),:) > 0,2));
-        
+                
         if is_TBT_expt
             gs_trials = find(all_trial_Ff > 0);
             gs_inds = find(ismember(all_trialvec(used_inds),gs_trials));

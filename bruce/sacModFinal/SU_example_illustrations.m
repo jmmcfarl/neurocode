@@ -6,65 +6,65 @@ load(fname);
 fig_dir = '/home/james/Analysis/bruce/saccade_modulation/';
 
 %%
-cc = 103;
-fprintf('Starting model fits for unit %d\n',cc);
-loo_cc = find(loo_set == cc); %index within the LOOXV set
-cc_uinds = full_inds(~isnan(Robs_mat(full_inds,cc))); %set of used indices where this unit was isolated
-
-cur_Robs = Robs_mat(cc_uinds,cc);
-
-cur_GQM = ModData(cc).rectGQM;
-sacStimProc(cc).ModData = ModData(cc);
-sacStimProc(cc).used = true;
-
-fprintf('Reconstructing retinal stim for unit %d\n',cc);
-if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
-    cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-    cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-    cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-    cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-    [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-        cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-    
-    fin_shift_cor = round(fin_tot_corr);
-    
-    %RECOMPUTE XMAT
-    all_shift_stimmat_up = all_stimmat_up;
-    if ~fit_unCor
-        for i=1:NT
-            all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-        end
-    end
-    all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
-    all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-    
-else %otherwise use overall EP sequence
-    all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
-    all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-end
-
-%% FOR GSACS
-cur_Xsac = Xsac(cc_uinds,:); %saccade indicator Xmat
-
-if is_TBT_expt
-    gs_trials = find(all_trial_Ff > 0);
-    gs_inds = find(ismember(all_trialvec(used_inds),gs_trials));
-else
-    gs_blocks = [imback_gs_expts; grayback_gs_expts];
-    gs_inds = find(ismember(all_blockvec(used_inds),gs_blocks));
-end
-
-%only use indices during guided saccade expts here
-any_sac_inds = find(ismember(cc_uinds,gs_inds));
-
-%% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
-cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
-cur_GQM = NMMfit_scale(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
-
-stim_mod_signs = [cur_GQM.mods(:).sign];
-[~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_GQM,cur_Robs,all_Xmat_shift);
-fgint = bsxfun(@times,fgint,stim_mod_signs);
-stimG = sum(fgint,2);
+cc = 101;
+% fprintf('Starting model fits for unit %d\n',cc);
+% loo_cc = find(loo_set == cc); %index within the LOOXV set
+% cc_uinds = full_inds(~isnan(Robs_mat(full_inds,cc))); %set of used indices where this unit was isolated
+% 
+% cur_Robs = Robs_mat(cc_uinds,cc);
+% 
+% cur_GQM = ModData(cc).rectGQM;
+% sacStimProc(cc).ModData = ModData(cc);
+% sacStimProc(cc).used = true;
+% 
+% fprintf('Reconstructing retinal stim for unit %d\n',cc);
+% if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
+%     cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
+%     cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
+%     cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
+%     cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
+%     [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+%         cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+%     
+%     fin_shift_cor = round(fin_tot_corr);
+%     
+%     %RECOMPUTE XMAT
+%     all_shift_stimmat_up = all_stimmat_up;
+%     if ~fit_unCor
+%         for i=1:NT
+%             all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+%         end
+%     end
+%     all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
+%     all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
+%     
+% else %otherwise use overall EP sequence
+%     all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
+%     all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
+% end
+% 
+% %% FOR GSACS
+% cur_Xsac = Xsac(cc_uinds,:); %saccade indicator Xmat
+% 
+% if is_TBT_expt
+%     gs_trials = find(all_trial_Ff > 0);
+%     gs_inds = find(ismember(all_trialvec(used_inds),gs_trials));
+% else
+%     gs_blocks = [imback_gs_expts; grayback_gs_expts];
+%     gs_inds = find(ismember(all_blockvec(used_inds),gs_blocks));
+% end
+% 
+% %only use indices during guided saccade expts here
+% any_sac_inds = find(ismember(cc_uinds,gs_inds));
+% 
+% %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
+% cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+% cur_GQM = NMMfit_scale(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+% 
+% stim_mod_signs = [cur_GQM.mods(:).sign];
+% [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_GQM,cur_Robs,all_Xmat_shift);
+% fgint = bsxfun(@times,fgint,stim_mod_signs);
+% stimG = sum(fgint,2);
 
 %%
 cur_gdist = sacStimProc(cc).gsac_TB_gdist;
@@ -195,14 +195,16 @@ p_ax = sp_dx*((1:use_nPix_us)-use_nPix_us/2);
 
 yy = [-0.35 0.35];
 
-load sacStimProc_sta
-ov_sta = sum(bsxfun(@times,all_Xmat_shift,cur_Robs))/sum(cur_Robs);
-base_a = mean(all_Xmat_shift);
-ov_sta = ov_sta - base_a;
-
-ov_staA = sum(bsxfun(@times,abs(all_Xmat_shift),cur_Robs))/sum(cur_Robs);
-base_a = mean(abs(all_Xmat_shift));
-ov_staA = ov_staA - base_a;
+ov_sta = sacStimProc(cc).ov_phaseDep_sta;
+ov_staA = sacStimProc(cc).ov_phaseInd_sta;
+% load sacStimProc_sta
+% ov_sta = sum(bsxfun(@times,all_Xmat_shift,cur_Robs))/sum(cur_Robs);
+% base_a = mean(all_Xmat_shift);
+% ov_sta = ov_sta - base_a;
+% 
+% ov_staA = sum(bsxfun(@times,abs(all_Xmat_shift),cur_Robs))/sum(cur_Robs);
+% base_a = mean(abs(all_Xmat_shift));
+% ov_staA = ov_staA - base_a;
 
 temp = sacStimProc(cc).gsac_phaseDep_sta;
 tempa = sacStimProc(cc).gsac_phaseInd_sta;
@@ -243,17 +245,17 @@ end
 
 cid = sprintf('E%d_C%d_',Expt_num,cc);
 
-fig_width = 5; rel_height = 3;
-figufy(h1);
-fname = [fig_dir cid 'STAexamps.pdf'];
-exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(h1);
-
-fig_width = 5; rel_height = 4;
-figufy(h2);
-fname = [fig_dir cid 'STAslices.pdf'];
-exportfig(h2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(h2);
+% fig_width = 5; rel_height = 3;
+% figufy(h1);
+% fname = [fig_dir cid 'STAexamps.pdf'];
+% exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(h1);
+% 
+% fig_width = 5; rel_height = 4;
+% figufy(h2);
+% fname = [fig_dir cid 'STAslices.pdf'];
+% exportfig(h2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(h2);
 
 %%
 cur_Filts = reshape([cur_GQM.mods(:).filtK],[flen use_nPix_us length(cur_GQM.mods)]);
@@ -287,14 +289,13 @@ xlabel('Time (s)');
 ylabel('Gain');
 legend('Efilts','Ifilts');
 
-fig_width = 5; rel_height = 2.5;
-figufy(h1);
-fname = [fig_dir cid 'EIkerns.pdf'];
-exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(h1);
+% fig_width = 5; rel_height = 2.5;
+% figufy(h1);
+% fname = [fig_dir cid 'EIkerns.pdf'];
+% exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(h1);
 
 %%
-load sacStimProc_v2
 
 h1=figure;
 plot(slags*dt,sacStimProc(cc).gsacGainMod.gain_kernel);
@@ -386,11 +387,11 @@ ylabel('SS info rate (bits/sec)');
 legend('Post-mod','Pre-post mod','Subspace mod','TB mod');
 xlim(slags([1 end])*dt)
 
-fig_width = 5; rel_height = 1.6;
-figufy(h1);
-fname = [fig_dir cid 'allinfo.pdf'];
-exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(h1);
+% fig_width = 5; rel_height = 1.6;
+% figufy(h1);
+% fname = [fig_dir cid 'allinfo.pdf'];
+% exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(h1);
 
 %%
 tempsub = reshape(sacStimProc(cc).gsac_phaseDep_subfilt,[length(slags) flen use_nPix_us]);
