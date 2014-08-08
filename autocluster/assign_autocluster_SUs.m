@@ -3,7 +3,7 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M297';
+Expt_name = 'G099';
 
 Expt_num = str2num(Expt_name(2:end));
 if Expt_name(1) == 'M'
@@ -14,12 +14,16 @@ end
 
 if Expt_num >= 280
     data_loc = '/media/NTlab_data3/Data/bruce/';
+elseif Expt_num == 99
+    data_loc = '/media/NTlab_data2/Data/bruce/';
 else
     data_loc = '/home/james/Data/bruce/';
 end
 
 if Expt_num >= 281
     data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+elseif Expt_num == 99
+    data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
 else
     data_dir2 = ['/home/james/Data/bruce/' Expt_name];
 end
@@ -75,7 +79,11 @@ elseif strcmp(Expt_name,'G093')
     target_blocks(target_blocks == 28 | target_blocks == 52) = [];
 end
 
+if isfield(Expts{1}.Header,'exptno')
 raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+else
+    raw_block_nums = 1:max(target_blocks);
+end
 
 %don't apply to blocks where we dont have the FullV data
 missing_Vdata = [];
@@ -372,6 +380,8 @@ switch Expt_name
         init_use_SUs = [22 34 48 74 76 86 94]; %for G093 CHECKED
     case 'G095'
         init_use_SUs = [7 9 12 18 44 45 56 60 75 77 90]; %for G095 CHECKED
+    case 'G099'
+        init_use_SUs = [44]; %for G099 CHECKED
     case 'G103'
         init_use_SUs = [38 94]; %G103 CHECKED
 end

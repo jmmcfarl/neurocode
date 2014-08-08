@@ -3,9 +3,10 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M297';
+Expt_name = 'G099';
 
-data_loc = '/media/NTlab_data3/Data/bruce/';
+data_loc = '/media/NTlab_data2/Data/bruce/';
+% data_loc = '/media/NTlab_data3/Data/bruce/';
 % data_loc = '/home/james/Data/bruce/';
 
 base_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
@@ -23,7 +24,8 @@ data_dir = [data_loc Expt_name];
 
 %location of Expts.mat files
 % data_dir2 = ['~/Data/bruce/' Expt_name];
-data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
 
 Vloaded = nan;
 %% LOOK AT DURATION OF EACH EXPERIMENT BLOCK AS A WAY TO PICK A SET OF BASE BLOCKS FOR INITIAL CLUSTERING
@@ -54,10 +56,13 @@ plot(expt_durs,'o-');
 hold on
 plot(sum_trial_durs,'ro-');
 %%
-poss_base_blocks = [6 15 27]; %set of blocks to try fitting initial models on
+poss_base_blocks = [2]; %set of blocks to try fitting initial models on
 target_probes = 1:n_probes;
+if isfield(Expts{1}.Header,'exptno')
 raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
-
+else
+    raw_block_nums = 1:n_blocks;
+end
 %% SET CLUSTERING PARAMETERS
 clear clust_params
 clust_params.gmm_inits = 100; %number of GMM random inits

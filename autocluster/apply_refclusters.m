@@ -3,12 +3,14 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir spkdata_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M297';
+Expt_name = 'G099';
 
 Expt_num = str2num(Expt_name(2:end));
 
 if Expt_num > 280 
     data_loc = '/media/NTlab_data3/Data/bruce/';
+elseif Expt_num == 99
+    data_loc = '/media/NTlab_data2/Data/bruce/';
 else
     data_loc = '/home/james/Data/bruce/';
 end
@@ -55,7 +57,11 @@ force_new_clusters = false; %if you want to
 
 elen = cellfun(@(x) length(x),Expts);
 target_blocks = find(elen > 0);
-raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+if isfield(Expts{1}.Header,'exptno')
+    raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+else
+    raw_block_nums = 1:max(target_blocks);
+end
 
 %don't apply to blocks where we dont have the FullV data
 missing_Vdata = [];

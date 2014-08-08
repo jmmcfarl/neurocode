@@ -763,7 +763,8 @@ for cc = targs
     
     if ~isempty(cc_uinds)
         
-        cur_GQM = ModData(cc).rectGQM;
+        cur_rGQM = ModData(cc).rectGQM;
+        cur_GQM = ModData(cc).bestGQM;
         sacStimProc(cc).ModData = ModData(cc);
         sacStimProc(cc).used = true;
         
@@ -808,16 +809,23 @@ for cc = targs
         any_sac_inds = find(ismember(cc_uinds,gs_inds));
         tr_sac_inds = cur_tr_inds(ismember(cc_uinds(cur_tr_inds),gs_inds));
         xv_sac_inds = cur_xv_inds(ismember(cc_uinds(cur_xv_inds),gs_inds));
-        
+
+        %only use indices during guided saccade expts here
+        within_sac_inds = find(any(Xsac(cc_uinds,:) > 0,2));
+        within_tr_inds = cur_tr_inds(ismember(cur_tr_inds,within_sac_inds));
+        within_xv_inds = cur_xv_inds(ismember(cur_xv_inds,within_sac_inds));
+
         %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
+        cur_rGQM = NMMfit_logexp_spkNL(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+        cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
         cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
         cur_GQM = NMMfit_scale(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
         
-        stim_mod_signs = [cur_GQM.mods(:).sign];
-        [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_GQM,cur_Robs,all_Xmat_shift);
+        stim_mod_signs = [cur_rGQM.mods(:).sign];
+        [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
         fgint = bsxfun(@times,fgint,stim_mod_signs);
         stimG = sum(fgint,2);
-        
+                
         %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
         
         Xsac_tot = bsxfun(@times,cur_Xsac,stimG);
@@ -833,13 +841,15 @@ for cc = targs
         NL_types = {'lin','lin','lin'};
         
         L2_gain_xvLL = nan(length(poss_gain_d2T),1);
+        L2_gain_LL = nan(length(poss_gain_d2T),1);
         for jj = 1:length(poss_gain_d2T)
             sac_reg_params = NMMcreate_reg_params('lambda_d2T',poss_gain_d2T(jj),'boundary_conds',[0 0 0]);
             cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
             cur_mod.mods(1).reg_params = NMMcreate_reg_params();
-            cur_mod.spk_NL_params = cur_GQM.spk_NL_params;
+            cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
             cur_mod = NMMfit_filters(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds),[],[],silent);
             L2_gain_xvLL(jj) = NMMmodel_eval(cur_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(tr_stim,xv_sac_inds));
+            L2_gain_LL(jj) = NMMmodel_eval(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds));
         end
         
         sacStimProc(cc).gsac_L2_gainscan = L2_gain_xvLL;
@@ -870,7 +880,7 @@ for cc = targs
             NL_types = {'lin','lin','lin','lin'};
             post_gsac_EImod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
             post_gsac_EImod.mods(1).reg_params = NMMcreate_reg_params();
-            post_gsac_EImod.spk_NL_params = cur_GQM.spk_NL_params;
+            post_gsac_EImod.spk_NL_params = cur_rGQM.spk_NL_params;
             post_gsac_EImod = NMMfit_filters(post_gsac_EImod,cur_Robs(any_sac_inds),get_Xcell_tInds(tr_stim,any_sac_inds),[],[],silent);
             
             [post_gsac_EImod_LL,~,post_EImod_predrate] = NMMmodel_eval(post_gsac_EImod,cur_Robs,tr_stim);
@@ -892,7 +902,7 @@ for cc = targs
         NL_types = {'lin','lin','lin'};
         post_gsac_Smod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
         post_gsac_Smod.mods(1).reg_params = NMMcreate_reg_params();
-        post_gsac_Smod.spk_NL_params = cur_GQM.spk_NL_params;
+        post_gsac_Smod.spk_NL_params = cur_rGQM.spk_NL_params;
         post_gsac_Smod = NMMfit_filters(post_gsac_Smod,cur_Robs,tr_stim,[],[],silent);
         [post_gsac_Smod_LL,~,post_Smod_predrate] = NMMmodel_eval(post_gsac_Smod,cur_Robs(any_sac_inds),get_Xcell_tInds(tr_stim,any_sac_inds));
         
@@ -906,7 +916,7 @@ for cc = targs
         if fitUpstream
             fprintf('Fitting upstream saccade kernel\n');
             Xsac_mat = Xsac(cc_uinds(any_sac_inds),:);
-            sacGainMod = fit_sacgain_model(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0);
+            sacGainMod = fit_sacgain_model(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0);
             sacStimProc(cc).gsacGainMod = sacGainMod;
             [~,gain_pred_rate] = eval_sacgain_mod( sacGainMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
             sacStimProc(cc).gsac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
@@ -920,18 +930,15 @@ for cc = targs
             
             X{1} = cur_Xsac;
             X{2} = reshape(bsxfun(@times,cur_Xsac,reshape(filt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
-            
+           
             cur_stim_params(1) = NMMcreate_stim_params(length(slags));
-            cur_stim_params(2) = NMMcreate_stim_params([length(slags) length(cur_GQM.mods)]);
+            cur_stim_params(2) = NMMcreate_stim_params([length(slags) length(cur_rGQM.mods)]);
             
             %initialize model with same number (and type) of subunits, but
             %where the filter coefs can mix within the subspace
-            n_subspace_qfilts = 2;
-            mod_signs = [1 1 ones(1,n_subspace_qfilts)];
-            Xtargs = [1 2 2*ones(1,n_subspace_qfilts)];
-            NL_types = {'lin','lin'};
-            NL_types = cat(2,NL_types,repmat({'quad'},1,n_subspace_qfilts));
-            
+            mod_signs = [1 cur_GQM.mods(:).sign];
+            Xtargs = [1 2*ones(1,length(cur_GQM.mods))];
+            NL_types = cat(2,{'lin'},{cur_GQM.mods(:).NLtype});
             modSeq_L2 = 0;
             
             %cycle over a range of possible d2T reg lambdas
@@ -941,12 +948,22 @@ for cc = targs
                 fprintf('Xval %d of %d\n',jj,length(poss_sub_d2T));
                 %use opt d2T lambda from gain/offset model for the offset
                 %kernel
-                reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(modSeq_d2T,1,1+n_subspace_qfilts)]',...
-                    'lambda_L2',[0 repmat(modSeq_L2,1,1+n_subspace_qfilts)]');
+                reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(modSeq_d2T,1,length(mod_signs)-1)]',...
+                    'lambda_L2',[0 repmat(modSeq_L2,1,length(mod_signs)-1)]','boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
                 init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
+                init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf]; %0 boundary on offset term
+                
+                %set initial filters to have no mixing
+                for ii = 1:length(cur_GQM.mods)
+                    init_filt = zeros(length(slags),length(cur_rGQM.mods));
+                    init_filt(:,ii) = 1;
+                    init_mod.mods(ii+1).filtK = init_filt(:);
+                end
                 init_mod.spk_NL_params = cur_GQM.spk_NL_params;
-                subspace_mod = NMMfit_filters(init_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(X,tr_sac_inds),[],[],silent);
-                subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(X,xv_sac_inds));
+                init_mod.mods(1).filtK = post_gsac_Smod.mods(2).filtK;
+                init_mod.spk_NL_params(1) = post_gsac_Smod.spk_NL_params(1);
+                subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_tr_inds),get_Xcell_tInds(X,within_tr_inds),[],[],silent);
+                subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(within_xv_inds),get_Xcell_tInds(X,within_xv_inds));
             end
             %select best lambda using xvLL
             [~,optloc] = max(subspace_xvLL);
@@ -955,11 +972,20 @@ for cc = targs
             
             %now initialize model with optimal d2T lambda and fit to all
             %used data
-            reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,1+n_subspace_qfilts)]',...
-                'lambda_L2',[0 repmat(modSeq_L2,1,1+n_subspace_qfilts)]');
+            reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,length(mod_signs)-1)]',...
+                'lambda_L2',[0 repmat(modSeq_L2,1,length(mod_signs)-1)]','boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
             init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
+            init_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+            init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf];
+            for ii = 1:length(cur_GQM.mods)
+                init_filt = zeros(length(slags),length(cur_rGQM.mods));
+                init_filt(:,ii) = 1;
+                init_mod.mods(ii+1).filtK = init_filt(:);
+            end
             init_mod.spk_NL_params = cur_GQM.spk_NL_params;
-            subspace_mod = NMMfit_filters(init_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds),[],[],silent);
+            init_mod.mods(1).filtK = post_gsac_Smod.mods(2).filtK;
+            init_mod.spk_NL_params(1) = post_gsac_Smod.spk_NL_params(1);
+            subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds),[],[],silent);
             
             %evaluate overall info on anysac inds
             [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
@@ -968,10 +994,11 @@ for cc = targs
             [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
             
             %extract the subspace filters
-            cur_filts = reshape([subspace_mod.mods(2:end).filtK],[length(slags) length(cur_GQM.mods) n_subspace_qfilts+1]);
-            stim_filts = reshape([cur_GQM.mods.filtK],[flen*use_nPix_us length(cur_GQM.mods)]);
-            sacdep_filts = nan(n_subspace_qfilts+1,length(slags),flen*use_nPix_us);
-            for jj = 1:n_subspace_qfilts+1
+            sub_efilts = find(Xtargs == 2 & mod_signs == 1);
+            cur_filts = reshape([subspace_mod.mods(sub_efilts).filtK],[length(slags) length(cur_rGQM.mods) length(sub_efilts)]);
+            stim_filts = reshape([cur_rGQM.mods.filtK],[flen*use_nPix_us length(cur_rGQM.mods)]);
+            sacdep_filts = nan(length(sub_efilts),length(slags),flen*use_nPix_us);
+            for jj = 1:length(sub_efilts)
                 sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
             end
             sacStimProc(cc).gsac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
@@ -986,7 +1013,7 @@ for cc = targs
             %             %randomly sample the stimulus and compute firing rate
             %             predictions of models
             rand_Xmat = all_Xmat_shift(randi(length(cc_uinds),length(cc_uinds),1),:);
-            [~,~,~,~,rfilt_outs,rfgint] = NMMmodel_eval(cur_GQM,cur_Robs,rand_Xmat);
+            [~,~,~,~,rfilt_outs,rfgint] = NMMmodel_eval(cur_rGQM,cur_Robs,rand_Xmat);
             rfgint = bsxfun(@times,rfgint,stim_mod_signs);
             rstimG = sum(rfgint,2);
             
@@ -1197,16 +1224,7 @@ for cc = targs
             any_sac_inds = 1:length(cc_uinds);
             tr_sac_inds = cur_tr_inds;
             xv_sac_inds = cur_xv_inds;
-            
-            %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
-            cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
-            cur_GQM = NMMfit_scale(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
-            
-            stim_mod_signs = [cur_GQM.mods(:).sign];
-            [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_GQM,cur_Robs,all_Xmat_shift);
-            fgint = bsxfun(@times,fgint,stim_mod_signs);
-            stimG = sum(fgint,2);
-            
+                        
             %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
             
             Xsac_tot = bsxfun(@times,cur_Xsac,stimG);
@@ -1226,7 +1244,7 @@ for cc = targs
                 sac_reg_params = NMMcreate_reg_params('lambda_d2T',poss_gain_d2T(jj),'boundary_conds',[0 0 0]);
                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
                 cur_mod.mods(1).reg_params = NMMcreate_reg_params();
-                cur_mod.spk_NL_params = cur_GQM.spk_NL_params;
+                cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
                 cur_mod = NMMfit_filters(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds),[],[],silent);
                 L2_gain_xvLL(jj) = NMMmodel_eval(cur_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(tr_stim,xv_sac_inds));
             end
@@ -1259,7 +1277,7 @@ for cc = targs
                 NL_types = {'lin','lin','lin','lin'};
                 post_msac_EImod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
                 post_msac_EImod.mods(1).reg_params = NMMcreate_reg_params();
-                post_msac_EImod.spk_NL_params = cur_GQM.spk_NL_params;
+                post_msac_EImod.spk_NL_params = cur_rGQM.spk_NL_params;
                 post_msac_EImod = NMMfit_filters(post_msac_EImod,cur_Robs(any_sac_inds),get_Xcell_tInds(tr_stim,any_sac_inds),[],[],silent);
                 
                 [post_msac_EImod_LL,~,post_EImod_predrate] = NMMmodel_eval(post_msac_EImod,cur_Robs,tr_stim);
@@ -1281,7 +1299,7 @@ for cc = targs
             NL_types = {'lin','lin','lin'};
             post_msac_Smod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
             post_msac_Smod.mods(1).reg_params = NMMcreate_reg_params();
-            post_msac_Smod.spk_NL_params = cur_GQM.spk_NL_params;
+            post_msac_Smod.spk_NL_params = cur_rGQM.spk_NL_params;
             post_msac_Smod = NMMfit_filters(post_msac_Smod,cur_Robs,tr_stim,[],[],silent);
             [post_msac_Smod_LL,~,post_Smod_predrate] = NMMmodel_eval(post_msac_Smod,cur_Robs(any_sac_inds),get_Xcell_tInds(tr_stim,any_sac_inds));
             
@@ -1295,7 +1313,7 @@ for cc = targs
             if fitUpstream
                 fprintf('Fitting upstream saccade kernel\n');
                 Xsac_mat = Xsac(cc_uinds(any_sac_inds),:);
-                sacGainMod = fit_sacgain_model(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0);
+                sacGainMod = fit_sacgain_model(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0);
                 sacStimProc(cc).msacGainMod = sacGainMod;
                 [~,gain_pred_rate] = eval_sacgain_mod( sacGainMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
                 sacStimProc(cc).msac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
@@ -1303,69 +1321,87 @@ for cc = targs
             end
             %         sacGainMod = sacStimProc(cc).msacGainMod;
             
-            %% COMPUTE SUBSPAC SAC MODEL
-            if fit_subMod
-                fprintf('Estimating sac-dep subspace model\n');
-                
-                X{1} = cur_Xsac;
-                X{2} = reshape(bsxfun(@times,cur_Xsac,reshape(filt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
-                
-                cur_stim_params(1) = NMMcreate_stim_params(length(slags));
-                cur_stim_params(2) = NMMcreate_stim_params([length(slags) length(cur_GQM.mods)]);
-                
-                %initialize model with same number (and type) of subunits, but
-                %where the filter coefs can mix within the subspace
-                n_subspace_qfilts = 2;
-                mod_signs = [1 1 ones(1,n_subspace_qfilts)];
-                Xtargs = [1 2 2*ones(1,n_subspace_qfilts)];
-                NL_types = {'lin','lin'};
-                NL_types = cat(2,NL_types,repmat({'quad'},1,n_subspace_qfilts));
-                
-                modSeq_L2 = 0;
-                
-                %cycle over a range of possible d2T reg lambdas
-                subspace_xvLL = nan(length(poss_sub_d2T),1);
-                for jj = 1:length(poss_sub_d2T)
-                    modSeq_d2T = poss_sub_d2T(jj);
-                    fprintf('Xval %d of %d\n',jj,length(poss_sub_d2T));
-                    %use opt d2T lambda from gain/offset model for the offset
-                    %kernel
-                    reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(modSeq_d2T,1,1+n_subspace_qfilts)]',...
-                        'lambda_L2',[0 repmat(modSeq_L2,1,1+n_subspace_qfilts)]');
-                    init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
-                    init_mod.spk_NL_params = cur_GQM.spk_NL_params;
-                    subspace_mod = NMMfit_filters(init_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(X,tr_sac_inds),[],[],silent);
-                    subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(X,xv_sac_inds));
-                end
-                %select best lambda using xvLL
-                [~,optloc] = max(subspace_xvLL);
-                subspace_optL2 = poss_sub_d2T(optloc);
-                sacStimProc(cc).msac_subspace_optL2 = subspace_optL2;
-                
-                %now initialize model with optimal d2T lambda and fit to all
-                %used data
-                reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,1+n_subspace_qfilts)]',...
-                    'lambda_L2',[0 repmat(modSeq_L2,1,1+n_subspace_qfilts)]');
+        %% COMPUTE SUBSPAC SAC MODEL
+        if fit_subMod
+            fprintf('Estimating sac-dep subspace model\n');
+            
+            X{1} = cur_Xsac;
+            X{2} = reshape(bsxfun(@times,cur_Xsac,reshape(filt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
+           
+            cur_stim_params(1) = NMMcreate_stim_params(length(slags));
+            cur_stim_params(2) = NMMcreate_stim_params([length(slags) length(cur_rGQM.mods)]);
+            
+            %initialize model with same number (and type) of subunits, but
+            %where the filter coefs can mix within the subspace
+            mod_signs = [1 cur_GQM.mods(:).sign];
+            Xtargs = [1 2*ones(1,length(cur_GQM.mods))];
+            NL_types = cat(2,{'lin'},{cur_GQM.mods(:).NLtype});
+            modSeq_L2 = 0;
+            
+            %cycle over a range of possible d2T reg lambdas
+            subspace_xvLL = nan(length(poss_sub_d2T),1);
+            for jj = 1:length(poss_sub_d2T)
+                modSeq_d2T = poss_sub_d2T(jj);
+                fprintf('Xval %d of %d\n',jj,length(poss_sub_d2T));
+                %use opt d2T lambda from gain/offset model for the offset
+                %kernel
+                reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(modSeq_d2T,1,length(mod_signs)-1)]',...
+                    'lambda_L2',[0 repmat(modSeq_L2,1,length(mod_signs)-1)]','boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
                 init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
-                init_mod.spk_NL_params = cur_GQM.spk_NL_params;
-                subspace_mod = NMMfit_filters(init_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds),[],[],silent);
+                init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf]; %0 boundary on offset term
                 
-                %evaluate overall info on anysac inds
-                [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
-                sacStimProc(cc).msac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
-                
-                [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
-                
-                %extract the subspace filters
-                cur_filts = reshape([subspace_mod.mods(2:end).filtK],[length(slags) length(cur_GQM.mods) n_subspace_qfilts+1]);
-                stim_filts = reshape([cur_GQM.mods.filtK],[flen*use_nPix_us length(cur_GQM.mods)]);
-                sacdep_filts = nan(n_subspace_qfilts+1,length(slags),flen*use_nPix_us);
-                for jj = 1:n_subspace_qfilts+1
-                    sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
+                %set initial filters to have no mixing
+                for ii = 1:length(cur_GQM.mods)
+                    init_filt = zeros(length(slags),length(cur_rGQM.mods));
+                    init_filt(:,ii) = 1;
+                    init_mod.mods(ii+1).filtK = init_filt(:);
                 end
-                sacStimProc(cc).msac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
-                sacStimProc(cc).msac_phaseInd_subfilt = squeeze(sqrt(sum(sacdep_filts(2:end,:,:).^2)));
+                init_mod.spk_NL_params = cur_GQM.spk_NL_params;
+                init_mod.mods(1).filtK = post_msac_Smod.mods(2).filtK;
+                init_mod.spk_NL_params(1) = post_msac_Smod.spk_NL_params(1);
+                subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_tr_inds),get_Xcell_tInds(X,within_tr_inds),[],[],silent);
+                subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(within_xv_inds),get_Xcell_tInds(X,within_xv_inds));
             end
+            %select best lambda using xvLL
+            [~,optloc] = max(subspace_xvLL);
+            subspace_optL2 = poss_sub_d2T(optloc);
+            sacStimProc(cc).msac_subspace_optL2 = subspace_optL2;
+            
+            %now initialize model with optimal d2T lambda and fit to all
+            %used data
+            reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,length(mod_signs)-1)]',...
+                'lambda_L2',[0 repmat(modSeq_L2,1,length(mod_signs)-1)]','boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
+            init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
+            init_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+            init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf];
+            for ii = 1:length(cur_GQM.mods)
+                init_filt = zeros(length(slags),length(cur_rGQM.mods));
+                init_filt(:,ii) = 1;
+                init_mod.mods(ii+1).filtK = init_filt(:);
+            end
+            init_mod.spk_NL_params = cur_GQM.spk_NL_params;
+            init_mod.mods(1).filtK = post_msac_Smod.mods(2).filtK;
+            init_mod.spk_NL_params(1) = post_msac_Smod.spk_NL_params(1);
+            subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds),[],[],silent);
+            
+            %evaluate overall info on anysac inds
+            [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
+            sacStimProc(cc).msac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
+            
+            [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
+            
+            %extract the subspace filters
+            sub_efilts = find(Xtargs == 2 & mod_signs == 1);
+            cur_filts = reshape([subspace_mod.mods(sub_efilts).filtK],[length(slags) length(cur_rGQM.mods) length(sub_efilts)]);
+            stim_filts = reshape([cur_rGQM.mods.filtK],[flen*use_nPix_us length(cur_rGQM.mods)]);
+            sacdep_filts = nan(length(sub_efilts),length(slags),flen*use_nPix_us);
+            for jj = 1:length(sub_efilts)
+                sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
+            end
+            sacStimProc(cc).msac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
+            sacStimProc(cc).msac_phaseInd_subfilt = squeeze(sqrt(sum(sacdep_filts(2:end,:,:).^2)));
+        end
+        
             
             %% COMPUTE MODEL-BASED INFORMATION
             n_stim_resamps = 10;
@@ -1375,7 +1411,7 @@ for cc = targs
                 %             %randomly sample the stimulus and compute firing rate
                 %             predictions of models
                 rand_Xmat = all_Xmat_shift(randi(length(cc_uinds),length(cc_uinds),1),:);
-                [~,~,~,~,rfilt_outs,rfgint] = NMMmodel_eval(cur_GQM,cur_Robs,rand_Xmat);
+                [~,~,~,~,rfilt_outs,rfgint] = NMMmodel_eval(cur_rGQM,cur_Robs,rand_Xmat);
                 rfgint = bsxfun(@times,rfgint,stim_mod_signs);
                 rstimG = sum(rfgint,2);
                 
