@@ -1,70 +1,97 @@
-fname = 'sacStimProc_sta';
+clear all
+close all
+
+fit_unCor = false;
+
+Expt_name = 'M266';
+if Expt_name(1) == 'M'
+    rec_type = 'LP';
+elseif Expt_name(1) == 'G'
+    rec_type = 'UA';
+end
+Expt_num = str2num(Expt_name(2:end));
+bar_ori = nan;
+
+if strcmp(rec_type,'LP')
+    switch Expt_num
+        case 266
+            bar_ori = 80;
+        case 270
+            bar_ori = 60;
+        case 275
+            bar_ori = 135;
+        case 277
+            bar_ori = 70;
+        case 281
+            bar_ori = 140;
+        case 287
+            bar_ori = 90;
+        case 289
+            bar_ori = 160;
+        case 294
+            bar_ori = 40;
+        case 296
+            bar_ori = 45;
+        case 297
+            if ~ismember(bar_ori,[0 90])
+                error('M297 is either 0 or 90 deg bars');
+            end
+    end
+end
+
+
+fname = 'sacStimProc';
+fname = [fname sprintf('_ori%d',bar_ori)];
+if fit_unCor
+    fname = [fname '_unCor'];
+end
+
+
 anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
 cd(anal_dir)
 load(fname);
 
 fig_dir = '/home/james/Analysis/bruce/saccade_modulation/';
+et_anal_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
 
+if strcmp(rec_type,'LP')
+    good_coils = [1 1]; %which coils are usable
+    use_coils = [1 1]; %[L R] Use info from coils?
+    n_probes = 24;
+    use_nPix = 32;
+elseif strcmp(rec_type,'UA')
+    good_coils = [1 0]; %which coils are usable
+    use_coils = [0 0]; %[L R] Use info from coils?
+    n_probes = 96;
+    use_nPix = 16;
+end
+
+use_measured_pos = 3;
+et_anal_name = 'full_eyetrack';
+
+%if using coil initialization
+if use_measured_pos == 1
+    et_anal_name = [et_anal_name '_Cinit'];
+end
+%if using coil init with trial-sub
+if use_measured_pos == 2
+    et_anal_name = [et_anal_name '_CPinit'];
+end
+if use_measured_pos == 3
+    et_anal_name = [et_anal_name '_Rinit'];
+end
+%if using coil info
+if any(use_coils > 0)
+    et_anal_name = [et_anal_name '_Cprior'];
+end
+et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
+
+load([et_anal_dir et_anal_name],'et_params');
 %%
-cc = 101;
-% fprintf('Starting model fits for unit %d\n',cc);
-% loo_cc = find(loo_set == cc); %index within the LOOXV set
-% cc_uinds = full_inds(~isnan(Robs_mat(full_inds,cc))); %set of used indices where this unit was isolated
-% 
-% cur_Robs = Robs_mat(cc_uinds,cc);
-% 
-% cur_GQM = ModData(cc).rectGQM;
-% sacStimProc(cc).ModData = ModData(cc);
-% sacStimProc(cc).used = true;
-% 
-% fprintf('Reconstructing retinal stim for unit %d\n',cc);
-% if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
-%     cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-%     cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-%     cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-%     cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-%     [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-%         cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-%     
-%     fin_shift_cor = round(fin_tot_corr);
-%     
-%     %RECOMPUTE XMAT
-%     all_shift_stimmat_up = all_stimmat_up;
-%     if ~fit_unCor
-%         for i=1:NT
-%             all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-%         end
-%     end
-%     all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
-%     all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-%     
-% else %otherwise use overall EP sequence
-%     all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
-%     all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-% end
-% 
-% %% FOR GSACS
-% cur_Xsac = Xsac(cc_uinds,:); %saccade indicator Xmat
-% 
-% if is_TBT_expt
-%     gs_trials = find(all_trial_Ff > 0);
-%     gs_inds = find(ismember(all_trialvec(used_inds),gs_trials));
-% else
-%     gs_blocks = [imback_gs_expts; grayback_gs_expts];
-%     gs_inds = find(ismember(all_blockvec(used_inds),gs_blocks));
-% end
-% 
-% %only use indices during guided saccade expts here
-% any_sac_inds = find(ismember(cc_uinds,gs_inds));
-% 
-% %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
-% cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
-% cur_GQM = NMMfit_scale(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
-% 
-% stim_mod_signs = [cur_GQM.mods(:).sign];
-% [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_GQM,cur_Robs,all_Xmat_shift);
-% fgint = bsxfun(@times,fgint,stim_mod_signs);
-% stimG = sum(fgint,2);
+cc = 25;
+cur_GQM = sacStimProc(cc).ModData.rectGQM;
+flen = cur_GQM.stim_params(1).stim_dims(1);
+sp_dx = et_params.sp_dx;
 
 %%
 cur_gdist = sacStimProc(cc).gsac_TB_gdist;

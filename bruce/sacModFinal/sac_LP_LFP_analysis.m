@@ -3,7 +3,7 @@ close all
 
 global Expt_name
 
-Expt_name = 'M275';
+Expt_name = 'M296';
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -16,7 +16,7 @@ else
     data_dir = ['~/Data/bruce/' Expt_name];
 end
 
-save_dir = ['~/Analysis/bruce/' Expt_name '/sac_mod'];
+save_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod'];
 if ~exist(save_dir,'dir')
     system(['mkdir ' save_dir]);
 end
@@ -102,9 +102,6 @@ end_buffer = 0.05;
 
 backlag = 0.25;
 forwardlag = 0.55;
-
-sua_sm_sig = (0.005/dt);
-mua_sm_sig = (0.005/dt);
 
 if strcmp(Expt_name,'G081')
     trial_dur = 2;
@@ -352,48 +349,6 @@ clust_params.exclude_adjacent = false;
 su_probes = Clust_data.SU_probes;
 SU_numbers = Clust_data.SU_numbers;
 
-%% SMOOTH AND NORMALIZE SPIKING DATA
-all_mua_rate = nan(size(all_binned_mua));
-mua_block_mean_rates = nan(length(cur_block_set),n_probes);
-mua_block_n_spikes = nan(length(cur_block_set),n_probes);
-for ee = 1:length(cur_block_set)
-    cur_block_inds = find(all_blockvec==ee);
-    if ~isempty(cur_block_inds)
-        for cc = 1:n_probes
-            all_mua_rate(cur_block_inds,cc) = jmm_smooth_1d_cor(all_binned_mua(cur_block_inds,cc),mua_sm_sig);
-        end
-        mua_block_mean_rates(ee,:) = mean(all_mua_rate(cur_block_inds,:));
-        mua_block_n_spikes(ee,:) = sum(all_binned_mua(cur_block_inds,:));
-    end
-end
-
-all_sua_rate = nan(size(all_binned_sua));
-sua_block_mean_rates = nan(length(cur_block_set),length(SU_numbers));
-sua_block_n_spikes = nan(length(cur_block_set),length(SU_numbers));
-for ee = 1:length(cur_block_set)
-    cur_block_inds = find(all_blockvec==ee);
-    if ~isempty(cur_block_inds)
-        for ss = 1:length(SU_numbers)
-            all_sua_rate(cur_block_inds,ss) = jmm_smooth_1d_cor(all_binned_sua(cur_block_inds,ss),sua_sm_sig);
-        end
-        sua_block_mean_rates(ee,:) = mean(all_sua_rate(cur_block_inds,:));
-        sua_block_n_spikes(ee,:) = sum(all_binned_sua(cur_block_inds,:));
-    end
-end
-
-%normalized firing rates (smoothed)
-all_sua_rate_norm = nan(size(all_sua_rate));
-all_mua_rate_norm = nan(size(all_mua_rate));
-for ee = 1:length(cur_block_set)
-    cur_block_inds = find(all_blockvec==ee);
-    if ~isempty(cur_block_inds)
-        all_sua_rate_norm(cur_block_inds,:) = bsxfun(@rdivide,all_sua_rate(cur_block_inds,:),...
-            sua_block_mean_rates(ee,:));
-        all_mua_rate_norm(cur_block_inds,:) = bsxfun(@rdivide,all_mua_rate(cur_block_inds,:),...
-            mua_block_mean_rates(ee,:));
-    end
-end
-
 %% DEFINE DATA USED FOR ANALYSIS
 used_inds = find(all_tsince_start >= beg_buffer & all_ttill_end >= end_buffer);
 
@@ -526,19 +481,6 @@ end
 all_sim_sacs = sort(all_sim_sacs(ismember(all_sim_sacs,used_inds)));
 all_sim_msacs = sort(all_sim_msacs(ismember(all_sim_msacs,used_inds)));
 
-%if there are simulated blanks in this dataset, find their start indices
-all_sim_blanks = [];
-if expt_has_simBlanks
-    blank_trials = find(all_trial_imi == 1);
-    blank_trial_inds = find(ismember(all_trialvec,blank_trials));
-    sim_blanks = cell(length(sim_sac_times),1);
-    for ii = 1:length(sim_sac_times)
-        sim_blanks{ii} = blank_trial_inds(all_tsince_start(blank_trial_inds(1:end-1)) < sim_sac_times(ii) & ...
-            all_tsince_start(blank_trial_inds(2:end)) >= sim_sac_times(ii));
-        all_sim_blanks = [all_sim_blanks; sim_blanks{ii}];
-    end
-end
-
 %for TBT expts, determine which saccades were part of image-back trials vs
 %gray-back trials
 sac_trial_inds = all_trialvec(sac_start_inds);
@@ -596,14 +538,18 @@ for ee = 1:length(cur_block_set);
         n_trials(ee) = length(LFP.Trials);
         lfp_trial_starts = [LFP.Trials(:).ftime]/1e4;
         lfp_trial_ends = [LFP.Trials(:).End]/1e4;
+        
+        %loop over LFP trials and compile into a non-overlapping sequence
         expt_lfp_t_axis = [];
         expt_lfps = [];
         for tt = 1:n_trials(ee)
             %         tt
             cur_npts = size(LFP.Trials(tt).LFP,1);
-            cur_t_end(tt) = lfp_trial_starts(tt)+(cur_npts-1)/Fs;
-            cur_t_axis = (lfp_trial_starts(tt):1/Fs:cur_t_end(tt)) + cur_toffset;
+            cur_t_end = lfp_trial_starts(tt)+(cur_npts-1)/Fs;
+            cur_t_axis = (lfp_trial_starts(tt):1/Fs:cur_t_end) + cur_toffset;
             
+            %find first index where current t-axis is greater than last
+            %stored timestamp (and start there)
             if ~isempty(expt_lfp_t_axis)
                 cur_sp = find(cur_t_axis > max(expt_lfp_t_axis),1,'first');
             else
@@ -655,17 +601,13 @@ lfp_trial_stop_inds = round(interp1(full_lfp_taxis,1:length(full_lfp_taxis),all_
 lfp_sac_start_inds = round(interp1(full_lfp_taxis,1:length(full_lfp_taxis),sac_start_times));
 lfp_simsac_start_inds = round(interp1(full_lfp_taxis,1:length(full_lfp_taxis),all_t_axis(all_sim_sacs)));
 lfp_trial_inds = [lfp_trial_start_inds(:) lfp_trial_stop_inds(:)];
-% lfp_trial_start_inds(isnan(lfp_trial_start_inds)) = [];
-% lfp_trial_stop_inds(isnan(lfp_trial_stop_inds)) = [];
+bad_trial_inds = find(isnan(lfp_trial_start_inds) | isnan(lfp_trial_stop_inds));
 
-interp_lfps = interp1(full_lfp_taxis,full_lfps,all_t_axis);
-%% MAKE LOOPED COHERANCE SEGC CALCULATOR
-% addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
-% params.Fs = 1/dt;
-% params.tapers = [3 5];
-% [C,phi,S12,f] = cohmatrixc(interp_lfps(used_inds,:),params);
+lfp_trial_start_inds(bad_trial_inds) = [];
+lfp_trial_stop_inds(bad_trial_inds) = [];
 
 %% COMPUTE TRIG AVGS FOR LFPs
+addpath(genpath('~/James_scripts/iCSD/'))
 lforwardlag = round(forwardlag*Fsd);
 lbacklag = round(backlag*Fsd);
 
@@ -681,29 +623,30 @@ csd_params.Fs = Fsd; %sample freq
 csd_params.BrainBound = 1; %first channel that is in the brain
 csd_params.ChanSep = 0.05; %channel sep in mm
 csd_params.diam = 2; %current disc diameter (in mm)
+csd_method = 'spline';
 
-[lfp_data.trial_onset_csd,lags] = get_event_trig_csd(full_lfps,lfp_trial_start_inds,lbacklag,lforwardlag,csd_params);
-[lfp_data.trial_offset_csd,lags] = get_event_trig_csd(full_lfps,lfp_trial_stop_inds,lbacklag,lforwardlag,csd_params);
-[lfp_data.trial_onset_lfp,lags] = get_event_trig_avg(full_lfps,lfp_trial_start_inds,lbacklag,lforwardlag,csd_params);
-[lfp_data.trial_offset_lfp,lags] = get_event_trig_avg(full_lfps,lfp_trial_stop_inds,lbacklag,lforwardlag,csd_params);
-
-%general averages
-[lfp_data.msac_avg,lags] = get_event_trig_avg(full_lfps,lfp_sac_start_inds(micro_set),lbacklag,lforwardlag,nboot,used_trialvec_interp,0);
-[lfp_data.gsac_avg,lags] = get_event_trig_avg(full_lfps,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag,nboot,used_trialvec_interp,0);
-[lfp_data.simsac_avg,lags] = get_event_trig_avg(full_lfps,lfp_simsac_start_inds,lbacklag,lforwardlag,nboot,used_trialvec_interp,0);
-
+[lfp_data.trial_onset_lfp,lags,~,~,cur_lfp_mat] = get_event_trig_avg_v3(full_lfps,lfp_trial_start_inds,lbacklag,lforwardlag,2);
 if strcmp(rec_type,'LP')
-    [lfp_data.gsac_csd,lags] = get_event_trig_csd(full_lfps,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag,csd_params,used_trialvec_interp,0);
-    [lfp_data.msac_csd,lags] = get_event_trig_csd(full_lfps,lfp_sac_start_inds(micro_set),lbacklag,lforwardlag,csd_params,used_trialvec_interp,0);
-    [lfp_data.simsac_csd,lags] = get_event_trig_csd(full_lfps,lfp_simsac_start_inds,lbacklag,lforwardlag,csd_params,used_trialvec_interp,0);
+    cur_lfp_mat = permute(reshape(cur_lfp_mat,[],length(lags),n_probes),[3 2 1]);
+    csd_mat = PettersenCSD(cur_lfp_mat,csd_method,csd_params);
+    lfp_data.trial_onset_csd = squeeze(nanmean(csd_mat,3));
+    clear cur_lfp_mat csd_mat
 end
 
-%%
-lforwardlag = round(forwardlag/dt);
-lbacklag = round(backlag/dt);
+%general averages
+[lfp_data.msac_avg,lags,~,~,msac_mat] = get_event_trig_avg_v3(full_lfps,lfp_sac_start_inds(micro_set),lbacklag,lforwardlag,2,used_trialvec_interp,0);
+[lfp_data.gsac_avg,lags,~,~,gsac_mat] = get_event_trig_avg_v3(full_lfps,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag,2,used_trialvec_interp,0);
 
-trial_start_inds = [1; 1+find(diff(all_trialvec) > 0)];
-[lfp_data.trial_onset_mua,mlags] = get_event_trig_avg(all_mua_rate_norm,trial_start_inds,lbacklag,lforwardlag); 
+if strcmp(rec_type,'LP')
+    msac_mat = permute(reshape(msac_mat,[],length(lags),n_probes),[3 2 1]);
+    csd_mat = PettersenCSD(msac_mat,csd_method,csd_params);
+    lfp_data.msac_csd = squeeze(nanmean(csd_mat,3));
+
+    gsac_mat = permute(reshape(gsac_mat,[],length(lags),n_probes),[3 2 1]);
+    csd_mat = PettersenCSD(gsac_mat,csd_method,csd_params);
+    lfp_data.gsac_csd = squeeze(nanmean(csd_mat,3));
+    clear msac_mat gsac_mat csd_mat
+end
 
 %%
 %WAVELET SCALES this gives log-freq spacing ~(2-100) hz
@@ -715,37 +658,22 @@ scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
 wfreqs = scal2frq(scales,'cmor1-1',1/Fsd);
 
 ampgrams = nan(size(full_lfps,1),nwfreqs,n_probes);
-% wave_trans = nan(size(full_lfps,1),nwfreqs,n_probes);
 for ll = 1:n_probes
-    ll
+    fprintf('Computing wavelet transform on probe %d of %d\n',ll,n_probes);
     temp = cwt(full_lfps(:,ll),scales,'cmor1-1');
     ampgrams(:,:,ll) = abs(temp)';
-%     wave_trans(:,:,ll) = cwt(full_lfps(:,ll),scales,'cmor1-1')';
 end
 
-% wave_coh = nan(n_probes,n_probes,length(wfreqs));
-% for ii  = 1:n_probes-1
-%     ii
-%     for jj = (ii+1):n_probes
-%         cross_wave = squeeze(abs(mean(wave_trans(:,:,ii).*conj(wave_trans(:,:,jj)))));
-%         wave_coh(ii,jj,:) = cross_wave./sqrt(mean(abs(wave_trans(:,:,ii).^2.*wave_trans(:,:,jj).^2)));
-%     
-%     end
-% end
+% ampgrams = sqrt(ampgrams);
+ampgrams = log10(ampgrams);
+% lfp_data.ampgrams_std = std(ampgrams);
+% lfp_data.ampgrams_mean = mean(ampgrams);
 
-
-ampgrams = sqrt(ampgrams);
-lfp_data.ampgrams_std = std(ampgrams);
-lfp_data.ampgrams_mean = mean(ampgrams);
-% ampgrams = zscore(ampgrams);
-
-[lfp_data.onset_specgram,lags] = get_event_trig_avg(ampgrams,lfp_trial_start_inds,lbacklag,lforwardlag);
+[lfp_data.onset_specgram,lags] = get_event_trig_avg_v3(ampgrams,lfp_trial_start_inds,lbacklag,lforwardlag);
 [lfp_data.sac_specgram,lags] = get_event_trig_avg(ampgrams,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag);
 [lfp_data.msac_specgram,lags] = get_event_trig_avg(ampgrams,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag);
 
-% onset_specgramZ = bsxfun(@rdivide,bsxfun(@minus,onset_specgram,ampgrams_mean),ampgrams_std);
-% sac_specgramZ = bsxfun(@rdivide,bsxfun(@minus,sac_specgram,ampgrams_mean),ampgrams_std);
 %%
 cd(save_dir)
 sname = 'lfp_trig_avgs';
-save(sname,'lags','Fsd','lfp_data','mlags','dt','wfreqs');
+save(sname,'lags','Fsd','lfp_data','dt','wfreqs');
