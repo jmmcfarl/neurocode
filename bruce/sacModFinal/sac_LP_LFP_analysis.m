@@ -1,16 +1,15 @@
-clear all
-close all
+% clear all
+% close all
 
-global Expt_name
+global Expt_name bar_ori
 
-Expt_name = 'M296';
+% Expt_name = 'M297';
+% bar_ori = 0;
 
 %%
 Expt_num = str2num(Expt_name(2:end));
 
-if Expt_num > 280 && Expt_num < 289
-    data_dir = ['/media/NTlab_data2/Data/bruce/' Expt_name];
-elseif Expt_num >= 289
+if Expt_num >= 280
     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 else
     data_dir = ['~/Data/bruce/' Expt_name];
@@ -244,13 +243,13 @@ for ee = 1:length(cur_block_set);
         fprintf('Expt %s Block %d of %d;  UNMATCHED EXPT TYPE\n',Expt_name,ee,length(cur_block_set));
     end
     
-    fname = [cluster_dir sprintf('/Block%d_Clusters.mat',cur_block)];
-    load(fname,'Clusters');
-    for cc = 1:n_probes
-        all_spk_times{cc} = cat(1,all_spk_times{cc},Clusters{cc}.times + cur_toffset);
-        all_spk_inds{cc} = cat(1,all_spk_inds{cc},Clusters{cc}.spk_inds + cur_spkind_offset);
-        all_clust_ids{cc} = cat(1,all_clust_ids{cc},Clusters{cc}.spike_clusts);
-    end
+%     fname = [cluster_dir sprintf('/Block%d_Clusters.mat',cur_block)];
+%     load(fname,'Clusters');
+%     for cc = 1:n_probes
+%         all_spk_times{cc} = cat(1,all_spk_times{cc},Clusters{cc}.times + cur_toffset);
+%         all_spk_inds{cc} = cat(1,all_spk_inds{cc},Clusters{cc}.spk_inds + cur_spkind_offset);
+%         all_clust_ids{cc} = cat(1,all_clust_ids{cc},Clusters{cc}.spike_clusts);
+%     end
     
     trial_start_times = [Expts{cur_block}.Trials(:).TrialStart]/1e4;
     trial_end_times = [Expts{cur_block}.Trials(:).TrueEnd]/1e4;
@@ -337,17 +336,17 @@ grayback_trial_starts = trial_start_inds(ismember(all_blockvec(trial_start_inds)
 imback_trial_starts = trial_start_inds(ismember(all_blockvec(trial_start_inds),imback_gs_expts));
 
 %% BIN SPIKES FOR MU AND SU
-clust_params.n_probes = n_probes;
-% if strcmp(rec_type,'LP')
-%     clust_params.exclude_adjacent = true;
-% else
-clust_params.exclude_adjacent = false;
-% end
-[all_binned_mua,all_binned_sua,Clust_data] = ...
-    get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
-    all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);
-su_probes = Clust_data.SU_probes;
-SU_numbers = Clust_data.SU_numbers;
+% clust_params.n_probes = n_probes;
+% % if strcmp(rec_type,'LP')
+% %     clust_params.exclude_adjacent = true;
+% % else
+% clust_params.exclude_adjacent = false;
+% % end
+% [all_binned_mua,all_binned_sua,Clust_data] = ...
+%     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
+%     all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);
+% su_probes = Clust_data.SU_probes;
+% SU_numbers = Clust_data.SU_numbers;
 
 %% DEFINE DATA USED FOR ANALYSIS
 used_inds = find(all_tsince_start >= beg_buffer & all_ttill_end >= end_buffer);
@@ -444,42 +443,12 @@ out_neg_sacs = intersect(outsacs,negsacs);
 in_pos_sacs = intersect(insacs,possacs);
 in_neg_sacs = intersect(insacs,negsacs);
 
-%compile indices of simulated saccades
-all_sim_sacs = [];
-all_sim_msacs = [];
-if is_sim_msac_expt  %if there are simulated microsaccades in this dataset
-    big_simsac_trials = find(all_trial_Fs > 1);
-    small_simsac_trials = find(all_trial_Fs < 1);
-else
-    big_simsac_trials = 1:length(all_trial_start_times);
-    small_simsac_trials = [];
-end
 if is_TBT_expt
     sim_sac_trials = find(all_trial_Ff == 0);
     sim_trial_inds = find(ismember(all_trialvec,sim_sac_trials));
-    sim_sacs = cell(length(sim_sac_times),1);
-    for ii = 1:length(sim_sac_times)
-        sim_sacs{ii} = sim_trial_inds(all_tsince_start(sim_trial_inds(1:end-1)) < sim_sac_times(ii) & ...
-            all_tsince_start(sim_trial_inds(2:end)) >= sim_sac_times(ii));
-        cur_big_set = find(ismember(all_trialvec(sim_sacs{ii}),big_simsac_trials));
-        cur_micro_set = find(ismember(all_trialvec(sim_sacs{ii}),small_simsac_trials));
-        all_sim_sacs = [all_sim_sacs; sim_sacs{ii}(cur_big_set)];
-        all_sim_msacs = [all_sim_msacs; sim_sacs{ii}(cur_micro_set)];
-    end
 else
     sim_expt_inds = find(ismember(all_blockvec,sim_sac_expts));
-    sim_sacs = cell(length(sim_sac_times),1);
-    for ii = 1:length(sim_sac_times)
-        sim_sacs{ii} = sim_expt_inds(all_tsince_start(sim_expt_inds(1:end-1)) < sim_sac_times(ii) & ...
-            all_tsince_start(sim_expt_inds(2:end)) >= sim_sac_times(ii));
-        cur_big_set = find(ismember(all_trialvec(sim_sacs{ii}),big_simsac_trials));
-        cur_micro_set = find(ismember(all_trialvec(sim_sacs{ii}),small_simsac_trials));
-        all_sim_sacs = [all_sim_sacs; sim_sacs{ii}(cur_big_set)];
-        all_sim_msacs = [all_sim_msacs; sim_sacs{ii}(cur_micro_set)];
-    end
 end
-all_sim_sacs = sort(all_sim_sacs(ismember(all_sim_sacs,used_inds)));
-all_sim_msacs = sort(all_sim_msacs(ismember(all_sim_msacs,used_inds)));
 
 %for TBT expts, determine which saccades were part of image-back trials vs
 %gray-back trials
@@ -525,7 +494,7 @@ for ee = 1:length(cur_block_set);
     fprintf('Loading LFPs, Expt %d of %d\n',ee,length(cur_block_set));
     
     if strcmp(rec_type,'LP')
-        fname = sprintf('lemM%dA.%d.lfp.mat',Expt_num,cur_block_set(ee));
+        fname = sprintf('lemM%dA.%d.lfp.mat',Expt_num,em_block_nums(ee));
         load(fname);
         cur_Fs = 1/LFP.Header.CRsamplerate;
         if Fs ~= cur_Fs
@@ -571,7 +540,7 @@ for ee = 1:length(cur_block_set);
             end
         end
     else
-        lfp_fname = sprintf('Expt%d_LFP.mat',cur_block_set(ee));
+        lfp_fname = sprintf('Expt%d_LFP.mat',em_block_nums(ee));
         load(lfp_fname);
         Fs = lfp_params.Fsd;
         niqf = Fs/2;
@@ -599,7 +568,6 @@ end
 lfp_trial_start_inds = round(interp1(full_lfp_taxis,1:length(full_lfp_taxis),all_trial_start_times));
 lfp_trial_stop_inds = round(interp1(full_lfp_taxis,1:length(full_lfp_taxis),all_trial_end_times));
 lfp_sac_start_inds = round(interp1(full_lfp_taxis,1:length(full_lfp_taxis),sac_start_times));
-lfp_simsac_start_inds = round(interp1(full_lfp_taxis,1:length(full_lfp_taxis),all_t_axis(all_sim_sacs)));
 lfp_trial_inds = [lfp_trial_start_inds(:) lfp_trial_stop_inds(:)];
 bad_trial_inds = find(isnan(lfp_trial_start_inds) | isnan(lfp_trial_stop_inds));
 
@@ -648,32 +616,48 @@ if strcmp(rec_type,'LP')
     clear msac_mat gsac_mat csd_mat
 end
 
+
 %%
-%WAVELET SCALES this gives log-freq spacing ~(2-100) hz
-nwfreqs = 25;
-min_freq = 2; max_freq = 80;
-min_scale = 1/max_freq*Fsd;
-max_scale = 1/min_freq*Fsd;
-scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
-wfreqs = scal2frq(scales,'cmor1-1',1/Fsd);
-
-ampgrams = nan(size(full_lfps,1),nwfreqs,n_probes);
-for ll = 1:n_probes
-    fprintf('Computing wavelet transform on probe %d of %d\n',ll,n_probes);
-    temp = cwt(full_lfps(:,ll),scales,'cmor1-1');
-    ampgrams(:,:,ll) = abs(temp)';
+addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
+params.Fs = Fsd;
+params.tapers = [2 3];
+params.trialave = 1;
+movingwin = [2 2];
+clear S
+Smarkers = [lfp_trial_start_inds(:) lfp_trial_stop_inds(:)];
+for cc = 1:n_probes
+    [tempS,f] = mtspectrumsegc(full_lfps(:,cc),movingwin,params,Smarkers);
+    S(:,cc) = mean(tempS,2);
 end
-
-% ampgrams = sqrt(ampgrams);
-ampgrams = log10(ampgrams);
-% lfp_data.ampgrams_std = std(ampgrams);
-% lfp_data.ampgrams_mean = mean(ampgrams);
-
-[lfp_data.onset_specgram,lags] = get_event_trig_avg_v3(ampgrams,lfp_trial_start_inds,lbacklag,lforwardlag);
-[lfp_data.sac_specgram,lags] = get_event_trig_avg(ampgrams,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag);
-[lfp_data.msac_specgram,lags] = get_event_trig_avg(ampgrams,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag);
+lfp_data.powSpec = S;
+lfp_data.f = f;
+%%
+% %WAVELET SCALES this gives log-freq spacing ~(2-100) hz
+% nwfreqs = 25;
+% min_freq = 2; max_freq = 80;
+% min_scale = 1/max_freq*Fsd;
+% max_scale = 1/min_freq*Fsd;
+% scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
+% wfreqs = scal2frq(scales,'cmor1-1',1/Fsd);
+% 
+% ampgrams = nan(size(full_lfps,1),nwfreqs,n_probes);
+% for ll = 1:n_probes
+%     fprintf('Computing wavelet transform on probe %d of %d\n',ll,n_probes);
+%     temp = cwt(full_lfps(:,ll),scales,'cmor1-1');
+%     ampgrams(:,:,ll) = abs(temp)';
+% end
+% 
+% % ampgrams = sqrt(ampgrams);
+% ampgrams = log10(ampgrams);
+% % lfp_data.ampgrams_std = std(ampgrams);
+% % lfp_data.ampgrams_mean = mean(ampgrams);
+% 
+% [lfp_data.onset_specgram,lags] = get_event_trig_avg_v3(ampgrams,lfp_trial_start_inds,lbacklag,lforwardlag);
+% [lfp_data.sac_specgram,lags] = get_event_trig_avg(ampgrams,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag);
+% [lfp_data.msac_specgram,lags] = get_event_trig_avg(ampgrams,lfp_sac_start_inds(gsac_set),lbacklag,lforwardlag);
 
 %%
 cd(save_dir)
 sname = 'lfp_trig_avgs';
-save(sname,'lags','Fsd','lfp_data','dt','wfreqs');
+sname = [sname sprintf('_ori%d',bar_ori)];
+save(sname,'lags','Fsd','lfp_data','dt');

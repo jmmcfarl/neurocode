@@ -4,7 +4,7 @@ close all
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'M296';
+Expt_name = 'M287';
 bar_ori = 0;
 
 %%

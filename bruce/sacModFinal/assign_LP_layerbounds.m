@@ -1,15 +1,18 @@
 clear all
 close all
+%%
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/layer_boundaries/';
 
-fig_dir = '/home/james/Analysis/bruce/saccade_modulation/layer_boundaries/';
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297','M297'};
+ori_list = [80 60 135 70 140 90 160 40 45 0 90];
+base_sname = 'lfp_trig_avgs';
 
-Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294'};
-sname = 'lfp_trig_avgs';
-use_w = 5;
-for ee = 1:length(Expt_list)
+for ee = 10:length(Expt_list)
     Expt_name = Expt_list{ee};
-    save_dir = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod'];
+    bar_ori = ori_list(ee);
+    save_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod'];
     cd(save_dir);
+    sname = [base_sname sprintf('_ori%d',bar_ori)];
     load(sname);
     keep = 0;
     
@@ -25,13 +28,18 @@ for ee = 1:length(Expt_list)
         xlabel('Time since trial onset (s)');
         ylabel('Probe');
         
+        
+        powSpec = log10(lfp_data.powSpec);
+        zpowSpec = (nanzscore(powSpec'));
+        f = lfp_data.f;
+        logf = logspace(log10(f(2)),log10(f(end)),length(f)-1);
+        interp_zpowSpec = interp1(f,zpowSpec',logf)';
+        
         subplot(2,1,2);
-%         pcolor(lags/Fsd,1:24,squeeze(lfp_data.onset_specgram(:,use_w,:))');shading flat
-        imagesc(lags/Fsd,1:24,squeeze(lfp_data.onset_specgram(:,use_w,:))');
-        xlim([0 0.2]);
-%         set(gca,'ydir','reverse');
-        title(sprintf('Specgram %.1f Hz',wfreqs(use_w)));
-        xlabel('Time since trial onset (s)');
+%         pcolor(lfp_data.f(2:end),1:24,(zpowSpec(:,2:end))); caxis([-2 2]); shading flat; set(gca,'ydir','reverse');
+        imagesc(logf,1:24,interp_zpowSpec); caxis([-2 2]); 
+        set(gca,'xscale','log');
+        xlabel('Frequency (Hz)');
         ylabel('Probe');
         
         
@@ -40,6 +48,7 @@ for ee = 1:length(Expt_list)
         xl = xlim();
         line(xl,[ub ub]+0.5,'color','w');
         subplot(2,1,2);
+        xl = xlim();
         line(xl,[ub ub]+0.5,'color','w');
         
         lb = input('Lower boundary of L4?');
@@ -47,11 +56,14 @@ for ee = 1:length(Expt_list)
         xl = xlim();
         line(xl,[lb lb]+0.5,'color','w');
         subplot(2,1,2);
+        xl = xlim();
         line(xl,[lb lb]+0.5,'color','w');
         
         
         keep = input('Keep boundaries? (0/1)');
         
+        subplot(2,1,1)
+        title(sprintf('CSD lb%d ub%d',lb,ub));
     end
     
     boundary_class(ee).lb = lb;
