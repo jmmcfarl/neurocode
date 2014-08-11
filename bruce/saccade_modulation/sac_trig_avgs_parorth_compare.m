@@ -5,6 +5,9 @@ global Expt_name bar_ori
 
 Expt_name = 'G089';
 
+
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+
 %%
 Expt_num = str2num(Expt_name(2:end));
 

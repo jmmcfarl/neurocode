@@ -5,6 +5,8 @@ global Expt_name bar_ori
 
 Expt_name = 'G089';
 
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+
 %%
 Expt_num = str2num(Expt_name(2:end));
 
@@ -480,8 +482,8 @@ mua_data.o100_gsac_avgs(:,16) = nan;
 mua_data.o30_gsac_avgs(:,16) = nan;    
 
 %%
-fig_dir = '/home/james/Analysis/bruce/saccade_modulation/';
-
+xl = [-0.15 0.4];
+yl = [0.7 1.4];
 
 f = figure(); hold on
 h1=shadedErrorBar(lags*dt,nanmean(mua_data.p100_gsac_avgs,2),nanstd(mua_data.p100_gsac_avgs,[],2)/sqrt(95),{'color','b'});
@@ -492,15 +494,14 @@ xlabel('Time (s)');
 ylabel('Relative Rate');
 % legend([h1.mainLine h2.mainLine h3.mainLine h4.mainLine],{'P-100','P-30','O-100','O-30'});
 legend([h1.mainLine h3.mainLine],{'P-100','O-100'});
-xlim([-0.2 0.4]);
-xl = xlim();
-yl = ylim();
+xlim(xl);
+ylim(yl);
 line([0 0],yl,'color','k','linestyle','--');
 line(xl,[1 1],'color','k','linestyle','--');
 
 
-% fig_width = 4; rel_height = 0.8;
-% figufy(f);
-% fname = [fig_dir 'Par_vs_orth.pdf'];
-% exportfig(f,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f);
+fname = [fig_dir 'Par_vs_orth_MUA.pdf'];
+exportfig(f,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f);

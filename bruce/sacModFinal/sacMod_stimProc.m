@@ -815,6 +815,7 @@ for cc = targs
         within_tr_inds = cur_tr_inds(ismember(cur_tr_inds,within_sac_inds));
         within_xv_inds = cur_xv_inds(ismember(cur_xv_inds,within_sac_inds));
 
+        if ~isempty(any_sac_inds)
         %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
         cur_rGQM = NMMfit_logexp_spkNL(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
         cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
@@ -1215,6 +1216,7 @@ for cc = targs
         sacStimProc(cc).gsac_TB_lagX = Xtick(xbuff+1:end-xbuff);
         sacStimProc(cc).gsac_TB_gX = Ytick;
         
+        end
         %% FOR MSACS
         if fitMsacs
             %% FOR GSACS

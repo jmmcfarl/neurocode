@@ -1,8 +1,10 @@
 clear all
 close all
 
-Expt_name = 'G099';
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 
+
+Expt_name = 'G099';
 Expt_num = str2num(Expt_name(2:end));
 data_dir = ['/media/NTlab_data2/Data/bruce/' Expt_name];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
@@ -348,12 +350,18 @@ uset = setdiff(1:96,bad_units);
 xl = [-0.3 0.6];
 
 f1 = figure();
-h1=shadedErrorBar(lags*dt,mean(dark_gsac_avg(:,uset)'),std(dark_gsac_avg(:,uset)')/sqrt(length(uset)));
+h1=shadedErrorBar(lags*dt,1+mean(dark_gsac_avg(:,uset),2),std(dark_gsac_avg(:,uset),[],2)/sqrt(length(uset)));
 hold on
 % h2=shadedErrorBar(lags*dt,mean(light_gsac_avg(:,uset)'),std(light_gsac_avg(:,uset)')/sqrt(length(uset)),{'color','r'});
+ylim([0.9 1.1])
 yl = ylim();
-line(xl,[0 0],'color','k')
+line(xl,[1 1],'color','k')
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
-title('Dark');
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'DarkSacMUA.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);

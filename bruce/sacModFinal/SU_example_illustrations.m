@@ -3,14 +3,14 @@ close all
 
 fit_unCor = false;
 
-Expt_name = 'M289';
+Expt_name = 'G086';
 if Expt_name(1) == 'M'
     rec_type = 'LP';
 elseif Expt_name(1) == 'G'
     rec_type = 'UA';
 end
 Expt_num = str2num(Expt_name(2:end));
-bar_ori = nan;
+bar_ori = 0;
 
 if strcmp(rec_type,'LP')
     switch Expt_num
@@ -249,7 +249,7 @@ for cc = (n_probes+1):length(sacStimProc);
     
     fig_width = 10; rel_height = 0.8;
     figufy(h1);
-    fname = [fig_dir cid 'Gsac_mod.pdf'];
+    fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'Gsac_mod.pdf'];
     exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
     close(h1);
     
@@ -261,7 +261,7 @@ for cc = (n_probes+1):length(sacStimProc);
     figufy(sh.stim_filts);
     fig_width = 6*n_columns;
     rel_height = 0.8*n_rows/n_columns/2;
-    fname = [fig_dir cid 'stim_mod.pdf'];
+    fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'stim_mod.pdf'];
     exportfig(sh.stim_filts,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
     close(sh.stim_filts);
     
