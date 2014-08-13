@@ -8,10 +8,10 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% Expt_name = 'M296';
-Expt_name = 'G093';
-% use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% % Expt_name = 'M296';
+% Expt_name = 'G093';
+% % use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 
@@ -719,10 +719,9 @@ end
 
 
 %%
-fname = 'sacStimProc_v2';
-if strcmp(rec_type,'UA') && bar_ori == 90
-    fname = [fname '_vbars'];
-end
+fname = 'sacStimProc';
+fname = [fname sprintf('_ori%d',bar_ori)];
+
 anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
 cd(anal_dir)
 load(fname);
@@ -801,6 +800,20 @@ for cc = targs
 %         cur_sac_stop_inds = saccade_stop_inds(micro_sacs);
 %         cur_Xsac = Xmsac(cc_uinds,:);
         
+        if is_TBT_expt
+            gs_trials = find(all_trial_Ff > 0);
+            gs_inds = find(ismember(all_trialvec(used_inds),gs_trials));
+        else
+            gs_blocks = [imback_gs_expts; grayback_gs_expts];
+            gs_inds = find(ismember(all_blockvec(used_inds),gs_blocks));
+        end
+        
+        %only use indices during guided saccade expts here
+        any_sac_inds = find(ismember(cc_uinds,gs_inds));
+
+                cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+        cur_GQM = NMMfit_scale(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+
         %%
         
         saccade_stop_trial_inds = all_trialvec(used_inds(cur_sac_stop_inds));
@@ -1029,3 +1042,7 @@ for cc = targs
 
     end
 end
+%%
+cd(anal_dir)
+fname = ['sac_info_timing' sprintf('_ori%d',bar_ori)];
+save(fname,'sacInfoTiming','info_slags','dt');
