@@ -9,9 +9,9 @@ global Expt_name bar_ori use_MUA
 
 
 % % Expt_name = 'M296';
-% Expt_name = 'G093';
-% % use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'G088';
+% use_MUA = false;
+bar_ori = 90; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -827,6 +827,8 @@ for cc = targs
         fgint = bsxfun(@times,fgint,stim_mod_signs);
         stimG = sum(fgint,2);
                 
+        sacStimProc(cc).gsac_ovavg_rate = mean(cur_Robs(any_sac_inds));
+        
         %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
         
         Xsac_tot = bsxfun(@times,cur_Xsac,stimG);
@@ -904,7 +906,7 @@ for cc = targs
         post_gsac_Smod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
         post_gsac_Smod.mods(1).reg_params = NMMcreate_reg_params();
         post_gsac_Smod.spk_NL_params = cur_rGQM.spk_NL_params;
-        post_gsac_Smod = NMMfit_filters(post_gsac_Smod,cur_Robs,tr_stim,[],[],silent);
+        post_gsac_Smod = NMMfit_filters(post_gsac_Smod,cur_Robs(any_sac_inds),get_Xcell_tInds(tr_stim,any_sac_inds),[],[],silent);
         [post_gsac_Smod_LL,~,post_Smod_predrate] = NMMmodel_eval(post_gsac_Smod,cur_Robs(any_sac_inds),get_Xcell_tInds(tr_stim,any_sac_inds));
         
         %overall info (evaluated on anysac inds)
@@ -989,7 +991,7 @@ for cc = targs
             subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds),[],[],silent);
             
             %evaluate overall info on anysac inds
-            [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
+            [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds));
             sacStimProc(cc).gsac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
             
             [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);

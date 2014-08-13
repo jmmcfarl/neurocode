@@ -737,7 +737,7 @@ for cc = targs
             base_lambda_L1 = 10;
         end
         init_lambda_d2XT = 10;
-        init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_lambda_d2XT);
+        init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_lambda_d2XT,'boundary_conds',[0 0 0]);
         mod_stim_params(1) = NMMcreate_stim_params([flen use_nPix_us],dt);
         
         %start out with just a linear filter

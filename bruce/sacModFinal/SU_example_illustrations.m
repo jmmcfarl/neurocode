@@ -3,7 +3,7 @@ close all
 
 fit_unCor = false;
 
-Expt_name = 'G086';
+Expt_name = 'G087';
 if Expt_name(1) == 'M'
     rec_type = 'LP';
 elseif Expt_name(1) == 'G'
@@ -86,9 +86,12 @@ et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 
 load([et_anal_dir et_anal_name],'et_params');
 
+
+sua_sm = 0.01/dt;
+
 %%
 for cc = (n_probes+1):length(sacStimProc);
-    if sacStimProc(cc).used
+    if sacStimProc(cc).used && ~isempty(sacStimProc(cc).gsac_post_singmod)
     cur_GQM = sacStimProc(cc).ModData.rectGQM;
     flen = cur_GQM.stim_params(1).stim_dims(1);
     sp_dx = et_params.sp_dx;
@@ -96,7 +99,9 @@ for cc = (n_probes+1):length(sacStimProc);
     use_nPix_us = use_nPix*et_params.spatial_usfac;
     
     %%
-    sac_xr = [-0.1 0.3];
+%     sac_xr = [-0.1 0.3];
+    sac_xr = [-0.05 0.25];
+%     gr = [-1.5 3.5];
     
     close all
     cur_gdist = sacStimProc(cc).gsac_TB_gdist;
@@ -124,9 +129,15 @@ for cc = (n_probes+1):length(sacStimProc);
     
     h1=figure;
     
+    if sua_sm > 0
+    sm_arate = jmm_smooth_1d_cor(sacStimProc(cc).gsac_avg_rate/dt,sua_sm);
+    else
+        sm_arate = sacStimProc(cc).gsac_avg_rate/dt;
+    end
+    
     %sac-trig avg
     subplot(3,3,1)
-    plot(slags*dt,sacStimProc(cc).gsac_avg_rate/dt);
+    plot(slags*dt,sm_arate);
     hold on; axis tight
     yl = ylim();
     line(slags(mmmloc([1 1]))*dt,yl,'color','k','linestyle','--');
@@ -144,7 +155,8 @@ for cc = (n_probes+1):length(sacStimProc);
     plot(slags*dt,sacStimProc(cc).gsacGainMod.stim_kernel,'k');
     plot(slags*dt,sacStimProc(cc).gsac_post_Egains,'g');
     plot(slags*dt,sacStimProc(cc).gsac_post_Igains,'r');
-    axis tight
+     plot(slags*dt,sacStimProc(cc).gsac_post_singmod.mods(3).filtK,'y');
+   axis tight
     yl = ylim();
     xlim(sac_xr)
     line(slags(mmmloc([1 1]))*dt,yl,'color','k','linestyle','--');
@@ -155,8 +167,9 @@ for cc = (n_probes+1):length(sacStimProc);
     
     %TB rate map
     subplot(3,3,4)
-    imagesc(slags*dt,Gtick,sacStimProc(cc).gsac_TB_rate); set(gca,'ydir','normal'); caxis([0 max(sac_dep_rate(:))]*0.9);
+    imagesc(slags*dt,Gtick,sacStimProc(cc).gsac_TB_rate); set(gca,'ydir','normal'); caxis([0 max(sac_dep_rate(:))]*0.65);
     yl = ylim();
+% ylim(gr); yl = gr;
     line(slags(mmmloc([1 1]))*dt,yl,'color','w');
     line(slags(mmmloc([2 2]))*dt,yl,'color','w');
     xlim(sac_xr)
@@ -169,15 +182,17 @@ for cc = (n_probes+1):length(sacStimProc);
     plot(Gtick,sacStimProc(cc).gsac_TB_rate(:,mmmloc(1))/dt,'b');
     plot(Gtick,base_out/dt,'k','linewidth',2);
     xlim(Gtick([1 end]));
+% xlim(gr);
     yl = ylim();
-    plot(Gtick,cur_gdist/max(cur_gdist)*yl(2)*0.8,'k--');
+    plot(Gtick,cur_gdist/max(cur_gdist)*yl(2)*0.75,'k--');
     xlabel('Generating signal');
     ylabel('Firing rate (Hz)');
     plot(Gtick,sac_dep_rate(mmmloc(2),:)/dt,'r--'); hold on
     plot(Gtick,sacStimProc(cc).gsac_TB_rate(:,mmmloc(2))/dt,'r');
+%     ylim([0 200])
+   axis tight; 
     xlim(Gtick([1 end]));
-    yl = ylim();
-    xlabel('Generating signal');
+xlabel('Generating signal');
     ylabel('Firing rate (Hz)');
     
     %mod info SS
@@ -225,33 +240,51 @@ for cc = (n_probes+1):length(sacStimProc);
     [~,staA_peakloc] = max(std(ov_staA,[],2));
     temp = sacStimProc(cc).gsac_phaseDep_sta;
     tempa = sacStimProc(cc).gsac_phaseInd_sta;
+    stemp = reshape(sacStimProc(cc).gsac_phaseDep_subfilt,length(slags),flen,[]);
+    stempa = reshape(sacStimProc(cc).gsac_phaseInd_subfilt,length(slags),flen,[]);
     subplot(3,3,6)
     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(temp(:,sta_peakloc,:))');
+%     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(stemp(:,sta_peakloc,:))');
     cam = max(abs(temp(:)));
     caxis([-cam cam]);
     yl = ylim();
+    xlim(sac_xr)
     line(slags(mmmloc([1 1]))*dt,yl,'color','k');
     line(slags(mmmloc([2 2]))*dt,yl,'color','k');
     xlabel('Time (s)');
     ylabel('Rel Position (deg)');
     
     subplot(3,3,9)
-    imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(tempa(:,staA_peakloc,:))');
-    cam = max(abs(tempa(:)));
+%     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(tempa(:,staA_peakloc,:))');
+    imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(stemp(:,sta_peakloc,:))');
+%     cam = max(abs(tempa(:)));
     caxis([-cam cam]);
     yl = ylim();
-    line(slags(mmmloc([1 1]))*dt,yl,'color','k');
-    line(slags(mmmloc([2 2]))*dt,yl,'color','k');
+%     line(slags(mmmloc([1 1]))*dt,yl,'color','k');
+%     line(slags(mmmloc([2 2]))*dt,yl,'color','k');
+    xlim(sac_xr)
     xlabel('Time (s)');
     ylabel('Rel Position (deg)');
     
     cid = sprintf('E%d_C%d_',Expt_num,cc);
     
+    %%
     fig_width = 10; rel_height = 0.8;
     figufy(h1);
     fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'Gsac_mod.pdf'];
     exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
     close(h1);
+    
+    %%
+%     f1 = figure();
+%     imagesc(ov_sta); set(gca,'ydir','normal');
+%     cam = max(abs(ov_sta(:))); caxis([-cam cam]);
+%     xl = xlim();
+%     line(xl,[sta_peakloc sta_peakloc],'color','k');
+%     figufy(f1);
+%     fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'ov_sta.pdf'];
+%     exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+%     close(f1);
     
     %%
     sh = NMMdisplay_model(sacStimProc(cc).ModData.rectGQM);

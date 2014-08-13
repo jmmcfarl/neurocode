@@ -648,7 +648,7 @@ close(f2);
 % 
 
 
-%% COMPARE GSACS and BTAs
+%% COMPARE GSACS and Blank TAs
 % gsac_blank_used_SUs = find(N_blanks >= min_Nsacs & avg_rates >= min_rate);
 % 
 % all_gsac_gray = reshape([all_SU_data(gsac_blank_used_SUs).gsac_gray_avg],[],length(gsac_blank_used_SUs))';
@@ -690,9 +690,11 @@ end
 
 uset = find(~isnan(mua_blank_avg(:,1)));
 
+xl = [-0.1 0.3];
+
 f2 = figure(); hold on
 h1=shadedErrorBar(tlags,nanmean(mua_gsac_gray_avg(uset,:)),nanstd(mua_gsac_gray_avg(uset,:))/sqrt(length(uset)),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(mua_blank_avg(uset,:)),nanstd(mua_blank_avg(uset,:))/sqrt(length(uset)),{'color','m'});
+h2=shadedErrorBar(tlags,nanmean(mua_blank_avg(uset,:)),nanstd(mua_blank_avg(uset,:))/sqrt(length(uset)),{'color','k'});
 xlim(xl);
 line(xl,[1 1],'color','k');
 xlabel('Time (s)');
@@ -700,18 +702,14 @@ ylabel('Relative rate');
 % ylim([0.65 1.4])
 
 
-fig_width = 4.5; rel_height = 0.8;
+fig_width = 3.5; rel_height = 0.8;
 
-% figufy(f1);
-% fname = [fig_dir 'SUA_Gsac_GrayIm_TA.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% figufy(f2);
-% fname = [fig_dir 'MUA_Gsac_GrayIm_TA.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-% 
+
+figufy(f2);
+fname = [fig_dir 'MUA_BLANK_TA.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
 
 
 %% LARGE VS SMALL MSACS
@@ -853,56 +851,81 @@ for ee = 1:n_lem_expts
    all_supra_SUs = cat(2,all_supra_SUs,cur_SU_set(ismember(cur_SU_probenums,supra_probes)));
 end
 
-f1 = figure(); hold on
-h1=shadedErrorBar(tlags,nanmean(gran_gsac),nanstd(gran_gsac)/sqrt(n_lem_expts),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(supra_gsac),nanstd(supra_gsac)/sqrt(n_lem_expts),{'color','r'});
-h3=shadedErrorBar(tlags,nanmean(infra_gsac),nanstd(infra_gsac)/sqrt(n_lem_expts),{'color','k'});
+xr = [-0.05 0.3];
+yl = [0.7 1.3];
 
 f1 = figure(); hold on
-h1=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_gran_SUs,:)),nanstd(sua_gsac_gray_avg(all_gran_SUs,:))/sqrt(length(all_gran_SUs)),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_supra_SUs,:)),nanstd(sua_gsac_gray_avg(all_supra_SUs,:))/sqrt(length(all_supra_SUs)),{'color','r'});
-h3=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_infra_SUs,:)),nanstd(sua_gsac_gray_avg(all_infra_SUs,:))/sqrt(length(all_infra_SUs)),{'color','k'});
+h2=shadedErrorBar(tlags,nanmean(supra_gsac),nanstd(supra_gsac)/sqrt(n_lem_expts),{'color','b'});
+h1=shadedErrorBar(tlags,nanmean(gran_gsac),nanstd(gran_gsac)/sqrt(n_lem_expts),{'color','k'});
+h3=shadedErrorBar(tlags,nanmean(infra_gsac),nanstd(infra_gsac)/sqrt(n_lem_expts),{'color','r'});
+xlim(xr);
+ylim(yl);
+% line(mean(tlags(all_gran_supt)) + [0 0],yl,'color','k');
+% line(mean(tlags(all_supra_supt)) + [0 0],yl,'color','b');
+% line(mean(tlags(all_infra_supt)) + [0 0],yl,'color','r');
+% line(mean(tlags(all_gran_enht)) + [0 0],yl,'color','k');
+% line(mean(tlags(all_supra_enht)) + [0 0],yl,'color','b');
+% line(mean(tlags(all_infra_enht)) + [0 0],yl,'color','r');
+
+% f2 = figure(); hold on
+% h1=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_gran_SUs,:)),nanstd(sua_gsac_gray_avg(all_gran_SUs,:))/sqrt(length(all_gran_SUs)),{'color','k'});
+% h2=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_supra_SUs,:)),nanstd(sua_gsac_gray_avg(all_supra_SUs,:))/sqrt(length(all_supra_SUs)),{'color','b'});
+% h3=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_infra_SUs,:)),nanstd(sua_gsac_gray_avg(all_infra_SUs,:))/sqrt(length(all_infra_SUs)),{'color','r'});
 
 [granSU_sup,granSU_supt] = min(sua_gsac_gray_avg(all_gran_SUs,:),[],2);
 [infraSU_sup,infraSU_supt] = min(sua_gsac_gray_avg(all_infra_SUs,:),[],2);
 [supraSU_sup,supraSU_supt] = min(sua_gsac_gray_avg(all_supra_SUs,:),[],2);
 
-% trange = tlags(tlags > 0.02 & tlags < 0.125);
-trange = linspace(0,0.125,15);
-gran_hist = hist(tlags(all_gran_supt),trange);
-sup_hist = hist(tlags(all_supra_supt),trange);
-infra_hist = hist(tlags(all_infra_supt),trange);
+% % trange = tlags(tlags > 0.02 & tlags < 0.125);
+trange = linspace(0.025,0.125,20);
+gran_hist = histc(tlags(all_gran_supt),trange);
+sup_hist = histc(tlags(all_supra_supt),trange);
+infra_hist = histc(tlags(all_infra_supt),trange);
 
 f2 = figure();
-subplot(2,1,1);
+% subplot(2,1,1);
 hold on
-plot(trange,gran_hist/sum(gran_hist));
-plot(trange,sup_hist/sum(sup_hist),'r');
-plot(trange,infra_hist/sum(infra_hist),'k')
+stairs(trange,gran_hist/sum(gran_hist),'k');
+stairs(trange,sup_hist/sum(sup_hist),'b');
+stairs(trange,infra_hist/sum(infra_hist),'r')
 xlabel('Suppresion timing');
 ylabel('Relative freq');
 legend('Granular','Supra-gran','Infra-gran');
+xlim([0.025 0.125]);
 
-% trange = tlags(tlags > 0.05 & tlags < 0.3);
-trange = linspace(0,0.3,15);
-gran_hist = hist(tlags(all_gran_enht),trange);
-sup_hist = hist(tlags(all_supra_enht),trange);
-infra_hist = hist(tlags(all_infra_enht),trange);
-subplot(2,1,2);
-hold on
-plot(trange,gran_hist);
-plot(trange,sup_hist,'r');
-plot(trange,infra_hist,'k')
-
-
-
-
+% % trange = tlags(tlags > 0.05 & tlags < 0.3);
+% trange = linspace(0.,0.3,20);
+% gran_hist = histc(tlags(all_gran_enht),trange);
+% sup_hist = histc(tlags(all_supra_enht),trange);
+% infra_hist = histc(tlags(all_infra_enht),trange);
+% subplot(2,1,2);
+% hold on
+% stairs(trange,gran_hist/sum(gran_hist),'k');
+% stairs(trange,sup_hist/sum(sup_hist),'b');
+% stairs(trange,infra_hist/sum(infra_hist),'r')
+% xlim([0 0.3]);
 
 
 
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'MUA_Lamdep_STA.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+figufy(f2);
+fname = [fig_dir 'MUA_Lamdep_suphist.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
 
 
-
+% 
+% jit_amp = 0.001;
+% f2 = figure(); hold on
+% plot(tlags(all_gran_supt)+randn(size(all_gran_supt))*jit_amp,tlags(all_gran_enht)+randn(size(all_gran_supt))*jit_amp,'k.');
+% plot(tlags(all_supra_supt)+randn(size(all_supra_supt))*jit_amp,tlags(all_supra_enht)+randn(size(all_supra_enht))*jit_amp,'.');
+% plot(tlags(all_infra_supt)+randn(size(all_infra_supt))*jit_amp,tlags(all_infra_enht)+randn(size(all_infra_enht))*jit_amp,'r.');
+% xlim([0 0.15]); ylim([0.1 0.3]);
 
 
 
