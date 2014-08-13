@@ -3,7 +3,7 @@ close all
 
 fit_unCor = false;
 
-Expt_name = 'G087';
+Expt_name = 'M296';
 if Expt_name(1) == 'M'
     rec_type = 'LP';
 elseif Expt_name(1) == 'G'
@@ -99,8 +99,8 @@ for cc = (n_probes+1):length(sacStimProc);
     use_nPix_us = use_nPix*et_params.spatial_usfac;
     
     %%
-%     sac_xr = [-0.1 0.3];
-    sac_xr = [-0.05 0.25];
+    sac_xr = [-0.1 0.3];
+%     sac_xr = [-0.05 0.25];
 %     gr = [-1.5 3.5];
     
     close all
@@ -240,8 +240,14 @@ xlabel('Generating signal');
     [~,staA_peakloc] = max(std(ov_staA,[],2));
     temp = sacStimProc(cc).gsac_phaseDep_sta;
     tempa = sacStimProc(cc).gsac_phaseInd_sta;
+    
+    sta_sm = 0.5;
+    for iii = 1:size(temp,3)
+        temp(:,sta_peakloc,iii) = jmm_smooth_1d_cor(temp(:,sta_peakloc,iii),sta_sm);
+    end
+    
     stemp = reshape(sacStimProc(cc).gsac_phaseDep_subfilt,length(slags),flen,[]);
-    stempa = reshape(sacStimProc(cc).gsac_phaseInd_subfilt,length(slags),flen,[]);
+%     stempa = reshape(sacStimProc(cc).gsac_phaseInd_subfilt,length(slags),flen,[]);
     subplot(3,3,6)
     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(temp(:,sta_peakloc,:))');
 %     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(stemp(:,sta_peakloc,:))');
@@ -257,7 +263,7 @@ xlabel('Generating signal');
     subplot(3,3,9)
 %     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(tempa(:,staA_peakloc,:))');
     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(stemp(:,sta_peakloc,:))');
-%     cam = max(abs(tempa(:)));
+    cam = max(abs(stemp(:)));
     caxis([-cam cam]);
     yl = ylim();
 %     line(slags(mmmloc([1 1]))*dt,yl,'color','k');

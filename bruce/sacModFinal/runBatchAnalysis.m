@@ -181,7 +181,7 @@ info_timing_calcs;
 Expt_name = 'M297'; bar_ori = 90;
 info_timing_calcs;
 
-%% JBE sacStimMOd Analysis 
+%% JBE sac_info_timing Analysis 
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
@@ -211,7 +211,7 @@ addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
 bar_ori = nan; 
-for Elist_cnt = 6:length(Expt_list)
+for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     sac_LP_LFP_analysis;
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori

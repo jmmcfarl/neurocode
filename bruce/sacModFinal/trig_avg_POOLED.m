@@ -203,6 +203,7 @@ lem_parafov_MUs = intersect(parafov_MUs,lem_MUs);
 
 gsac_used_SUs = find(N_gray_gsacs >= min_Nsacs & avg_rates >= min_rate);
 msac_used_SUs = find(N_gray_msacs >= min_Nsacs & avg_rates >= min_rate);
+both_used_SUs = intersect(gsac_used_SUs,msac_used_SUs);
 
 all_gsac_gray = reshape([all_SU_data(:).gsac_gray_avg],[],length(all_SU_data))';
 all_msac_gray = reshape([all_SU_data(:).msac_gray_avg],[],length(all_SU_data))';
@@ -250,16 +251,16 @@ ylabel('Relative rate');
 title('Msac TA Grayback');
 
 
-fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'SUA_Gsac_TA_Gback.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-figufy(f2);
-fname = [fig_dir 'SUA_Msac_TA_Gback.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% fig_width = 3.5; rel_height = 0.8;
+% % figufy(f1);
+% % fname = [fig_dir 'SUA_Gsac_TA_Gback.pdf'];
+% % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
+% % 
+% figufy(f2);
+% fname = [fig_dir 'SUA_Msac_TA_Gback.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 %% SCATTERPLOT OF GSAC/MSAC EXC/SUP magnitude and timing
 xr = [0 0.35];
@@ -359,17 +360,17 @@ title('Micro Sacs');
 
 
 fig_width = 3.5; rel_height = 1.8;
-
-figufy(f1);
-fname = [fig_dir 'SUA_EnhSup_scatter.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'SUA_EnhSupTime_scatter.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
-
+% 
+% figufy(f1);
+% fname = [fig_dir 'SUA_EnhSup_scatter.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'SUA_EnhSupTime_scatter.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
 
 %% PREF VS NONPREF ORI
 
