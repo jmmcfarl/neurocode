@@ -1,5 +1,5 @@
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,9 +9,9 @@ global Expt_name bar_ori use_MUA
 
 
 % % Expt_name = 'M296';
-Expt_name = 'G088';
+Expt_name = 'G093';
 % use_MUA = false;
-bar_ori = 90; %bar orientation to use (only for UA recs)
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -1151,7 +1151,8 @@ for cc = targs
         TB_stim = [t_since_sac_start(cc_uinds) stimG];
         
         %set G-bins based on prctiles
-        Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.1),my_prctile(TB_stim(any_sac_inds,2),99.9),n_Gbins);
+%         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
+        Ytick = my_prctile(TB_stim(any_sac_inds,2),linspace(0.5,99.5,n_Gbins));
         
         %initialize TBs
         TB = TentBasis2D(Xtick, Ytick);
@@ -1218,6 +1219,11 @@ for cc = targs
         sacStimProc(cc).gsac_TB_lagX = Xtick(xbuff+1:end-xbuff);
         sacStimProc(cc).gsac_TB_gX = Ytick;
         
+        dYtick = median(diff(Ytick));
+        equi_space_gX = linspace(Ytick(1)-dYtick,Ytick(end)+dYtick,51);
+        equi_space_gdist = histc(TB_stim(used_data,2),equi_space_gX);
+        sacStimProc(cc).gsac_equi_space_gdist = equi_space_gdist(1:end-1)/sum(equi_space_gdist);
+        sacStimProc(cc).gsac_equi_space_gX = 0.5*equi_space_gX(1:end-1) + 0.5*equi_space_gX(2:end);
         end
         %% FOR MSACS
         if fitMsacs
@@ -1547,7 +1553,8 @@ for cc = targs
             TB_stim = [t_since_sac_start(cc_uinds) stimG];
             
             %set G-bins based on prctiles
-            Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.1),my_prctile(TB_stim(any_sac_inds,2),99.9),n_Gbins);
+%         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
+        Ytick = my_prctile(TB_stim(any_sac_inds,2),linspace(0.5,99.5,n_Gbins));
             
             %initialize TBs
             TB = TentBasis2D(Xtick, Ytick);
@@ -1614,6 +1621,11 @@ for cc = targs
             sacStimProc(cc).msac_TB_lagX = Xtick(xbuff+1:end-xbuff);
             sacStimProc(cc).msac_TB_gX = Ytick;
             
+            dYtick = median(diff(Ytick));
+            equi_space_gX = linspace(Ytick(1)-dYtick,Ytick(end)+dYtick,51);
+            equi_space_gdist = histc(TB_stim(used_data,2),equi_space_gX);
+            sacStimProc(cc).msac_equi_space_gdist = equi_space_gdist(1:end-1)/sum(equi_space_gdist);
+            sacStimProc(cc).msac_equi_space_gX = 0.5*equi_space_gX(1:end-1) + 0.5*equi_space_gX(2:end);
             
         end
     else
