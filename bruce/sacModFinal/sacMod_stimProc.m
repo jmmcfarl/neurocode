@@ -1649,7 +1649,7 @@ for cc = targs
 end
 
 %%
-anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
+anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
 
 fname = [fname sprintf('_ori%d',bar_ori)];
 if fit_unCor
