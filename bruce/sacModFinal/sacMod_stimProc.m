@@ -815,6 +815,7 @@ for cc = targs
         within_tr_inds = cur_tr_inds(ismember(cur_tr_inds,within_sac_inds));
         within_xv_inds = cur_xv_inds(ismember(cur_xv_inds,within_sac_inds));
 
+        %%
         if ~isempty(any_sac_inds)
         %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
         cur_rGQM = NMMfit_logexp_spkNL(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
@@ -1226,6 +1227,11 @@ for cc = targs
         equi_space_gdist = histc(TB_stim(used_data,2),equi_space_gX);
         sacStimProc(cc).gsac_equi_space_gdist = equi_space_gdist(1:end-1)/sum(equi_space_gdist);
         sacStimProc(cc).gsac_equi_space_gX = 0.5*equi_space_gX(1:end-1) + 0.5*equi_space_gX(2:end);
+        
+        temp = sum(bsxfun(@times,gsac_TB_rate.*gsac_TB_dist,Ytick))./marg_gsacrate./sum(gsac_TB_dist);
+        ov_temp = sum(marg_grate.*marg_gdist.*Ytick)/mean(cur_Robs(used_data))/sum(marg_gdist);
+        sacStimProc(cc).gsac_sacCond_Gavg = temp(xbuff+1:end-xbuff);
+        sacStimProc(cc).gsac_Gavg = ov_temp;
         end
         %% FOR MSACS
         if fitMsacs
@@ -1630,6 +1636,11 @@ for cc = targs
             equi_space_gdist = histc(TB_stim(used_data,2),equi_space_gX);
             sacStimProc(cc).msac_equi_space_gdist = equi_space_gdist(1:end-1)/sum(equi_space_gdist);
             sacStimProc(cc).msac_equi_space_gX = 0.5*equi_space_gX(1:end-1) + 0.5*equi_space_gX(2:end);
+            
+            temp = sum(bsxfun(@times,msac_TB_rate.*msac_TB_dist,Ytick))./marg_msacrate./sum(msac_TB_dist);
+            ov_temp = sum(marg_grate.*marg_gdist.*Ytick)/mean(cur_Robs(used_data))/sum(marg_gdist);
+            sacStimProc(cc).msac_sacCond_Gavg = temp(xbuff+1:end-xbuff);
+            sacStimProc(cc).msac_Gavg = ov_temp;
             
         end
     else
