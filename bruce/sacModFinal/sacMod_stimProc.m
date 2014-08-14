@@ -1553,8 +1553,8 @@ for cc = targs
             TB_stim = [t_since_sac_start(cc_uinds) stimG];
             
             %set G-bins based on prctiles
-%         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
-        Ytick = my_prctile(TB_stim(any_sac_inds,2),linspace(0.5,99.5,n_Gbins));
+            %         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
+            Ytick = my_prctile(TB_stim(any_sac_inds,2),linspace(0.5,99.5,n_Gbins));
             
             %initialize TBs
             TB = TentBasis2D(Xtick, Ytick);

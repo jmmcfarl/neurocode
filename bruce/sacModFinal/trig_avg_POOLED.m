@@ -250,6 +250,36 @@ xlabel('Time (s)');
 ylabel('Relative rate');
 title('Msac TA Grayback');
 
+f3 = figure(); hold on
+curSUs = intersect(jbe_SUs,msac_used_SUs);
+h1=shadedErrorBar(tlags,nanmean(all_msac_gray(curSUs,:)),nanstd(all_msac_gray(curSUs,:))/sqrt(length(curSUs)),{'color','r'});
+curSUs = intersect(lem_SUs,msac_used_SUs);
+h2=shadedErrorBar(tlags,nanmean(all_msac_gray(curSUs,:)),nanstd(all_msac_gray(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
+curSUs = intersect(jbe_SUs,gsac_used_SUs);
+h3=plot(tlags,nanmean(all_gsac_gray(curSUs,:)),'m','linewidth',2);
+curSUs = intersect(lem_SUs,gsac_used_SUs);
+h4=plot(tlags,nanmean(all_gsac_gray(curSUs,:)),'k','linewidth',2);
+xlim(xl);
+ylim([0.7 1.3]);
+% legend([h1.mainLine h2.mainLine],{'JBE','LEM'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlabel('Time (s)');
+ylabel('Relative rate');
+title('Msac TA Grayback');
+
+
+f4 = figure(); hold on
+h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(gsac_used_SUs,:)),nanstd(all_gsac_gray(gsac_used_SUs,:))/sqrt(length(gsac_used_SUs)),{'color','r'});
+h2=shadedErrorBar(tlags,nanmean(all_msac_gray(msac_used_SUs,:)),nanstd(all_msac_gray(msac_used_SUs,:))/sqrt(length(msac_used_SUs)),{'color','b'});
+xlim(xl);
+ylim([0.7 1.2]);
+legend([h1.mainLine h2.mainLine],{'Gsac','Msac'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlabel('Time (s)');
+ylabel('Relative rate');
+title('Gsac TA Grayback');
 
 % fig_width = 3.5; rel_height = 0.8;
 % % figufy(f1);
@@ -263,51 +293,34 @@ title('Msac TA Grayback');
 % close(f2);
 
 %% SCATTERPLOT OF GSAC/MSAC EXC/SUP magnitude and timing
-xr = [0 0.35];
-poss_lagrange = find(tlags > xr(1) & tlags < xr(2));
-% [gsac_exc,gsac_excloc] = max(all_gsac_gray(:,poss_lagrange),[],2);
-% [gsac_inh,gsac_inhloc] = min(all_gsac_gray(:,poss_lagrange),[],2);
-% [msac_exc,msac_excloc] = max(all_msac_gray(:,poss_lagrange),[],2);
-% [msac_inh,msac_inhloc] = min(all_msac_gray(:,poss_lagrange),[],2);
+all_gsac_gray_SE = reshape([all_SU_data(:).gsac_gray_std],[],length(all_SU_data))';
+all_msac_gray_SE = reshape([all_SU_data(:).msac_gray_std],[],length(all_SU_data))';
 
-[gsac_exc,gsac_inh,gsac_excloc,gsac_inhloc] = deal(nan(size(all_gsac_gray,1),1));
-for ii = 1:size(all_gsac_gray,1)
-    if ~isnan(all_gsac_gray(ii,poss_lagrange))
-        [temp,temploc] = findpeaks(all_gsac_gray(ii,poss_lagrange),'sortstr','descend');
-        gsac_exc(ii) = temp(1); gsac_excloc(ii) = temploc(1);
-        [temp,temploc] = findpeaks(-all_gsac_gray(ii,poss_lagrange),'sortstr','descend');
-        gsac_inh(ii) = -temp(1); gsac_inhloc(ii) = temploc(1);
-    else
-        gsac_exc(ii) = nan; gsac_excloc(ii) = 1;
-        gsac_inh(ii) = nan; gsac_inhloc(ii) = 1;
+if sm_sigma > 0
+    for ii = 1:size(all_gsac_gray,1)
+        all_gsac_gray_SE(ii,:) = jmm_smooth_1d_cor(all_gsac_gray_SE(ii,:),sm_sigma);
+        all_msac_gray_SE(ii,:) = jmm_smooth_1d_cor(all_msac_gray_SE(ii,:),sm_sigma);
     end
 end
+all_gsac_gray_Z = (all_gsac_gray - 1)./all_gsac_gray_SE;
+all_msac_gray_Z = (all_msac_gray - 1)./all_msac_gray_SE;
 
-[msac_exc,msac_inh,msac_excloc,msac_inhloc] = deal(nan(size(all_msac_gray,1),1));
-for ii = 1:size(all_msac_gray,1)
-    if ~isnan(all_msac_gray(ii,poss_lagrange))
-        [temp,temploc] = findpeaks(all_msac_gray(ii,poss_lagrange),'sortstr','descend');
-        msac_exc(ii) = temp(1); msac_excloc(ii) = temploc(1);
-        [temp,temploc] = findpeaks(-all_msac_gray(ii,poss_lagrange),'sortstr','descend');
-        msac_inh(ii) = -temp(1); msac_inhloc(ii) = temploc(1);
-    else
-        msac_exc(ii) = nan; msac_excloc(ii) = 1;
-        msac_inh(ii) = nan; msac_inhloc(ii) = 1;
-    end
-end
 
-gsac_Efact = gsac_exc - 1;
-gsac_Sfact = 1-gsac_inh;
-msac_Efact = msac_exc - 1;
-msac_Sfact = 1 - msac_inh;
-gsac_exctime = tlags(poss_lagrange(gsac_excloc));
-msac_exctime = tlags(poss_lagrange(msac_excloc));
-gsac_inhtime = tlags(poss_lagrange(gsac_inhloc));
-msac_inhtime = tlags(poss_lagrange(msac_inhloc));
+search_range = [0 0.35];
+[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_gray-1,tlags,search_range);
+[gsac_Sfact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_gray-1),tlags,search_range);
+[gsac_exc_Z] = get_tavg_peaks(all_gsac_gray_Z,tlags,search_range);
+[gsac_inh_Z] = get_tavg_peaks(-all_gsac_gray_Z,tlags,search_range);
+
+[msac_Efact,msac_exctime] = get_tavg_peaks(all_msac_gray-1,tlags,search_range);
+[msac_Sfact,msac_inhtime] = get_tavg_peaks(-(all_msac_gray-1),tlags,search_range);
+[msac_exc_Z] = get_tavg_peaks(all_msac_gray_Z,tlags,search_range);
+[msac_inh_Z] = get_tavg_peaks(-all_msac_gray_Z,tlags,search_range);
+
 
 mS = 3; %marker size
 
-%plot E/S modulation strengths
+%plot E/S modulation strengths (SEP LEM/JBE)
 f1 = figure(); 
 subplot(2,1,1);hold on
 curSUs = intersect(jbe_SUs,gsac_used_SUs);
@@ -330,7 +343,6 @@ set(gca,'xtick',0:0.2:1,'ytick',0:0.2:1);
 xlabel('Enhancement strength');
 ylabel('Suppression strength');
 title('Micro Sacs');
-
 
 %plot modulation timing
 jit_amp = 0.001; %prevent points from occluding each other with some random jitter
@@ -359,6 +371,53 @@ ylabel('Suppression peak time (s)');
 title('Micro Sacs');
 
 
+xl = [0 1];
+yl = [0 0.35];
+f3 = figure(); 
+hold on
+curSUs = gsac_used_SUs;
+plot(gsac_Efact(curSUs),gsac_exctime(curSUs),'b.','markersize',6);
+curSUs = gsac_used_SUs(gsac_exc_Z(gsac_used_SUs) >=  3);
+plot(gsac_Efact(curSUs),gsac_exctime(curSUs),'bo','markersize',4);
+% legend('JBE','LEM');
+% line([0 1],[0 1],'color','k');
+
+curSUs = gsac_used_SUs;
+plot(gsac_Sfact(curSUs),gsac_inhtime(curSUs),'r.','markersize',6);
+curSUs = gsac_used_SUs(gsac_inh_Z(gsac_used_SUs) >=  3);
+plot(gsac_Sfact(curSUs),gsac_inhtime(curSUs),'ro','markersize',4);
+set(gca,'xtick',0:0.2:1);
+
+xlabel('Modulation strength');
+ylabel('Modulation timing (s)');
+xlim(xl); ylim(yl);
+
+
+nbins = 20;
+efact_binedges = linspace(xl(1),xl(2),nbins+1);
+time_binedges = linspace(yl(1),yl(2),nbins+1);
+curSUs = gsac_used_SUs(gsac_exc_Z(gsac_used_SUs) >=  3);
+gsac_Efact_dist = histc(gsac_Efact(curSUs),efact_binedges);
+gsac_Efact_dist = gsac_Efact_dist/sum(gsac_Efact_dist);
+gsac_Etime_dist = histc(gsac_exctime(curSUs),time_binedges);
+gsac_Etime_dist = gsac_Etime_dist/sum(gsac_Etime_dist);
+curSUs = gsac_used_SUs(gsac_inh_Z(gsac_used_SUs) >=  3);
+gsac_Sfact_dist = histc(gsac_Sfact(curSUs),efact_binedges);
+gsac_Sfact_dist = gsac_Sfact_dist/sum(gsac_Sfact_dist);
+gsac_Stime_dist = histc(gsac_inhtime(curSUs),time_binedges);
+gsac_Stime_dist = gsac_Stime_dist/sum(gsac_Stime_dist);
+f4 = figure();
+hold on
+stairs(efact_binedges,gsac_Efact_dist);
+stairs(efact_binedges,gsac_Sfact_dist,'r');
+xlim(xl);
+f5 = figure();
+hold on
+stairs(time_binedges,gsac_Etime_dist);
+stairs(time_binedges,gsac_Stime_dist,'r');
+xlim(yl);
+
+
 fig_width = 3.5; rel_height = 1.8;
 % 
 % figufy(f1);
@@ -371,6 +430,23 @@ fig_width = 3.5; rel_height = 1.8;
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 % 
+
+% fig_width = 3.5; rel_height = 1;
+% figufy(f3);
+% fname = [fig_dir 'SUA_Mod_time_scatter.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f4);
+% fname = [fig_dir 'SUA_Mod_dist.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
+% 
+% figufy(f5);
+% fname = [fig_dir 'SUA_Mod_time.pdf'];
+% exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f5);
 
 %% PREF VS NONPREF ORI
 
@@ -461,54 +537,95 @@ xlabel('Time (s)');
 ylabel('Relative rate');
 title('Msac TA Grayback');
 
+% xl = [-0.15 0.4];
+% yl = [0.65 1.4];
+% f3 = figure(); hold on
+% cur_quantiles = prctile(all_gsac_gray(gsac_used_SUs,:),[10 25 50 75 90]);
+% ebars = [cur_quantiles(3,:)-cur_quantiles(2,:); cur_quantiles(4,:) - cur_quantiles(3,:)];
+% h1=shadedErrorBar(tlags,cur_quantiles(3,:),ebars,{'color','r'});
+% % plot(tlags,nanmean(all_gsac_gray(gsac_used_SUs,:)),'r','linewidth',2);
+% cur_quantiles = prctile(mua_gsac_avg([jbe_MUs],:),[10 25 50 75 90]);
+% ebars = [cur_quantiles(3,:)-cur_quantiles(2,:); cur_quantiles(4,:) - cur_quantiles(3,:)];
+% h1=shadedErrorBar(tlags,cur_quantiles(3,:),ebars,{'color','k'});
+% cur_quantiles = prctile(mua_gsac_avg([ lem_MUs],:),[10 25 50 75 90]);
+% ebars = [cur_quantiles(3,:)-cur_quantiles(2,:); cur_quantiles(4,:) - cur_quantiles(3,:)];
+% h1=shadedErrorBar(tlags,cur_quantiles(3,:),ebars,{'color','b'});
+% % plot(tlags,cur_quantiles(3,:),'k','linewidth',2)
+% % plot(tlags,cur_quantiles([2 4],:),'r')
+% % plot(tlags,cur_quantiles([1 5],:),'b--');
+% xlim(xl);ylim(yl);
+% line(xl,[1 1],'color','k');
 
 fig_width = 3.5; rel_height = 0.8;
 
-figufy(f1);
-fname = [fig_dir 'MUA_Gsac_TA_Gback.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% figufy(f1);
+% fname = [fig_dir 'MUA_Gsac_TA_Gback.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'MUA_Msac_TA_Gback.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
 
-figufy(f2);
-fname = [fig_dir 'MUA_Msac_TA_Gback.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
-
-
+% figufy(f3);
+% fname = [fig_dir 'MUA_Gsac_TA_Gback_QUANTILES.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
 
 %% SU GSACS AND SIMSACS (IMAGE BACK) SU
 
-gsac_used_SUs = find(N_im_gsacs >= min_Nsacs & avg_rates >= min_rate);
+% gsac_used_SUs = find(N_im_gsacs >= min_Nsacs & avg_rates >= min_rate);
 simsac_used_SUs = find(N_simsacs >= min_Nsacs & avg_rates >= min_rate);
 
-all_gsac_im = reshape([all_SU_data(gsac_used_SUs).gsac_im_avg],[],length(gsac_used_SUs))';
+all_gsac_im = reshape([all_SU_data(simsac_used_SUs).gsac_im_avg],[],length(simsac_used_SUs))';
 all_simsac = reshape([all_SU_data(simsac_used_SUs).simsac_avg],[],length(simsac_used_SUs))';
+all_gsac_im_SE = reshape([all_SU_data(simsac_used_SUs).gsac_im_std],[],length(simsac_used_SUs))';
+all_simsac_SE = reshape([all_SU_data(simsac_used_SUs).simsac_std],[],length(simsac_used_SUs))';
 if sm_sigma > 0
     for ii = 1:size(all_gsac_im,1)
         all_gsac_im(ii,:) = jmm_smooth_1d_cor(all_gsac_im(ii,:),sm_sigma);
         all_simsac(ii,:) = jmm_smooth_1d_cor(all_simsac(ii,:),sm_sigma);
+        all_gsac_im_SE(ii,:) = jmm_smooth_1d_cor(all_gsac_im_SE(ii,:),sm_sigma);
+        all_simsac_SE(ii,:) = jmm_smooth_1d_cor(all_simsac_SE(ii,:),sm_sigma);
     end
 end
+all_gsac_im_Z = (all_gsac_im - 1)./all_gsac_im_SE;
+all_simsac_Z = (all_simsac - 1)./all_simsac_SE;
+
+search_range = [0 0.2];
+[im_Sfact,im_inhtime] = get_tavg_peaks(-(all_gsac_im-1),tlags,search_range);
+[im_Sfact_Z] = get_tavg_peaks(-all_gsac_im_Z,tlags,search_range);
+[sim_Sfact,sim_inhtime] = get_tavg_peaks(-(all_simsac-1),tlags,search_range);
+[sim_Sfact_Z] = get_tavg_peaks(-all_simsac_Z,tlags,search_range);
+sim_Smod = sim_Sfact./im_Sfact;
+
+search_range = [0.1 0.3];
+[im_Efact,im_exctime] = get_tavg_peaks(all_gsac_im-1,tlags,search_range);
+[im_Efact_Z] = get_tavg_peaks(all_gsac_im_Z,tlags,search_range);
+[sim_Efact,sim_exctime] = get_tavg_peaks(all_simsac-1,tlags,search_range);
+[sim_Efact_Z] = get_tavg_peaks(all_simsac_Z,tlags,search_range);
 
 xl = [-0.15 0.4];
 yl = [0.6 1.3];
 
 f1 = figure(); hold on
 
-curSUs = find(ismember(gsac_used_SUs,jbe_SUs));
+curSUs = find(ismember(simsac_used_SUs,jbe_SUs));
+curSUs = 1:length(simsac_used_SUs);
 h1=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','r'});
-curSUs = find(ismember(gsac_used_SUs,lem_SUs));
-h2=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
+% curSUs = find(ismember(gsac_used_SUs,lem_SUs));
+% h2=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
 % curSUs = find(ismember(gsac_used_SUs,[jbe_SUs lem_SUs]));
 % h1=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','r'});
 
-curSUs = find(ismember(simsac_used_SUs,jbe_SUs));
-h3=shadedErrorBar(tlags,nanmean(all_simsac(curSUs,:)),nanstd(all_simsac(curSUs,:))/sqrt(length(curSUs)),{'color','m'});
-curSUs = find(ismember(simsac_used_SUs,lem_SUs));
-h4=shadedErrorBar(tlags,nanmean(all_simsac(curSUs,:)),nanstd(all_simsac(curSUs,:))/sqrt(length(curSUs)),{'color','k'});
+% curSUs = find(ismember(simsac_used_SUs,jbe_SUs));
+h3=shadedErrorBar(tlags,nanmean(all_simsac(curSUs,:)),nanstd(all_simsac(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
+% curSUs = find(ismember(simsac_used_SUs,lem_SUs));
+% h4=shadedErrorBar(tlags,nanmean(all_simsac(curSUs,:)),nanstd(all_simsac(curSUs,:))/sqrt(length(curSUs)),{'color','k'});
 % curSUs = find(ismember(simsac_used_SUs,[lem_SUs jbe_SUs]));
 % h4=shadedErrorBar(tlags,nanmean(all_simsac(curSUs,:)),nanstd(all_simsac(curSUs,:))/sqrt(length(curSUs)),{'color','k'});
-
 
 xlim(xl);ylim(yl)
 % legend([h1.mainLine h2.mainLine h3.mainLine h4.mainLine],{'JBE-gsac','LEM-gsac','JBE-simsac','LEM-simsac'},'Location','Southeast');
@@ -519,10 +636,10 @@ ylabel('Relative rate');
 
 fig_width = 3.5; rel_height = 0.8;
 
-figufy(f1);
-fname = [fig_dir 'SUA_Gsac_Simsac_TA.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% figufy(f1);
+% fname = [fig_dir 'SUA_Gsac_Simsac_TA_2.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 
 %% MUA SIMSAC TA
@@ -590,25 +707,35 @@ if sm_sigma > 0
     end
 end
 
+search_range = [0 0.2];
+[im_Sfact,im_inhtime] = get_tavg_peaks(-(all_gsac_im-1),tlags,search_range);
+[gr_Sfact,gr_inhtime] = get_tavg_peaks(-(all_gsac_gray-1),tlags,search_range);
+
+search_range = [0.1 0.3];
+[im_Efact,im_exctime] = get_tavg_peaks(all_gsac_im-1,tlags,search_range);
+[gr_Efact,gr_exctime] = get_tavg_peaks(all_gsac_gray-1,tlags,search_range);
+
+
 xl = [-0.15 0.4];
 
 f1 = figure(); hold on
-curSUs = find(ismember(gsac_im_used_SUs,jbe_SUs));
-h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(curSUs,:)),nanstd(all_gsac_gray(curSUs,:))/sqrt(length(curSUs)),{'color','r'});
-curSUs = find(ismember(gsac_im_used_SUs,lem_SUs));
-h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(curSUs,:)),nanstd(all_gsac_gray(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
+% curSUs = find(ismember(gsac_im_used_SUs,jbe_SUs));
+curSUs = 1:length(gsac_im_used_SUs);
+h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(curSUs,:)),nanstd(all_gsac_gray(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
+% curSUs = find(ismember(gsac_im_used_SUs,lem_SUs));
+% h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(curSUs,:)),nanstd(all_gsac_gray(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
 
-curSUs = find(ismember(gsac_im_used_SUs,jbe_SUs));
-h3=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','m'});
-curSUs = find(ismember(gsac_im_used_SUs,lem_SUs));
-h4=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','k'});
+% curSUs = find(ismember(gsac_im_used_SUs,jbe_SUs));
+h3=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','r'});
+% curSUs = find(ismember(gsac_im_used_SUs,lem_SUs));
+% h4=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','k'});
 
 xlim(xl);
-legend([h1.mainLine h2.mainLine h3.mainLine h4.mainLine],{'JBE-gray','LEM-gray','JBE-im','LEM-im'},'Location','Southeast');
+% legend([h1.mainLine h2.mainLine h3.mainLine h4.mainLine],{'JBE-gray','LEM-gray','JBE-im','LEM-im'},'Location','Southeast');
 line(xl,[1 1],'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
-ylim([0.65 1.3])
+ylim([0.65 1.25])
 
 
 mua_gsac_gray_avg = [all_MU_data(:).gsac_gray_avg]';
@@ -638,14 +765,14 @@ ylim([0.65 1.4])
 fig_width = 3.5; rel_height = 0.8;
 
 figufy(f1);
-fname = [fig_dir 'SUA_Gsac_GrayIm_TA.pdf'];
+fname = [fig_dir 'SUA_Gsac_GrayIm_TA_2.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
-
-figufy(f2);
-fname = [fig_dir 'MUA_Gsac_GrayIm_TA.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% 
+% figufy(f2);
+% fname = [fig_dir 'MUA_Gsac_GrayIm_TA.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 % 
 
 
