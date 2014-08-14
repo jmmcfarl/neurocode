@@ -111,6 +111,7 @@ EP_bounds = 1;%eye position boundary
 micro_thresh = 1; %microsaccade amplitude threshold (deg)
 max_sac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
+max_gsac_dur = 0.1;
 
 %% LOAD EXPTS STRUCT
 cd(data_dir)
@@ -446,7 +447,8 @@ micro_set(ismember(micro_set,sacburst_set)) = []; %eliminate microsacs that are 
 sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
 sac_deltaY = sac_postpos(2,:) - sac_prepos(2,:);
 
-gsac_set = find((abs(sac_deltaX) > gsac_thresh | abs(sac_deltaY) > gsac_thresh) & ~used_is_blink');
+sac_durs = [saccades(:).duration];
+gsac_set = find((abs(sac_deltaX) > gsac_thresh | abs(sac_deltaY) > gsac_thresh) & ~used_is_blink' & sac_durs <= max_gsac_dur);
 
 p100_trials = find(all_frame_dur == 1 & all_sac_dir == all_bar_or);
 p30_trials = find(all_frame_dur == 3 & all_sac_dir == all_bar_or);

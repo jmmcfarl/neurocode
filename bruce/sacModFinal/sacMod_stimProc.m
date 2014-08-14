@@ -12,7 +12,7 @@ global Expt_name bar_ori use_MUA
 % Expt_name = 'G093';
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
-
+% 
 
 fit_unCor = false;
 fit_subMod = false;
@@ -36,6 +36,7 @@ G_lambdas = 100;
 micro_thresh = 1; %max amp of microsac (deg)
 EP_bounds = 1;%eye position boundary (deg from central FP)
 sac_burst_isi = 0.15;
+max_gsac_dur = 0.1;
 
 %%
 
@@ -604,8 +605,9 @@ msac_bursts = micro_sacs(ismember(micro_sacs,sacburst_set));
 micro_sacs(ismember(micro_sacs,sacburst_set)) = []; %eliminate microsacs that are part of a 'burst'
 
 %guided saccades are those whose parallel component is large enough and
-%that aren't blinks
-big_sacs = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds);
+%that aren't blinks (and whose duration is not too long to be suspicious
+sac_durs = [saccades(:).duration];
+big_sacs = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & sac_durs <= max_gsac_dur);
 
 saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 

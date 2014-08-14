@@ -20,7 +20,7 @@ global Expt_name bar_ori use_MUA
 micro_thresh = 1; %max amp of microsac (deg)
 EP_bounds = 1;%eye position boundary (deg from central FP)
 sac_burst_isi = 0.15;
-
+max_gsac_dur = 0.1;
 %%
 
 Expt_num = str2num(Expt_name(2:end));
@@ -595,7 +595,8 @@ micro_sacs(ismember(micro_sacs,sacburst_set)) = []; %eliminate microsacs that ar
 
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks
-big_sacs = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds);
+sac_durs = [saccades(:).duration];
+big_sacs = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & sac_durs <= max_gsac_dur);
 
 saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 

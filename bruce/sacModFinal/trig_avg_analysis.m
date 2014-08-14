@@ -1,11 +1,11 @@
-% clear all
-% close all
+clear all
+close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G086';
-% bar_ori = 0;
+Expt_name = 'G086';
+bar_ori = 0;
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -108,6 +108,7 @@ EP_bounds = 1;%eye position boundary
 micro_thresh = 1; %microsaccade amplitude threshold (deg)
 max_sac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
+max_gsac_dur = 0.1;
 
 nboot = 200; %number of bootstrap samples for computing trig-avg SD
 
@@ -514,7 +515,8 @@ sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
 
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks
-gsac_set = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds);
+sac_durs = [saccades(:).duration];
+gsac_set = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & sac_durs <= max_gsac_dur);
 
 %classify guided saccades as 'in' vs 'out' and 'pos' vs 'neg'
 outsacs = gsac_set(abs(sac_prepos(1,gsac_set)) < abs(sac_postpos(1,gsac_set)));

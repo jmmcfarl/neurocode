@@ -77,7 +77,7 @@ end
 
 EP_bounds = 1;%eye position boundary
 micro_thresh = 1; %microsaccade amplitude threshold (deg)
-max_sac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
+max_gsac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
 gsac_thresh = 1;
 
@@ -301,7 +301,7 @@ micro_set(ismember(micro_set,sacburst_set)) = []; %eliminate microsacs that are 
 
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks
-gsac_set = find(sac_amp > gsac_thresh & ~used_is_blink');
+gsac_set = find(sac_amp > gsac_thresh & ~used_is_blink' & sac_dur <= max_gsac_dur);
 
 
 %%

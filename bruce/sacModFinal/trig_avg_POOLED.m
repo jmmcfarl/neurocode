@@ -992,14 +992,14 @@ search_range = [0.1 0.3];
 [par_Efact,par_exctime] = get_tavg_peaks(all_msac_Par-1,tlags,search_range);
 [orth_Efact,orth_exctime] = get_tavg_peaks(all_msac_Orth-1,tlags,search_range);
 
-xl = [-0.1 0.3];
-
+xl = [-0.15 0.4];
+yl = [0.75 1.2];
 has_both = find(~isnan(all_msac_Orth(:,1)) & ~isnan(all_msac_Par(:,1)));
 f2 = figure(); 
 hold on
-h1=shadedErrorBar(tlags,nanmean(all_msac_Orth),nanstd(all_msac_Orth)/sqrt(length(has_both)),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(all_msac_Par),nanstd(all_msac_Par)/sqrt(length(has_both)),{'color','r'});
-xlim(xl);
+h1=shadedErrorBar(tlags,nanmean(all_msac_Orth),nanstd(all_msac_Orth)/sqrt(length(has_both)),{'color','k'});
+h2=shadedErrorBar(tlags,nanmean(all_msac_Par),nanstd(all_msac_Par)/sqrt(length(has_both)),{'color','b'});
+xlim(xl);ylim(yl);
 line(xl,[1 1],'color','k');
 
 
@@ -1035,7 +1035,7 @@ fig_width = 3.5; rel_height = 0.8;
 figufy(f2);
 fname = [fig_dir 'SUA_Msac_PARORTH.pdf'];
 exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% close(f2);
 
 
 
