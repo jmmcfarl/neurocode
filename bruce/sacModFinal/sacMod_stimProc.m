@@ -1,5 +1,5 @@
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,18 +9,18 @@ global Expt_name bar_ori use_MUA
 
 
 % % Expt_name = 'M296';
-Expt_name = 'G093';
+% Expt_name = 'G093';
 % use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
-fit_subMod = true;
-fitUpstream = true;
-fitSTA = true;
+fit_subMod = false;
+fitUpstream = false;
+fitSTA = false;
 fitMsacs = false;
 
-
+fname = 'sacStimProcTB';
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8);
 poss_sub_d2T = logspace(log10(1),log10(1e3),6);
@@ -994,6 +994,8 @@ for cc = targs
             [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds));
             sacStimProc(cc).gsac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
             
+            sacStimProc(cc).gsac_submod = subspace_mod;
+            
             [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
             
             %extract the subspace filters
@@ -1398,6 +1400,8 @@ for cc = targs
             [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
             sacStimProc(cc).msac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
             
+                        sacStimProc(cc).msac_submod = subspace_mod;
+
             [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
             
             %extract the subspace filters
@@ -1635,7 +1639,7 @@ end
 
 %%
 anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
-fname = 'sacStimProc';
+
 fname = [fname sprintf('_ori%d',bar_ori)];
 if fit_unCor
     fname = [fname '_unCor'];
