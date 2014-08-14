@@ -281,7 +281,7 @@ xlabel('Time (s)');
 ylabel('Relative rate');
 title('Gsac TA Grayback');
 
-% fig_width = 3.5; rel_height = 0.8;
+fig_width = 3.5; rel_height = 0.8;
 % % figufy(f1);
 % % fname = [fig_dir 'SUA_Gsac_TA_Gback.pdf'];
 % % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -291,6 +291,12 @@ title('Gsac TA Grayback');
 % fname = [fig_dir 'SUA_Msac_TA_Gback.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
+
+% 
+figufy(f4);
+fname = [fig_dir 'SUA_GSAC_Vs_MSAC.pdf'];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f4);
 
 %% SCATTERPLOT OF GSAC/MSAC EXC/SUP magnitude and timing
 all_gsac_gray_SE = reshape([all_SU_data(:).gsac_gray_std],[],length(all_SU_data))';
@@ -317,7 +323,8 @@ search_range = [0 0.35];
 [msac_exc_Z] = get_tavg_peaks(all_msac_gray_Z,tlags,search_range);
 [msac_inh_Z] = get_tavg_peaks(-all_msac_gray_Z,tlags,search_range);
 
-
+msac_Efac_diff = msac_Efact./gsac_Efact;
+msac_Sfac_diff = msac_Sfact./gsac_Sfact;
 mS = 3; %marker size
 
 %plot E/S modulation strengths (SEP LEM/JBE)
@@ -876,8 +883,60 @@ fig_width = 3.5; rel_height = 0.8;
 % close(f2);
 
 %% MSAC DIRECTION DEPENDENCE
-mua_vert_avg = [all_MU_data(:).msac_vert_avg]';
-mua_hori_avg = [all_MU_data(:).msac_hor_avg]';
+N_msacs = [all_SU_data(:).N_msacs];
+msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);
+N_msacs_vert = [all_SU_data(msac_used_SUs).N_msacs_vert];
+N_msacs_hor = [all_SU_data(msac_used_SUs).N_msacs_hor];
+
+all_msac_hor = reshape([all_SU_data(msac_used_SUs).msac_hor_avg],[],length(msac_used_SUs))';
+all_msac_vert = reshape([all_SU_data(msac_used_SUs).msac_vert_avg],[],length(msac_used_SUs))';
+% all_msac_hor = reshape([all_SU_data(msac_used_SUs).msac_gr_hor_avg],[],length(msac_used_SUs))';
+% all_msac_vert = reshape([all_SU_data(msac_used_SUs).msac_gr_vert_avg],[],length(msac_used_SUs))';
+if sm_sigma > 0
+    for ii = 1:size(all_msac_hor,1)
+        all_msac_hor(ii,:) = jmm_smooth_1d_cor(all_msac_hor(ii,:),sm_sigma);
+        all_msac_vert(ii,:) = jmm_smooth_1d_cor(all_msac_vert(ii,:),sm_sigma);
+    end
+end
+SU_bar_oris = [all_SU_data(msac_used_SUs).bar_ori];
+hori_SUs = find(SU_bar_oris == 0);
+vert_SUs = find(SU_bar_oris == 90);
+
+all_msac_orth = nan(size(all_msac_hor));
+all_msac_par = nan(size(all_msac_hor));
+all_msac_orth(hori_SUs,:) = all_msac_vert(hori_SUs,:);
+all_msac_orth(vert_SUs,:) = all_msac_hor(vert_SUs,:);
+all_msac_par(hori_SUs,:) = all_msac_hor(hori_SUs,:);
+all_msac_par(vert_SUs,:) = all_msac_vert(vert_SUs,:);
+
+N_msac_par = nan(length(msac_used_SUs),1);
+N_msac_orth = N_msac_par;
+N_msac_par(hori_SUs) = N_msacs_hor(hori_SUs);
+N_msac_orth(hori_SUs) = N_msacs_vert(hori_SUs);
+N_msac_par(vert_SUs) = N_msacs_vert(vert_SUs);
+N_msac_orth(vert_SUs) = N_msacs_hor(vert_SUs);
+
+search_range = [0 0.2];
+[par_Sfact,par_inhtime] = get_tavg_peaks(-(all_msac_par-1),tlags,search_range);
+[orth_Sfact,orth_inhtime] = get_tavg_peaks(-(all_msac_orth-1),tlags,search_range);
+
+search_range = [0.1 0.3];
+[par_Efact,par_exctime] = get_tavg_peaks(all_msac_par-1,tlags,search_range);
+[orth_Efact,orth_exctime] = get_tavg_peaks(all_msac_orth-1,tlags,search_range);
+
+xl = [-0.1 0.3];
+
+has_both = find(~isnan(all_msac_orth(:,1)) & ~isnan(all_msac_par(:,1)));
+f2 = figure(); 
+hold on
+h1=shadedErrorBar(tlags,nanmean(all_msac_orth),nanstd(all_msac_orth)/sqrt(length(has_both)),{'color','b'});
+h2=shadedErrorBar(tlags,nanmean(all_msac_par),nanstd(all_msac_par)/sqrt(length(has_both)),{'color','r'});
+xlim(xl);
+line(xl,[1 1],'color','k');
+
+
+mua_vert_avg = [all_MU_data(:).msac_gr_vert_avg]';
+mua_hori_avg = [all_MU_data(:).msac_gr_hor_avg]';
 if mua_sm_sigma > 0
     for ii = 1:size(mua_vert_avg,1)
         mua_vert_avg(ii,:) = jmm_smooth_1d_cor(mua_vert_avg(ii,:),mua_sm_sigma);
@@ -886,21 +945,30 @@ if mua_sm_sigma > 0
 end
 hori_MUs = find(MU_bar_oris == 0);
 vert_MUs = find(MU_bar_oris == 90);
+ 
+mua_msac_orth = nan(size(mua_hori_avg));
+mua_msac_par = nan(size(mua_hori_avg));
+mua_msac_orth(hori_MUs,:) = mua_vert_avg(hori_MUs,:);
+mua_msac_orth(vert_MUs,:) = mua_hori_avg(vert_MUs,:);
+mua_msac_par(hori_MUs,:) = mua_hori_avg(hori_MUs,:);
+mua_msac_par(vert_MUs,:) = mua_vert_avg(vert_MUs,:);
 
-f1 = figure(); 
-subplot(2,1,1)
-hold on
-h1=shadedErrorBar(tlags,nanmean(mua_vert_avg(hori_MUs,:)),nanstd(mua_vert_avg(hori_MUs,:))/sqrt(sum(~isnan(mua_vert_avg(hori_MUs,1)))),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(mua_hori_avg(hori_MUs,:)),nanstd(mua_hori_avg(hori_MUs,:))/sqrt(sum(~isnan(mua_hori_avg(hori_MUs,1)))),{'color','r'});
-xlim(xl);
-subplot(2,1,2)
-hold on
-h1=shadedErrorBar(tlags,nanmean(mua_vert_avg(vert_MUs,:)),nanstd(mua_vert_avg(vert_MUs,:))/sqrt(sum(~isnan(mua_vert_avg(vert_MUs,1)))),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(mua_hori_avg(vert_MUs,:)),nanstd(mua_hori_avg(vert_MUs,:))/sqrt(sum(~isnan(mua_hori_avg(vert_MUs,1)))),{'color','r'});
-xlim(xl);
+xl = [-0.1 0.3];
 
+% has_both = find(~isnan(mua_msac_orth(:,1)) & ~isnan(mua_msac_par(:,1)));
+% f1 = figure(); 
+% hold on
+% h1=shadedErrorBar(tlags,nanmean(mua_msac_orth(hori_MUs,:)),nanstd(mua_msac_orth(hori_MUs,:))/sqrt(length(has_both)),{'color','b'});
+% h2=shadedErrorBar(tlags,nanmean(mua_msac_par(hori_MUs,:)),nanstd(mua_msac_par(hori_MUs,:))/sqrt(length(has_both)),{'color','r'});
+% xlim(xl);
 
+% 
 % fig_width = 3.5; rel_height = 0.8;
+% figufy(f2);
+% fname = [fig_dir 'SUA_Msac_PARORTH.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
 
 %% ANALYZE LAMINAR DEPENDENCIES
 load('/home/james/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')
@@ -908,7 +976,7 @@ boundary_enums = [boundary_class(:).Expt_num];
 
 gsac_gray_used_SUs = find(N_gray_gsacs >= min_Nsacs & avg_rates >= min_rate);
 
-mua_gsac_gray_avg = [all_MU_data(:).gsac_gray_avg]';
+mua_gsac_gray_avg = [mua_MU_data(:).gsac_gray_avg]';
 sua_gsac_gray_avg = reshape([all_SU_data(:).gsac_gray_avg],[],length(all_SU_data))';
 if mua_sm_sigma > 0
     for ii = 1:size(mua_gsac_gray_avg,1)

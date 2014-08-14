@@ -1,11 +1,11 @@
-clear all
-close all
+% clear all
+% close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'M287';
-bar_ori = 0;
+% Expt_name = 'G086';
+% bar_ori = 0;
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -615,6 +615,32 @@ msac_dirs_relhor = min([abs(circ_dist(msac_dirs,0)); abs(circ_dist(msac_dirs,pi)
 msac_vert = micro_set(msac_dirs_relvert <= pi/4);
 msac_hor = micro_set(msac_dirs_relhor <= pi/4);
 
+msac_gray_hor = intersect(gray_msac_set,msac_hor);
+msac_gray_vert = intersect(gray_msac_set,msac_vert);
+
+%separate micros into vertical vs horizontal
+bar_ori_rad = deg2rad(bar_ori);
+msac_dirs_relPar = min([abs(circ_dist(msac_dirs,bar_ori_rad)); abs(circ_dist(msac_dirs,bar_ori_rad+pi))]);
+msac_dirs_relOrth = min([abs(circ_dist(msac_dirs,bar_ori_rad+pi/2)); abs(circ_dist(msac_dirs,bar_ori_rad-pi/2))]);
+msac_Par = micro_set(msac_dirs_relPar <= pi/4);
+msac_Orth = micro_set(msac_dirs_relOrth <= pi/4);
+
+msac_gray_Par = intersect(gray_msac_set,msac_Par);
+msac_gray_Orth = intersect(gray_msac_set,msac_Orth);
+
+if length(msac_Orth) < length(msac_Par)
+    subset = randperm(length(msac_Orth));
+    msac_Par_sub = msac_Par(subset);
+else
+    msac_Par_sub = msac_Par;
+end
+if length(msac_Par) < length(msac_Orth)
+    subset = randperm(length(msac_Par));
+    msac_Orth_sub = msac_Orth(subset);
+else
+    msac_Orth_sub = msac_Orth;
+end
+
 %% FOR TBT experiments, normalize firing rates separately within each trial-type
 if is_TBT_expt
     grayback_trial_inds = find(ismember(all_trialvec,grayback_gs_trials));
@@ -651,6 +677,8 @@ gen_data.N_msacs_gray = length(intersect(micro_set,gback_sacs));
 gen_data.N_gsacs_gray = length(intersect(gsac_set,gback_sacs));
 gen_data.N_msacs_im = length(intersect(micro_set,iback_sacs));
 gen_data.N_gsacs_im = length(intersect(gsac_set,iback_sacs));
+gen_data.N_msacs_Par = length(msac_Par);
+gen_data.N_msacs_Orth = length(msac_Orth);
 
 %% COMPUTE TRIG AVGS FOR MUA
 
@@ -689,6 +717,13 @@ fprintf('Computing trig avgs for MUA\n');
 [mua_data.msac_away_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_aways),backlag,forwardlag,[],used_trialvec,0);
 [mua_data.msac_vert_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_vert),backlag,forwardlag,[],used_trialvec,0);
 [mua_data.msac_hor_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_hor),backlag,forwardlag,[],used_trialvec,0);
+[mua_data.msac_Orth_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Orth),backlag,forwardlag,[],used_trialvec,0);
+[mua_data.msac_Par_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Par),backlag,forwardlag,[],used_trialvec,0);
+[mua_data.msac_Orth_sub_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Orth_sub),backlag,forwardlag,[],used_trialvec,0);
+[mua_data.msac_Par_sub_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Par_sub),backlag,forwardlag,[],used_trialvec,0);
+
+[mua_data.msac_gr_vert_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_gray_vert),backlag,forwardlag,[],used_trialvec,0);
+[mua_data.msac_gr_hor_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_gray_hor),backlag,forwardlag,[],used_trialvec,0);
 
 [mua_data.gsac_out_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(outsacs),backlag,forwardlag,[],used_trialvec,0);
 [mua_data.gsac_in_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(insacs),backlag,forwardlag,[],used_trialvec,0);
@@ -737,7 +772,8 @@ for ss = 1:length(SU_numbers)
     sua_data(ss).N_gsacs_gray = sum(~isnan(all_binned_sua(sac_start_inds(intersect(gsac_set,gback_sacs)),ss)));
     sua_data(ss).N_msacs_im = sum(~isnan(all_binned_sua(sac_start_inds(intersect(micro_set,iback_sacs)),ss)));
     sua_data(ss).N_gsacs_im = sum(~isnan(all_binned_sua(sac_start_inds(intersect(gsac_set,iback_sacs)),ss)));
-    
+    sua_data(ss).N_msacs_hor = sum(~isnan(all_binned_sua(sac_start_inds(msac_hor),ss)));
+    sua_data(ss).N_msacs_vert = sum(~isnan(all_binned_sua(sac_start_inds(msac_vert),ss)));
     
     %general averages
     [sua_data(ss).msac_avg,lags,sua_data(ss).msac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,nboot,used_trialvec,0);
@@ -776,7 +812,17 @@ for ss = 1:length(SU_numbers)
     [sua_data(ss).msac_away_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_aways),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).msac_vert_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_vert),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).msac_hor_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_hor),backlag,forwardlag,[],used_trialvec,0);
-    
+    [sua_data(ss).msac_Par_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Par),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).msac_Orth_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Orth),backlag,forwardlag,[],used_trialvec,0);
+
+    [sua_data(ss).msac_Par_sub_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Par_sub),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).msac_Orth_sub_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Orth_sub),backlag,forwardlag,[],used_trialvec,0);
+
+    [sua_data(ss).msac_gr_vert_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_vert),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).msac_gr_hor_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_hor),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).msac_gr_Par_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_Par),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).msac_gr_Orth_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_Orth),backlag,forwardlag,[],used_trialvec,0);
+
 end
 
 %%

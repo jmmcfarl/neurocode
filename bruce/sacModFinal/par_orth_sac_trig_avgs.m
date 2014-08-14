@@ -6,6 +6,7 @@ global Expt_name bar_ori
 Expt_name = 'G089';
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+save_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod'];
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -481,15 +482,23 @@ mua_data.p30_gsac_avgs(:,16) = nan;
 mua_data.o100_gsac_avgs(:,16) = nan;    
 mua_data.o30_gsac_avgs(:,16) = nan;    
 
+mu_avg_rates = mean(all_binned_mua(used_inds,:))/dt;
+
 %%
+sname = 'par_orth_trig_avgs';
+cd(save_dir)
+save(sname,'mua_data','lags','dt','mu_avg_rates');
+%%
+
+min_MUA_rate = 25;
+use_MUs = find(mu_avg_rates >= min_MUA_rate);
+
 xl = [-0.15 0.4];
 yl = [0.7 1.4];
 
 f = figure(); hold on
-h1=shadedErrorBar(lags*dt,nanmean(mua_data.p100_gsac_avgs,2),nanstd(mua_data.p100_gsac_avgs,[],2)/sqrt(95),{'color','b'});
-% h2=shadedErrorBar(lags*dt,nanmean(mua_data.p30_gsac_avgs,2),nanstd(mua_data.p30_gsac_avgs,[],2)/sqrt(95),{'color','r'});
-h3=shadedErrorBar(lags*dt,nanmean(mua_data.o100_gsac_avgs,2),nanstd(mua_data.o100_gsac_avgs,[],2)/sqrt(95),{'color','k'});
-% h4=shadedErrorBar(lags*dt,nanmean(mua_data.o30_gsac_avgs,2),nanstd(mua_data.o30_gsac_avgs,[],2)/sqrt(95),{'color','m'});
+h1=shadedErrorBar(lags*dt,nanmean(mua_data.p100_gsac_avgs(:,use_MUs),2),nanstd(mua_data.p100_gsac_avgs(:,use_MUs),[],2)/sqrt(length(use_MUs)),{'color','b'});
+h3=shadedErrorBar(lags*dt,nanmean(mua_data.o100_gsac_avgs(:,use_MUs),2),nanstd(mua_data.o100_gsac_avgs(:,use_MUs),[],2)/sqrt(length(use_MUs)),{'color','k'});
 xlabel('Time (s)');
 ylabel('Relative Rate');
 % legend([h1.mainLine h2.mainLine h3.mainLine h4.mainLine],{'P-100','P-30','O-100','O-30'});
@@ -505,3 +514,16 @@ figufy(f);
 fname = [fig_dir 'Par_vs_orth_MUA.pdf'];
 exportfig(f,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f);
+
+%%
+p100_avgs = mua_data.p100_gsac_avgs(:,use_MUs)';
+o100_avgs = mua_data.o100_gsac_avgs(:,use_MUs)';
+
+search_range = [0 0.2];
+[p_Sfact,p_inhtime] = get_tavg_peaks(-(p100_avgs-1),lags*dt,search_range);
+[o_Sfact,o_inhtime] = get_tavg_peaks(-(o100_avgs-1),lags*dt,search_range);
+
+search_range = [0.1 0.3];
+[p_Efact,p_exctime] = get_tavg_peaks(p100_avgs-1,lags*dt,search_range);
+[o_Efact,o_exctime] = get_tavg_peaks(o100_avgs-1,lags*dt,search_range);
+

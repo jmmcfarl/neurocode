@@ -51,10 +51,10 @@ for Elist_cnt = 1:length(Expt_list)
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 end
 
-% Expt_name = 'M297'; bar_ori = 0;
-% trig_avg_analysis;
-% Expt_name = 'M297'; bar_ori = 90;
-% trig_avg_analysis;
+Expt_name = 'M297'; bar_ori = 0;
+trig_avg_analysis;
+Expt_name = 'M297'; bar_ori = 90;
+trig_avg_analysis;
 
 %% JBE TRIG AVGS ORI=0
 clear all

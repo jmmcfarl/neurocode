@@ -3,7 +3,7 @@ close all
 
 fit_unCor = false;
 
-Expt_name = 'M296';
+Expt_name = 'G093';
 if Expt_name(1) == 'M'
     rec_type = 'LP';
 elseif Expt_name(1) == 'G'
@@ -87,7 +87,7 @@ et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 load([et_anal_dir et_anal_name],'et_params');
 
 
-sua_sm = 0.01/dt;
+sua_sm = 0.00/dt;
 
 %%
 for cc = (n_probes+1):length(sacStimProc);

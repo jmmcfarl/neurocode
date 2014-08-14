@@ -613,7 +613,8 @@ hold on
 h1=shadedErrorBar(slags*dt,mean(all_EI_ratio(use_gsac_Ikerns,:)),std(all_EI_ratio(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','b'});
 h1=plot(tlags,mean(all_gsac_Trates(use_gsac_Ikerns,:)),'k','linewidth',2);
 h1=plot(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_Ikerns,:)),'r','linewidth',2);
-% h1=shadedErrorBar(slags*dt,1+mean(all_gsac_offk(use_gsac_Ikerns,:)),std(all_gsac_offk(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','g'});
+h1=shadedErrorBar(slags*dt,mean(all_EI_mean(use_gsac_Ikerns,:)),std(all_EI_mean(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','m'});
+h1=shadedErrorBar(slags*dt,1+mean(all_gsac_offk(use_gsac_Ikerns,:)),std(all_gsac_offk(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','g'});
 line(xl,[1 1],'color','k');
 xlim(xl);
 
