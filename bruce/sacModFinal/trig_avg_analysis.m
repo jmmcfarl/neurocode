@@ -670,6 +670,7 @@ maxlag = round(0.5/dt);
 [gen_data.gsac_acorr,acorr_lags] = xcov(binned_gsac_sm,maxlag,'coeff');
 [gen_data.msac_gsac_xcorr,acorr_lags] = xcov(binned_gsac_sm,binned_msac_sm,maxlag,'coeff');
 
+gen_data.N_blinks = sum(used_is_blink);
 gen_data.N_msacs = length(micro_set);
 gen_data.N_gsacs = length(gsac_set);
 gen_data.N_simsacs = length(all_sim_sacs);
@@ -736,6 +737,8 @@ fprintf('Computing trig avgs for MUA\n');
 [mua_data.gsac_inpos_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(in_pos_sacs),backlag,forwardlag,[],used_trialvec,0);
 [mua_data.gsac_outneg_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(out_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
 [mua_data.gsac_inneg_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(in_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
+
+[mua_data.blink_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(used_is_blink),backlag,forwardlag,[],used_trialvec,0);
 
 mua_data.avg_rates = mean(all_binned_mua(used_inds,:));
 mua_data.tot_nspikes = sum(all_binned_mua(used_inds,:));
@@ -824,6 +827,8 @@ for ss = 1:length(SU_numbers)
     [sua_data(ss).msac_gr_hor_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_hor),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).msac_gr_Par_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_Par),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).msac_gr_Orth_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_Orth),backlag,forwardlag,[],used_trialvec,0);
+
+    [sua_data(ss).blink_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(used_is_blink),backlag,forwardlag,[],used_trialvec,0);
 
 end
 

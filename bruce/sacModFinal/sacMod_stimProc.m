@@ -1,5 +1,5 @@
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -8,11 +8,11 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% % Expt_name = 'M296';
-% Expt_name = 'G093';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-% 
+% Expt_name = 'M296';
+Expt_name = 'G093';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
+
 
 fit_unCor = false;
 fit_subMod = false;
@@ -20,7 +20,7 @@ fitUpstream = false;
 fitSTA = false;
 fitMsacs = false;
 
-fname = 'sacStimProcTB';
+sname = 'sacStimProcTB';
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8);
 poss_sub_d2T = logspace(log10(1),log10(1e3),6);
@@ -1070,6 +1070,8 @@ for cc = targs
         %% Get LL-based infos
         [sac_LL,sac_fpost_LL,sac_spost_LL,sac_subpost_LL,sac_nullLL,sac_Nspks,sac_avgrate] = deal(nan(length(slags),1));
         
+        norm_stimG = zscore(stimG);
+        spk_cond_G = nan(length(slags),1);
         for ii = 1:length(slags)
             temp = find(cur_Xsac(:,ii) == 1);
             sac_avgrate(ii) = mean(cur_Robs(temp));
@@ -1090,8 +1092,12 @@ for cc = targs
             if fit_subMod
                 sac_subpost_LL(ii) = nansum(cur_Robs(temp).*log2(subspace_predrate(temp)) - subspace_predrate(temp));
             end
+            
+            %spike-weighted average of G (normalized)
+            spk_cond_G(ii) = sum(cur_Robs(temp).*norm_stimG(temp))/sum(cur_Robs(temp));
         end
         
+        sacStimProc(cc).gsac_spkCondG = spk_cond_G;
         sacStimProc(cc).gsac_avg_rate = sac_avgrate;
         
         %store gain/offset model info calcs
@@ -1153,7 +1159,7 @@ for cc = targs
         end
         
         %initialize 2D TB data using t-since-sac and G
-        TB_stim = [t_since_sac_start(cc_uinds) stimG];
+        TB_stim = [t_since_sac_start(cc_uinds) norm_stimG];
         
         %set G-bins based on prctiles
 %         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
@@ -1234,6 +1240,7 @@ for cc = targs
         ov_temp = sum(marg_grate.*marg_gdist.*Ytick)/mean(cur_Robs(used_data))/sum(marg_gdist);
         sacStimProc(cc).gsac_sacCond_Gavg = temp(xbuff+1:end-xbuff);
         sacStimProc(cc).gsac_Gavg = ov_temp;
+        
         end
         %% FOR MSACS
         if fitMsacs
@@ -1482,6 +1489,7 @@ for cc = targs
             %% Get LL-based infos
             [sac_LL,sac_fpost_LL,sac_spost_LL,sac_subpost_LL,sac_nullLL,sac_Nspks,sac_avgrate] = deal(nan(length(slags),1));
             
+            spk_cond_G = nan(length(slags),1);
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(:,ii) == 1);
                 sac_avgrate(ii) = mean(cur_Robs(temp));
@@ -1502,9 +1510,14 @@ for cc = targs
                 if fit_subMod
                     sac_subpost_LL(ii) = nansum(cur_Robs(temp).*log2(subspace_predrate(temp)) - subspace_predrate(temp));
                 end
+                
+                %spike-weighted average of G (normalized)
+                spk_cond_G(ii) = sum(cur_Robs(temp).*norm_stimG(temp))/sum(cur_Robs(temp));
             end
             
             sacStimProc(cc).msac_avg_rate = sac_avgrate;
+            
+            sacStimProc(cc).msac_spkCondG = spk_cond_G;
             
             %store gain/offset model info calcs
             sacStimProc(cc).msac_spost_LLinfo = (sac_spost_LL - sac_nullLL)./sac_Nspks;
@@ -1562,7 +1575,7 @@ for cc = targs
             end
             
             %initialize 2D TB data using t-since-sac and G
-            TB_stim = [t_since_sac_start(cc_uinds) stimG];
+            TB_stim = [t_since_sac_start(cc_uinds) norm_stimG];
             
             %set G-bins based on prctiles
             %         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
@@ -1653,10 +1666,10 @@ end
 %%
 anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
 
-fname = [fname sprintf('_ori%d',bar_ori)];
+sname = [sname sprintf('_ori%d',bar_ori)];
 if fit_unCor
-    fname = [fname '_unCor'];
+    sname = [sname '_unCor'];
 end
 cd(anal_dir)
-save(fname,'targs','slags','dt','sacStimProc');
+save(sname,'targs','slags','dt','sacStimProc');
 
