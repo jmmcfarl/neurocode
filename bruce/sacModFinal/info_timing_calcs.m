@@ -935,6 +935,7 @@ for cc = targs
             sacInfoTiming(cc).info_before = LL_imp_before;
             sacInfoTiming(cc).info_after = LL_imp_after;
             sacInfoTiming(cc).info_during = LL_imp_during;
+            sacInfoTiming(cc).sac_avg_rate = sac_avg_rate;
             
             %%
             Nrpts = 5;

@@ -9,16 +9,16 @@ global Expt_name bar_ori use_MUA
 
 
 % % Expt_name = 'M296';
-% Expt_name = 'G093';
+% Expt_name = 'G088';
 % use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% bar_ori = 90; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
-fit_subMod = false;
+fit_subMod = true;
 fitUpstream = false;
 fitSTA = false;
-fitMsacs = false;
+fitMsacs = true;
 
 sname = 'sacStimProcTB';
 %%
@@ -807,15 +807,22 @@ for cc = targs
             gs_inds = find(ismember(all_blockvec(used_inds),gs_blocks));
         end
         
-        %only use indices during guided saccade expts here
-        any_sac_inds = find(ismember(cc_uinds,gs_inds));
-        tr_sac_inds = cur_tr_inds(ismember(cc_uinds(cur_tr_inds),gs_inds));
-        xv_sac_inds = cur_xv_inds(ismember(cc_uinds(cur_xv_inds),gs_inds));
+%         %only use indices during guided saccade expts here
+%         any_sac_inds = find(ismember(cc_uinds,gs_inds));
+%         tr_sac_inds = cur_tr_inds(ismember(cc_uinds(cur_tr_inds),gs_inds));
+%         xv_sac_inds = cur_xv_inds(ismember(cc_uinds(cur_xv_inds),gs_inds));
 
-        %only use indices during guided saccade expts here
-        within_sac_inds = find(any(Xsac(cc_uinds,:) > 0,2));
-        within_tr_inds = cur_tr_inds(ismember(cur_tr_inds,within_sac_inds));
-        within_xv_inds = cur_xv_inds(ismember(cur_xv_inds,within_sac_inds));
+        %only use indices within lagrange of a saccade
+        any_sac_inds = find(any(cur_Xsac > 0,2));
+        tr_sac_inds = cur_tr_inds(ismember(cur_tr_inds,any_sac_inds));
+        xv_sac_inds = cur_xv_inds(ismember(cur_xv_inds,any_sac_inds));
+
+
+
+%         %only use indices within lagrange of a saccade
+%         within_sac_inds = find(any(Xsac(cc_uinds,:) > 0,2));
+%         within_tr_inds = cur_tr_inds(ismember(cur_tr_inds,within_sac_inds));
+%         within_xv_inds = cur_xv_inds(ismember(cur_xv_inds,within_sac_inds));
 
         %%
         if ~isempty(any_sac_inds)
@@ -968,8 +975,8 @@ for cc = targs
                 init_mod.spk_NL_params = cur_GQM.spk_NL_params;
                 init_mod.mods(1).filtK = post_gsac_Smod.mods(2).filtK;
                 init_mod.spk_NL_params(1) = post_gsac_Smod.spk_NL_params(1);
-                subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_tr_inds),get_Xcell_tInds(X,within_tr_inds),[],[],silent);
-                subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(within_xv_inds),get_Xcell_tInds(X,within_xv_inds));
+                subspace_mod = NMMfit_filters(init_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(X,tr_sac_inds),[],[],silent);
+                subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(X,xv_sac_inds));
             end
             %select best lambda using xvLL
             [~,optloc] = max(subspace_xvLL);
@@ -991,10 +998,10 @@ for cc = targs
             init_mod.spk_NL_params = cur_GQM.spk_NL_params;
             init_mod.mods(1).filtK = post_gsac_Smod.mods(2).filtK;
             init_mod.spk_NL_params(1) = post_gsac_Smod.spk_NL_params(1);
-            subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds),[],[],silent);
+            subspace_mod = NMMfit_filters(init_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds),[],[],silent);
             
             %evaluate overall info on anysac inds
-            [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds));
+            [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
             sacStimProc(cc).gsac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
             
             sacStimProc(cc).gsac_submod = subspace_mod;
@@ -1017,7 +1024,6 @@ for cc = targs
         n_stim_resamps = 10;
         [sac_spost_info,sac_subpost_info,sac_info] = deal(nan(n_stim_resamps,length(slags)));
         for jj = 1:n_stim_resamps
-            jj
             %             %randomly sample the stimulus and compute firing rate
             %             predictions of models
             rand_Xmat = all_Xmat_shift(randi(length(cc_uinds),length(cc_uinds),1),:);
@@ -1098,6 +1104,9 @@ for cc = targs
         end
         
         sacStimProc(cc).gsac_spkCondG = spk_cond_G;
+        ov_spkCondG = sum(cur_Robs(any_sac_inds).*norm_stimG(any_sac_inds))/sum(cur_Robs(any_sac_inds));
+        sacStimProc(cc).gsac_ovspkCondG = ov_spkCondG;
+        
         sacStimProc(cc).gsac_avg_rate = sac_avgrate;
         
         %store gain/offset model info calcs
@@ -1247,14 +1256,23 @@ for cc = targs
         end
         %% FOR MSACS
         if fitMsacs
-            %% FOR GSACS
             cur_Xsac = Xmsac(cc_uinds,:); %saccade indicator Xmat
                         
-            %use all indices for msacs (they happen in all expt types)
-            any_sac_inds = 1:length(cc_uinds);
-            tr_sac_inds = cur_tr_inds;
-            xv_sac_inds = cur_xv_inds;
-                        
+%             %use all indices for msacs (they happen in all expt types)
+%             any_sac_inds = 1:length(cc_uinds);
+%             tr_sac_inds = cur_tr_inds;
+%             xv_sac_inds = cur_xv_inds;
+            
+            %only use indices during guided saccade expts here
+            any_sac_inds = find(any(cur_Xsac > 0,2));
+            tr_sac_inds = cur_tr_inds(ismember(cur_tr_inds,any_sac_inds));
+            xv_sac_inds = cur_xv_inds(ismember(cur_xv_inds,any_sac_inds));
+
+%             %only use indices during guided saccade expts here
+%             within_sac_inds = find(any(cur_Xsac > 0,2));
+%             within_tr_inds = cur_tr_inds(ismember(cur_tr_inds,within_sac_inds));
+%             within_xv_inds = cur_xv_inds(ismember(cur_xv_inds,within_sac_inds));
+            
             %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
             
             Xsac_tot = bsxfun(@times,cur_Xsac,stimG);
@@ -1389,8 +1407,8 @@ for cc = targs
                 init_mod.spk_NL_params = cur_GQM.spk_NL_params;
                 init_mod.mods(1).filtK = post_msac_Smod.mods(2).filtK;
                 init_mod.spk_NL_params(1) = post_msac_Smod.spk_NL_params(1);
-                subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_tr_inds),get_Xcell_tInds(X,within_tr_inds),[],[],silent);
-                subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(within_xv_inds),get_Xcell_tInds(X,within_xv_inds));
+                subspace_mod = NMMfit_filters(init_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(X,tr_sac_inds),[],[],silent);
+                subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(X,xv_sac_inds));
             end
             %select best lambda using xvLL
             [~,optloc] = max(subspace_xvLL);
@@ -1412,14 +1430,14 @@ for cc = targs
             init_mod.spk_NL_params = cur_GQM.spk_NL_params;
             init_mod.mods(1).filtK = post_msac_Smod.mods(2).filtK;
             init_mod.spk_NL_params(1) = post_msac_Smod.spk_NL_params(1);
-            subspace_mod = NMMfit_filters(init_mod,cur_Robs(within_sac_inds),get_Xcell_tInds(X,within_sac_inds),[],[],silent);
+            subspace_mod = NMMfit_filters(init_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds),[],[],silent);
             
             %evaluate overall info on anysac inds
             [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
             sacStimProc(cc).msac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
             
-                        sacStimProc(cc).msac_submod = subspace_mod;
-
+            sacStimProc(cc).msac_submod = subspace_mod;
+            
             [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
             
             %extract the subspace filters
@@ -1439,7 +1457,6 @@ for cc = targs
             n_stim_resamps = 10;
             [sac_spost_info,sac_subpost_info,sac_info] = deal(nan(n_stim_resamps,length(slags)));
             for jj = 1:n_stim_resamps
-                jj
                 %             %randomly sample the stimulus and compute firing rate
                 %             predictions of models
                 rand_Xmat = all_Xmat_shift(randi(length(cc_uinds),length(cc_uinds),1),:);
@@ -1521,6 +1538,8 @@ for cc = targs
             sacStimProc(cc).msac_avg_rate = sac_avgrate;
             
             sacStimProc(cc).msac_spkCondG = spk_cond_G;
+            ov_spkCondG = sum(cur_Robs(any_sac_inds).*norm_stimG(any_sac_inds))/sum(cur_Robs(any_sac_inds));
+            sacStimProc(cc).msac_ovspkCondG = ov_spkCondG;
             
             %store gain/offset model info calcs
             sacStimProc(cc).msac_spost_LLinfo = (sac_spost_LL - sac_nullLL)./sac_Nspks;

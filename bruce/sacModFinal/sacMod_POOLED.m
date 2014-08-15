@@ -647,6 +647,7 @@ cur_min_rate = 5; %in Hz (5)
 cur_min_Nsacs = 250; % (100)
 cur_use_gsac_SUs = find(avg_rates' >= cur_min_rate & N_gsacs >= cur_min_Nsacs);
 
+flen = 15;
 tax = (0:(flen-1))*dt + dt/2;
 up_tax = linspace(tax(1),tax(end),500);
 all_nEkerns_up = spline(tax,all_nEkerns,up_tax);
@@ -696,33 +697,16 @@ xlim([0 0.12])
 
 %% SCATTERPLOT OF STIM TIMING VS SACMOD TIMING
 
-xr = [0 0.2];
-poss_lagrange = find(tlags > xr(1) & tlags < xr(2));
-xr2 = [0.05 0.35];
-poss_lagrange2 = find(tlags > xr2(1) & tlags < xr2(2));
-[gsac_exc,gsac_inh,gsac_excloc,gsac_inhloc,gain_enh,gain_sup] = deal(nan(size(all_gsac_Trates,1),1));
-for ii = 1:size(all_gsac_Trates,1)
-    if ~isnan(all_gsac_Trates(ii,poss_lagrange2))
-        [temp,temploc] = findpeaks(all_gsac_Trates(ii,poss_lagrange2),'sortstr','descend');
-        if ~isempty(temp)
-        gsac_exc(ii) = temp(1); gsac_excloc(ii) = temploc(1);
-        end
-        [temp,temploc] = findpeaks(-all_gsac_Trates(ii,poss_lagrange),'sortstr','descend');
-        if ~isempty(temp)
-        gsac_inh(ii) = -temp(1); gsac_inhloc(ii) = temploc(1);
-        end
- else
-        gsac_exc(ii) = nan; gsac_excloc(ii) = 1;
-        gsac_inh(ii) = nan; gsac_inhloc(ii) = 1;
-    end
-end
+cur_min_rate = 5; %in Hz (5)
+cur_min_Nsacs = 250; % (100)
+cur_use_gsac_SUs = find(avg_rates' >= cur_min_rate & N_gsacs >= cur_min_Nsacs);
 
-gsac_Efact = gsac_exc - 1;
-gsac_Sfact = 1-gsac_inh;
-gsac_exctime = nan(size(gsac_excloc));
-gsac_exctime(~isnan(gsac_excloc)) = tlags(poss_lagrange2(gsac_excloc(~isnan(gsac_excloc))));
-gsac_inhtime = nan(size(gsac_inhloc));
-gsac_inhtime(~isnan(gsac_inhloc)) = tlags(poss_lagrange(gsac_inhloc(~isnan(gsac_inhloc))));
+search_range = [0 0.2];
+[gsac_Sfact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_Trates-1),tlags,search_range);
+
+search_range = [0.1 0.3];
+[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_Trates-1,tlags,search_range);
+
 
 xl = [0.02 0.12];
 yl = [0.02 0.2];
@@ -762,6 +746,16 @@ ylabel('Suppression timing (s)');
 % fname = [fig_dir 'Stim_sac_timing_compare.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
+
+%%
+PRM = arrayfun(@(x) x.ModData.tune_props.PRM,all_SU_data);
+RF_FTF = arrayfun(@(x) x.ModData.tune_props.RF_FTF,all_SU_data);
+RF_FSF = arrayfun(@(x) x.ModData.tune_props.RF_FSF,all_SU_data);
+net_phase_polarity = arrayfun(@(x) x.ModData.tune_props.net_phase_polarity,all_SU_data);
+RF_ecc = arrayfun(@(x) x.ModData.tune_props.RF_ecc,all_SU_data);
+RF_dirsel = arrayfun(@(x) x.ModData.tune_props.RF_dirsel,all_SU_data);
+RF_gSF = arrayfun(@(x) x.ModData.tune_props.RF_gSF,all_SU_data);
+
 
 %%
 info_tax = all_SU_timedata(1).lag_axis;
