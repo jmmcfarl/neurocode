@@ -1,5 +1,5 @@
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -8,10 +8,10 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% % Expt_name = 'M296';
-% Expt_name = 'G093';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'M296';
+Expt_name = 'G093';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -1162,8 +1162,11 @@ for cc = targs
         TB_stim = [t_since_sac_start(cc_uinds) norm_stimG];
         
         %set G-bins based on prctiles
-%         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
+%         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),1),my_prctile(TB_stim(any_sac_inds,2),99),n_Gbins);
         Ytick = my_prctile(TB_stim(any_sac_inds,2),linspace(0.5,99.5,n_Gbins));
+        nd_bins = find(diff(Ytick) <= 0);
+        Ytick(nd_bins) = [];
+        cur_nGbins = length(Ytick);
         
         %initialize TBs
         TB = TentBasis2D(Xtick, Ytick);
@@ -1185,7 +1188,7 @@ for cc = targs
             
             %fit a penalized GLM on the TB outputs
             %            L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
-            L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[1 1/cur_sac_lambda*G_lambdas]);
+            L2_params = create_L2_params([],[1 n_sbins*cur_nGbins],[n_sbins cur_nGbins],2,3,[Inf Inf],[1 1/cur_sac_lambda*G_lambdas]);
             TB_fitmod = regGLM_fit(TB_Xmat(udata_tr,:),cur_Robs(used_data(udata_tr)),L2_params,cur_sac_lambda,[],[],silent);
             [TB_xvLL(ll)] = regGLM_eval(TB_fitmod,cur_Robs(used_data(udata_xv)),TB_Xmat(udata_xv,:));
         end
@@ -1197,18 +1200,18 @@ for cc = targs
         
         %fit a penalized GLM on the TB outputs using optimal lambda
         %         L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
-        L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[1 1/TB_optL2*G_lambdas]);
+        L2_params = create_L2_params([],[1 n_sbins*cur_nGbins],[n_sbins cur_nGbins],2,3,[Inf Inf],[1 1/TB_optL2*G_lambdas]);
         TB_fitmod = regGLM_fit(TB_Xmat,cur_Robs(used_data),L2_params,TB_optL2,[],[],silent);
         [LL, penLL, pred_rate, G] = regGLM_eval(TB_fitmod,cur_Robs(used_data),TB_Xmat);
         
-        %compute output of TB model
-        TB_K = reshape(TB_fitmod.K,n_sbins,n_Gbins)';
+         %compute output of TB model
+        TB_K = reshape(TB_fitmod.K,n_sbins,cur_nGbins)';
         bin_areas = TB.GetBinAreas();
         gsac_TB_dist = TB_counts./bin_areas;
         gsac_TB_dist = gsac_TB_dist'/sum(gsac_TB_dist(:));
         gsac_TB_rate = log(1 + exp(TB_K + TB_fitmod.theta));
         sacStimProc(cc).gsac_TB_rate = gsac_TB_rate(:,xbuff+1:end-xbuff);
-        
+       
         %INFO CALS
         cur_avg_rate = mean(cur_Robs(used_data));
         marg_gdist = sum(gsac_TB_dist,2);
@@ -1236,8 +1239,8 @@ for cc = targs
         sacStimProc(cc).gsac_equi_space_gdist = equi_space_gdist(1:end-1)/sum(equi_space_gdist);
         sacStimProc(cc).gsac_equi_space_gX = 0.5*equi_space_gX(1:end-1) + 0.5*equi_space_gX(2:end);
         
-        temp = sum(bsxfun(@times,gsac_TB_rate.*gsac_TB_dist,Ytick))./marg_gsacrate./sum(gsac_TB_dist);
-        ov_temp = sum(marg_grate.*marg_gdist.*Ytick)/mean(cur_Robs(used_data))/sum(marg_gdist);
+        temp = sum(bsxfun(@times,gsac_TB_rate.*gsac_TB_dist,Ytick(:)))./marg_gsacrate./sum(gsac_TB_dist);
+        ov_temp = sum(marg_grate.*marg_gdist.*Ytick(:))/mean(cur_Robs(used_data))/sum(marg_gdist);
         sacStimProc(cc).gsac_sacCond_Gavg = temp(xbuff+1:end-xbuff);
         sacStimProc(cc).gsac_Gavg = ov_temp;
         
@@ -1580,6 +1583,9 @@ for cc = targs
             %set G-bins based on prctiles
             %         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
             Ytick = my_prctile(TB_stim(any_sac_inds,2),linspace(0.5,99.5,n_Gbins));
+            nd_bins = find(diff(Ytick) <= 0);
+            Ytick(nd_bins) = [];
+            cur_nGbins = length(Ytick);
             
             %initialize TBs
             TB = TentBasis2D(Xtick, Ytick);
@@ -1601,7 +1607,7 @@ for cc = targs
                 
                 %fit a penalized GLM on the TB outputs
                 %            L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
-                L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[1 1/cur_sac_lambda*G_lambdas]);
+                L2_params = create_L2_params([],[1 n_sbins*cur_nGbins],[n_sbins cur_nGbins],2,3,[Inf Inf],[1 1/cur_sac_lambda*G_lambdas]);
                 TB_fitmod = regGLM_fit(TB_Xmat(udata_tr,:),cur_Robs(used_data(udata_tr)),L2_params,cur_sac_lambda,[],[],silent);
                 [TB_xvLL(ll)] = regGLM_eval(TB_fitmod,cur_Robs(used_data(udata_xv)),TB_Xmat(udata_xv,:));
             end
@@ -1613,12 +1619,12 @@ for cc = targs
             
             %fit a penalized GLM on the TB outputs using optimal lambda
             %         L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
-            L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[1 1/TB_optL2*G_lambdas]);
+            L2_params = create_L2_params([],[1 n_sbins*cur_nGbins],[n_sbins cur_nGbins],2,3,[Inf Inf],[1 1/TB_optL2*G_lambdas]);
             TB_fitmod = regGLM_fit(TB_Xmat,cur_Robs(used_data),L2_params,TB_optL2,[],[],silent);
             [LL, penLL, pred_rate, G] = regGLM_eval(TB_fitmod,cur_Robs(used_data),TB_Xmat);
             
             %compute output of TB model
-            TB_K = reshape(TB_fitmod.K,n_sbins,n_Gbins)';
+            TB_K = reshape(TB_fitmod.K,n_sbins,cur_nGbins)';
             bin_areas = TB.GetBinAreas();
             msac_TB_dist = TB_counts./bin_areas;
             msac_TB_dist = msac_TB_dist'/sum(msac_TB_dist(:));
@@ -1652,8 +1658,8 @@ for cc = targs
             sacStimProc(cc).msac_equi_space_gdist = equi_space_gdist(1:end-1)/sum(equi_space_gdist);
             sacStimProc(cc).msac_equi_space_gX = 0.5*equi_space_gX(1:end-1) + 0.5*equi_space_gX(2:end);
             
-            temp = sum(bsxfun(@times,msac_TB_rate.*msac_TB_dist,Ytick))./marg_msacrate./sum(msac_TB_dist);
-            ov_temp = sum(marg_grate.*marg_gdist.*Ytick)/mean(cur_Robs(used_data))/sum(marg_gdist);
+            temp = sum(bsxfun(@times,msac_TB_rate.*msac_TB_dist,Ytick(:)))./marg_msacrate./sum(msac_TB_dist);
+            ov_temp = sum(marg_grate.*marg_gdist.*Ytick(:))/mean(cur_Robs(used_data))/sum(marg_gdist);
             sacStimProc(cc).msac_sacCond_Gavg = temp(xbuff+1:end-xbuff);
             sacStimProc(cc).msac_Gavg = ov_temp;
             
