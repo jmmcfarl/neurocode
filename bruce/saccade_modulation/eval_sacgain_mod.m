@@ -1,4 +1,4 @@
-function [LL,pred_rate,Gstim] = eval_sacgain_mod( sacGainMod, Robs, Xmat, Xsac_mat)
+function [LL,pred_rate,Gstim,fgint] = eval_sacgain_mod( sacGainMod, Robs, Xmat, Xsac_mat)
 
 NT = length(Robs);
 stim_mod = sacGainMod.stim_mod;
@@ -27,26 +27,26 @@ theta = sacGainMod.theta; % offset
 Gstim = 0;
 
 gint = nan(length(Robs),Nmods);
-
+fgint = nan(length(Robs),Nmods);
 for ii = 1:Nmods
             
     gint(:,ii) = cur_Xmat*all_Filts(:,ii);
     
     % Process subunit g's with upstream NLs
     if strcmp(stim_mod.mods(ii).NLtype,'nonpar')
-        fgint = piecelin_process(gint(:,ii),stim_mod.mods(ii).NLy,stim_mod.mods(ii).NLx);
+        fgint(:,ii) = piecelin_process(gint(:,ii),stim_mod.mods(ii).NLy,stim_mod.mods(ii).NLx);
     elseif strcmp(stim_mod.mods(ii).NLtype,'quad')
-        fgint = gint(:,ii).^2;
+        fgint(:,ii) = gint(:,ii).^2;
     elseif strcmp(stim_mod.mods(ii).NLtype,'lin')
-        fgint = gint(:,ii);
+        fgint(:,ii) = gint(:,ii);
     elseif strcmp(stim_mod.mods(ii).NLtype,'threshlin')
-        fgint = gint(:,ii);
-        fgint(fgint < 0) = 0;
+        fgint(:,ii) = gint(:,ii);
+        fgint(fgint(:,ii) < 0,ii) = 0;
     else
         error('Invalid internal NL');
     end
     
-    Gstim = Gstim + fgint*stim_mod.mods(ii).sign;
+    Gstim = Gstim + fgint(:,ii)*stim_mod.mods(ii).sign;
     
 end
 Gstim = Gstim + Gstim.*(Xsac_mat*sacGainMod.gain_kernel);

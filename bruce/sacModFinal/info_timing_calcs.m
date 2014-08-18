@@ -816,9 +816,20 @@ for cc = targs
             cur_GQM = NMMfit_logexp_spkNL(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             cur_GQM = NMMfit_scale(cur_GQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             
+            stim_mod_signs = [cur_GQM.mods(:).sign];
+            [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_GQM,cur_Robs,all_Xmat_shift);
+            fgint = bsxfun(@times,fgint,stim_mod_signs);
+            stimG = sum(fgint,2);
+            excG = sum(fgint(:,stim_mod_signs == 1),2);
+            inhG = sum(fgint(:,stim_mod_signs == -1),2);
+            
+            norm_excG = zscore(excG);
+            norm_inhG = zscore(inhG);
+            
             %%
             
             saccade_stop_trial_inds = all_trialvec(used_inds(cur_sac_stop_inds));
+            saccade_start_trial_inds = all_trialvec(used_inds(cur_sac_start_inds));
             cur_sac_durs = cur_sac_stop_inds - cur_sac_start_inds;
             
             sac_jit_amp = 100;
@@ -860,7 +871,16 @@ for cc = targs
                 
             end
             
-            
+              Xsac_start = zeros(NT,length(info_slags));
+            for ii = 1:length(info_slags)
+                cur_sac_target = cur_sac_start_inds + info_slags(ii);
+                uu = find(cur_sac_target > 1 & cur_sac_target < NT);
+                cur_sac_target = cur_sac_target(uu);
+                cur_sac_target(all_trialvec(used_inds(cur_sac_target)) ~= saccade_start_trial_inds(uu)) = [];
+                Xsac_start(cur_sac_target,ii) = 1;
+            end
+            Xsac_start = Xsac_start(cc_uinds,:);
+          
             %% NOW DO INFO TIMING CALCS
             %create a shuffled version of the stimulus, where different frames
             %(within the original used_inds set) are randomly shuffled with
@@ -875,47 +895,72 @@ for cc = targs
             temp_sparams = NMMcreate_stim_params(1);
             tempmod = NMMinitialize_model(temp_sparams,1,{'lin'});
             
+            stim_mod_signs = [sacGainMod.stim_mod.mods(:).sign];
+            
             [sac_avg_rate,LL_imp_before,LL_imp_after,LL_imp_during] = deal(nan(length(info_slags),1));
             for ii = 1:length(info_slags)
                 cur_set = find(Xsac_end(:,ii) == 1);
                 cur_X = all_Xmat_shift(cur_set,:);
                 
                 sac_avg_rate(ii) = mean(cur_Robs(cur_set));
+                sac_excG(ii) = sum(cur_Robs(cur_set).*norm_excG(cur_set))/sum(cur_Robs(cur_set));
+                sac_inhG(ii) = sum(cur_Robs(cur_set).*norm_inhG(cur_set))/sum(cur_Robs(cur_set));
                 
                 if sac_avg_rate(ii) > 0
-                    [unshuf_LL,unshuf_pred_rate,G] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), cur_X, cur_Xsac(cur_set,:));
+                    [unshuf_LL,unshuf_pred_rate,G,fG] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), cur_X, cur_Xsac(cur_set,:));
                     tempmod = NMMfit_filters(tempmod,cur_Robs(cur_set),G);
                     [~,~,tempprate] = NMMmodel_eval(tempmod,cur_Robs(cur_set),G);
                     unshuf_LLseq = cur_Robs(cur_set).*log2(tempprate)-tempprate;
+
+%                     unShuffE = sum(fG(:,stim_mod_signs==1),2);
+%                     unShuffI = sum(fG(:,stim_mod_signs==-1),2);
+%                     
+%                     sac_unshuff_excG(ii) = sum(cur_Robs(cur_set).*unShuffE)/sum(cur_Robs(cur_set))-mean(unShuffE);
+%                     sac_unshuff_inhG(ii) = sum(cur_Robs(cur_set).*unShuffI)/sum(cur_Robs(cur_set))-mean(unShuffI);
                     
                     
-                    cur_Tinds = bsxfun(@minus,prev_sac_dur(cur_set),Tinds');
-                    scramb_lags = find(cur_Tinds-1 >= info_slags(ii));
+%                     cur_Tinds = bsxfun(@minus,prev_sac_dur(cur_set),Tinds'-1);
+%                     scramb_lags = find(cur_Tinds-1 >= info_slags(ii));
+                    cur_Tinds = bsxfun(@plus,-prev_sac_dur(cur_set),Tinds'-1);
+                    scramb_lags = find(cur_Tinds > info_slags(ii));
                     cur_shufX = shuf_X(cur_set,:);
                     scr_X = cur_X;
                     scr_X(scramb_lags) = cur_shufX(scramb_lags);
-                    [shuf_LL,shuf_pred_rate,Gshuff] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), scr_X, cur_Xsac(cur_set,:));
+                    [shuf_LL,shuf_pred_rate,Gshuff,fGshuff] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), scr_X, cur_Xsac(cur_set,:));
                     tempmod = NMMfit_filters(tempmod,cur_Robs(cur_set),Gshuff);
                     [~,~,tempprate] = NMMmodel_eval(tempmod,cur_Robs(cur_set),Gshuff);
                     shuf_LLseq = cur_Robs(cur_set).*log2(tempprate)-tempprate;
                     LL_imp_before(ii) = nansum(unshuf_LLseq - shuf_LLseq)/sum(cur_Robs(cur_set));
                     
+%                     shuffE = sum(fGshuff(:,stim_mod_signs==1),2);
+%                     shuffI = sum(fGshuff(:,stim_mod_signs==-1),2);
+%                     
+%                     sac_before_excG(ii) = sum(cur_Robs(cur_set).*shuffE)/sum(cur_Robs(cur_set))-mean(shuffE);
+%                     sac_before_inhG(ii) = sum(cur_Robs(cur_set).*shuffI)/sum(cur_Robs(cur_set))-mean(shuffI);
                     
-                    scramb_lags = find((Tinds-1) <= info_slags(ii));
+                    
+                    scramb_lags = find((Tinds-1) < info_slags(ii));
                     scr_X = cur_X;
                     scr_X(:,scramb_lags) = shuf_X(cur_set,scramb_lags);
-                    [shuf_LL,shuf_pred_rate,Gshuff] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), scr_X, cur_Xsac(cur_set,:));
+                    [shuf_LL,shuf_pred_rate,Gshuff,fGshuff] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), scr_X, cur_Xsac(cur_set,:));
                     tempmod = NMMfit_filters(tempmod,cur_Robs(cur_set),Gshuff);
                     [~,~,tempprate] = NMMmodel_eval(tempmod,cur_Robs(cur_set),Gshuff);
                     shuf_LLseq = cur_Robs(cur_set).*log2(tempprate)-tempprate;
                     LL_imp_after(ii) = nansum(unshuf_LLseq - shuf_LLseq)/sum(cur_Robs(cur_set));
                     
+%                     shuffE = sum(fGshuff(:,stim_mod_signs==1),2);
+%                     shuffI = sum(fGshuff(:,stim_mod_signs==-1),2);
+%                     
+%                     sac_after_excG(ii) = sum(cur_Robs(cur_set).*shuffE)/sum(cur_Robs(cur_set))-mean(shuffE);
+%                     sac_after_inhG(ii) = sum(cur_Robs(cur_set).*shuffI)/sum(cur_Robs(cur_set))-mean(shuffI);
                     
-                    poss_scramb_lags = find((Tinds-1) > info_slags(ii)); %set of lags before fixation onset
+                    poss_scramb_lags = find((Tinds-1) >= info_slags(ii)); %set of lags before fixation onset
                     
                     %set of lags after saccade onset
-                    cur_Tinds = bsxfun(@minus,prev_sac_dur(cur_set),Tinds');
-                    scramb_lags = find(cur_Tinds-1 < info_slags(ii));
+%                     cur_Tinds = bsxfun(@minus,prev_sac_dur(cur_set),Tinds');
+%                     scramb_lags = find(cur_Tinds-1 < info_slags(ii));
+                    cur_Tinds = bsxfun(@plus,-prev_sac_dur(cur_set),Tinds'-1);
+                    scramb_lags = find(cur_Tinds <= info_slags(ii));
                     
                     [scramb_i,scramb_j] = ind2sub([length(cur_set) length(Tinds)],scramb_lags);
                     scramb_lags = scramb_lags(ismember(scramb_j,poss_scramb_lags));
@@ -923,11 +968,17 @@ for cc = targs
                     scr_X = cur_X;
                     cur_shufX = shuf_X(cur_set,:);
                     scr_X(scramb_lags) = cur_shufX(scramb_lags);
-                    [shuf_LL,shuf_pred_rate,Gshuff] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), scr_X, cur_Xsac(cur_set,:));
+                    [shuf_LL,shuf_pred_rate,Gshuff,fGshuff] = eval_sacgain_mod( sacGainMod, cur_Robs(cur_set), scr_X, cur_Xsac(cur_set,:));
                     tempmod = NMMfit_filters(tempmod,cur_Robs(cur_set),Gshuff);
                     [~,~,tempprate] = NMMmodel_eval(tempmod,cur_Robs(cur_set),Gshuff);
                     shuf_LLseq = cur_Robs(cur_set).*log2(tempprate)-tempprate;
                     LL_imp_during(ii) = nansum(unshuf_LLseq - shuf_LLseq)/sum(cur_Robs(cur_set));
+                    
+%                     shuffE = sum(fGshuff(:,stim_mod_signs==1),2);
+%                     shuffI = sum(fGshuff(:,stim_mod_signs==-1),2);
+%                     
+%                     sac_during_excG(ii) = sum(cur_Robs(cur_set).*shuffE)/sum(cur_Robs(cur_set))-mean(shuffE);
+%                     sac_during_inhG(ii) = sum(cur_Robs(cur_set).*shuffI)/sum(cur_Robs(cur_set))-mean(shuffI);
                 end
             end
             
@@ -963,15 +1014,16 @@ for cc = targs
                 end
                 Xsac_rend = Xsac_rend(cc_uinds,:);
                 
+                cur_sac_durs = rcur_sac_stop_inds - rcur_sac_start_inds;
                 %store duration of previous saccade
-                rprev_sac_dur = ones(NT,1)*sac_durs(end);
+                rprev_sac_dur = ones(NT,1)*cur_sac_durs(end);
                 for ii = 1:length(rcur_sac_start_inds)-1
                     cur_inds = rcur_sac_start_inds(ii):rcur_sac_start_inds(ii+1);
                     next_tstop = trial_end_inds(find(trial_end_inds >= rcur_sac_start_inds(ii),1));
                     cur_inds(cur_inds > next_tstop) = [];
-                    rprev_sac_dur(cur_inds) = sac_durs(ii);
+                    rprev_sac_dur(cur_inds) = cur_sac_durs(ii);
                 end
-                rprev_sac_dur = round(rprev_sac_dur(cc_uinds)/dt);
+%                 rprev_sac_dur = round(rprev_sac_dur(cc_uinds)/dt);
                 
                 
                 for ii = 1:length(info_slags)
@@ -988,8 +1040,10 @@ for cc = targs
                         base_unshuf_LLseq = cur_Robs(cur_set).*log2(tempprate)-tempprate;
                         
                         
-                        cur_Tinds = bsxfun(@minus,rprev_sac_dur(cur_set),Tinds');
-                        scramb_lags = find(cur_Tinds-1 >= info_slags(ii));
+%                         cur_Tinds = bsxfun(@minus,rprev_sac_dur(cur_set),Tinds');
+%                         scramb_lags = find(cur_Tinds-1 >= info_slags(ii));
+                    cur_Tinds = bsxfun(@plus,-rprev_sac_dur(cur_set),Tinds'-1);
+                    scramb_lags = find(cur_Tinds > info_slags(ii));
                         scr_X = cur_X;
                         cur_shufX = shuf_X(cur_set,:);
                         scr_X(scramb_lags) = cur_shufX(scramb_lags);
@@ -1003,7 +1057,7 @@ for cc = targs
                         
                         
                         
-                        scramb_lags = find((Tinds-1) <= info_slags(ii));
+                        scramb_lags = find((Tinds-1) < info_slags(ii));
                         scr_X = cur_X;
                         scr_X(:,scramb_lags) = shuf_X(cur_set,scramb_lags);
                         
@@ -1017,9 +1071,11 @@ for cc = targs
                         
                         
                         
-                        poss_scramb_lags = find((Tinds-1) > info_slags(ii));
-                        cur_Tinds = bsxfun(@minus,rprev_sac_dur(cur_set),Tinds');
-                        scramb_lags = find(cur_Tinds-1 < info_slags(ii));
+                        poss_scramb_lags = find((Tinds-1) >= info_slags(ii));
+%                         cur_Tinds = bsxfun(@minus,rprev_sac_dur(cur_set),Tinds');
+%                         scramb_lags = find(cur_Tinds-1 < info_slags(ii));
+                    cur_Tinds = bsxfun(@plus,-rprev_sac_dur(cur_set),Tinds'-1);
+                    scramb_lags = find(cur_Tinds <= info_slags(ii));
                         [scramb_i,scramb_j] = ind2sub([length(cur_set) length(Tinds)],scramb_lags);
                         scramb_lags = scramb_lags(ismember(scramb_j,poss_scramb_lags));
                         scr_X = cur_X;

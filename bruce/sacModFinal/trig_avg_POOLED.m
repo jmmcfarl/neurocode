@@ -1416,3 +1416,36 @@ caxis([0.6 1.5])
 subplot(2,1,2);
 imagesc(tlags,1:96,jbe_mua_msac_avg_tow(ecc_ord,:));
 caxis([0.6 1.5])
+
+%% GSACS AND BLINKS
+N_gsacs = [all_SU_data(:).N_gsacs];
+gsac_used_SUs = find(N_gsacs >= min_Nsacs & avg_rates >= min_rate);
+all_gsac = reshape([all_SU_data(:).gsac_avg],[],length(all_SU_data))';
+all_blink = reshape([all_SU_data(:).blink_avg],[],length(all_SU_data))';
+
+if sm_sigma > 0
+    for ii = 1:size(all_gsac,1)
+        all_gsac(ii,:) = jmm_smooth_1d_cor(all_gsac(ii,:),sm_sigma);
+        all_blink(ii,:) = jmm_smooth_1d_cor(all_blink(ii,:),sm_sigma);
+    end
+end
+
+% close all
+xl = [-0.15 0.4];
+
+f1 = figure(); hold on
+curSUs = intersect(jbe_SUs,gsac_used_SUs);
+h1=shadedErrorBar(tlags,nanmean(all_gsac(curSUs,:)),nanstd(all_gsac(curSUs,:))/sqrt(length(curSUs)),{'color','r'});
+h1=shadedErrorBar(tlags,nanmean(all_blink(curSUs,:)),nanstd(all_blink(curSUs,:))/sqrt(length(curSUs)),{'color','k'});
+curSUs = intersect(lem_SUs,gsac_used_SUs);
+h2=shadedErrorBar(tlags,nanmean(all_gsac(curSUs,:)),nanstd(all_gsac(curSUs,:))/sqrt(length(curSUs)),{'color','b'});
+h2=shadedErrorBar(tlags,nanmean(all_blink(curSUs,:)),nanstd(all_blink(curSUs,:))/sqrt(length(curSUs)),{'color','m'});
+xlim(xl);
+
+
+
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlabel('Time (s)');
+ylabel('Relative rate');
+title('Gsac TA Grayback');
