@@ -4,8 +4,8 @@ clear all
 clc
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
-base_sname = 'sacStimProcTB';
-% base_sname = 'sacStimProc';
+base_sname = 'sacStimProcTBnew';
+base_ename = 'sacStimProc';
 base_timename = 'sac_info_timing';
 
 all_SU_data = [];
@@ -16,8 +16,8 @@ all_SU_timedata = [];
 %% LOAD JBE
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
-ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
-% ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+% ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
+ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -37,11 +37,17 @@ for ee = 1:length(Expt_list)
             timename = strcat(osac_dir,base_timename,sprintf('_ori%d',ori_list(ee,ii)));
             load(timename);
             
+            tname = strcat(osac_dir,base_ename,sprintf('_ori%d',ori_list(ee,ii)));
+            temp2 = load(tname);
+            for bbb = 1:length(sacStimProc)
+                sacStimProc(bbb).gsacGainMod = temp2.sacStimProc(bbb).gsacGainMod;
+            end
+            
             %SU numbers for trig avg data
             tavg_SU_numbers = [temp.sua_data(:).SU_numbers];
             
             %find units where we have computed sacStimMod data
-            ucells = arrayfun(@(x) length(x.ModData),sacStimProc) > 0;
+            ucells = arrayfun(@(x) length(x.gsac_avg_rate),sacStimProc) > 0;
             sua_data = sacStimProc(ucells);
             SM_SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,sua_data);
             SM_SU_xvLLimp = arrayfun(@(x) x.ModData.rectGQM.xvLLimp,sua_data);
@@ -119,9 +125,15 @@ for ee = 1:length(Expt_list)
             timename = strcat(osac_dir,base_timename,sprintf('_ori%d',ori_list(ee,ii)));
             load(timename);
             
+                        tname = strcat(osac_dir,base_ename,sprintf('_ori%d',ori_list(ee,ii)));
+            temp2 = load(tname);
+            for bbb = 1:length(sacStimProc)
+                sacStimProc(bbb).gsacGainMod = temp2.sacStimProc(bbb).gsacGainMod;
+            end
+
             tavg_SU_numbers = [temp.sua_data(:).SU_numbers];
             
-            ucells = arrayfun(@(x) length(x.ModData),sacStimProc) > 0;
+            ucells = arrayfun(@(x) length(x.gsac_avg_rate),sacStimProc) > 0;
             sua_data = sacStimProc(ucells);
             SM_SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,sua_data);
             SM_SU_xvLLimp = arrayfun(@(x) x.ModData.rectGQM.xvLLimp,sua_data);
@@ -337,16 +349,16 @@ line(xl,[1 1],'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_ESdep_gains.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'Gsac_ESdep_rates.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_ESdep_gains.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'Gsac_ESdep_rates.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 %% COMPARE SS INFO AND INFO RATES (POST MODEL BASED)
 
@@ -421,8 +433,10 @@ ov_TB_gmean = [all_SU_data(:).gsac_Gavg];
 all_gsac_spk_gmean = reshape([all_SU_data(:).gsac_spkCondG],[],length(all_SU_data))';
 ov_gmean = [all_SU_data(:).gsac_ovspkCondG];
 
-all_gsac_TB_gmean = bsxfun(@rdivide,all_gsac_TB_gmean,ov_TB_gmean');
-all_gsac_spk_gmean = bsxfun(@rdivide,all_gsac_spk_gmean,ov_gmean');
+% all_gsac_TB_gmean = bsxfun(@rdivide,all_gsac_TB_gmean,ov_TB_gmean');
+% all_gsac_spk_gmean = bsxfun(@rdivide,all_gsac_spk_gmean,ov_gmean');
+all_gsac_TB_gmean = bsxfun(@minus,all_gsac_TB_gmean,ov_TB_gmean');
+all_gsac_spk_gmean = bsxfun(@minus,all_gsac_spk_gmean,ov_gmean');
 
 TB_slags = all_SU_data(1).gsac_TB_lagX;
 
@@ -434,8 +448,8 @@ h1=shadedErrorBar(slags*dt,mean(all_gsac_spk_gmean(use_gsac_SUs,:)),std(all_gsac
 h2=shadedErrorBar(TB_slags*dt,mean(all_gsac_TB_gmean(use_gsac_SUs,:)),std(all_gsac_TB_gmean(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 % legend([h1.mainLine h2.mainLine],{'TB','Mod-pred'});
 xlabel('Time (s)');
-ylabel('Relative info');
-line(xl,[1 1],'color','k');
+ylabel('Relative gain change');
+line(xl,[0 0],'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative information');
@@ -540,6 +554,35 @@ h1=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinfo(use_gsac_SUs,:)),std(all_gsa
 h2=shadedErrorBar(slags*dt,mean(all_gsac_Nmodinfo(use_gsac_SUs,:)),std(all_gsac_Nmodinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 h3=shadedErrorBar(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_SUs,:)),std(all_gsac_Nsmodinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','k'});
 legend([h1.mainLine h2.mainLine h3.mainLine],{'TB','Mod-pred','Submod-pred'});
+xlabel('Time (s)');
+ylabel('Relative info');
+line(xl,[1 1],'color','k');
+xlim(xl);
+
+%% COMPARE MOD-based and LL-based INFO Calcs
+
+all_gsac_smodinfo = reshape([all_SU_data(:).gsac_spost_modinfo],[],length(all_SU_data))';
+all_gsac_ov_smodinfo = [all_SU_data(:).gsac_spost_ov_modinfo];
+all_gsac_Nsmodinfo = bsxfun(@rdivide,all_gsac_smodinfo,all_gsac_ov_smodinfo');
+
+all_gsac_smodLL = reshape([all_SU_data(:).gsac_spost_LLinfo],[],length(all_SU_data))';
+all_gsac_ov_smodLL = [all_SU_data(:).gsac_spost_ov_LLinfo];
+all_gsac_NsmodLL = bsxfun(@rdivide,all_gsac_smodLL,all_gsac_ov_smodLL');
+
+all_gsac_subLL = reshape([all_SU_data(:).gsac_sub_LLinfo],[],length(all_SU_data))';
+all_gsac_ov_subLL = [all_SU_data(:).gsac_sub_ov_LLinfo];
+all_gsac_NsubLL = bsxfun(@rdivide,all_gsac_subLL,all_gsac_ov_subLL');
+
+xl = [-0.1 0.3];
+
+TB_slags = all_SU_data(1).gsac_TB_lagX;
+
+f1 = figure();
+hold on
+h1=shadedErrorBar(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_SUs,:)),std(all_gsac_Nsmodinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
+h2=shadedErrorBar(slags*dt,mean(all_gsac_NsmodLL(use_gsac_SUs,:)),std(all_gsac_NsmodLL(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','k'});
+% h3=shadedErrorBar(slags*dt,mean(all_gsac_NsubLL(use_gsac_SUs,:)),std(all_gsac_NsubLL(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','k'});
+% legend([h1.mainLine h2.mainLine h3.mainLine],{'TB','Mod-pred','Submod-pred'});
 xlabel('Time (s)');
 ylabel('Relative info');
 line(xl,[1 1],'color','k');
@@ -945,18 +988,18 @@ ylabel('Relative information');
 
 clear max_* weight_* *_mlocs base_*
 
+flen = 15;
 fpast = 0:-1:(-flen+1);
 base_kern = ones(flen,1);
-flen = 15;
 
 for cc = 1:length(all_SU_data)
     
     stim_mod_signs = [all_SU_data(cc).ModData.rectGQM.mods(:).sign];
     cur_filts = reshape([all_SU_data(cc).ModData.rectGQM.mods(:).filtK],flen,[],length(stim_mod_signs));
     filt_tkerns = squeeze(std(cur_filts,[],2));
-%     filt_tkerns = bsxfun(@rdivide,filt_tkerns,sqrt(sum(filt_tkerns.^2)));
-%     filt_tkerns = bsxfun(@times,filt_tkerns,rel_filt_weights);
-%     filt_tkerns(:,rel_filt_weights==0) = 0;
+    filt_tkerns = bsxfun(@rdivide,filt_tkerns,sqrt(sum(filt_tkerns.^2)));
+    filt_tkerns = bsxfun(@times,filt_tkerns,all_SU_data(cc).rel_filt_weights);
+    filt_tkerns(:,all_SU_data(cc).rel_filt_weights==0) = 0;
     
     avg_tkern = squeeze(mean(filt_tkerns,2));
     avg_ekern = squeeze(mean(filt_tkerns(:,stim_mod_signs==1),2));
@@ -973,7 +1016,7 @@ for cc = 1:length(all_SU_data)
     end
     
     tlags = 0:(flen-1);
-    up_tlags = 0:0.01:(flen-1);
+    up_tlags = 0:0.1:(flen-1);
     spline_sac_tkerns = spline(tlags,bsxfun(@times,sacdep_tkerns,avg_tkern'),up_tlags);
     spline_sac_ekerns = spline(tlags,bsxfun(@times,sacdep_tkerns,avg_ekern'),up_tlags);
     spline_sac_ikerns = spline(tlags,bsxfun(@times,sacdep_tkerns,avg_ikern'),up_tlags);
@@ -1002,22 +1045,54 @@ for cc = 1:length(all_SU_data)
 
 end
 
-weight_avg_tlag = bsxfun(@minus,weight_avg_tlag,base_tkern_weight');
-weight_avg_elag = bsxfun(@minus,weight_avg_elag,base_ekern_weight');
-weight_avg_ilag = bsxfun(@minus,weight_avg_ilag,base_ikern_weight');
+weight_avg_tlag = bsxfun(@minus,weight_avg_tlag,base_tkern_weight')*dt*1e3;
+weight_avg_elag = bsxfun(@minus,weight_avg_elag,base_ekern_weight')*dt*1e3;
+weight_avg_ilag = bsxfun(@minus,weight_avg_ilag,base_ikern_weight')*dt*1e3;
 
 max_tkerns = bsxfun(@minus,max_tkerns,base_tkern_mloc')*dt*1e3;
 max_ekerns = bsxfun(@minus,max_ekerns,base_ekern_mloc')*dt*1e3;
 max_ikerns = bsxfun(@minus,max_ikerns,base_ikern_mloc')*dt*1e3;
 
 f1 = figure();
+plot(slags*dt,weight_avg_tlag(use_gsac_SUs,:),'k')
 hold on
 h1=shadedErrorBar(slags*dt,mean(weight_avg_tlag(use_gsac_SUs,:)),std(weight_avg_tlag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
 % h1=shadedErrorBar(slags*dt,mean(weight_avg_elag(use_gsac_SUs,:)),std(weight_avg_elag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 % h1=shadedErrorBar(slags*dt,mean(weight_avg_ilag(use_gsac_SUs,:)),std(weight_avg_ilag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','g'});
+xlabel('Time since saccade onset (s)');
+ylabel('Change in stimulus response latency');
 
-f1 = figure();
-hold on
-h1=shadedErrorBar(slags*dt,mean(max_tkerns(use_gsac_SUs,:)),std(max_tkerns(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
-% h1=shadedErrorBar(slags*dt,mean(max_ekerns(use_gsac_SUs,:)),std(max_ekerns(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
+% f1 = figure();
+% hold on
+% h1=shadedErrorBar(slags*dt,mean(max_tkerns(use_gsac_SUs,:)),std(max_tkerns(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
+% h1=shadedErrorBar(slags*dt,median(max_ekerns(use_gsac_SUs,:)),std(max_ekerns(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 % h1=shadedErrorBar(slags*dt,mean(max_ikerns(use_gsac_SUs,:)),std(max_ikerns(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','g'});
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Gsac_tempdelay_changes.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+
+
+%% analyze any mixing of filter amps in subspace models
+all_inds = [];
+all_filts = [];
+all_qfilts1 = [];
+all_qfilts2 = [];
+for cc = 1:length(all_SU_data)
+   cur_submod = all_SU_data(cc).gsac_submod;
+   cur_mod_signs = [cur_submod.mods(2:end).sign];
+   if length(cur_mod_signs) == 5 && ismember(cc,use_gsac_SUs)
+   cur_filts = reshape([cur_submod.mods(2:end).filtK],length(slags),[],length(cur_mod_signs));
+   all_filts = cat(4,all_filts,cur_filts); 
+   all_inds = cat(1,all_inds,cc);
+   end
+end
+
+avg_subfilts = squeeze(mean(all_filts,4));
+avg_subfilts = avg_subfilts(:,[1 end 2:end-1],:);
+
+max_sub_xvLL = arrayfun(@(x) max(x.gsac_subspace_xvLL),all_SU_data);
+max_post_xvLL = arrayfun(@(x) max(x.gsac_L2_gainscan),all_SU_data);
