@@ -8,8 +8,8 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% Expt_name = 'M297';
-Expt_name = 'G093';
+Expt_name = 'M297';
+% Expt_name = 'G093';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -18,9 +18,9 @@ fit_unCor = false;
 fit_subMod = true;
 fitUpstream = false;
 fitSTA = false;
-fitMsacs = true;
+fitMsacs = false;
 
-sname = 'sacStimProcTB';
+sname = 'sacStimProcTBnew';
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8);
 poss_sub_d2T = logspace(log10(1),log10(1e3),6);
@@ -857,19 +857,19 @@ for cc = targs
             
             sacStimProc(cc).gsac_ovavg_rate = mean(cur_Robs(any_sac_inds));
             
-%             %lag index values in Xmat
-%             lagdep_stimG = nan(length(cc_uinds),flen);
-%             [~,Tinds] = meshgrid(1:use_nPix_us,1:flen);
-%             for jj = 1:flen
-%                 tempmod = cur_rGQM;
-%                 for qq = 1:length(tempmod.mods)
-%                     tempmod.mods(qq).filtK(Tinds~=jj) = 0;
-%                 end
-%                 [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(tempmod,cur_Robs,all_Xmat_shift);
-%                 fgint = bsxfun(@times,fgint,stim_mod_signs);
-%                 lagdep_stimG(:,jj) = sum(fgint,2);
-%             end
-%             lagdep_stimG = zscore(lagdep_stimG);
+            %lag index values in Xmat
+            lagdep_stimG = nan(length(cc_uinds),flen);
+            [~,Tinds] = meshgrid(1:use_nPix_us,1:flen);
+            for jj = 1:flen
+                tempmod = cur_rGQM;
+                for qq = 1:length(tempmod.mods)
+                    tempmod.mods(qq).filtK(Tinds~=jj) = 0;
+                end
+                [~,~,~,~,~,temp_fgint] = NMMmodel_eval(tempmod,cur_Robs,all_Xmat_shift);
+                temp_fgint = bsxfun(@times,temp_fgint,stim_mod_signs);
+                lagdep_stimG(:,jj) = sum(temp_fgint,2);
+            end
+            lagdep_stimG = zscore(lagdep_stimG);
             
             %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
             
@@ -998,17 +998,26 @@ for cc = targs
             if fit_subMod
                 fprintf('Estimating sac-dep subspace model\n');
                 
-                X{1} = cur_Xsac;
-                X{2} = reshape(bsxfun(@times,cur_Xsac,reshape(filt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
+                sub_Xsac = cur_Xsac;
+                net_Xsac = sum(sub_Xsac,2);
+                multi_inds = find(net_Xsac > 1);
+                for ii = 1:length(multi_inds)
+                    cur_set = find(sub_Xsac(multi_inds(ii),:) == 1);
+                   [~,larger] = min(abs(slags(cur_set))); 
+                   sub_Xsac(multi_inds(ii),cur_set(larger)) = 0;
+                end
+                
+                X{1} = sub_Xsac;
+                X{2} = reshape(bsxfun(@times,sub_Xsac,reshape(filt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
                 
                 cur_stim_params(1) = NMMcreate_stim_params(length(slags));
                 cur_stim_params(2) = NMMcreate_stim_params([length(slags) length(cur_rGQM.mods)]);
                 
                 %initialize model with same number (and type) of subunits, but
                 %where the filter coefs can mix within the subspace
-                mod_signs = [1 cur_rGQM.mods(:).sign];
-                Xtargs = [1 2*ones(1,length(cur_rGQM.mods))];
-                NL_types = cat(2,{'lin'},{cur_rGQM.mods(:).NLtype});
+                mod_signs = [1 cur_GQM.mods(:).sign];
+                Xtargs = [1 2*ones(1,length(cur_GQM.mods))];
+                NL_types = cat(2,{'lin'},{cur_GQM.mods(:).NLtype});
                 modSeq_L2 = 0;
                 
                 %cycle over a range of possible d2T reg lambdas
@@ -1024,7 +1033,7 @@ for cc = targs
                     init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf]; %0 boundary on offset term
                     
                     %set initial filters to have no mixing
-                    for ii = 1:length(cur_rGQM.mods)
+                    for ii = 1:length(cur_GQM.mods)
                         init_filt = zeros(length(slags),length(cur_rGQM.mods));
                         init_filt(:,ii) = 1;
                         init_mod.mods(ii+1).filtK = init_filt(:);
@@ -1046,14 +1055,13 @@ for cc = targs
                 reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,length(mod_signs)-1)]',...
                     'boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
                 init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
-                init_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+                init_mod.spk_NL_params = cur_GQM.spk_NL_params;
                 init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf];
-                for ii = 1:length(cur_GQM.mods)
+                for ii = 1:length(init_mod.mods)-1
                     init_filt = zeros(length(slags),length(cur_rGQM.mods));
                     init_filt(:,ii) = 1;
                     init_mod.mods(ii+1).filtK = init_filt(:);
                 end
-                init_mod.spk_NL_params = cur_GQM.spk_NL_params;
                 init_mod.mods(1).filtK = post_gsac_Smod.mods(2).filtK;
                 init_mod.spk_NL_params(1) = post_gsac_Smod.spk_NL_params(1);
                 subspace_mod = NMMfit_filters(init_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds),[],[],silent);
@@ -1101,8 +1109,8 @@ for cc = targs
                 end
                 
                 if fit_subMod
-                    X{1} = cur_Xsac;
-                    X{2} = reshape(bsxfun(@times,cur_Xsac,reshape(rfilt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
+                    X{1} = sub_Xsac;
+                    X{2} = reshape(bsxfun(@times,sub_Xsac,reshape(rfilt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
                     [~,~,rsubspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
                 end
                 
@@ -1119,7 +1127,8 @@ for cc = targs
                     
                     %compute LL and info for subpsace model
                     if fit_subMod
-                        sac_subpost_info(jj,ii) = nanmean(rsubspace_predrate(temp).*log2(rsubspace_predrate(temp)/mean(rsubspace_predrate(temp))))/mean(rsubspace_predrate(temp));
+                     temp = find(sub_Xsac(:,ii) == 1);
+                       sac_subpost_info(jj,ii) = nanmean(rsubspace_predrate(temp).*log2(rsubspace_predrate(temp)/mean(rsubspace_predrate(temp))))/mean(rsubspace_predrate(temp));
                     end
                 end
             end
@@ -1136,6 +1145,7 @@ for cc = targs
             
             norm_stimG = zscore(stimG);
             spk_cond_G = nan(length(slags),1);
+            spk_cond_lagG = nan(length(slags),flen);
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(:,ii) == 1);
                 sac_avgrate(ii) = mean(cur_Robs(temp));
@@ -1166,6 +1176,10 @@ for cc = targs
             sacStimProc(cc).gsac_spkCondG = spk_cond_G;
             ov_spkCondG = sum(cur_Robs(any_sac_inds).*norm_stimG(any_sac_inds))/sum(cur_Robs(any_sac_inds));
             sacStimProc(cc).gsac_ovspkCondG = ov_spkCondG;
+
+            ov_spkCondlagG = sum(bsxfun(@times,lagdep_stimG(any_sac_inds,:),cur_Robs(any_sac_inds)))/sum(cur_Robs(any_sac_inds));
+            sacStimProc(cc).gsac_spkCondlagG = spk_cond_lagG;
+            sacStimProc(cc).gsac_ovspkCondlagG = ov_spkCondlagG;
             
             sacStimProc(cc).gsac_avg_rate = sac_avgrate;
             
