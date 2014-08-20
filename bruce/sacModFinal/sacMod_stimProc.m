@@ -1016,9 +1016,9 @@ for cc = targs
                 
                 %initialize model with same number (and type) of subunits, but
                 %where the filter coefs can mix within the subspace
-                mod_signs = [1 cur_GQM.mods(:).sign];
-                Xtargs = [1 2*ones(1,length(cur_GQM.mods))];
-                NL_types = cat(2,{'lin'},{cur_GQM.mods(:).NLtype});
+                mod_signs = [1 cur_rGQM.mods(:).sign];
+                Xtargs = [1 2*ones(1,length(cur_rGQM.mods))];
+                NL_types = cat(2,{'lin'},{cur_rGQM.mods(:).NLtype});
                 modSeq_L2 = 0;
                 
                 %cycle over a range of possible d2T reg lambdas
@@ -1034,12 +1034,12 @@ for cc = targs
                     init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf]; %0 boundary on offset term
                     
                     %set initial filters to have no mixing
-                    for ii = 1:length(cur_GQM.mods)
+                    for ii = 1:length(cur_rGQM.mods)
                         init_filt = zeros(length(slags),length(cur_rGQM.mods));
                         init_filt(:,ii) = 1;
                         init_mod.mods(ii+1).filtK = init_filt(:);
                     end
-                    init_mod.spk_NL_params = cur_GQM.spk_NL_params;
+                    init_mod.spk_NL_params = cur_rGQM.spk_NL_params;
                     init_mod.mods(1).filtK = post_gsac_Smod.mods(2).filtK;
                     init_mod.spk_NL_params(1) = post_gsac_Smod.spk_NL_params(1);
                     subspace_mod = NMMfit_filters(init_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(X,tr_sac_inds),[],[],silent);
@@ -1056,7 +1056,7 @@ for cc = targs
                 reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,length(mod_signs)-1)]',...
                     'boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
                 init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
-                init_mod.spk_NL_params = cur_GQM.spk_NL_params;
+                init_mod.spk_NL_params = cur_rGQM.spk_NL_params;
                 init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf];
                 for ii = 1:length(init_mod.mods)-1
                     init_filt = zeros(length(slags),length(cur_rGQM.mods));
@@ -1465,91 +1465,6 @@ for cc = targs
                 end
                 %         sacGainMod = sacStimProc(cc).msacGainMod;
                 
-                %% COMPUTE SUBSPAC SAC MODEL
-%                 if fit_subMod
-%                     fprintf('Estimating sac-dep subspace model\n');
-%                     
-%                     X{1} = cur_Xsac;
-%                     X{2} = reshape(bsxfun(@times,cur_Xsac,reshape(filt_outs,length(cc_uinds),1,[])),length(cc_uinds),[]);
-%                     
-%                     cur_stim_params(1) = NMMcreate_stim_params(length(slags));
-%                     cur_stim_params(2) = NMMcreate_stim_params([length(slags) length(cur_rGQM.mods)]);
-%                     
-%                     %initialize model with same number (and type) of subunits, but
-%                     %where the filter coefs can mix within the subspace
-%                     mod_signs = [1 cur_GQM.mods(:).sign];
-%                     Xtargs = [1 2*ones(1,length(cur_GQM.mods))];
-%                     NL_types = cat(2,{'lin'},{cur_GQM.mods(:).NLtype});
-%                     modSeq_L2 = 0;
-%                     
-%                     %cycle over a range of possible d2T reg lambdas
-%                     subspace_xvLL = nan(length(poss_sub_d2T),1);
-%                     for jj = 1:length(poss_sub_d2T)
-%                         modSeq_d2T = poss_sub_d2T(jj);
-%                         fprintf('Xval %d of %d\n',jj,length(poss_sub_d2T));
-%                         %use opt d2T lambda from gain/offset model for the offset
-%                         %kernel
-%                         reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(modSeq_d2T,1,length(mod_signs)-1)]',...
-%                             'lambda_L2',[0 repmat(modSeq_L2,1,length(mod_signs)-1)]','boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
-%                         init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
-%                         init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf]; %0 boundary on offset term
-%                         
-%                         %set initial filters to have no mixing
-%                         for ii = 1:length(cur_GQM.mods)
-%                             init_filt = zeros(length(slags),length(cur_rGQM.mods));
-%                             init_filt(:,ii) = 1;
-%                             init_mod.mods(ii+1).filtK = init_filt(:);
-%                         end
-%                         init_mod.spk_NL_params = cur_GQM.spk_NL_params;
-%                         init_mod.mods(1).filtK = post_msac_Smod.mods(2).filtK;
-%                         init_mod.spk_NL_params(1) = post_msac_Smod.spk_NL_params(1);
-%                         subspace_mod = NMMfit_filters(init_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(X,tr_sac_inds),[],[],silent);
-%                         subspace_xvLL(jj) = NMMmodel_eval(subspace_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(X,xv_sac_inds));
-%                     end
-%                     %select best lambda using xvLL
-%                     [~,optloc] = max(subspace_xvLL);
-%                     subspace_optL2 = poss_sub_d2T(optloc);
-%                     sacStimProc(cc).msac_subspace_optL2 = subspace_optL2;
-%                     sacStimProc(cc).msac_subspace_xvLL = subspace_xvLL;
-%                     
-%                     %now initialize model with optimal d2T lambda and fit to all
-%                     %used data
-%                     reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,length(mod_signs)-1)]',...
-%                         'lambda_L2',[0 repmat(modSeq_L2,1,length(mod_signs)-1)]','boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
-%                     init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
-%                     init_mod.spk_NL_params = cur_rGQM.spk_NL_params;
-%                     init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf];
-%                     for ii = 1:length(cur_GQM.mods)
-%                         init_filt = zeros(length(slags),length(cur_rGQM.mods));
-%                         init_filt(:,ii) = 1;
-%                         init_mod.mods(ii+1).filtK = init_filt(:);
-%                     end
-%                     init_mod.spk_NL_params = cur_GQM.spk_NL_params;
-%                     init_mod.mods(1).filtK = post_msac_Smod.mods(2).filtK;
-%                     init_mod.spk_NL_params(1) = post_msac_Smod.spk_NL_params(1);
-%                     subspace_mod = NMMfit_filters(init_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds),[],[],silent);
-%                     
-%                     %evaluate overall info on anysac inds
-%                     [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs(any_sac_inds),get_Xcell_tInds(X,any_sac_inds));
-%                     sacStimProc(cc).msac_sub_ov_modinfo = mean(subspace_predrate/mean(subspace_predrate).*log2(subspace_predrate/mean(subspace_predrate)));
-%                     
-%                     sacStimProc(cc).msac_submod = subspace_mod;
-%                     
-%                     [subspace_LL,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
-%                     
-%                     %extract the subspace filters
-%                     sub_efilts = find(Xtargs == 2 & mod_signs == 1);
-%                     cur_filts = reshape([subspace_mod.mods(sub_efilts).filtK],[length(slags) length(cur_rGQM.mods) length(sub_efilts)]);
-%                     stim_filts = reshape([cur_rGQM.mods.filtK],[flen*use_nPix_us length(cur_rGQM.mods)]);
-%                     sacdep_filts = nan(length(sub_efilts),length(slags),flen*use_nPix_us);
-%                     for jj = 1:length(sub_efilts)
-%                         sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
-%                     end
-%                     sacStimProc(cc).msac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
-%                     sacStimProc(cc).msac_phaseInd_subfilt = squeeze(sqrt(sum(sacdep_filts(2:end,:,:).^2)));
-%                 end
-%                 
-                
                 %% COMPUTE MODEL-BASED INFORMATION
                 n_stim_resamps = 10;
                 [sac_spost_info,sac_subpost_info,sac_info] = deal(nan(n_stim_resamps,length(slags)));
@@ -1672,112 +1587,6 @@ for cc = targs
                     sacStimProc(cc).msac_phaseDep_sta = reshape(lag_dep_sta,length(slags),flen, use_nPix_us);
                     sacStimProc(cc).msac_phaseInd_sta = reshape(lag_dep_asta,length(slags),flen,use_nPix_us);
                 end
-                
-                %% CREATE TENT_BASIS MODEL OF SACCADE-MODULATION
-%                 fprintf('Estimating tent-basis model\n');
-%                 xbuff = 5; %add a lag-axis buffer to the model to minimize the impact of any boundary effects (with smoothing)
-%                 
-%                 Xtick = -(backlag+xbuff+1/2):(1):(forlag+xbuff+1/2);
-%                 n_sbins = length(Xtick);
-%                 
-%                 %compute a single-valued 'time-since-saccade' parameter
-%                 cur_sac_starts = saccade_start_inds(big_sacs);
-%                 cur_sac_stops = saccade_stop_inds(big_sacs);
-%                 t_since_sac_start = nan(NT,1);
-%                 for ii = 1:length(cur_sac_starts)
-%                     prev_tstart = find(trial_start_inds <= cur_sac_starts(ii),1,'last');
-%                     next_tstop = find(trial_end_inds >= cur_sac_starts(ii),1,'first');
-%                     cur_inds = (cur_sac_starts(ii) - backlag - xbuff):(cur_sac_starts(ii) + forlag + xbuff);
-%                     cur_uset = find(cur_inds > trial_start_inds(prev_tstart) & cur_inds < trial_end_inds(next_tstop));
-%                     %             t_since_sac_start(cur_inds(cur_uset)) = slags(cur_uset);
-%                     t_since_sac_start(cur_inds(cur_uset)) = Xtick(cur_uset)+0.5;
-%                 end
-%                 
-%                 %initialize 2D TB data using t-since-sac and G
-%                 TB_stim = [t_since_sac_start(cc_uinds) norm_stimG];
-%                 
-%                 %set G-bins based on prctiles
-%                 %         Ytick = linspace(my_prctile(TB_stim(any_sac_inds,2),0.5),my_prctile(TB_stim(any_sac_inds,2),99.5),n_Gbins);
-%                 Ytick = my_prctile(TB_stim(any_sac_inds,2),linspace(0.5,99.5,n_Gbins));
-%                 nd_bins = find(diff(Ytick) <= 0);
-%                 Ytick(nd_bins) = [];
-%                 cur_nGbins = length(Ytick);
-%                 
-%                 %initialize TBs
-%                 TB = TentBasis2D(Xtick, Ytick);
-%                 
-%                 %this is data within range of the TB centers
-%                 used_data = find(TB_stim(:,1) >= Xtick(1) & TB_stim(:,1) <= Xtick(end) & ...
-%                     TB_stim(:,2) >= Ytick(1) & TB_stim(:,2) <= Ytick(end));
-%                 
-%                 udata_tr = find(ismember(used_data,cur_tr_inds));
-%                 udata_xv = find(ismember(used_data,cur_xv_inds));
-%                 
-%                 %process data with TBs
-%                 [TB_Xmat,TB_counts] = TB.InputNL2D(TB_stim(used_data,:));
-%                 
-%                 TB_xvLL = nan(1,length(poss_TB_lambdas));
-%                 for ll = 1:length(poss_TB_lambdas)
-%                     fprintf('Fitting TB msac model lambda %d/%d\n',ll,length(poss_TB_lambdas));
-%                     cur_sac_lambda = poss_TB_lambdas(ll);
-%                     
-%                     %fit a penalized GLM on the TB outputs
-%                     %            L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
-%                     L2_params = create_L2_params([],[1 n_sbins*cur_nGbins],[n_sbins cur_nGbins],2,3,[Inf Inf],[1 1/cur_sac_lambda*G_lambdas]);
-%                     TB_fitmod = regGLM_fit(TB_Xmat(udata_tr,:),cur_Robs(used_data(udata_tr)),L2_params,cur_sac_lambda,[],[],silent);
-%                     [TB_xvLL(ll)] = regGLM_eval(TB_fitmod,cur_Robs(used_data(udata_xv)),TB_Xmat(udata_xv,:));
-%                 end
-%                 
-%                 %select optimal regularization lambda
-%                 [~,optloc] = max(TB_xvLL);
-%                 TB_optL2 = poss_TB_lambdas(optloc);
-%                 sacStimProc(cc).msac_TB_optL2 = TB_optL2;
-%                 
-%                 %fit a penalized GLM on the TB outputs using optimal lambda
-%                 %         L2_params = create_L2_params([],[1 n_sbins*n_Gbins],[n_sbins n_Gbins],2,3,[Inf Inf],[TB_relsac_pen 1]);
-%                 L2_params = create_L2_params([],[1 n_sbins*cur_nGbins],[n_sbins cur_nGbins],2,3,[Inf Inf],[1 1/TB_optL2*G_lambdas]);
-%                 TB_fitmod = regGLM_fit(TB_Xmat,cur_Robs(used_data),L2_params,TB_optL2,[],[],silent);
-%                 [LL, penLL, pred_rate, G] = regGLM_eval(TB_fitmod,cur_Robs(used_data),TB_Xmat);
-%                 
-%                 %compute output of TB model
-%                 TB_K = reshape(TB_fitmod.K,n_sbins,cur_nGbins)';
-%                 bin_areas = TB.GetBinAreas();
-%                 msac_TB_dist = TB_counts./bin_areas;
-%                 msac_TB_dist = msac_TB_dist'/sum(msac_TB_dist(:));
-%                 msac_TB_rate = log(1 + exp(TB_K + TB_fitmod.theta));
-%                 sacStimProc(cc).msac_TB_rate = msac_TB_rate(:,xbuff+1:end-xbuff);
-%                 
-%                 %INFO CALS
-%                 cur_avg_rate = mean(cur_Robs(used_data));
-%                 marg_gdist = sum(msac_TB_dist,2);
-%                 marg_sdist = sum(msac_TB_dist);
-%                 marg_msacrate = sum(msac_TB_dist.*msac_TB_rate)./marg_sdist;
-%                 marg_grate = sum(msac_TB_dist.*msac_TB_rate,2)./marg_gdist;
-%                 msacdep_info = nan(1,n_sac_bins);
-%                 for tt = 1:n_sbins
-%                     msacdep_info(tt) = sum(msac_TB_dist(:,tt).*msac_TB_rate(:,tt).*log2(msac_TB_rate(:,tt)/marg_msacrate(tt)))/sum(msac_TB_dist(:,tt));
-%                 end
-%                 gcumdist = cumsum(marg_gdist)/sum(marg_gdist);
-%                 
-%                 sacStimProc(cc).msac_ov_TB_info = sum(marg_gdist.*marg_grate.*log2(marg_grate/cur_avg_rate))/cur_avg_rate;
-%                 
-%                 sacStimProc(cc).msac_TB_avg_rate = marg_msacrate(xbuff+1:end-xbuff);
-%                 sacStimProc(cc).msac_TB_info = msacdep_info(xbuff+1:end-xbuff)./marg_msacrate(xbuff+1:end-xbuff);
-%                 sacStimProc(cc).msac_TB_gdist = marg_gdist;
-%                 sacStimProc(cc).msac_TB_grate = marg_grate;
-%                 sacStimProc(cc).msac_TB_lagX = Xtick(xbuff+1:end-xbuff);
-%                 sacStimProc(cc).msac_TB_gX = Ytick;
-%                 
-%                 dYtick = median(diff(Ytick));
-%                 equi_space_gX = linspace(Ytick(1)-dYtick,Ytick(end)+dYtick,51);
-%                 equi_space_gdist = histc(TB_stim(used_data,2),equi_space_gX);
-%                 sacStimProc(cc).msac_equi_space_gdist = equi_space_gdist(1:end-1)/sum(equi_space_gdist);
-%                 sacStimProc(cc).msac_equi_space_gX = 0.5*equi_space_gX(1:end-1) + 0.5*equi_space_gX(2:end);
-%                 
-%                 temp = sum(bsxfun(@times,msac_TB_rate.*msac_TB_dist,Ytick(:)))./marg_msacrate./sum(msac_TB_dist);
-%                 ov_temp = sum(marg_grate.*marg_gdist.*Ytick(:))/mean(cur_Robs(used_data))/sum(marg_gdist);
-%                 sacStimProc(cc).msac_sacCond_Gavg = temp(xbuff+1:end-xbuff);
-%                 sacStimProc(cc).msac_Gavg = ov_temp;
                 
             end
         end

@@ -85,7 +85,7 @@ end
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
-Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294'};
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
 bar_ori = nan; 
 for Elist_cnt = 1:length(Expt_list)
@@ -93,6 +93,10 @@ for Elist_cnt = 1:length(Expt_list)
     fitCorrectedModels;
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 end
+Expt_name = 'M297'; bar_ori = 0;
+fitCorrectedModels;
+Expt_name = 'M297'; bar_ori = 90;
+fitCorrectedModels;
 
 %% JBE FIT COR MODELS ORI=0
 clear all
