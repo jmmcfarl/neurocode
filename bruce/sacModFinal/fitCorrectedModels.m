@@ -5,7 +5,7 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-Expt_name = 'M297';
+Expt_name = 'G085';
 bar_ori = 90; %bar orientation to use (only for UA recs)
 use_MUA = false;
 fit_unCor = true; %fit models to uncorrected stim?
@@ -833,7 +833,7 @@ for cc = targs
         %% Fit uncorrected model
         if fit_unCor
             bestGQM_unCor = bestGQM;
-            bestGQM_unCor = NMMfit_filters(bestGQM_unCor,cur_Robs(cur_tr_inds),all_Xmat_unCor(cc_uinds(cur_tr_inds),:),[],[],0);
+            bestGQM_unCor = NMMfit_filters(bestGQM_unCor,cur_Robs(cur_tr_inds),all_Xmat_unCor(cc_uinds(cur_tr_inds),:));
             cur_mod_spkNL = NMMfit_logexp_spkNL(bestGQM_unCor,cur_Robs(cur_tr_inds),all_Xmat_unCor(cc_uinds(cur_tr_inds),:));
             cur_xvLL = NMMmodel_eval(cur_mod_spkNL,cur_Robs(cur_xv_inds),all_Xmat_unCor(cc_uinds(cur_xv_inds),:));
             bestGQM_unCor.xvLLimp = (cur_xvLL - nullxvLL)/log(2);
@@ -907,12 +907,12 @@ for cc = targs
         filt_out_weights = std(filt_outs);
         filt_out_weights = filt_out_weights(non_supp_filts)/nansum(filt_out_weights(non_supp_filts));
         
-        tune_props.RF_mean = filt_out_weights(non_supp_filts)*filt_data.gest(non_supp_filts,1) - use_nPix_us*sp_dx/2 -sp_dx;
-        tune_props.RF_sigma = filt_out_weights(non_supp_filts)*filt_data.gest(non_supp_filts,2);
-        tune_props.RF_gSF = filt_out_weights(non_supp_filts)*filt_data.gest(non_supp_filts,3);
-        tune_props.RF_dirsel = filt_out_weights(non_supp_filts)*filt_data.dir_selectivity(non_supp_filts);
-        tune_props.RF_FTF = filt_out_weights(non_supp_filts)*filt_data.FFt(non_supp_filts);
-        tune_props.RF_FSF = filt_out_weights(non_supp_filts)*filt_data.FFx(non_supp_filts);
+        tune_props.RF_mean = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,1)') - use_nPix_us*sp_dx/2 -sp_dx;
+        tune_props.RF_sigma = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,2)');
+        tune_props.RF_gSF = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,3)');
+        tune_props.RF_dirsel = nansum(filt_out_weights(non_supp_filts).*filt_data.dir_selectivity(non_supp_filts)');
+        tune_props.RF_FTF = nansum(filt_out_weights(non_supp_filts).*filt_data.FFt(non_supp_filts)');
+        tune_props.RF_FSF = nansum(filt_out_weights(non_supp_filts).*filt_data.FFx(non_supp_filts)');
         
         rect_stim_filters = [rectGQM.mods([1 end]).filtK];
         avg_rect_filts = mean(rect_stim_filters);
