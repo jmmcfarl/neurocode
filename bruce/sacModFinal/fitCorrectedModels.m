@@ -1,14 +1,17 @@
-clear all
+% clear all
 
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-Expt_name = 'G085';
-bar_ori = 90; %bar orientation to use (only for UA recs)
-use_MUA = false;
-fit_unCor = true; %fit models to uncorrected stim?
+% Expt_name = 'G087';
+% bar_ori = 0; %bar orientation to use (only for UA recs)
+% use_MUA = false;
+% fit_unCor = true; %fit models to uncorrected stim?
+
+
+save_name = 'corrected_models2';
 
 %%
 %load in array RF position data
@@ -93,7 +96,6 @@ end
 % et_anal_name = 'full_eyetrack';
 et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 et_anal_name = 'full_eyetrack_Rinit';
-save_name = 'corrected_models';
 
 %if using coil info
 if any(use_coils > 0)
@@ -718,8 +720,8 @@ for cc = targs
         %% FIT (eye-corrected) STIM-PROCESSING MODEL
         fprintf('Fitting stim models for unit %d\n',cc);
         
-        max_Emods = 2;
-        max_Imods = 2;
+        max_Emods = 3;
+        max_Imods = 3;
         
         silent = 1;
 %         if mode(expt_dds(cur_block_set)) == 12
@@ -731,7 +733,7 @@ for cc = targs
 %         end
         if mode(expt_dds(cur_block_set)) == 12
             base_lambda_d2XT = 25;
-            base_lambda_L1 = 5;
+            base_lambda_L1 = 2.5;
         else
             base_lambda_d2XT = 100;
             base_lambda_L1 = 10;
