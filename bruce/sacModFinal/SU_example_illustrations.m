@@ -3,7 +3,7 @@ close all
 
 fit_unCor = false;
 
-Expt_name = 'G093';
+Expt_name = 'G087';
 if Expt_name(1) == 'M'
     rec_type = 'LP';
 elseif Expt_name(1) == 'G'

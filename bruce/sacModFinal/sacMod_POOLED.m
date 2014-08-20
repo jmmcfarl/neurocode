@@ -614,7 +614,9 @@ for ii = 1:length(all_SU_data)
     qfilts = find(strcmp({cur_mod.mods(:).NLtype},'quad'));
     
     tkerns = squeeze(std(mod_filts,[],2));
-    
+    tkerns = bsxfun(@rdivide,tkerns,sqrt(sum(tkerns.^2)));
+    tkerns = bsxfun(@times,tkerns,all_SU_data(ii).rel_filt_weights);
+    tkerns(:,all_SU_data(ii).rel_filt_weights==0) = 0;
     %     tkerns(:,qfilts) = tkerns(:,qfilts).^2;
     
     
@@ -1219,4 +1221,4 @@ avg_subfilts = squeeze(mean(all_filts,4));
 avg_subfilts = avg_subfilts(:,[1 end 2:end-1],:);
 
 max_sub_xvLL = arrayfun(@(x) max(x.gsac_subspace_xvLL),all_SU_data);
-max_post_xvLL = arrayfun(@(x) max(x.gsac_L2_gainscan),all_SU_data);
+max_post_xvLL = arrayfun(@(x) max(x.gsac_spost_xvLL),all_SU_data);

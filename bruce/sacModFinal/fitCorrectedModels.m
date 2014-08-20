@@ -853,7 +853,7 @@ for cc = targs
             bestGQM_spkNL = NMMfit_logexp_spkNL(bestGQM,cur_Robs(cur_full_inds),all_Xmat_shift(cur_full_inds,:));
             [bestGQM_LL, ~, ~, ~, ~, fgint, nullLL] = NMMmodel_eval(bestGQM_spkNL, cur_Robs(cur_full_inds), all_Xmat_shift(cur_full_inds,:));
             rel_filt_weights = std(fgint);
-            bestGQM.rel_filt_weights = rel_filt_weights/sum(rel_filts_weights);
+            bestGQM.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
             bestGQM.LLimp = (bestGQM_LL - nullLL)/log(2);
             
             if fit_unCor
@@ -861,13 +861,13 @@ for cc = targs
                 bestGQM_unCor_spkNL = NMMfit_logexp_spkNL(bestGQM_unCor,cur_Robs(cur_full_inds),all_Xmat_unCor(cc_uinds(cur_full_inds),:));
                 [~,~,~,~,~,fgint] = NMMmodel_eval(bestGQM_unCor,cur_Robs(cur_full_inds),all_Xmat_unCor(cc_uinds(cur_full_inds),:));
                 rel_filt_weights = std(fgint);
-                bestGQM_unCor.rel_filt_weights = rel_filt_weights/sum(rel_filts_weights);
+                bestGQM_unCor.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
                 bestGQM_unCor.LLimp = (bestGQM_unCor_spkNL.LL_seq(end)-nullLL)/log(2);
             end
             rectGQM = NMMfit_filters(rectGQM,cur_Robs(cur_full_inds),all_Xmat_shift(cur_full_inds,:),[],[],silent);
             [~,~,~,~,~,fgint] = NMMmodel_eval(rectGQM,cur_Robs(cur_full_inds),all_Xmat_shift(cur_full_inds,:));
             rel_filt_weights = std(fgint);
-            rectGQM.rel_filt_weights = rel_filt_weights/sum(rel_filts_weights);
+            rectGQM.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
             rectGQM_spkNL = NMMfit_logexp_spkNL(rectGQM,cur_Robs(cur_full_inds),all_Xmat_shift(cur_full_inds,:));
             rectGQM.LLimp = (rectGQM_spkNL.LL_seq(end)-nullLL)/log(2);
             
@@ -875,7 +875,7 @@ for cc = targs
                 rectGQM_unCor = NMMfit_filters(rectGQM_unCor,cur_Robs(cur_full_inds),all_Xmat_unCor(cc_uinds(cur_full_inds),:));
                 [~,~,~,~,~,fgint] = NMMmodel_eval(rectGQM_unCor,cur_Robs(cur_full_inds),all_Xmat_unCor(cc_uinds(cur_full_inds),:));
                 rel_filt_weights = std(fgint);
-                rectGQM_unCor.rel_filt_weights = rel_filt_weights/sum(rel_filts_weights);
+                rectGQM_unCor.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
                 rectGQM_unCor_spkNL = NMMfit_logexp_spkNL(rectGQM_unCor,cur_Robs(cur_full_inds),all_Xmat_unCor(cc_uinds(cur_full_inds),:));
                 rectGQM_unCor.LLimp = (rectGQM_unCor_spkNL.LL_seq(end)-nullLL)/log(2);
             end
