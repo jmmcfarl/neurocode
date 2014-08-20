@@ -854,6 +854,7 @@ for cc = targs
             [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
+            norm_stimG = zscore(stimG);
             
             sacStimProc(cc).gsac_ovavg_rate = mean(cur_Robs(any_sac_inds));
             
@@ -1253,7 +1254,6 @@ for cc = targs
             %% Get LL-based infos
             [sac_LL,sac_fpost_LL,sac_spost_LL,sac_subpost_LL,sac_TB_LL,sac_nullLL,sac_Nspks,sac_avgrate] = deal(nan(length(slags),1));
             
-            norm_stimG = zscore(stimG);
             spk_cond_G = nan(length(slags),1);
             spk_cond_lagG = nan(length(slags),flen);
             for ii = 1:length(slags)
