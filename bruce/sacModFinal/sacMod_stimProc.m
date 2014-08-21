@@ -20,6 +20,8 @@ fitSTA = true;
 fitMsacs = true;
 
 sname = 'sacStimProc2';
+mod_data_name = 'corrected_models2';
+
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8);
 poss_sub_d2T = logspace(log10(10),log10(1e4),6);
@@ -118,7 +120,6 @@ mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
 % et_anal_name = 'full_eyetrack';
 et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 et_anal_name = 'full_eyetrack_Rinit';
-mod_data_name = 'corrected_models';
 
 %if using coil info
 if any(use_coils > 0)

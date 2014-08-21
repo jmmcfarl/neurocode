@@ -432,11 +432,11 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative information');
 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_smod_TB_infocompare.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Gsac_smod_TB_infocompare.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 %% PLOT SPIKE-WEIGHTED GEN SIGNALS
 
@@ -1233,3 +1233,10 @@ avg_subfilts = avg_subfilts(:,[1 end 2:end-1],:);
 
 max_sub_xvLL = arrayfun(@(x) max(x.gsac_subspace_xvLL),all_SU_data);
 max_post_xvLL = arrayfun(@(x) max(x.gsac_spost_xvLL),all_SU_data);
+
+for ii = 1:5
+subplot(5,1,ii)
+imagesc(squeeze(avg_subfilts(:,:,ii))')
+caxis([-1.2 1.2])
+end
+
