@@ -38,7 +38,14 @@ for ee = 1:length(Expt_list)
             
             base_xvLLimps = ones(size(tavg_SU_numbers))*-Inf;
             base_xvLLimps(lia) = Mod_SU_xvLLimp(locb(lia));
-            for jj = 1:length(sua_data); sua_data(jj).xvLLimp = base_xvLLimps(jj); end;
+            base_Mods = ModData;
+            base_Mods(lia) = ModData(locb(lia));
+            for jj = 1:length(sua_data); 
+                sua_data(jj).xvLLimp = base_xvLLimps(jj); 
+                if jj <= length(base_Mods)
+                sua_data(jj).ModData = base_Mods(jj); 
+                end
+            end;
             
             [sua_data.expt_num] = deal(Expt_num);
             [sua_data.bar_ori] = deal(ori_list(ee,ii));
@@ -110,7 +117,14 @@ for ee = 1:length(Expt_list)
             
             base_xvLLimps = ones(size(tavg_SU_numbers))*-Inf;
             base_xvLLimps(lia) = Mod_SU_xvLLimp(locb(lia));
-            for jj = 1:length(sua_data); sua_data(jj).xvLLimp = base_xvLLimps(jj); end;
+            base_Mods = ModData;
+            base_Mods(lia) = ModData(locb(lia));
+            for jj = 1:length(sua_data); 
+                sua_data(jj).xvLLimp = base_xvLLimps(jj); 
+                if jj <= length(base_Mods)
+                sua_data(jj).ModData = base_Mods(jj); 
+                end
+            end;
             
             [sua_data.expt_num] = deal(Expt_num);
             [sua_data.bar_ori] = deal(ori_list(ee,ii));
@@ -153,6 +167,9 @@ tlags = trig_avg_params.lags;
 dt = trig_avg_params.dt;
 tlags = tlags*dt;
 
+tot_spikes = [all_SU_data(:).tot_nspikes];
+bad = find(tot_spikes == 0);
+all_SU_data(bad) = [];
 %% SELECT USABLE CELLS
 avg_rates = [all_SU_data(:).avg_rates]/dt;
 tot_spikes = [all_SU_data(:).tot_nspikes];
@@ -293,10 +310,10 @@ fig_width = 3.5; rel_height = 0.8;
 % close(f2);
 
 % 
-figufy(f4);
-fname = [fig_dir 'SUA_GSAC_Vs_MSAC.pdf'];
-exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f4);
+% figufy(f4);
+% fname = [fig_dir 'SUA_GSAC_Vs_MSAC.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
 
 %% SCATTERPLOT OF GSAC/MSAC EXC/SUP magnitude and timing
 all_gsac_gray_SE = reshape([all_SU_data(:).gsac_gray_std],[],length(all_SU_data))';
@@ -352,6 +369,7 @@ ylabel('Suppression strength');
 title('Micro Sacs');
 
 %plot modulation timing
+xr = [0 0.35];
 jit_amp = 0.001; %prevent points from occluding each other with some random jitter
 f2 = figure(); 
 subplot(2,1,1);hold on
@@ -379,20 +397,20 @@ title('Micro Sacs');
 
 
 xl = [0 1];
-yl = [0 0.35];
+yl = [0 0.3];
 f3 = figure(); 
 hold on
 curSUs = gsac_used_SUs;
-plot(gsac_Efact(curSUs),gsac_exctime(curSUs),'b.','markersize',6);
+% plot(gsac_Efact(curSUs),gsac_exctime(curSUs),'b.','markersize',6);
 curSUs = gsac_used_SUs(gsac_exc_Z(gsac_used_SUs) >=  3);
-plot(gsac_Efact(curSUs),gsac_exctime(curSUs),'bo','markersize',4);
+plot(gsac_Efact(curSUs),gsac_exctime(curSUs),'bo','markersize',3);
 % legend('JBE','LEM');
 % line([0 1],[0 1],'color','k');
 
 curSUs = gsac_used_SUs;
-plot(gsac_Sfact(curSUs),gsac_inhtime(curSUs),'r.','markersize',6);
+% plot(gsac_Sfact(curSUs),gsac_inhtime(curSUs),'r.','markersize',6);
 curSUs = gsac_used_SUs(gsac_inh_Z(gsac_used_SUs) >=  3);
-plot(gsac_Sfact(curSUs),gsac_inhtime(curSUs),'ro','markersize',4);
+plot(gsac_Sfact(curSUs),gsac_inhtime(curSUs),'ro','markersize',3);
 set(gca,'xtick',0:0.2:1);
 
 xlabel('Modulation strength');
@@ -438,22 +456,22 @@ fig_width = 3.5; rel_height = 1.8;
 % close(f2);
 % 
 
-% fig_width = 3.5; rel_height = 1;
-% figufy(f3);
-% fname = [fig_dir 'SUA_Mod_time_scatter.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
-% 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f4);
-% fname = [fig_dir 'SUA_Mod_dist.pdf'];
-% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f4);
-% 
-% figufy(f5);
-% fname = [fig_dir 'SUA_Mod_time.pdf'];
-% exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f5);
+fig_width = 3.5; rel_height = 1;
+figufy(f3);
+fname = [fig_dir 'SUA_Mod_time_scatter.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f4);
+fname = [fig_dir 'SUA_Mod_dist.pdf'];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f4);
+
+figufy(f5);
+fname = [fig_dir 'SUA_Mod_time.pdf'];
+exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f5);
 
 %% PREF VS NONPREF ORI
 
@@ -613,13 +631,15 @@ search_range = [0.1 0.3];
 [im_Efact_Z] = get_tavg_peaks(all_gsac_im_Z,tlags,search_range);
 [sim_Efact,sim_exctime] = get_tavg_peaks(all_simsac-1,tlags,search_range);
 [sim_Efact_Z] = get_tavg_peaks(all_simsac_Z,tlags,search_range);
+sim_Emod = sim_Efact./im_Efact;
 
 xl = [-0.15 0.4];
 yl = [0.6 1.3];
 
 f1 = figure(); hold on
 
-curSUs = find(ismember(simsac_used_SUs,jbe_SUs));
+cur_jbe_SUs = find(ismember(simsac_used_SUs,jbe_SUs));
+cur_lem_SUs = find(ismember(simsac_used_SUs,lem_SUs));
 curSUs = 1:length(simsac_used_SUs);
 h1=shadedErrorBar(tlags,nanmean(all_gsac_im(curSUs,:)),nanstd(all_gsac_im(curSUs,:))/sqrt(length(curSUs)),{'color','r'});
 % curSUs = find(ismember(gsac_used_SUs,lem_SUs));

@@ -16,8 +16,8 @@ all_SU_timedata = [];
 %% LOAD JBE
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
-ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
-% ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+% ori_list = [0 90; 0 90; 0 90; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
+ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -374,6 +374,12 @@ all_gsac_smodinforate = all_gsac_smodinfo.*all_gsac_rates*dt;
 all_gsac_Nsmodinfo = bsxfun(@rdivide,all_gsac_smodinfo,all_gsac_ov_smodinfo');
 all_gsac_Nsmodinforate = bsxfun(@rdivide,all_gsac_smodinforate,all_gsac_ov_smodinfo'.*avg_rates*dt);
 
+% all_gsac_smodinfo = reshape([all_SU_data(:).gsac_spost_LLinfo],[],length(all_SU_data))';
+% all_gsac_ov_smodinfo = [all_SU_data(:).gsac_spost_ov_LLinfo];
+% all_gsac_smodinforate = all_gsac_smodinfo.*all_gsac_rates*dt;
+% all_gsac_Nsmodinfo = bsxfun(@rdivide,all_gsac_smodinfo,all_gsac_ov_smodinfo');
+% all_gsac_Nsmodinforate = bsxfun(@rdivide,all_gsac_smodinforate,all_gsac_ov_smodinfo'.*avg_rates*dt);
+
 xl = [-0.1 0.3];
 
 f1 = figure();
@@ -432,7 +438,8 @@ ylabel('Relative information');
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
-%%
+%% PLOT SPIKE-WEIGHTED GEN SIGNALS
+
 all_gsac_TB_gmean = reshape([all_SU_data(:).gsac_sacCond_Gavg],[],length(all_SU_data))';
 ov_TB_gmean = [all_SU_data(:).gsac_Gavg];
 
@@ -451,14 +458,18 @@ xl = [-0.1 0.3];
 f1 = figure();
 hold on
 h1=shadedErrorBar(slags*dt,mean(all_gsac_spk_gmean(use_gsac_SUs,:)),std(all_gsac_spk_gmean(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
-h2=shadedErrorBar(TB_slags*dt,mean(all_gsac_TB_gmean(use_gsac_SUs,:)),std(all_gsac_TB_gmean(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
-% legend([h1.mainLine h2.mainLine],{'TB','Mod-pred'});
 xlabel('Time (s)');
 ylabel('Relative gain change');
 line(xl,[0 0],'color','k');
 xlim(xl);
 xlabel('Time (s)');
-ylabel('Relative information');
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Gsac_spk_weight_g.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
 
 %% COMPARE POST G/O MODEL AND SUBSPACE MODEL
 

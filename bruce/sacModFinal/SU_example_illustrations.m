@@ -39,15 +39,24 @@ if strcmp(rec_type,'LP')
     end
 end
 
-fname = 'sacStimProc';
+fname = 'sacStimProcTBnew';
 fname = [fname sprintf('_ori%d',bar_ori)];
 if fit_unCor
     fname = [fname '_unCor'];
 end
 
-anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
+fname2 = 'sacStimProc';
+fname2 = [fname2 sprintf('_ori%d',bar_ori)];
+if fit_unCor
+    fname2 = [fname2 '_unCor'];
+end
+
+anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+anal_dir2 = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
 cd(anal_dir)
 load(fname);
+cd(anal_dir2)
+temp2 = load(fname2);
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/summary_figs/';
 et_anal_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
@@ -87,11 +96,16 @@ et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 load([et_anal_dir et_anal_name],'et_params');
 
 
-sua_sm = 0.00/dt;
+sua_sm = 0.005/dt;
 
 %%
 for cc = (n_probes+1):length(sacStimProc);
     if sacStimProc(cc).used && ~isempty(sacStimProc(cc).gsac_post_singmod)
+        
+        sacStimProc(cc).gsacGainMod = temp2.sacStimProc(cc).gsacGainMod;
+        sacStimProc(cc).gsac_modinfo = temp2.sacStimProc(cc).gsac_modinfo;
+        
+        
     cur_GQM = sacStimProc(cc).ModData.rectGQM;
     flen = cur_GQM.stim_params(1).stim_dims(1);
     sp_dx = et_params.sp_dx;
@@ -101,22 +115,26 @@ for cc = (n_probes+1):length(sacStimProc);
     %%
     sac_xr = [-0.1 0.3];
 %     sac_xr = [-0.05 0.25];
-%     gr = [-1.5 3.5];
+    gr = [-2 3];
     
     close all
-    cur_gdist = sacStimProc(cc).gsac_TB_gdist;
+%     cur_gdist = sacStimProc(cc).gsac_TB_gdist;
+    cur_gdist = sacStimProc(cc).gsac_equi_space_gdist;
+    cur_gdistX = sacStimProc(cc).gsac_equi_space_gX;
     cur_post_mod = sacStimProc(cc).gsac_post_singmod;
     sac_dep_theta = cur_post_mod.spk_NL_params(1) + cur_post_mod.mods(2).filtK;
     sac_dep_beta = cur_post_mod.mods(3).filtK + cur_post_mod.mods(1).filtK;
     
-    Gtick = sacStimProc(cc).gsac_TB_gX;
+    Gtick = sacStimProc(cc).gsac_TB_gX';
     Xtick = sacStimProc(cc).gsac_TB_lagX;
     sac_dep_gen = bsxfun(@plus,bsxfun(@times,sac_dep_beta,Gtick),sac_dep_theta);
     sac_dep_rate = cur_post_mod.spk_NL_params(3)*log(1+exp(cur_post_mod.spk_NL_params(2)*sac_dep_gen));
     
-    base_out = cur_GQM.spk_NL_params(3)*log(1+exp(cur_GQM.spk_NL_params(2)*(Gtick + cur_GQM.spk_NL_params(1))));
+%     base_out = cur_GQM.spk_NL_params(3)*log(1+exp(cur_GQM.spk_NL_params(2)*(Gtick + cur_GQM.spk_NL_params(1))));
+    base_out = sacStimProc(cc).gsac_TB_grate;
     
     [mmm,mmmloc] = minmax(sacStimProc(cc).gsac_avg_rate);
+    [mmm,TBmmmloc] = minmax(sacStimProc(cc).gsac_TB_avg_rate);
     % mmmloc(2) = mmmloc(2) - 1; %manually set this one bin earlier
     
     cur_Filts = reshape([cur_GQM.mods(:).filtK],[flen use_nPix_us length(cur_GQM.mods)]);
@@ -137,11 +155,14 @@ for cc = (n_probes+1):length(sacStimProc);
     
     %sac-trig avg
     subplot(3,3,1)
-    plot(slags*dt,sm_arate);
+%     plot(slags*dt,sm_arate);
+    plot(Xtick*dt,sacStimProc(cc).gsac_TB_avg_rate/dt);
     hold on; axis tight
     yl = ylim();
-    line(slags(mmmloc([1 1]))*dt,yl,'color','k','linestyle','--');
-    line(slags(mmmloc([2 2]))*dt,yl,'color','k','linestyle','--');
+%     line(slags(mmmloc([1 1]))*dt,yl,'color','k','linestyle','--');
+%     line(slags(mmmloc([2 2]))*dt,yl,'color','k','linestyle','--');
+    line(Xtick(TBmmmloc([1 1]))*dt,yl,'color','k','linestyle','--');
+    line(Xtick(TBmmmloc([2 2]))*dt,yl,'color','k','linestyle','--');
     xlim(sac_xr);
     line(sac_xr,[0 0]+sacStimProc(cc).ModData.unit_data.avg_rate,'color','k');
     xlabel('Time (s)');
@@ -167,31 +188,37 @@ for cc = (n_probes+1):length(sacStimProc);
     
     %TB rate map
     subplot(3,3,4)
-    imagesc(slags*dt,Gtick,sacStimProc(cc).gsac_TB_rate); set(gca,'ydir','normal'); caxis([0 max(sac_dep_rate(:))]*0.65);
+    imagesc(slags*dt,Gtick,sacStimProc(cc).gsac_TB_rate); set(gca,'ydir','normal'); caxis([0 max(sacStimProc(cc).gsac_TB_rate(:))]*0.4);
     yl = ylim();
-% ylim(gr); yl = gr;
-    line(slags(mmmloc([1 1]))*dt,yl,'color','w');
-    line(slags(mmmloc([2 2]))*dt,yl,'color','w');
+ylim(gr); yl = gr;
+    line(Xtick(TBmmmloc([1 1]))*dt,yl,'color','w');
+    line(Xtick(TBmmmloc([2 2]))*dt,yl,'color','w');
     xlim(sac_xr)
     xlabel('Time (s)');
     ylabel('Generating signal');
     
     %response functions
-    subplot(3,3,7);
-    plot(Gtick,sac_dep_rate(mmmloc(1),:)/dt,'b--'); hold on
-    plot(Gtick,sacStimProc(cc).gsac_TB_rate(:,mmmloc(1))/dt,'b');
+    subplot(3,3,7); 
+    hold on
+    TB_mloc_diff = diff(TBmmmloc)+1;
+    TB_cmap = jet(TB_mloc_diff);
+%     plot(Gtick,sacStimProc(cc).gsac_TB_rate(:,mmmloc(1))/dt,'b');
+%     plot(Gtick,sacStimProc(cc).gsac_TB_rate(:,mmmloc(2))/dt,'r');
+for jj = 1:TB_mloc_diff
+   plot(Gtick,sacStimProc(cc).gsac_TB_rate(:,TBmmmloc(1)-1+jj)/dt,'color',TB_cmap(jj,:)); 
+end
     plot(Gtick,base_out/dt,'k','linewidth',2);
-    xlim(Gtick([1 end]));
-% xlim(gr);
+%     xlim(Gtick([1 end]));
+xlim(gr);
     yl = ylim();
-    plot(Gtick,cur_gdist/max(cur_gdist)*yl(2)*0.75,'k--');
+    plot(cur_gdistX,cur_gdist/max(cur_gdist)*yl(2)*0.75,'k--');
     xlabel('Generating signal');
     ylabel('Firing rate (Hz)');
-    plot(Gtick,sac_dep_rate(mmmloc(2),:)/dt,'r--'); hold on
-    plot(Gtick,sacStimProc(cc).gsac_TB_rate(:,mmmloc(2))/dt,'r');
+%     plot(Gtick,sac_dep_rate(mmmloc(2),:)/dt,'r--'); hold on
 %     ylim([0 200])
    axis tight; 
     xlim(Gtick([1 end]));
+xlim(gr);
 xlabel('Generating signal');
     ylabel('Firing rate (Hz)');
     
@@ -233,19 +260,34 @@ xlabel('Generating signal');
     xlim([0 0.15]);
     
     
-    %STA figs
-    ov_sta = sacStimProc(cc).ov_phaseDep_sta;
-    ov_staA = sacStimProc(cc).ov_phaseInd_sta;
-    [~,sta_peakloc] = max(std(ov_sta,[],2));
-    [~,staA_peakloc] = max(std(ov_staA,[],2));
-    temp = sacStimProc(cc).gsac_phaseDep_sta;
-    tempa = sacStimProc(cc).gsac_phaseInd_sta;
+%     %STA figs
+%     ov_sta = sacStimProc(cc).ov_phaseDep_sta;
+%     ov_staA = sacStimProc(cc).ov_phaseInd_sta;
+%     [~,sta_peakloc] = max(std(ov_sta,[],2));
+%     [~,staA_peakloc] = max(std(ov_staA,[],2));
+%     temp = sacStimProc(cc).gsac_phaseDep_sta;
+%     tempa = sacStimProc(cc).gsac_phaseInd_sta;
+%     
+%     sta_sm = 0.5;
+%     for iii = 1:size(temp,3)
+%         temp(:,sta_peakloc,iii) = jmm_smooth_1d_cor(temp(:,sta_peakloc,iii),sta_sm);
+%     end
     
-    sta_sm = 0.5;
-    for iii = 1:size(temp,3)
-        temp(:,sta_peakloc,iii) = jmm_smooth_1d_cor(temp(:,sta_peakloc,iii),sta_sm);
-    end
-    
+
+% %                 extract the subspace filters
+% subspace_mod = sacStimProc(cc).gsac_submod;
+% Xtargs = [subspace_mod.mods(:).Xtarget]; mod_signs = [subspace_mod.mods(:).sign];
+%                 sub_efilts = find(Xtargs == 2 & mod_signs == 1);
+%                 cur_rGQM = sacStimProc(cc).ModData.rectGQM;
+%                 cur_filts = reshape([subspace_mod.mods(sub_efilts).filtK],[length(slags) length(cur_rGQM.mods) length(sub_efilts)]);
+%                 stim_filts = reshape([cur_rGQM.mods.filtK],[flen*use_nPix_us length(cur_rGQM.mods)]);
+%                 sacdep_filts = nan(length(sub_efilts),length(slags),flen*use_nPix_us);
+%                 for jj = 1:length(sub_efilts)
+%                     sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
+%                 end
+%                 sacStimProc(cc).gsac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
+%                 sacStimProc(cc).gsac_phaseInd_subfilt = squeeze(sqrt(sum(sacdep_filts(2:end,:,:).^2)));
+
     stemp = reshape(sacStimProc(cc).gsac_phaseDep_subfilt,length(slags),flen,[]);
 %     stempa = reshape(sacStimProc(cc).gsac_phaseInd_subfilt,length(slags),flen,[]);
     subplot(3,3,6)
@@ -277,7 +319,7 @@ xlabel('Generating signal');
     %%
     fig_width = 10; rel_height = 0.8;
     figufy(h1);
-    fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'Gsac_mod.pdf'];
+    fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'Gsac_mod2.pdf'];
     exportfig(h1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
     close(h1);
     

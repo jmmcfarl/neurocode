@@ -1,5 +1,5 @@
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -8,19 +8,19 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% % Expt_name = 'M297';
-% Expt_name = 'G088';
-% use_MUA = false;
-% bar_ori = 90; %bar orientation to use (only for UA recs)
+% Expt_name = 'M297';
+Expt_name = 'G087';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
 fit_subMod = true;
-fitUpstream = false;
+fitUpstream = true;
 fitSTA = false;
 fitMsacs = false;
 
-sname = 'sacStimProcTBnew';
+sname = 'sacStimProcTBnew2';
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8);
 poss_sub_d2T = logspace(log10(10),log10(1e4),6);
@@ -961,13 +961,18 @@ for cc = targs
             %% FIT UPSTREAM STIM-MODULATION
             if fitUpstream
                 fprintf('Fitting upstream saccade kernel\n');
+                maxIter = 1;
                 Xsac_mat = Xsac(cc_uinds(any_sac_inds),:);
-                sacGainMod = fit_sacgain_model(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0);
+                [sacGainMod,sacGainOnlyMod] = fit_sacgain_model(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0,[],maxIter);
                 sacStimProc(cc).gsacGainMod = sacGainMod;
+                sacStimProc(cc).gsacGainOnlyMod = sacGainOnlyMod;
                 [gainLL,gain_pred_rate] = eval_sacgain_mod( sacGainMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
                 sacStimProc(cc).gsac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
+                [gainonlyLL] = eval_sacgain_mod( sacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
                 [~,gain_pred_rate] = eval_sacgain_mod( sacGainMod, cur_Robs, all_Xmat_shift, cur_Xsac);
                                 
+                            sacStimProc(cc).gsac_gainMod_LLinfo = (sac_ssacpost_LL - nullLL)./sac_Nspks;
+
 %                 fpast = 0:-1:(-flen+1);
 %                 base_kern = ones(flen,1);
 %                 base_filt = sacGainMod.stim_kernel;
@@ -1075,14 +1080,14 @@ for cc = targs
                 
                 [~,~,subspace_predrate] = NMMmodel_eval(subspace_mod,cur_Robs,X);
                 
-%                 %extract the subspace filters
-%                 sub_efilts = find(Xtargs == 2 & mod_signs == 1);
-%                 cur_filts = reshape([subspace_mod.mods(sub_efilts).filtK],[length(slags) length(cur_rGQM.mods) length(sub_efilts)]);
-%                 stim_filts = reshape([cur_rGQM.mods.filtK],[flen*use_nPix_us length(cur_rGQM.mods)]);
-%                 sacdep_filts = nan(length(sub_efilts),length(slags),flen*use_nPix_us);
-%                 for jj = 1:length(sub_efilts)
-%                     sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
-%                 end
+                %extract the subspace filters
+                sub_efilts = find(Xtargs == 2 & mod_signs == 1);
+                cur_filts = reshape([subspace_mod.mods(sub_efilts).filtK],[length(slags) length(cur_rGQM.mods) length(sub_efilts)]);
+                stim_filts = reshape([cur_rGQM.mods.filtK],[flen*use_nPix_us length(cur_rGQM.mods)]);
+                sacdep_filts = nan(length(sub_efilts),length(slags),flen*use_nPix_us);
+                for jj = 1:length(sub_efilts)
+                    sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
+                end
 %                 sacStimProc(cc).gsac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
 %                 sacStimProc(cc).gsac_phaseInd_subfilt = squeeze(sqrt(sum(sacdep_filts(2:end,:,:).^2)));
             end
@@ -1314,6 +1319,7 @@ for cc = targs
             if fitUpstream
                 sacStimProc(cc).gsac_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
                 sacStimProc(cc).gsac_ov_LLinfo = (gainLL-nullLL)/log(2);
+                sacStimProc(cc).gsacOnly_ov_LLinfo = (gainonlyLL-nullLL)/log(2);
             end
             
             sacStimProc(cc).gsac_TB_LLinfo = sac_TB_LL;

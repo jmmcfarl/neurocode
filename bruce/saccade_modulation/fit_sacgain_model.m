@@ -1,10 +1,17 @@
-function [sacGainMod] = fit_sacgain_model(stim_mod,Robs,Xmat,Xsac_mat,lambda_d2T,lambda_L2)
+function [sacGainMod,sacGainOnlyMod] = fit_sacgain_model(stim_mod,Robs,Xmat,Xsac_mat,lambda_d2T,lambda_L2,init_gain_kernel,max_iter)
 
 cur_NT = length(Robs);
 stim_dims = stim_mod.stim_params(1).stim_dims;
 flen = stim_dims(1);
 klen = prod(stim_dims);
 n_lags = size(Xsac_mat,2);
+
+if nargin < 7 || isempty(init_gain_kernel)
+    init_gain_kernel = zeros(n_lags,1);
+end
+if nargin < 8
+    max_iter = Inf;
+end
 
 %convert Xmat into TxLxD matrix
 rXmat = reshape(Xmat,[cur_NT flen stim_dims(2)]);
@@ -22,20 +29,29 @@ L2_mats = create_L2_matrices_NMM( nim );
 
 initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
 cur_params = initial_params;
-gain_kernel = zeros(n_lags,1);
+gain_kernel = init_gain_kernel;
 
 cur_LLimp = -Inf;
 cur_LL = 1e5;
-imp_thresh = -1e-4;
+imp_thresh = -1e-5;
 it = 1;
-while cur_LLimp <= imp_thresh
+while cur_LLimp <= imp_thresh && it <= max_iter
     
     %fit upstream filter and offset filter, given post-gain filter
     fprintf('Iteration %d\n',it);
-    [params{it},mval(it)] = minFunc( @(K) LLinternal_alphas_full6(stim_mod, K, Robs, rXmat, Xsac_mat ,gain_kernel, L2_mats, lambda_d2T,lambda_L2), cur_params, optim_params);
+    [params{it},mval(it)] = minFunc( @(K) LLinternal_alphas_full(stim_mod, K, Robs, rXmat, Xsac_mat ,gain_kernel, L2_mats, lambda_d2T,lambda_L2), cur_params, optim_params);
     cur_params = params{it};
     cur_LLimp = mval(it) - cur_LL;
     cur_LL = mval(it);
+    
+    if it == 1
+        sacGainOnlyMod.gain_kernel = zeros(n_lags,1);
+        sacGainOnlyMod.stim_kernel = cur_params(1:n_lags);
+        sacGainOnlyMod.off_kernel = cur_params((n_lags+1):2*n_lags);
+        sacGainOnlyMod.theta = cur_params(end);
+        sacGainOnlyMod.stim_mod = stim_mod;
+        sacGainOnlyMod.LL = eval_sacgain_mod(sacGainOnlyMod,Robs,Xmat,Xsac_mat);
+    end
     
     %create upstream filtered Xmat
     sac_emb = create_time_embedding(Xsac_mat*cur_params(1:n_lags),NMMcreate_stim_params(flen));
@@ -89,7 +105,7 @@ sacGainMod.LL = eval_sacgain_mod( sacGainMod, Robs, Xmat, Xsac_mat);
 end
 
 %%
-function [LL,LLgrad] = LLinternal_alphas_full6( mod, params, Robs, Xmat, Xsac_mat, gain_kernel, L2_mats,lambda,lambda_L2)
+function [LL,LLgrad] = LLinternal_alphas_full( mod, params, Robs, Xmat, Xsac_mat, gain_kernel, L2_mats,lambda,lambda_L2)
 
 %F[ kX{I + gamma(tau)J(tau)} g(tau) + c(tau)]
 
@@ -243,7 +259,6 @@ else
     L2_penalty = 0;
 end
 LL = LL - smooth_penalty - L2_penalty;
-LL = LL - smooth_penalty;
 LLgrad = LLgrad - LLgrad_pen;
 
 %% CONVERT TO NEGATIVE LLS AND NORMALIZE BY NSPKS
