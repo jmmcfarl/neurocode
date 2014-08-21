@@ -18,6 +18,7 @@ fit_subMod = true;
 fitUpstream = true;
 fitSTA = true;
 fitMsacs = true;
+fit_msacUpstream = false;
 
 sname = 'sacStimProc2';
 mod_data_name = 'corrected_models2';
@@ -1435,7 +1436,7 @@ for cc = targs
                 sacStimProc(cc).msac_post_singmod = post_msac_Smod;
                 
                 %% FIT UPSTREAM STIM-MODULATION
-                if fitUpstream
+                if fit_msacUpstream
                     fprintf('Fitting upstream saccade kernel\n');
                     maxIter = 15;
                     Xsac_mat = cur_Xsac(any_sac_inds,:);
@@ -1465,7 +1466,7 @@ for cc = targs
                     tr_stim{3} = Xsac_tot;
                     [~,~,rpost_Smod_predrate] = NMMmodel_eval( post_msac_Smod, cur_Robs, tr_stim);
                     
-                    if fitUpstream
+                    if fit_msacUpstream
                         [~,rgain_pred_rate] = eval_sacgain_mod( sacGainMod, cur_Robs, rand_Xmat, cur_Xsac);
                     end
                                         
@@ -1473,7 +1474,7 @@ for cc = targs
                         temp = find(cur_Xsac(:,ii) == 1);
                         
                         %compute LL and info for upstream model
-                        if fitUpstream
+                        if fit_msacUpstream
                             sac_info(jj,ii) = nanmean(rgain_pred_rate(temp).*log2(rgain_pred_rate(temp)/mean(rgain_pred_rate(temp))))/mean(rgain_pred_rate(temp));
                         end
                         
@@ -1483,7 +1484,7 @@ for cc = targs
                     end
                 end
                 sacStimProc(cc).msac_spost_modinfo = nanmean(sac_spost_info);
-                if fitUpstream
+                if fit_msacUpstream
                     sacStimProc(cc).msac_modinfo = nanmean(sac_info);
                 end
                 
@@ -1501,7 +1502,7 @@ for cc = targs
                     sac_Nspks(ii) = sum(cur_Robs(temp));
                     
                     %compute LL and info for upstream model
-                    if fitUpstream
+                    if fit_msacUpstream
                         sac_LL(ii) = nansum(cur_Robs(temp).*log2(gain_pred_rate(temp)) - gain_pred_rate(temp));
                     end
                     
@@ -1529,7 +1530,7 @@ for cc = targs
                 sacStimProc(cc).msac_spost_ov_LLinfo = (post_msac_Smod_LL-nullLL)/log(2);
                 
                 %store upstream model info calcs
-                if fitUpstream
+                if fit_msacUpstream
                     sacStimProc(cc).msac_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
                     sacStimProc(cc).msac_ov_LLinfo = (sacGainMod.LL-nullLL)/log(2);
                     sacStimProc(cc).msacOnly_ov_LLinfo = (sacGainOnlyMod.LL-nullLL)/log(2);
