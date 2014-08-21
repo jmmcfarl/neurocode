@@ -1,5 +1,5 @@
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -7,20 +7,19 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-
-% Expt_name = 'M297';
-Expt_name = 'G087';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% % Expt_name = 'M297';
+% Expt_name = 'G087';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
-fit_subMod = false;
+fit_subMod = true;
 fitUpstream = true;
-fitSTA = false;
-fitMsacs = false;
+fitSTA = true;
+fitMsacs = true;
 
-sname = 'sacStimProcTBnew2';
+sname = 'sacStimProc2';
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8);
 poss_sub_d2T = logspace(log10(10),log10(1e4),6);
