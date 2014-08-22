@@ -221,3 +221,40 @@ Expt_name = 'M297'; bar_ori = 0;
 sac_LP_LFP_analysis;
 Expt_name = 'M297'; bar_ori = 90;
 sac_LP_LFP_analysis;
+
+
+%% LEM sacStimTypeDep Analysis
+clear all
+addpath('~/James_scripts/bruce/eye_tracking_improvements/');
+addpath('~/James_scripts/bruce/sacModFinal/');
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294'};
+global Expt_name bar_ori
+bar_ori = nan; 
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    sacMod_typedep;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori
+end
+
+%% JBE sacStimTypeDep Analysis 
+clear all
+addpath('~/James_scripts/bruce/eye_tracking_improvements/');
+addpath('~/James_scripts/bruce/sacModFinal/');
+global Expt_name bar_ori
+
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
+bar_ori = 0;
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    sacMod_typedep;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori
+end
+
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093'};
+bar_ori = 90;
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    sacMod_typedep;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori
+end
+
