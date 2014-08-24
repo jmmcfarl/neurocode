@@ -1,5 +1,5 @@
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -8,9 +8,9 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % Expt_name = 'M297';
-% Expt_name = 'G086';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'G093';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -889,26 +889,31 @@ for cc = targs
             Xtargets = [1 2 3];
             NL_types = {'lin','lin','lin'};
             
-            L2_gain_xvLL = nan(length(poss_gain_d2T),1);
-            L2_gain_LL = nan(length(poss_gain_d2T),1);
+            L2_gain_xvLL = nan(length(poss_gain_d2T),length(poss_gain_L2));
+            L2_gain_LL = nan(length(poss_gain_d2T),length(poss_gain_L2));
             for jj = 1:length(poss_gain_d2T)
-                sac_reg_params = NMMcreate_reg_params('lambda_d2T',poss_gain_d2T(jj),'boundary_conds',[0 0 0]);
+                for ii = 1:length(poss_gain_L2)
+                sac_reg_params = NMMcreate_reg_params('lambda_d2T',poss_gain_d2T(jj),'lambda_L2',poss_gain_L2(ii),'boundary_conds',[0 0 0]);
                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
                 cur_mod.mods(1).reg_params = NMMcreate_reg_params();
                 cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
                 cur_mod = NMMfit_filters(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds),[],[],silent);
-                L2_gain_xvLL(jj) = NMMmodel_eval(cur_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(tr_stim,xv_sac_inds));
-                L2_gain_LL(jj) = NMMmodel_eval(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds));
+                L2_gain_xvLL(jj,ii) = NMMmodel_eval(cur_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(tr_stim,xv_sac_inds));
+                L2_gain_LL(jj,ii) = NMMmodel_eval(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds));
+                end
             end
             
             sacStimProc(cc).gsac_spost_xvLL = L2_gain_xvLL;
-            [~,optloc] = max(L2_gain_xvLL);
-            opt_L2 = poss_gain_d2T(optloc);
+            [~,optloc] = max(L2_gain_xvLL(:));
+            [optloc_x,optloc_y] = ind2sub([length(poss_gain_d2T) length(poss_gain_L2)],optloc);
+            opt_d2T = poss_gain_d2T(optloc_x);
+            opt_L2 = poss_gain_L2(optloc_y);
             sacStimProc(cc).gsac_optL2 = opt_L2;
+            sacStimProc(cc).gsac_optd2T = opt_d2T;
             
             %% FIT POST-INTEGRATION GAIN
             fprintf('Fitting post-filter models\n');
-            sac_reg_params = NMMcreate_reg_params('lambda_d2T',opt_L2,'boundary_conds',[0 0 0]);
+            sac_reg_params = NMMcreate_reg_params('lambda_d2T',opt_d2T,'lambda_L2',opt_L2,'boundary_conds',[0 0 0]);
             
             %if there are both significant E and I filters, fit model with sep
             %E and I gain kernels
@@ -962,7 +967,7 @@ for cc = targs
             sacStimProc(cc).gsac_post_singmod = post_gsac_Smod;
             
             fullMod_d2T = 5;
-            sac_reg_params = NMMcreate_reg_params('lambda_d2T',fullMod_d2T,'boundary_conds',[0 0 0]);
+            sac_reg_params = NMMcreate_reg_params('lambda_d2T',fullMod_d2T,'lambda_L2',5,'boundary_conds',[0 0 0]);
             if fitFullPostMod
                 Xsac_tot = bsxfun(@times,cur_Xsac,reshape(fgint,[],1,size(fgint,2)));
                 clear Ftr_stim
@@ -992,9 +997,9 @@ for cc = targs
             %% FIT UPSTREAM STIM-MODULATION
             if fitUpstream
                 fprintf('Fitting upstream saccade kernel\n');
-                maxIter = 15;
+                maxIter = 1;
                 Xsac_mat = cur_Xsac(any_sac_inds,:);
-                [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0,[],maxIter);
+                [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
                 sacStimProc(cc).gsacGainMod = sacGainMod;
                 sacStimProc(cc).gsacGainOnlyMod = sacGainOnlyMod;
                 [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
@@ -1036,7 +1041,7 @@ for cc = targs
                     fprintf('Xval %d of %d\n',jj,length(poss_sub_d2T));
                     %use opt d2T lambda from gain/offset model for the offset
                     %kernel
-                    reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(modSeq_d2T,1,length(mod_signs)-1)]',...
+                    reg_params = NMMcreate_reg_params('lambda_d2T',[opt_d2T repmat(modSeq_d2T,1,length(mod_signs)-1)]',...
                         'lambda_L2',[0 repmat(modSeq_L2,1,length(mod_signs)-1)]','boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
                     init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
                     init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf]; %0 boundary on offset term
@@ -1062,7 +1067,7 @@ for cc = targs
                 
                 %now initialize model with optimal d2T lambda and fit to all
                 %used data
-                reg_params = NMMcreate_reg_params('lambda_d2T',[opt_L2 repmat(subspace_optL2,1,length(mod_signs)-1)]',...
+                reg_params = NMMcreate_reg_params('lambda_d2T',[opt_d2T repmat(subspace_optL2,1,length(mod_signs)-1)]',...
                     'boundary_conds',repmat([Inf Inf Inf],length(mod_signs),1));
                 init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
                 init_mod.spk_NL_params = cur_rGQM.spk_NL_params;
@@ -1416,26 +1421,31 @@ for cc = targs
                 Xtargets = [1 2 3];
                 NL_types = {'lin','lin','lin'};
                 
-                L2_gain_xvLL = nan(length(poss_gain_d2T),1);
-                L2_gain_LL = nan(length(poss_gain_d2T),1);
+                L2_gain_xvLL = nan(length(poss_gain_d2T),length(poss_gain_L2));
+                L2_gain_LL = nan(length(poss_gain_d2T),length(poss_gain_L2));
                 for jj = 1:length(poss_gain_d2T)
-                    sac_reg_params = NMMcreate_reg_params('lambda_d2T',poss_gain_d2T(jj),'boundary_conds',[0 0 0]);
+                    for ii = 1:length(poss_gain_L2)
+                    sac_reg_params = NMMcreate_reg_params('lambda_d2T',poss_gain_d2T(jj),'lambda_L2',poss_gain_L2(ii),'boundary_conds',[0 0 0]);
                     cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
                     cur_mod.mods(1).reg_params = NMMcreate_reg_params();
                     cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
                     cur_mod = NMMfit_filters(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds),[],[],silent);
-                    L2_gain_xvLL(jj) = NMMmodel_eval(cur_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(tr_stim,xv_sac_inds));
-                    L2_gain_LL(jj) = NMMmodel_eval(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds));
+                    L2_gain_xvLL(jj,ii) = NMMmodel_eval(cur_mod,cur_Robs(xv_sac_inds),get_Xcell_tInds(tr_stim,xv_sac_inds));
+                    L2_gain_LL(jj,ii) = NMMmodel_eval(cur_mod,cur_Robs(tr_sac_inds),get_Xcell_tInds(tr_stim,tr_sac_inds));
+                    end
                 end
                 
                 sacStimProc(cc).msac_spost_xvLL = L2_gain_xvLL;
-                [~,optloc] = max(L2_gain_xvLL);
-                opt_L2 = poss_gain_d2T(optloc);
+            [~,optloc] = max(L2_gain_xvLL(:));
+            [optloc_x,optloc_y] = ind2sub([length(poss_gain_d2T) length(poss_gain_L2)],optloc);
+            opt_d2T = poss_gain_d2T(optloc_x);
+            opt_L2 = poss_gain_L2(optloc_y);
+            sacStimProc(cc).msac_optd2T = opt_d2T;
                 sacStimProc(cc).msac_optL2 = opt_L2;
                 
                 %% FIT POST-INTEGRATION GAIN
                 fprintf('Fitting post-filter models\n');
-                sac_reg_params = NMMcreate_reg_params('lambda_d2T',opt_L2,'boundary_conds',[0 0 0]);
+                sac_reg_params = NMMcreate_reg_params('lambda_d2T',opt_d2T,'lambda_L2',opt_L2,'boundary_conds',[0 0 0]);
                 
                 %if there are both significant E and I filters, fit model with sep
                 %E and I gain kernels
@@ -1491,9 +1501,9 @@ for cc = targs
                 %% FIT UPSTREAM STIM-MODULATION
                 if fit_msacUpstream
                     fprintf('Fitting upstream saccade kernel\n');
-                    maxIter = 15;
+                    maxIter = 1;
                     Xsac_mat = cur_Xsac(any_sac_inds,:);
-                    [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_L2,0,[],maxIter);
+                    [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
                     sacStimProc(cc).msacGainMod = sacGainMod;
                     sacStimProc(cc).msacGainOnlyMod = sacGainOnlyMod;
                     [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
