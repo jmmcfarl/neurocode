@@ -1,5 +1,5 @@
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -8,9 +8,9 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % Expt_name = 'M297';
-Expt_name = 'G086';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'G086';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -21,7 +21,7 @@ fitMsacs = false;
 fit_msacUpstream = false;
 fitFullPostMod = true;
 
-sname = 'sacStimProcFP';
+sname = 'sacStimProcFP2';
 mod_data_name = 'corrected_models2';
 
 %%
@@ -961,7 +961,7 @@ for cc = targs
             [~,~,post_Smod_predrate] = NMMmodel_eval( post_gsac_Smod, cur_Robs, tr_stim);
             sacStimProc(cc).gsac_post_singmod = post_gsac_Smod;
             
-            fullMod_d2T = 20;
+            fullMod_d2T = 5;
             sac_reg_params = NMMcreate_reg_params('lambda_d2T',fullMod_d2T,'boundary_conds',[0 0 0]);
             if fitFullPostMod
                 Xsac_tot = bsxfun(@times,cur_Xsac,reshape(fgint,[],1,size(fgint,2)));
@@ -986,7 +986,7 @@ for cc = targs
                 sacStimProc(cc).gsac_Fpost_ov_modinfo = mean(post_Fmod_predrate/mean(post_Fmod_predrate).*log2(post_Fmod_predrate/mean(post_Fmod_predrate)));
                 
                 [~,~,post_Fmod_predrate] = NMMmodel_eval( post_gsac_Fmod, cur_Robs, Ftr_stim);
-                sacStimProc(cc).gsac_post_Fmod = post_gsac_Smod;
+                sacStimProc(cc).gsac_post_Fmod = post_gsac_Fmod;
             end
             
             %% FIT UPSTREAM STIM-MODULATION

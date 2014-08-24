@@ -4,7 +4,8 @@ clear all
 clc
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
-base_sname = 'sacStimProc2';
+base_sname = 'sacStimProcFP';
+% base_sname = 'sacStimProc2';
 % base_ename = 'sacStimProc';
 base_timename = 'sac_info_timing';
 
@@ -16,7 +17,7 @@ all_SU_timedata = [];
 %% LOAD JBE
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
-% ori_list = [0 90; 0 90; 0 90; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
+% ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
 rmfield_list = {};
 
@@ -51,12 +52,14 @@ for ee = 1:length(Expt_list)
             sua_data = sacStimProc(ucells);
             SM_SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,sua_data);
             SM_SU_xvLLimp = arrayfun(@(x) x.ModData.rectGQM.xvLLimp,sua_data);
+            SM_SU_rates = arrayfun(@(x) x.ModData.unit_data.avg_rate,sua_data);
             
             %find which SUs we have sacMod data for
             [lia,locb] = ismember(tavg_SU_numbers,SM_SU_numbers);
             lia_inds = find(lia);
             base_xvLLimps = ones(size(tavg_SU_numbers))*-Inf;
-            base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia));
+%             base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia));
+            base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia)).*SM_SU_rates(locb(lia));
             for jj = 1:length(sua_data);
                 sua_data(jj).xvLLimp = base_xvLLimps(lia_inds(jj));
                 sua_data(jj).N_gsacs = temp.sua_data(lia_inds(jj)).N_gsacs;
@@ -138,11 +141,13 @@ for ee = 1:length(Expt_list)
             sua_data = sacStimProc(ucells);
             SM_SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,sua_data);
             SM_SU_xvLLimp = arrayfun(@(x) x.ModData.rectGQM.xvLLimp,sua_data);
+            SM_SU_rates = arrayfun(@(x) x.ModData.unit_data.avg_rate,sua_data);
             
             [lia,locb] = ismember(tavg_SU_numbers,SM_SU_numbers);
             lia_inds = find(lia);
             base_xvLLimps = ones(size(tavg_SU_numbers))*-Inf;
-            base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia));
+%             base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia));
+            base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia)).*SM_SU_rates(locb(lia));
             for jj = 1:length(sua_data);
                 sua_data(jj).xvLLimp = base_xvLLimps(lia_inds(jj));
                 sua_data(jj).N_gsacs = temp.sua_data(lia_inds(jj)).N_gsacs;
@@ -1291,3 +1296,64 @@ line([0 0],yl,'color','k');
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 %
+
+
+%% compare stim timing and gain supp for full models
+flen = 15;
+tax = (0:(flen-1))*dt + dt/2;
+search_range = [0 0.2];
+all_stim_kerns = [];
+all_fpost_gains = [];
+all_rel_weights = [];
+all_slopes = [];
+for ii = 1:length(all_SU_data)
+    if ismember(ii,use_gsac_SUs)
+        cur_mod = all_SU_data(ii).ModData.rectGQM;
+        mod_signs = [cur_mod.mods(:).sign];
+        sd = cur_mod.stim_params(1).stim_dims;
+        mod_filts = reshape([cur_mod.mods(:).filtK],[sd(1) sd(2) length(mod_signs)]);
+        
+        rel_weights = [all_SU_data(ii).rel_filt_weights];
+        
+%         tkerns = squeeze(std(mod_filts,[],2));
+        tkerns = nan(flen,length(mod_signs));
+        for jj = 1:length(mod_signs)
+           tkerns(:,jj) = squeeze(mean(abs(hilbert(squeeze(mod_filts(:,:,jj)))),2)); 
+        end
+
+        tkerns = bsxfun(@rdivide,tkerns,sqrt(sum(tkerns.^2)));
+        tkerns = bsxfun(@times,tkerns,rel_weights);
+        
+        
+        tkerns(:,rel_weights == 0) = [];
+        
+        all_stim_kerns = cat(1,all_stim_kerns,tkerns');
+        
+        
+        fpost_gains = reshape([all_SU_data(ii).gsac_post_Fmod.mods(3).filtK],length(slags),length(mod_signs));
+        fpost_gains(:,rel_weights == 0) = [];
+        all_fpost_gains = cat(1,all_fpost_gains,fpost_gains');
+        
+        mod_signs(rel_weights == 0) = [];
+        rel_weights(rel_weights==0) = [];
+        all_rel_weights = cat(1,all_rel_weights,rel_weights');
+        if length(mod_signs) >= 5
+            [~,tmaxloc] = max(tkerns);
+            [cur_gainmax,cur_gainloc] = get_tavg_peaks(-(fpost_gains'-1),slags*dt,search_range);
+            B = regress(cur_gainloc,[tax(tmaxloc)' ones(length(mod_signs),1)]);
+            all_slopes = cat(1,all_slopes,B(1));
+        end
+    end
+end
+
+
+up_tax = linspace(tax(1),tax(end),500);
+all_tkerns_up = spline(tax,all_stim_kerns,up_tax);
+[tkern_max,tkern_maxloc] = max(all_tkerns_up,[],2);
+
+[fpost_gain_max,fpost_gain_loc] = get_tavg_peaks(-(all_fpost_gains-1),slags*dt,search_range);
+
+fpost_minamp = 1.25;
+tkern_amp = 0.05;
+
+uset = find(fpost_gain_max > fpost_minamp & all_rel_weights > tkern_amp);

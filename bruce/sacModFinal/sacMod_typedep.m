@@ -1,4 +1,4 @@
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -6,10 +6,10 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M297';
-Expt_name = 'G086';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% % Expt_name = 'M297';
+% Expt_name = 'G086';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -306,6 +306,7 @@ all_trial_Se = [];
 all_trial_wi = [];
 all_trial_back = [];
 all_trial_Ff = [];
+all_trial_Fs = [];
 all_trial_exvals = [];
 all_trial_blk = [];
 all_trial_blocknums = [];
@@ -369,7 +370,14 @@ for ee = 1:n_blocks;
     else
         all_trial_wi = cat(1,all_trial_wi,nan(length(use_trials),1));
     end
-    
+        %for variable saccade amps
+    if isfield(Expts{cur_block}.Trials(1),'Fs')
+        trial_Fs = [Expts{cur_block}.Trials(:).Fs];
+    else
+        trial_Fs = nan(1,length(trial_durs));
+    end
+    all_trial_Fs = cat(1,all_trial_Fs,trial_Fs(use_trials)');
+
     if is_TBT_expt
         if isfield(Expts{cur_block}.Trials,'Bs')
             trial_back = strcmp('image',{Expts{cur_block}.Trials(:).Bs});
@@ -624,25 +632,6 @@ big_sacs = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & 
 
 saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 
-%for TBT expts, determine which saccades were part of image-back trials vs
-%gray-back trials
-if is_TBT_expt
-    grayback_gs_trials = find(all_trial_back == 0);
-    imback_trials = find(all_trial_back  == 1);
-    imback_gs_trials = imback_trials;
-    imback_gs_trials(ismember(imback_gs_trials,sim_sac_trials)) = [];
-    
-    gback_sacs = find(ismember(saccade_trial_inds,grayback_gs_trials));
-    iback_sacs = find(ismember(saccade_trial_inds,imback_trials));
-    ss_sacs = find(ismember(saccade_trial_inds,sim_sac_trials));
-else
-    gback_sacs = find(ismember(all_blockvec(used_inds(saccade_start_inds)),grayback_gs_expts));
-    iback_sacs = find(ismember(all_blockvec(used_inds(saccade_start_inds)),imback_gs_expts));
-    ss_sacs = find(ismember(all_blockvec(used_inds(saccade_start_inds)),sim_sac_expts));
-end
-
-gsac_gback = intersect(big_sacs,gback_sacs);
-gsac_iback = intersect(big_sacs,iback_sacs);
 %%
 %compile indices of simulated saccades
 all_sim_sacs = [];
@@ -677,6 +666,26 @@ else
 end
 all_sim_sacs = find(ismember(used_inds,all_sim_sacs));
 simsac_trial_inds = all_trialvec(used_inds(all_sim_sacs));
+
+%for TBT expts, determine which saccades were part of image-back trials vs
+%gray-back trials
+if is_TBT_expt
+    grayback_gs_trials = find(all_trial_back == 0);
+    imback_trials = find(all_trial_back  == 1);
+    imback_gs_trials = imback_trials;
+    imback_gs_trials(ismember(imback_gs_trials,sim_sac_trials)) = [];
+    
+    gback_sacs = find(ismember(saccade_trial_inds,grayback_gs_trials));
+    iback_sacs = find(ismember(saccade_trial_inds,imback_trials));
+    ss_sacs = find(ismember(saccade_trial_inds,sim_sac_trials));
+else
+    gback_sacs = find(ismember(all_blockvec(used_inds(saccade_start_inds)),grayback_gs_expts));
+    iback_sacs = find(ismember(all_blockvec(used_inds(saccade_start_inds)),imback_gs_expts));
+    ss_sacs = find(ismember(all_blockvec(used_inds(saccade_start_inds)),sim_sac_expts));
+end
+
+gsac_gback = intersect(big_sacs,gback_sacs);
+gsac_iback = intersect(big_sacs,iback_sacs);
 
 %% DEFINE FIXATION POINTS
 trial_start_inds = [1; find(diff(all_trialvec(used_inds)) ~= 0) + 1];
@@ -983,9 +992,7 @@ for cc = targs
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
-            
-            sacStimProc(cc).gsac_ovavg_rate = mean(cur_Robs(any_sac_inds));
-            
+                        
                         for ii = 1:length(slags)
                 cur = find(cur_Xsac(:,ii) == 1);
                 sacStimProc(cc).gsacIM_avg_rate(ii) = mean(cur_Robs(cur));
@@ -1038,9 +1045,7 @@ for cc = targs
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
-            
-            sacStimProc(cc).gsac_ovavg_rate = mean(cur_Robs(any_sac_inds));
-            
+                        
                         for ii = 1:length(slags)
                 cur = find(cur_Xsac(:,ii) == 1);
                 sacStimProc(cc).gsacGR_avg_rate(ii) = mean(cur_Robs(cur));
@@ -1093,9 +1098,7 @@ for cc = targs
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
-            
-            sacStimProc(cc).gsac_ovavg_rate = mean(cur_Robs(any_sac_inds));
-            
+                        
                         for ii = 1:length(slags)
                 cur = find(cur_Xsac(:,ii) == 1);
                 sacStimProc(cc).simsac_avg_rate(ii) = mean(cur_Robs(cur));
@@ -1126,6 +1129,11 @@ for cc = targs
             sacStimProc(cc).simsac_post_mod = post_gsac_Smod;
             sacStimProc(cc).simsac_post_offset = post_gsac_Smod.mods(2).filtK;
             sacStimProc(cc).simsac_post_gain = post_gsac_Smod.mods(3).filtK;
+        else
+           sacStimProc(cc).simsac_avg_rate = nan;
+           sacStimProc(cc).simsac_post_mod = nan;
+           sacStimProc(cc).simsac_post_offset = nan;
+           sacStimProc(cc).simsac_post_gain = nan;
         end
     else
         sacStimProc(cc).used = false;        
