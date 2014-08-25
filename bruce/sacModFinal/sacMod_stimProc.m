@@ -8,9 +8,9 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % % Expt_name = 'M297';
-% Expt_name = 'G088';
+% Expt_name = 'G093';
 % use_MUA = false;
-% bar_ori = 90; %bar orientation to use (only for UA recs)
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -245,8 +245,13 @@ if strcmp(rec_type,'LP')
 end
 
 cur_block_set = find(included_type & ~expt_binoc' & expt_Fr == 1 & expt_bar_ori == bar_ori);
-
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dds(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dds(cur_block_set));
+    cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
+end
+
 
 sim_sac_expts = find(~expt_has_ds(cur_block_set));
 imback_gs_expts = find(expt_has_ds(cur_block_set) & expt_imback(cur_block_set)');
@@ -615,6 +620,9 @@ big_sacs = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & 
 
 saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 
+msac_thresh = prctile(sac_amps(micro_sacs),50);
+big_msacs = micro_sacs(sac_amps(micro_sacs) > msac_thresh);
+small_msacs = micro_sacs(sac_amps(micro_sacs) < msac_thresh);
 %% DEFINE FIXATION POINTS
 trial_start_inds = [1; find(diff(all_trialvec(used_inds)) ~= 0) + 1];
 trial_end_inds = [find(diff(all_trialvec(used_inds)) ~= 0); NT];
@@ -741,6 +749,10 @@ cur_drift_post_mean = squeeze(drift_post_mean(end,:));
 cur_drift_post_std = squeeze(drift_post_std(end,:));
 [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
     cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+
+if length(used_inds) ~= length(cur_drift_post_mean)
+    error('ET data mismatch!');
+end
 
 fin_shift_cor = round(fin_tot_corr);
 fin_shift_cor(isnan(fin_shift_cor)) = 0;
@@ -1220,7 +1232,7 @@ for cc = targs
                 %             %randomly sample the stimulus and compute firing rate
                 %             predictions of models
                 rand_Xmat = all_Xmat_shift(randi(length(cc_uinds),length(cc_uinds),1),:);
-                [~,~,~,~,rfilt_outs,rfgint] = NMMmodel_eval(cur_rGQM,cur_Robs,rand_Xmat);
+                [~,~,~,tempG,rfilt_outs,rfgint] = NMMmodel_eval(cur_rGQM,cur_Robs,rand_Xmat);
                 rfgint = bsxfun(@times,rfgint,stim_mod_signs);
                 rstimG = sum(rfgint,2);
                 
@@ -1407,8 +1419,20 @@ for cc = targs
             %             within_sac_inds = find(any(cur_Xsac > 0,2));
             %             within_tr_inds = cur_tr_inds(ismember(cur_tr_inds,within_sac_inds));
             %             within_xv_inds = cur_xv_inds(ismember(cur_xv_inds,within_sac_inds));
-            
+            %%
             if length(any_sac_inds) > 1e4
+                %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
+                 cur_rGQM = ModData(cc).rectGQM;
+               cur_rGQM = NMMfit_logexp_spkNL(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+                cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+                
+                stim_mod_signs = [cur_rGQM.mods(:).sign];
+                [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
+                fgint = bsxfun(@times,fgint,stim_mod_signs);
+                stimG = sum(fgint,2);
+                norm_stimG = zscore(stimG);
+                
+                sacStimProc(cc).msac_ovavg_rate = mean(cur_Robs(any_sac_inds));
                 %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
                 
                 Xsac_tot = bsxfun(@times,cur_Xsac,stimG);

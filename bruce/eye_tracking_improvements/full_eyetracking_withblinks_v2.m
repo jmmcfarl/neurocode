@@ -1,13 +1,13 @@
-% clear all
+clear all
 
 addpath('~/James_scripts/bruce/eye_tracking/');
 addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV
 
-% Expt_name = 'M297';
-% use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-% bar_ori = 90; %bar orientation to use (only for UA recs)
+Expt_name = 'G088';
+use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
+bar_ori = 90; %bar orientation to use (only for UA recs)
 
 recompute_init_mods = 0; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
@@ -245,8 +245,12 @@ if strcmp(rec_type,'LP')
 end
 
 cur_block_set = find(included_type & ~expt_binoc' & expt_Fr == 1 & expt_bar_ori == bar_ori);
-
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dds(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dds(cur_block_set));
+    cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
+end
 
 sim_sac_expts = find(~expt_has_ds(cur_block_set));
 imback_gs_expts = find(expt_has_ds(cur_block_set) & expt_imback(cur_block_set)');
@@ -481,7 +485,11 @@ for i = 1:n_blocks
 end
 
 %% PROCESS EYE TRACKING DATA
-em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+if isfield(Expts{cur_block_set(1)}.Header,'exptno')
+    em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+else
+    em_block_nums = cur_block_set;
+end
 
 % [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset);
 [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,em_block_nums,Expt_name,trial_toffset,good_coils);

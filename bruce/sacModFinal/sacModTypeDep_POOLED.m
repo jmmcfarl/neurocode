@@ -240,23 +240,29 @@ search_range = [0 0.2];
 
 f1 = figure();
 hold on
-h1=shadedErrorBar(slags*dt,mean(all_gsacGR_gain)+1,std(all_gsacGR_gain)/sqrt(length(use_both)),{'color','k'});
-h2=shadedErrorBar(slags*dt,mean(all_gsacIM_gain)+1,std(all_gsacIM_gain)/sqrt(length(use_both)),{'color','r'});
+h1=shadedErrorBar(slags*dt,mean(all_gsacGR_gain)+1,std(all_gsacGR_gain)/sqrt(length(use_both)),{'color','r'});
+h2=shadedErrorBar(slags*dt,mean(all_gsacIM_gain)+1,std(all_gsacIM_gain)/sqrt(length(use_both)),{'color','b'});
 xlabel('Time (s)');
 ylabel('Gain');
 
 f2 = figure();
 hold on
-h1=shadedErrorBar(slags*dt,mean(all_gsacGR_offset),std(all_gsacGR_offset)/sqrt(length(use_both)),{'color','k'});
-h2=shadedErrorBar(slags*dt,mean(all_gsacIM_offset),std(all_gsacIM_offset)/sqrt(length(use_both)),{'color','r'});
+h1=shadedErrorBar(slags*dt,mean(all_gsacGR_offset),std(all_gsacGR_offset)/sqrt(length(use_both)),{'color','r'});
+h2=shadedErrorBar(slags*dt,mean(all_gsacIM_offset),std(all_gsacIM_offset)/sqrt(length(use_both)),{'color','b'});
 xlabel('Time (s)');
 ylabel('Gain');
 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'sacGain_GR_IM_compare.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'sacGain_GR_IM_compare.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir 'sacOffset_GR_IM_compare.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
 
 %%
 use_both = intersect(use_simsac_SUs,use_gsac_SUs);
@@ -282,30 +288,30 @@ search_range = [0 0.2];
 
 f1 = figure();
 hold on
-h1=shadedErrorBar(slags*dt,mean(all_simsac_gain),std(all_simsac_gain)/sqrt(length(use_both)),{'color','k'});
+h1=shadedErrorBar(slags*dt,mean(all_simsac_gain),std(all_simsac_gain)/sqrt(length(use_both)),{'color','b'});
 h2=shadedErrorBar(slags*dt,mean(all_gsacIM_gain),std(all_gsacIM_gain)/sqrt(length(use_both)),{'color','r'});
 
 
 f2 = figure();
 hold on
-h1=shadedErrorBar(slags*dt,mean(all_simsac_off),std(all_simsac_off)/sqrt(length(use_both)),{'color','k'});
+h1=shadedErrorBar(slags*dt,mean(all_simsac_off),std(all_simsac_off)/sqrt(length(use_both)),{'color','b'});
 h2=shadedErrorBar(slags*dt,mean(all_gsacIM_off),std(all_gsacIM_off)/sqrt(length(use_both)),{'color','r'});
 
-f3 = figure();
-hold on
-h1=shadedErrorBar(slags*dt,mean(all_simsac_rate),std(all_simsac_rate)/sqrt(length(use_both)),{'color','k'});
-h2=shadedErrorBar(slags*dt,mean(all_gsacIM_rate),std(all_gsacIM_rate)/sqrt(length(use_both)),{'color','r'});
+% f3 = figure();
+% hold on
+% h1=shadedErrorBar(slags*dt,mean(all_simsac_rate),std(all_simsac_rate)/sqrt(length(use_both)),{'color','k'});
+% h2=shadedErrorBar(slags*dt,mean(all_gsacIM_rate),std(all_gsacIM_rate)/sqrt(length(use_both)),{'color','r'});
 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'sacGain_simreal_compare.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'sacGain_simreal_compare.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f2);
-% fname = [fig_dir 'sacGain_GR_IM_compare.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir 'sacOffset_simreal_compare.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
 
 

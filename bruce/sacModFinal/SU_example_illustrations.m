@@ -39,7 +39,7 @@ if strcmp(rec_type,'LP')
     end
 end
 
-fname = 'sacStimProcTBnew';
+fname = 'sacStimProc2';
 fname = [fname sprintf('_ori%d',bar_ori)];
 if fit_unCor
     fname = [fname '_unCor'];
@@ -260,18 +260,18 @@ xlabel('Generating signal');
     xlim([0 0.15]);
     
     
-%     %STA figs
-%     ov_sta = sacStimProc(cc).ov_phaseDep_sta;
-%     ov_staA = sacStimProc(cc).ov_phaseInd_sta;
-%     [~,sta_peakloc] = max(std(ov_sta,[],2));
-%     [~,staA_peakloc] = max(std(ov_staA,[],2));
-%     temp = sacStimProc(cc).gsac_phaseDep_sta;
-%     tempa = sacStimProc(cc).gsac_phaseInd_sta;
-%     
-%     sta_sm = 0.5;
-%     for iii = 1:size(temp,3)
-%         temp(:,sta_peakloc,iii) = jmm_smooth_1d_cor(temp(:,sta_peakloc,iii),sta_sm);
-%     end
+    %STA figs
+    ov_sta = sacStimProc(cc).ov_phaseDep_sta;
+    ov_staA = sacStimProc(cc).ov_phaseInd_sta;
+    [~,sta_peakloc] = max(std(ov_sta,[],2));
+    [~,staA_peakloc] = max(std(ov_staA,[],2));
+    temp = sacStimProc(cc).gsac_phaseDep_sta;
+    tempa = sacStimProc(cc).gsac_phaseInd_sta;
+    
+    sta_sm = 0.5;
+    for iii = 1:size(temp,3)
+        temp(:,sta_peakloc,iii) = jmm_smooth_1d_cor(temp(:,sta_peakloc,iii),sta_sm);
+    end
     
 
 % %                 extract the subspace filters
@@ -288,7 +288,7 @@ xlabel('Generating signal');
 %                 sacStimProc(cc).gsac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
 %                 sacStimProc(cc).gsac_phaseInd_subfilt = squeeze(sqrt(sum(sacdep_filts(2:end,:,:).^2)));
 
-    stemp = reshape(sacStimProc(cc).gsac_phaseDep_subfilt,length(slags),flen,[]);
+%     stemp = reshape(sacStimProc(cc).gsac_phaseDep_subfilt,length(slags),flen,[]);
 %     stempa = reshape(sacStimProc(cc).gsac_phaseInd_subfilt,length(slags),flen,[]);
     subplot(3,3,6)
     imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(temp(:,sta_peakloc,:))');
@@ -349,7 +349,76 @@ xlabel('Generating signal');
     end
 end
 
+%%
+%STA figs
+ov_sta = sacStimProc(cc).ov_phaseDep_sta;
+ov_staA = sacStimProc(cc).ov_phaseInd_sta;
+% [~,sta_peakloc] = max(std(ov_sta,[],2));
+% [~,staA_peakloc] = max(std(ov_staA,[],2));
+[~,sta_peakloc] = max(sum(ov_sta.^2,2));
+[~,staA_peakloc] = max(sum(ov_staA.^2,2));
+temp = sacStimProc(cc).gsac_phaseDep_sta;
+tempa = sacStimProc(cc).gsac_phaseInd_sta;
 
+sta_sm = 0.5;
+for iii = 1:size(temp,3)
+    temp(:,sta_peakloc,iii) = jmm_smooth_1d_cor(temp(:,sta_peakloc,iii),sta_sm);
+    tempa(:,sta_peakloc,iii) = jmm_smooth_1d_cor(tempa(:,sta_peakloc,iii),sta_sm);
+end
+
+xl = [-0.3 0.3];
+
+% %                 extract the subspace filters
+% subspace_mod = sacStimProc(cc).gsac_submod;
+% Xtargs = [subspace_mod.mods(:).Xtarget]; mod_signs = [subspace_mod.mods(:).sign];
+%                 sub_efilts = find(Xtargs == 2 & mod_signs == 1);
+%                 cur_rGQM = sacStimProc(cc).ModData.rectGQM;
+%                 cur_filts = reshape([subspace_mod.mods(sub_efilts).filtK],[length(slags) length(cur_rGQM.mods) length(sub_efilts)]);
+%                 stim_filts = reshape([cur_rGQM.mods.filtK],[flen*use_nPix_us length(cur_rGQM.mods)]);
+%                 sacdep_filts = nan(length(sub_efilts),length(slags),flen*use_nPix_us);
+%                 for jj = 1:length(sub_efilts)
+%                     sacdep_filts(jj,:,:) = squeeze(cur_filts(:,:,jj))*stim_filts';
+%                 end
+%                 sacStimProc(cc).gsac_phaseDep_subfilt = squeeze(sacdep_filts(1,:,:));
+%                 sacStimProc(cc).gsac_phaseInd_subfilt = squeeze(sqrt(sum(sacdep_filts(2:end,:,:).^2)));
+
+%     stemp = reshape(sacStimProc(cc).gsac_phaseDep_subfilt,length(slags),flen,[]);
+%     stempa = reshape(sacStimProc(cc).gsac_phaseInd_subfilt,length(slags),flen,[]);
+
+f1 = figure();
+imagesc(slags*dt,(1:use_nPix_us)*sp_dx-use_nPix_us*sp_dx/2,squeeze(temp(:,sta_peakloc,:))');
+cam = max(abs(temp(:)));
+caxis([-cam cam]*0.8);
+yl = ylim();
+xlim(sac_xr)
+xlabel('Time (s)');
+ylabel('Rel Position (deg)');
+ylim(xl);
+
+t_ax = (0:(flen-1))*dt + dt/2;
+p_ax = sp_dx*((1:use_nPix_us)-use_nPix_us/2);
+f2 = figure();
+imagesc(p_ax,t_ax,ov_sta);
+cam = max(abs(ov_sta(:)));
+caxis([-cam cam]);
+cid = sprintf('E%d_C%d_',Expt_num,cc);
+set(gca,'ydir','normal');
+xlim(xl);
+line(xl,t_ax([sta_peakloc sta_peakloc]),'color','k');
+
+fig_width = 5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'cond_sta.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'ov_sta.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+%%
 % %%
 % t_ax = (0:(flen-1))*dt + dt/2;
 % p_ax = sp_dx*((1:use_nPix_us)-use_nPix_us/2);
