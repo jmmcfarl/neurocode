@@ -1337,8 +1337,8 @@ for cc = targs
             sacStimProc(cc).gsac_ovspkCondG = ov_spkCondG;
             
             ov_spkCondlagG = sum(bsxfun(@times,lagdep_stimG(any_sac_inds,:),cur_Robs(any_sac_inds)))/sum(cur_Robs(any_sac_inds));
-            sacStimProc(cc).gsac_spkCondlagG = spk_cond_lagG;
-            sacStimProc(cc).gsac_ovspkCondlagG = ov_spkCondlagG;
+%             sacStimProc(cc).gsac_spkCondlagG = spk_cond_lagG;
+%             sacStimProc(cc).gsac_ovspkCondlagG = ov_spkCondlagG;
             
             sacStimProc(cc).gsac_avg_rate = sac_avgrate;
             
@@ -1585,8 +1585,8 @@ for cc = targs
                 sacStimProc(cc).msac_ovspkCondG = ov_spkCondG;
                 
                 ov_spkCondlagG = sum(bsxfun(@times,lagdep_stimG(any_sac_inds,:),cur_Robs(any_sac_inds)))/sum(cur_Robs(any_sac_inds));
-                sacStimProc(cc).msac_spkCondlagG = spk_cond_lagG;
-                sacStimProc(cc).msac_ovspkCondlagG = ov_spkCondlagG;
+%                 sacStimProc(cc).msac_spkCondlagG = spk_cond_lagG;
+%                 sacStimProc(cc).msac_ovspkCondlagG = ov_spkCondlagG;
                 
                 sacStimProc(cc).msac_avg_rate = sac_avgrate;
                 
