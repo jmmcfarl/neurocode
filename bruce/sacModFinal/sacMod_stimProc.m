@@ -1311,7 +1311,7 @@ for cc = targs
                 %spike-weighted average of G (normalized)
                 spk_cond_G(ii) = sum(cur_Robs(temp).*norm_stimG(temp))/sum(cur_Robs(temp));
                 
-                spk_cond_lagG(ii,:) = sum(bsxfun(@times,lagdep_stimG(temp,:),cur_Robs(temp)))/sum(cur_Robs(temp));
+%                 spk_cond_lagG(ii,:) = sum(bsxfun(@times,lagdep_stimG(temp,:),cur_Robs(temp)))/sum(cur_Robs(temp));
                 
                 
                 %compute LL and info for subpsace model
@@ -1577,7 +1577,7 @@ for cc = targs
                     %spike-weighted average of G (normalized)
                     spk_cond_G(ii) = sum(cur_Robs(temp).*norm_stimG(temp))/sum(cur_Robs(temp));
                     
-                    spk_cond_lagG(ii,:) = sum(bsxfun(@times,lagdep_stimG(temp,:),cur_Robs(temp)))/sum(cur_Robs(temp));
+%                     spk_cond_lagG(ii,:) = sum(bsxfun(@times,lagdep_stimG(temp,:),cur_Robs(temp)))/sum(cur_Robs(temp));
                 end
                 
                 sacStimProc(cc).msac_spkCondG = spk_cond_G;
