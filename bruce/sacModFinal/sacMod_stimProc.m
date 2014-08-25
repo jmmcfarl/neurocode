@@ -1004,9 +1004,9 @@ for cc = targs
                 [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
                 sacStimProc(cc).gsacGainMod = sacGainMod;
                 sacStimProc(cc).gsacGainOnlyMod = sacGainOnlyMod;
-                [gainLL,gain_pred_rate] = eval_prepost_gainmodel( gsacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
+                [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
                 sacStimProc(cc).gsac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
-                [~,gain_pred_rate] = eval_prepost_gainmodel( gsacGainOnlyMod, cur_Robs, all_Xmat_shift, cur_Xsac);
+                [~,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs, all_Xmat_shift, cur_Xsac);
             end
             %         sacGainMod = sacStimProc(cc).gsacGainMod;
             
