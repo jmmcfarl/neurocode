@@ -140,6 +140,11 @@ if spkhstlen
 	nim_out.spk_hist.coefs = nim_out.spk_hist.coefs * params(end-1);
 end
 
+if any(params(1:end-1) < 0)
+    fprintf('Warning, some scale factors less than 0!\n');
+    params(1:end-1) = abs(params(1:end-1));
+end
+
 for ii = 1:Nmods
     if strcmp(nim_out.mods(ii).NLtype,'quad')
         nim_out.mods(ii).filtK = nim_out.mods(ii).filtK * sqrt(params(ii));
