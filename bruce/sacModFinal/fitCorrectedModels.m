@@ -5,10 +5,10 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-% Expt_name = 'G087';
+% Expt_name = 'G088';
 % bar_ori = 0; %bar orientation to use (only for UA recs)
-% use_MUA = false;
-% fit_unCor = true; %fit models to uncorrected stim?
+use_MUA = false;
+fit_unCor = true; %fit models to uncorrected stim?
 
 
 save_name = 'corrected_models2';
@@ -216,8 +216,12 @@ if strcmp(rec_type,'LP')
 end
 
 cur_block_set = find(included_type & ~expt_binoc' & expt_Fr == 1 & expt_bar_ori == bar_ori);
-
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dds(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dds(cur_block_set));
+    cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
+end
 
 sim_sac_expts = find(~expt_has_ds(cur_block_set));
 imback_gs_expts = find(expt_has_ds(cur_block_set) & expt_imback(cur_block_set)');
