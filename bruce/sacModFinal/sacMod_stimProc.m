@@ -14,14 +14,14 @@ global Expt_name bar_ori use_MUA
 
 
 fit_unCor = false;
-fit_subMod = true;
-fitUpstream = true;
-fitSTA = true;
-fitMsacs = true;
+fit_subMod = false;
+fitUpstream = false;
+fitSTA = false;
+fitMsacs = false;
 fit_msacUpstream = false;
-fitFullPostMod = true;
+fitFullPostMod = false;
 
-sname = 'sacStimProc3';
+sname = 'sacStimProc4';
 mod_data_name = 'corrected_models2';
 % mod_data_name = 'corrected_models';
 
@@ -615,7 +615,6 @@ micro_sacs(ismember(micro_sacs,sacburst_set)) = []; %eliminate microsacs that ar
 
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks (and whose duration is not too long to be suspicious
-sac_durs = [saccades(:).duration];
 big_sacs = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & sac_durs <= max_gsac_dur);
 
 saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
@@ -1225,14 +1224,24 @@ for cc = targs
             sacStimProc(cc).gsac_sacCond_Gavg = temp(xbuff+1:end-xbuff);
             sacStimProc(cc).gsac_Gavg = ov_temp;
             
+            [sac_offset,sac_gain] = deal(nan(length(sacStimProc(cc).gsac_TB_lagX),1));
+            for ii = 1:length(sacStimProc(cc).gsac_TB_lagX)
+               temp = lscov([ones(cur_nGbins,1) marg_grate],sacStimProc(cc).gsac_TB_rate(:,ii),marg_gdist);
+               sac_offset(ii) = temp(1); sac_gain(ii) = temp(2);
+            end
+            sacStimProc(cc).gsac_TB_gain = sac_gain;
+            sacStimProc(cc).gsac_TB_offset = sac_offset;
+            
+            
             %% COMPUTE MODEL-BASED INFORMATION
             n_stim_resamps = 10;
-            [sac_spost_info,sac_fpost_info,sac_subpost_info,sac_info] = deal(nan(n_stim_resamps,length(slags)));
+            [sac_spost_info,sac_fpost_info,sac_subpost_info,sac_info,sac_spost_offset,sac_spost_gain] = deal(nan(n_stim_resamps,length(slags)));
             for jj = 1:n_stim_resamps
                 %             %randomly sample the stimulus and compute firing rate
                 %             predictions of models
                 rand_Xmat = all_Xmat_shift(randi(length(cc_uinds),length(cc_uinds),1),:);
-                [~,~,~,tempG,rfilt_outs,rfgint] = NMMmodel_eval(cur_rGQM,cur_Robs,rand_Xmat);
+                
+                [~,~,basemod_rpred_rate,tempG,rfilt_outs,rfgint] = NMMmodel_eval(cur_rGQM,cur_Robs,rand_Xmat);
                 rfgint = bsxfun(@times,rfgint,stim_mod_signs);
                 rstimG = sum(rfgint,2);
                 
@@ -1265,6 +1274,10 @@ for cc = targs
                 for ii = 1:length(slags)
                     temp = find(cur_Xsac(:,ii) == 1);
                     
+                    rr = regress(rpost_Smod_predrate(temp),[ones(length(temp),1) basemod_rpred_rate(temp)]);
+                    sac_spost_offset(jj,ii) = rr(1);
+                    sac_spost_gain(jj,ii) = rr(2);
+                    
                     %compute LL and info for upstream model
                     if fitUpstream
                         sac_info(jj,ii) = nanmean(rgain_pred_rate(temp).*log2(rgain_pred_rate(temp)/mean(rgain_pred_rate(temp))))/mean(rgain_pred_rate(temp));
@@ -1285,6 +1298,8 @@ for cc = targs
                 end
             end
             sacStimProc(cc).gsac_spost_modinfo = nanmean(sac_spost_info);
+            sacStimProc(cc).gsac_spost_offset = nanmean(sac_spost_offset);
+            sacStimProc(cc).gsac_spost_gain = nanmean(sac_spost_gain);
             if fitFullPostMod
                 sacStimProc(cc).gsac_fpost_modinfo = nanmean(sac_fpost_info);
             end
