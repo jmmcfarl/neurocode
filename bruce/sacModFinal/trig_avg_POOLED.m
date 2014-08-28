@@ -8,7 +8,7 @@ all_SU_NPdata = [];
 all_MU_data = [];
 
 %% LOAD JBE
-base_sname = 'corrected_models';
+base_sname = 'corrected_models2';
 base_tname = 'sac_trig_avg_data';
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;

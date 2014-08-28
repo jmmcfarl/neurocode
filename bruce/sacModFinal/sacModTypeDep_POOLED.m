@@ -249,6 +249,11 @@ all_gsacIM_rate = reshape([all_SU_data(use_both).gsacIM_avg_rate],[],length(use_
 all_gsacGR_rate = bsxfun(@rdivide,all_gsacGR_rate,[all_SU_data(use_both).gsac_GR_ovavg_rate]');    
 all_gsacIM_rate = bsxfun(@rdivide,all_gsacIM_rate,[all_SU_data(use_both).gsac_IM_ovavg_rate]');    
 
+all_gsacGR_info = reshape([all_SU_data(use_both).gsacGR_post_modinfo],[],length(use_both))';
+all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_modinfo],[],length(use_both))';
+all_gsacGR_info = bsxfun(@rdivide,all_gsacGR_info,[all_SU_data(use_both).gsacGR_post_ov_modinfo]');    
+all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_modinfo]');    
+
 search_range = [0 0.2];
 [gsacGR_gain_Sfact,gsacGR_gain_inhtime] = get_tavg_peaks(-(all_gsacGR_gain),slags*dt,search_range);
 [gsacIM_gain_Sfact,gsacIM_gain_inhtime] = get_tavg_peaks(-(all_gsacIM_gain),slags*dt,search_range);
@@ -272,6 +277,13 @@ h1=shadedErrorBar(slags*dt,mean(all_gsacGR_offset),std(all_gsacGR_offset)/sqrt(l
 h2=shadedErrorBar(slags*dt,mean(all_gsacIM_offset),std(all_gsacIM_offset)/sqrt(length(use_both)),{'color','b'});
 xlabel('Time (s)');
 ylabel('Gain');
+
+f3 = figure();
+hold on
+h1=shadedErrorBar(slags*dt,mean(all_gsacGR_info),std(all_gsacGR_info)/sqrt(length(use_both)),{'color','r'});
+h2=shadedErrorBar(slags*dt,mean(all_gsacIM_info),std(all_gsacIM_info)/sqrt(length(use_both)),{'color','b'});
+xlabel('Time (s)');
+ylabel('Info');
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
@@ -297,6 +309,15 @@ all_gsacIM_rate = reshape([all_SU_data(use_both).gsacIM_avg_rate],[],length(use_
 all_simsac_rate = bsxfun(@rdivide,all_simsac_rate,[all_SU_data(use_both).simsac_ovavg_rate]');    
 all_gsacIM_rate = bsxfun(@rdivide,all_gsacIM_rate,[all_SU_data(use_both).gsac_IM_ovavg_rate]');    
 
+% all_simsac_info = reshape([all_SU_data(use_both).simsac_post_modinfo],[],length(use_both))';
+% all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_modinfo],[],length(use_both))';
+% all_simsac_info = bsxfun(@rdivide,all_simsac_info,[all_SU_data(use_both).simsac_post_ov_modinfo]');    
+% all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_modinfo]');    
+all_simsac_info = reshape([all_SU_data(use_both).simsac_post_LLinfo],[],length(use_both))';
+all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_LLinfo],[],length(use_both))';
+all_simsac_info = bsxfun(@rdivide,all_simsac_info,[all_SU_data(use_both).simsac_post_ov_LLinfo]');    
+all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_LLinfo]');    
+
 all_simsac_off = reshape([all_SU_data(use_both).simsac_post_offset],[],length(use_both))';
 all_gsacIM_off = reshape([all_SU_data(use_both).gsacIM_post_offset],[],length(use_both))';
 
@@ -318,7 +339,12 @@ hold on
 h1=shadedErrorBar(slags*dt,mean(all_simsac_off),std(all_simsac_off)/sqrt(length(use_both)),{'color','b'});
 h2=shadedErrorBar(slags*dt,mean(all_gsacIM_off),std(all_gsacIM_off)/sqrt(length(use_both)),{'color','r'});
 
-% f3 = figure();
+f3 = figure();
+hold on
+h1=shadedErrorBar(slags*dt,mean(all_simsac_info),std(all_simsac_info)/sqrt(length(use_both)),{'color','b'});
+h2=shadedErrorBar(slags*dt,mean(all_gsacIM_info),std(all_gsacIM_info)/sqrt(length(use_both)),{'color','r'});
+
+% f4 = figure();
 % hold on
 % h1=shadedErrorBar(slags*dt,mean(all_simsac_rate),std(all_simsac_rate)/sqrt(length(use_both)),{'color','k'});
 % h2=shadedErrorBar(slags*dt,mean(all_gsacIM_rate),std(all_gsacIM_rate)/sqrt(length(use_both)),{'color','r'});
@@ -336,8 +362,9 @@ h2=shadedErrorBar(slags*dt,mean(all_gsacIM_off),std(all_gsacIM_off)/sqrt(length(
 % close(f2);
 % 
 %%
+close all
 use_both = use_msac_SUs(N_smMsacs(use_msac_SUs) >= min_Nsacs & N_bigMsacs(use_msac_SUs) >= min_Nsacs);
-use_both = use_both(ismember(use_both,use_lem_SUs));
+% use_both = use_both(ismember(use_both,use_lem_SUs));
 % use_both = use_both(ismember(use_both,use_jbe_SUs));
 
 all_smMsac_gain = reshape([all_SU_data(use_both).smMsac_post_gain],[],length(use_both))';
@@ -348,21 +375,37 @@ all_bigMsac_rate = reshape([all_SU_data(use_both).bigMsac_avg_rate],[],length(us
 all_smMsac_rate = bsxfun(@rdivide,all_smMsac_rate,[all_SU_data(use_both).smMsac_ovavg_rate]');    
 all_bigMsac_rate = bsxfun(@rdivide,all_bigMsac_rate,[all_SU_data(use_both).bigMsac_ovavg_rate]');    
 
+
+all_smMsac_info = reshape([all_SU_data(use_both).smMsac_post_modinfo],[],length(use_both))';
+all_bigMsac_info = reshape([all_SU_data(use_both).bigMsac_post_modinfo],[],length(use_both))';
+all_smMsac_info = bsxfun(@rdivide,all_smMsac_info,[all_SU_data(use_both).smMsac_post_ov_modinfo]');    
+all_bigMsac_info = bsxfun(@rdivide,all_bigMsac_info,[all_SU_data(use_both).bigMsac_post_ov_modinfo]');    
+
+
 all_smMsac_off = reshape([all_SU_data(use_both).smMsac_post_offset],[],length(use_both))';
 all_bigMsac_off = reshape([all_SU_data(use_both).bigMsac_post_offset],[],length(use_both))';
 
 search_range = [0 0.2];
 [smMsac_gain_Sfact] = get_tavg_peaks(-(all_smMsac_gain),slags*dt,search_range);
 [bigMsac_gain_Sfact] = get_tavg_peaks(-(all_bigMsac_gain),slags*dt,search_range);
+[smMsac_info_Sfact] = get_tavg_peaks(-(all_smMsac_info-1),slags*dt,search_range);
+[bigMsac_info_Sfact] = get_tavg_peaks(-(all_bigMsac_info-1),slags*dt,search_range);
 
 [smMsac_Sfact] = get_tavg_peaks(-(all_smMsac_rate-1),slags*dt,search_range);
 [bigMsac_Sfact] = get_tavg_peaks(-(all_bigMsac_rate-1),slags*dt,search_range);
+[smMsac_Efact] = get_tavg_peaks((all_smMsac_rate-1),slags*dt,search_range);
+[bigMsac_Efact] = get_tavg_peaks((all_bigMsac_rate-1),slags*dt,search_range);
 
 f1 = figure();
 hold on
 h1=shadedErrorBar(slags*dt,mean(all_smMsac_gain),std(all_smMsac_gain)/sqrt(length(use_both)),{'color','b'});
 h2=shadedErrorBar(slags*dt,mean(all_bigMsac_gain),std(all_bigMsac_gain)/sqrt(length(use_both)),{'color','r'});
 
+
+f1 = figure();
+hold on
+h1=shadedErrorBar(slags*dt,mean(all_smMsac_info),std(all_smMsac_info)/sqrt(length(use_both)),{'color','b'});
+h2=shadedErrorBar(slags*dt,mean(all_bigMsac_info),std(all_bigMsac_info)/sqrt(length(use_both)),{'color','r'});
 
 f2 = figure();
 hold on
@@ -386,3 +429,5 @@ h2=shadedErrorBar(slags*dt,mean(all_bigMsac_rate),std(all_bigMsac_rate)/sqrt(len
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 % 
+rf_sigma = arrayfun(@(x) x.ModData.tune_props.RF_sigma,all_SU_data);
+rf_ecc = arrayfun(@(x) x.ModData.tune_props.RF_ecc,all_SU_data);
