@@ -17,7 +17,7 @@ fit_unCor = false;
 fit_subMod = false;
 fitUpstream = false;
 fitSTA = false;
-fitMsacs = false;
+fitMsacs = true;
 fit_msacUpstream = false;
 fitFullPostMod = false;
 
@@ -1554,7 +1554,7 @@ for cc = targs
                 
                 %% COMPUTE MODEL-BASED INFORMATION
                 n_stim_resamps = 10;
-                [sac_spost_info,sac_info] = deal(nan(n_stim_resamps,length(slags)));
+                [sac_spost_info,sac_info,sac_spost_offset,sac_spost_gain] = deal(nan(n_stim_resamps,length(slags)));
                 for jj = 1:n_stim_resamps
                     %             %randomly sample the stimulus and compute firing rate
                     %             predictions of models
@@ -1577,6 +1577,10 @@ for cc = targs
                     for ii = 1:length(slags)
                         temp = find(cur_Xsac(:,ii) == 1);
                         
+                                            rr = regress(rpost_Smod_predrate(temp),[ones(length(temp),1) basemod_rpred_rate(temp)]);
+                    sac_spost_offset(jj,ii) = rr(1);
+                    sac_spost_gain(jj,ii) = rr(2);
+
                         %compute LL and info for upstream model
                         if fit_msacUpstream
                             sac_info(jj,ii) = nanmean(rgain_pred_rate(temp).*log2(rgain_pred_rate(temp)/mean(rgain_pred_rate(temp))))/mean(rgain_pred_rate(temp));
@@ -1588,6 +1592,8 @@ for cc = targs
                     end
                 end
                 sacStimProc(cc).msac_spost_modinfo = nanmean(sac_spost_info);
+                sacStimProc(cc).msac_spost_offset = nanmean(sac_spost_offset);
+                sacStimProc(cc).msac_spost_gain = nanmean(sac_spost_gain);
                 if fit_msacUpstream
                     sacStimProc(cc).msac_modinfo = nanmean(sac_info);
                 end
