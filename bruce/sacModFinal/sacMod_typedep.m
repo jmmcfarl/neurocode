@@ -250,8 +250,12 @@ if strcmp(rec_type,'LP')
 end
 
 cur_block_set = find(included_type & ~expt_binoc' & expt_Fr == 1 & expt_bar_ori == bar_ori);
-
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dds(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dds(cur_block_set));
+    cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
+end
 
 sim_sac_expts = find(~expt_has_ds(cur_block_set));
 imback_gs_expts = find(expt_has_ds(cur_block_set) & expt_imback(cur_block_set)');
@@ -932,7 +936,7 @@ for cc = targs
             cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             
             stim_mod_signs = [cur_rGQM.mods(:).sign];
-            [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
+            [~,~,basemod_pred_rate,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
@@ -964,7 +968,7 @@ for cc = targs
             
             sacStimProc(cc).gsacIM_post_ov_modinfo = mean(post_Smod_predrate/mean(post_Smod_predrate).*log2(post_Smod_predrate/mean(post_Smod_predrate)));
             
-            [sac_avgrate,sac_LL,sac_info,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+            [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
@@ -974,11 +978,17 @@ for cc = targs
                 
                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(post_Smod_predrate(temp)) - post_Smod_predrate(temp));
                 sac_info(ii) = nanmean(post_Smod_predrate(temp).*log2(post_Smod_predrate(temp)/mean(post_Smod_predrate(temp))))/mean(post_Smod_predrate(temp));
+           
+                rr = regress(post_Smod_predrate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+                sac_offset(ii) = rr(1);
+                sac_gain(ii) = rr(2);
             end
             sacStimProc(cc).gsacIM_post_modinfo = sac_info;
             sacStimProc(cc).gsacIM_post_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
             sacStimProc(cc).gsacIM_post_ov_LLinfo = (post_gsac_Smod_LL-nullLL)/log(2);
             sacStimProc(cc).gsacIM_avg_rate = sac_avgrate;
+            sacStimProc(cc).gsacIM_offset = sac_offset;
+            sacStimProc(cc).gsacIM_gain = sac_gain;
             
         end
         
@@ -998,7 +1008,7 @@ for cc = targs
             cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             
             stim_mod_signs = [cur_rGQM.mods(:).sign];
-            [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
+            [~,~,basemod_pred_rate,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
@@ -1030,7 +1040,7 @@ for cc = targs
             
             sacStimProc(cc).gsacGR_post_ov_modinfo = mean(post_Smod_predrate/mean(post_Smod_predrate).*log2(post_Smod_predrate/mean(post_Smod_predrate)));
             
-            [sac_avgrate,sac_LL,sac_info,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+            [sac_avgrate,sac_LL,sac_info,sac_offset,sac_info,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
@@ -1040,11 +1050,17 @@ for cc = targs
                 
                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(post_Smod_predrate(temp)) - post_Smod_predrate(temp));
                 sac_info(ii) = nanmean(post_Smod_predrate(temp).*log2(post_Smod_predrate(temp)/mean(post_Smod_predrate(temp))))/mean(post_Smod_predrate(temp));
+                
+                rr = regress(post_Smod_predrate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+                sac_offset(ii) = rr(1);
+                sac_gain(ii) = rr(2);
             end
             sacStimProc(cc).gsacGR_post_modinfo = sac_info;
             sacStimProc(cc).gsacGR_post_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
             sacStimProc(cc).gsacGR_post_ov_LLinfo = (post_gsac_Smod_LL-nullLL)/log(2);
             sacStimProc(cc).gsacGR_avg_rate = sac_avgrate;
+            sacStimProc(cc).gsacGR_offset = sac_offset;
+            sacStimProc(cc).gsacGR_gain = sac_gain;
         end
         
         %% FOR SIM SACS
@@ -1062,7 +1078,7 @@ for cc = targs
             cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             
             stim_mod_signs = [cur_rGQM.mods(:).sign];
-            [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
+            [~,~,basemod_pred_rate,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
@@ -1094,7 +1110,7 @@ for cc = targs
             
             sacStimProc(cc).simsac_post_ov_modinfo = mean(post_Smod_predrate/mean(post_Smod_predrate).*log2(post_Smod_predrate/mean(post_Smod_predrate)));
             
-            [sac_avgrate,sac_LL,sac_info,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+            [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
@@ -1104,11 +1120,17 @@ for cc = targs
                 
                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(post_Smod_predrate(temp)) - post_Smod_predrate(temp));
                 sac_info(ii) = nanmean(post_Smod_predrate(temp).*log2(post_Smod_predrate(temp)/mean(post_Smod_predrate(temp))))/mean(post_Smod_predrate(temp));
-            end
+           
+                rr = regress(post_Smod_predrate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+                sac_offset(ii) = rr(1);
+                sac_gain(ii) = rr(2);
+           end
             sacStimProc(cc).simsac_post_modinfo = sac_info;
             sacStimProc(cc).simsac_post_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
             sacStimProc(cc).simsac_post_ov_LLinfo = (post_gsac_Smod_LL-nullLL)/log(2);
             sacStimProc(cc).simsac_avg_rate = sac_avgrate;
+            sacStimProc(cc).simsac_offset = sac_offset;
+            sacStimProc(cc).simsac_gain = sac_gain;
             
         end
         
@@ -1127,7 +1149,7 @@ for cc = targs
             cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             
             stim_mod_signs = [cur_rGQM.mods(:).sign];
-            [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
+            [~,~,basemod_pred_rate,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
@@ -1159,7 +1181,7 @@ for cc = targs
             
             sacStimProc(cc).smMsac_post_ov_modinfo = mean(post_Smod_predrate/mean(post_Smod_predrate).*log2(post_Smod_predrate/mean(post_Smod_predrate)));
             
-            [sac_avgrate,sac_LL,sac_info,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+            [sac_avgrate,sac_LL,sac_info,sac_nullLL,sac_offset,sac_gain,sac_Nspks] = deal(nan(length(slags),1));
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
@@ -1169,11 +1191,17 @@ for cc = targs
                 
                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(post_Smod_predrate(temp)) - post_Smod_predrate(temp));
                 sac_info(ii) = nanmean(post_Smod_predrate(temp).*log2(post_Smod_predrate(temp)/mean(post_Smod_predrate(temp))))/mean(post_Smod_predrate(temp));
+                
+                rr = regress(post_Smod_predrate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+                sac_offset(ii) = rr(1);
+                sac_gain(ii) = rr(2);
             end
             sacStimProc(cc).smMsac_post_modinfo = sac_info;
             sacStimProc(cc).smMsac_post_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
             sacStimProc(cc).smMsac_post_ov_LLinfo = (post_gsac_Smod_LL-nullLL)/log(2);
             sacStimProc(cc).smMsac_avg_rate = sac_avgrate;
+            sacStimProc(cc).smMsac_offset = sac_offset;
+            sacStimProc(cc).smMsac_gain = sac_gain;
             
         end
 
@@ -1192,7 +1220,7 @@ for cc = targs
             cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             
             stim_mod_signs = [cur_rGQM.mods(:).sign];
-            [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
+            [~,~,basemod_pred_rate,~,filt_outs,fgint] = NMMmodel_eval(cur_rGQM,cur_Robs,all_Xmat_shift);
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
@@ -1224,7 +1252,7 @@ for cc = targs
             
             sacStimProc(cc).bigMsac_post_ov_modinfo = mean(post_Smod_predrate/mean(post_Smod_predrate).*log2(post_Smod_predrate/mean(post_Smod_predrate)));
             
-            [sac_avgrate,sac_LL,sac_info,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+            [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
@@ -1234,11 +1262,18 @@ for cc = targs
                 
                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(post_Smod_predrate(temp)) - post_Smod_predrate(temp));
                 sac_info(ii) = nanmean(post_Smod_predrate(temp).*log2(post_Smod_predrate(temp)/mean(post_Smod_predrate(temp))))/mean(post_Smod_predrate(temp));
+                
+                
+                rr = regress(post_Smod_predrate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+                sac_offset(ii) = rr(1);
+                sac_gain(ii) = rr(2);
             end
             sacStimProc(cc).bigMsac_post_modinfo = sac_info;
             sacStimProc(cc).bigMsac_post_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
             sacStimProc(cc).bigMsac_post_ov_LLinfo = (post_gsac_Smod_LL-nullLL)/log(2);
             sacStimProc(cc).bigMsac_avg_rate = sac_avgrate;
+            sacStimProc(cc).bigMsac_offset = sac_offset;
+            sacStimProc(cc).bigMsac_gain = sac_gain;
             
         end
 

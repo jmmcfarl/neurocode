@@ -46,6 +46,8 @@ for ee = 1:length(Expt_list)
                 [sua_data.simsac_post_offset] = deal(nan);
                 [sua_data.simsac_post_ov_LLinfo] = deal(nan);
                 [sua_data.simsac_post_ov_modinfo] = deal(nan);
+                [sua_data.simsac_gain] = deal(nan);
+                [sua_data.simsac_offset] = deal(nan);
             end
             
             SM_SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,sua_data);
@@ -135,6 +137,8 @@ for ee = 1:length(Expt_list)
                 [sua_data.simsac_post_offset] = deal(nan);
                 [sua_data.simsac_post_ov_LLinfo] = deal(nan);
                 [sua_data.simsac_post_ov_modinfo] = deal(nan);
+                [sua_data.simsac_gain] = deal(nan);
+                [sua_data.simsac_offset] = deal(nan);
             end
 
             SM_SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,sua_data);
@@ -239,10 +243,10 @@ use_lem_SUs = intersect(use_gsac_SUs,lem_SUs);
 %%
 use_both = use_gsac_SUs(N_gsacs_GR(use_gsac_SUs) >= min_Nsacs & N_gsacs_IM(use_gsac_SUs) >= min_Nsacs);
 
-all_gsacGR_gain = reshape([all_SU_data(use_both).gsacGR_post_gain],[],length(use_both))';
-all_gsacIM_gain = reshape([all_SU_data(use_both).gsacIM_post_gain],[],length(use_both))';
-all_gsacGR_offset = reshape([all_SU_data(use_both).gsacGR_post_offset],[],length(use_both))';
-all_gsacIM_offset = reshape([all_SU_data(use_both).gsacIM_post_offset],[],length(use_both))';
+% all_gsacGR_gain = reshape([all_SU_data(use_both).gsacGR_post_gain],[],length(use_both))';
+% all_gsacIM_gain = reshape([all_SU_data(use_both).gsacIM_post_gain],[],length(use_both))';
+% all_gsacGR_offset = reshape([all_SU_data(use_both).gsacGR_post_offset],[],length(use_both))';
+% all_gsacIM_offset = reshape([all_SU_data(use_both).gsacIM_post_offset],[],length(use_both))';
 
 all_gsacGR_rate = reshape([all_SU_data(use_both).gsacGR_avg_rate],[],length(use_both))';
 all_gsacIM_rate = reshape([all_SU_data(use_both).gsacIM_avg_rate],[],length(use_both))';
@@ -253,6 +257,14 @@ all_gsacGR_info = reshape([all_SU_data(use_both).gsacGR_post_modinfo],[],length(
 all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_modinfo],[],length(use_both))';
 all_gsacGR_info = bsxfun(@rdivide,all_gsacGR_info,[all_SU_data(use_both).gsacGR_post_ov_modinfo]');    
 all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_modinfo]');    
+
+all_gsacGR_offset = reshape([all_SU_data(use_both).gsacGR_offset],[],length(use_both))';
+all_gsacIM_offset = reshape([all_SU_data(use_both).gsacIM_offset],[],length(use_both))';
+all_gsacGR_offset = bsxfun(@rdivide,all_gsacGR_offset,[all_SU_data(use_both).gsac_GR_ovavg_rate]');    
+all_gsacIM_offset = bsxfun(@rdivide,all_gsacIM_offset,[all_SU_data(use_both).gsac_IM_ovavg_rate]');    
+
+all_gsacGR_gain = reshape([all_SU_data(use_both).gsacGR_gain],[],length(use_both))';
+all_gsacIM_gain = reshape([all_SU_data(use_both).gsacIM_gain],[],length(use_both))';
 
 search_range = [0 0.2];
 [gsacGR_gain_Sfact,gsacGR_gain_inhtime] = get_tavg_peaks(-(all_gsacGR_gain),slags*dt,search_range);
@@ -266,8 +278,8 @@ search_range = [0 0.2];
 
 f1 = figure();
 hold on
-h1=shadedErrorBar(slags*dt,mean(all_gsacGR_gain)+1,std(all_gsacGR_gain)/sqrt(length(use_both)),{'color','r'});
-h2=shadedErrorBar(slags*dt,mean(all_gsacIM_gain)+1,std(all_gsacIM_gain)/sqrt(length(use_both)),{'color','b'});
+h1=shadedErrorBar(slags*dt,mean(all_gsacGR_gain),std(all_gsacGR_gain)/sqrt(length(use_both)),{'color','r'});
+h2=shadedErrorBar(slags*dt,mean(all_gsacIM_gain),std(all_gsacIM_gain)/sqrt(length(use_both)),{'color','b'});
 xlabel('Time (s)');
 ylabel('Gain');
 
@@ -285,41 +297,55 @@ h2=shadedErrorBar(slags*dt,mean(all_gsacIM_info),std(all_gsacIM_info)/sqrt(lengt
 xlabel('Time (s)');
 ylabel('Info');
 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'sacGain_GR_IM_compare.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f2);
-% fname = [fig_dir 'sacOffset_GR_IM_compare.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'sacGain_GR_IM_compare.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
+fig_width = 3.5; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir 'sacOffset_GR_IM_compare.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f3);
+fname = [fig_dir 'sacInfo_GR_IM_compare.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
 %%
 use_both = intersect(use_simsac_SUs,use_gsac_SUs);
 use_both = use_both(N_gsacs_IM(use_both) >= min_Nsacs);
 
-all_simsac_gain = reshape([all_SU_data(use_both).simsac_post_gain],[],length(use_both))';
-all_gsacIM_gain = reshape([all_SU_data(use_both).gsacIM_post_gain],[],length(use_both))';
+% all_simsac_gain = reshape([all_SU_data(use_both).simsac_post_gain],[],length(use_both))';
+% all_gsacIM_gain = reshape([all_SU_data(use_both).gsacIM_post_gain],[],length(use_both))';
 
 all_simsac_rate = reshape([all_SU_data(use_both).simsac_avg_rate],[],length(use_both))';
 all_gsacIM_rate = reshape([all_SU_data(use_both).gsacIM_avg_rate],[],length(use_both))';
 all_simsac_rate = bsxfun(@rdivide,all_simsac_rate,[all_SU_data(use_both).simsac_ovavg_rate]');    
 all_gsacIM_rate = bsxfun(@rdivide,all_gsacIM_rate,[all_SU_data(use_both).gsac_IM_ovavg_rate]');    
 
-% all_simsac_info = reshape([all_SU_data(use_both).simsac_post_modinfo],[],length(use_both))';
-% all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_modinfo],[],length(use_both))';
-% all_simsac_info = bsxfun(@rdivide,all_simsac_info,[all_SU_data(use_both).simsac_post_ov_modinfo]');    
-% all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_modinfo]');    
-all_simsac_info = reshape([all_SU_data(use_both).simsac_post_LLinfo],[],length(use_both))';
-all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_LLinfo],[],length(use_both))';
-all_simsac_info = bsxfun(@rdivide,all_simsac_info,[all_SU_data(use_both).simsac_post_ov_LLinfo]');    
-all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_LLinfo]');    
+all_simsac_info = reshape([all_SU_data(use_both).simsac_post_modinfo],[],length(use_both))';
+all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_modinfo],[],length(use_both))';
+all_simsac_info = bsxfun(@rdivide,all_simsac_info,[all_SU_data(use_both).simsac_post_ov_modinfo]');    
+all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_modinfo]');    
+% all_simsac_info = reshape([all_SU_data(use_both).simsac_post_LLinfo],[],length(use_both))';
+% all_gsacIM_info = reshape([all_SU_data(use_both).gsacIM_post_LLinfo],[],length(use_both))';
+% all_simsac_info = bsxfun(@rdivide,all_simsac_info,[all_SU_data(use_both).simsac_post_ov_LLinfo]');    
+% all_gsacIM_info = bsxfun(@rdivide,all_gsacIM_info,[all_SU_data(use_both).gsacIM_post_ov_LLinfo]');    
 
-all_simsac_off = reshape([all_SU_data(use_both).simsac_post_offset],[],length(use_both))';
-all_gsacIM_off = reshape([all_SU_data(use_both).gsacIM_post_offset],[],length(use_both))';
+% all_simsac_off = reshape([all_SU_data(use_both).simsac_post_offset],[],length(use_both))';
+% all_gsacIM_off = reshape([all_SU_data(use_both).gsacIM_post_offset],[],length(use_both))';
+
+all_simsac_off = reshape([all_SU_data(use_both).simsac_offset],[],length(use_both))';
+all_gsacIM_off = reshape([all_SU_data(use_both).gsacIM_offset],[],length(use_both))';
+all_simsac_off = bsxfun(@rdivide,all_simsac_off,[all_SU_data(use_both).simsac_ovavg_rate]');    
+all_gsacIM_off = bsxfun(@rdivide,all_gsacIM_off,[all_SU_data(use_both).gsac_IM_ovavg_rate]');    
+
+all_simsac_gain = reshape([all_SU_data(use_both).simsac_gain],[],length(use_both))';
+all_gsacIM_gain = reshape([all_SU_data(use_both).gsacIM_gain],[],length(use_both))';
+
 
 search_range = [0 0.2];
 [simsac_gain_Sfact] = get_tavg_peaks(-(all_simsac_gain),slags*dt,search_range);
@@ -360,7 +386,12 @@ h2=shadedErrorBar(slags*dt,mean(all_gsacIM_info),std(all_gsacIM_info)/sqrt(lengt
 % fname = [fig_dir 'sacOffset_simreal_compare.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
-% 
+% % 
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f3);
+% fname = [fig_dir 'sacInfo_simreal_compare.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
 %%
 close all
 use_both = use_msac_SUs(N_smMsacs(use_msac_SUs) >= min_Nsacs & N_bigMsacs(use_msac_SUs) >= min_Nsacs);
