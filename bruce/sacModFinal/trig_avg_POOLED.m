@@ -1469,3 +1469,24 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 title('Gsac TA Grayback');
+
+%% MSAC BURSTS
+N_msacs = [all_SU_data(:).N_msacs];
+msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);
+msac_used_SUs = msac_used_SUs(ismember(msac_used_SUs,lem_SUs));
+
+all_msac = reshape([all_SU_data(msac_used_SUs).msac_avg],[],length(msac_used_SUs))';
+all_msac_bursts = reshape([all_SU_data(msac_used_SUs).msac_burst_avg],[],length(msac_used_SUs))';
+if sm_sigma > 0
+    for ii = 1:size(all_msac,1)
+        all_msac(ii,:) = jmm_smooth_1d_cor(all_msac(ii,:),sm_sigma);
+        all_msac_bursts(ii,:) = jmm_smooth_1d_cor(all_msac_bursts(ii,:),sm_sigma);
+    end
+end
+xl = [-0.15 0.4];
+f2 = figure(); 
+hold on
+h1=shadedErrorBar(tlags,nanmean(all_msac),nanstd(all_msac)/sqrt(length(msac_used_SUs)),{'color','k'});
+h2=shadedErrorBar(tlags,nanmean(all_msac_bursts),nanstd(all_msac_bursts)/sqrt(length(msac_used_SUs)),{'color','b'});
+xlim(xl);ylim(yl);
+line(xl,[1 1],'color','k');

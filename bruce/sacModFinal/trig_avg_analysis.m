@@ -1,10 +1,10 @@
 % clear all
-% close all
+close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G086';
+% Expt_name = 'G088';
 % bar_ori = 0;
 
 %%

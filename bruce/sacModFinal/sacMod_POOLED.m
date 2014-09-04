@@ -1,7 +1,10 @@
 %%
-close all
+% close all
 clear all
 clc
+
+fit_unCor = 1;
+
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
 base_sname = 'sacStimProc4';
@@ -34,12 +37,16 @@ for ee = 1:length(Expt_list)
             sname = strcat(tavg_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
             temp = load(sname);
             tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
+            if fit_unCor
+                tname = strcat(tname,'_unCor');
+            end
             load(tname);
             timename = strcat(osac_dir,base_timename,sprintf('_ori%d',ori_list(ee,ii)));
             load(timename);
             
-                        if isfield(sacStimProc,'msac_ovavg_rate')
-            sacStimProc = rmfield(sacStimProc,'msac_ovavg_rate');
+            
+            if isfield(sacStimProc,'msac_ovavg_rate')
+                sacStimProc = rmfield(sacStimProc,'msac_ovavg_rate');
             end
 
 %             tname = strcat(osac_dir,base_ename,sprintf('_ori%d',ori_list(ee,ii)));
@@ -129,9 +136,13 @@ for ee = 1:length(Expt_list)
             sname = strcat(tavg_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
             temp = load(sname);
             tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
-            load(tname);
+             if fit_unCor
+                tname = strcat(tname,'_unCor');
+            end
+           load(tname);
             timename = strcat(osac_dir,base_timename,sprintf('_ori%d',ori_list(ee,ii)));
             load(timename);
+            
             
             if isfield(sacStimProc,'msac_ovavg_rate')
             sacStimProc = rmfield(sacStimProc,'msac_ovavg_rate');
@@ -302,7 +313,7 @@ hold on
 % h1=shadedErrorBar(slags*dt,mean(all_gsac_spost_offset(use_gsac_SUs,:)),std(all_gsac_spost_offset(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
 h1=shadedErrorBar(TB_slags*dt,mean(all_gsac_TB_offset(use_gsac_SUs,:)),std(all_gsac_TB_offset(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 xlabel('Time (s)');
-ylabel('Relative gain');
+ylabel('Offset');
 line(xl,[0 0],'color','k');
 xlim(xl);
 yl = ylim();
@@ -492,11 +503,11 @@ all_gsac_NTBinfo = bsxfun(@rdivide,all_gsac_TBinfo,all_gsac_ov_TB_info');
 all_gsac_NTBinforate = bsxfun(@rdivide,all_gsac_TBinforate,all_gsac_ov_TB_info'.*avg_rates*dt);
 TB_slags = all_SU_data(1).gsac_TB_lagX;
 
-search_range = [0 0.2];
-TB_info_Sfact = get_tavg_peaks(-(all_gsac_NTBinfo-1),TB_slags*dt,search_range);
-TB_gain_Sfact = get_tavg_peaks(-(all_gsac_TB_gain-1),TB_slags*dt,search_range);
-search_range = [0 0.3];
-TB_offset_Efact = get_tavg_peaks(all_gsac_TB_offset,TB_slags*dt,search_range);
+% search_range = [0 0.2];
+% TB_info_Sfact = get_tavg_peaks(-(all_gsac_NTBinfo-1),TB_slags*dt,search_range);
+% TB_gain_Sfact = get_tavg_peaks(-(all_gsac_TB_gain-1),TB_slags*dt,search_range);
+% search_range = [0 0.3];
+% TB_offset_Efact = get_tavg_peaks(all_gsac_TB_offset,TB_slags*dt,search_range);
 
 xl = [-0.1 0.3];
 
@@ -504,8 +515,8 @@ f1 = figure();
 hold on
 % h1=shadedErrorBar(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_SUs,:)),std(all_gsac_Nsmodinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
 % h2=shadedErrorBar(slags*dt,mean(all_gsac_Nsmodinforate(use_gsac_SUs,:)),std(all_gsac_Nsmodinforate(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
-h1=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinfo(use_gsac_SUs,:)),std(all_gsac_NTBinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
-h2=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinforate(use_gsac_SUs,:)),std(all_gsac_NTBinforate(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
+h1=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinfo(use_gsac_SUs,:)),std(all_gsac_NTBinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
+% h2=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinforate(use_gsac_SUs,:)),std(all_gsac_NTBinforate(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 % legend([h1.mainLine h2.mainLine],{'TB','Mod-pred'});
 xlabel('Time (s)');
 ylabel('Relative info');
@@ -516,12 +527,24 @@ line([0 0],yl,'color','k');
 xlabel('Time (s)');
 ylabel('Relative information');
 
+% f2 = figure();
+% hold on
+% % h1=shadedErrorBar(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_SUs,:)),std(all_gsac_Nsmodinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
+% h1=shadedErrorBar(TB_slags*dt,mean(all_gsac_TBinfo(use_gsac_SUs,:)),std(all_gsac_TBinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
+% % legend([h1.mainLine h2.mainLine],{'TB','Mod-pred'});
+% xlabel('Time (s)');
+% ylabel('Relative info');
+% xlim(xl);
+% yl = ylim();
+% line([0 0],yl,'color','k');
+% xlabel('Time (s)');
+% ylabel('Relative information');
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_SSinfo_inforate.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_SSinfo_inforate_uncor.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% COMPARE POST G/O MODEL AND TB MODEL
 
@@ -608,14 +631,14 @@ all_gsac_Nsmodinfo = bsxfun(@rdivide,all_gsac_smodinfo,all_gsac_ov_smodinfo');
 all_gsac_Nsmodinforate = bsxfun(@rdivide,all_gsac_smodinforate,all_gsac_ov_smodinfo'.*avg_rates*dt);
 
 
-% all_gsac_submodinfo = reshape([all_SU_data(:).gsac_sub_modinfo],[],length(all_SU_data))';
-% all_gsac_ov_submodinfo = [all_SU_data(:).gsac_sub_ov_modinfo];
+all_gsac_submodinfo2 = reshape([all_SU_data(:).gsac_sub_modinfo],[],length(all_SU_data))';
+all_gsac_ov_submodinfo2 = [all_SU_data(:).gsac_sub_ov_modinfo];
 % all_gsac_submodinforate = all_gsac_submodinfo.*all_gsac_rates;
 % all_gsac_Nsubmodinfo = bsxfun(@rdivide,all_gsac_submodinfo,all_gsac_ov_submodinfo');
 % all_gsac_Nsubmodinforate = bsxfun(@rdivide,all_gsac_submodinforate,all_gsac_ov_submodinfo'.*avg_rates*dt);
 % 
-% all_gsac_smodinfo = reshape([all_SU_data(:).gsac_spost_modinfo],[],length(all_SU_data))';
-% all_gsac_ov_smodinfo = [all_SU_data(:).gsac_spost_ov_modinfo];
+all_gsac_smodinfo2 = reshape([all_SU_data(:).gsac_spost_modinfo],[],length(all_SU_data))';
+all_gsac_ov_smodinfo2 = [all_SU_data(:).gsac_spost_ov_modinfo];
 % all_gsac_smodinforate = all_gsac_smodinfo.*all_gsac_rates;
 % all_gsac_Nsmodinfo = bsxfun(@rdivide,all_gsac_smodinfo,all_gsac_ov_smodinfo');
 % all_gsac_Nsmodinforate = bsxfun(@rdivide,all_gsac_smodinforate,all_gsac_ov_smodinfo'.*avg_rates*dt);
@@ -635,11 +658,11 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative information');
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_smod_submod_infocompare.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_smod_submod_infocompare.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% COMPARE COMPONENTS OF PRE/POST MODEL
 % all_gsac_gaink = reshape(cell2mat(arrayfun(@(x) x.gsacGainMod.gain_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
