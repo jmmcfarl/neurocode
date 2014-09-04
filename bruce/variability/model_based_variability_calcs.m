@@ -8,7 +8,7 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % Expt_name = 'M297';
-Expt_name = 'M296';
+Expt_name = 'G086';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -161,6 +161,7 @@ min_trial_dur = 0.75;
 
 stim_fs = 100; %in Hz
 dt = 0.01;
+new_dt = 0.0025;
 Fr = 1;
 
 backlag = round(0.1/dt);
@@ -273,6 +274,9 @@ all_stim_times = [];
 all_stim_mat = [];
 all_t_axis = [];
 all_t_bin_edges = [];
+all_t_axis_new = [];
+all_t_bin_edges_new = [];
+all_bin_edge_pts_new = [];
 all_tsince_start = [];
 all_blockvec = [];
 all_trialvec = [];
@@ -399,6 +403,9 @@ for ee = 1:n_blocks;
         end
         cur_t_axis = 0.5*cur_t_edges(1:end-1) + 0.5*cur_t_edges(2:end);
         
+        cur_t_edges_new = cur_t_edges(1):new_dt:cur_t_edges(end);
+        cur_t_axis_new = 0.5*cur_t_edges_new(1:end-1) + 0.5*cur_t_edges_new(2:end);
+        
         cur_tsince_start = cur_t_axis - trial_start_times(use_trials(tt));
         
         if ~any(isnan(left_stim_mats{use_trials(tt)}(:))) && n_frames > min_trial_dur/dt
@@ -418,6 +425,10 @@ for ee = 1:n_blocks;
             all_blockvec = [all_blockvec; ones(size(cur_t_axis))*ee];
             all_trialvec = [all_trialvec; ones(size(cur_t_axis))*(tt + trial_cnt)];
             all_bin_edge_pts = [all_bin_edge_pts; length(all_t_bin_edges)];
+            
+            all_t_axis_new = [all_t_axis_new; cur_t_axis_new' + cur_toffset];
+            all_t_bin_edges_new = [all_t_bin_edges_new; cur_t_edges_new' + cur_toffset];
+            all_bin_edge_pts_new = [all_bin_edge_pts_new; length(all_t_bin_edges_new)];
         end
     end
     trial_cnt = trial_cnt + n_trials;
@@ -476,6 +487,11 @@ end
 SU_probes = Clust_data.SU_probes;
 SU_numbers = Clust_data.SU_numbers;
 
+all_blockvec_new = round(interp1(all_t_axis,all_blockvec,all_t_axis_new));
+[all_binned_mua_new,all_binned_sua_new] = ...
+    get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
+    all_t_axis_new,all_t_bin_edges_new,all_bin_edge_pts_new,cur_block_set,all_blockvec_new,clust_params);
+
 %% DEFINE DATA USED FOR ANALYSIS
 used_inds = find(all_tsince_start >= beg_buffer & (trial_dur-all_tsince_start) >= end_buffer);
 
@@ -487,6 +503,7 @@ if strcmp(Expt_name,'G093')
 end
 
 NT = length(used_inds);
+
 
 %% CREATE EVENT PREDICTORS FOR REAL AND SIM SACCADES (POOLING MICRO AND MACRO SACS)
 Xblock = zeros(length(all_stim_times),n_blocks);
@@ -663,7 +680,12 @@ for ss = 1:n_chs
         Robs_mat(:,ss) = all_binned_mua(used_inds,ss);
     end
 end
-
+%%
+use_vec = zeros(size(all_t_axis));
+use_vec(used_inds) = 1;
+use_vec_new = round(interp1(all_t_axis,use_vec,all_t_axis_new));
+use_vec_new(isnan(use_vec_new)) = 0;
+use_vec_new = logical(use_vec_new);
 %% Create set of TR trials
 rpt_trials = find(all_trial_Se==rpt_seed);
 n_rpt_trials = length(rpt_trials);
@@ -737,10 +759,28 @@ fin_shift_cor(isnan(fin_shift_cor)) = 0;
 %RECOMPUTE XMAT
 best_shift_stimmat_up = all_stimmat_up;
 for i=1:NT
-    if ~fit_unCor
-        best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-    end
+    best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
 end
+all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
+all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
+
+all_shift_stimmat_up = all_stimmat_up;
+all_Xmat = create_time_embedding(all_shift_stimmat_up,stim_params_us);
+all_Xmat = all_Xmat(used_inds,use_kInds_up);
+
+%%
+SU_inds = (n_probes+1):n_chs;
+R_corr = nancorr(Robs_mat(:,SU_inds));
+R_corr(logical(eye(length(SU_inds)))) = nan;
+
+SU_stim_predrates = nan(length(used_inds),length(SU_inds));
+for cc = 1:length(SU_inds)
+    cor_GQM = ModData(SU_inds(cc)).bestGQM;
+    [~, ~, cur_predrate] = NMMmodel_eval(cor_GQM, cur_Robs, all_Xmat_shift);
+    SU_stim_predrates(:,cc) = cur_predrate;
+end
+P_corr = nancorr(SU_stim_predrates);
+P_corr(logical(eye(length(SU_inds)))) = nan;
 
 %% MAIN ANALYSIS LOOP
 cd(anal_dir)
@@ -756,52 +796,78 @@ for cc = targs
     
     cur_Robs = Robs_mat(cc_uinds,cc);
     
+    sacStimProc(cc).ModData = ModData(cc);
+    sacStimProc(cc).used = true;
+    
+    cor_GQM = ModData(cc).bestGQM;
+    uncor_GQM = ModData(cc).bestGQM_unCor;
+    
     %%
     if ~isempty(cc_uinds)
         
-        if fit_unCor
-        cur_rGQM = ModData(cc).rectGQM_unCor;
-        cur_GQM = ModData(cc).bestGQM_unCor;
-        else
-        cur_rGQM = ModData(cc).rectGQM;
-        cur_GQM = ModData(cc).bestGQM;
-        end
-        sacStimProc(cc).ModData = ModData(cc);
-        sacStimProc(cc).used = true;
+                 
+        %%
+        cor_GQM = NMMfit_logexp_spkNL(cor_GQM,cur_Robs,all_Xmat_shift(cc_uinds,:));
+        cor_GQM = NMMfit_scale(cor_GQM,cur_Robs,all_Xmat_shift(cc_uinds,:));
+
+        uncor_GQM = NMMfit_logexp_spkNL(uncor_GQM,cur_Robs,all_Xmat(cc_uinds,:));
+        uncor_GQM = NMMfit_scale(uncor_GQM,cur_Robs,all_Xmat(cc_uinds,:));
         
-        fprintf('Reconstructing retinal stim for unit %d\n',cc);
-        if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
-            cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-            cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-            cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-            cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-            [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-                cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-            
-            fin_shift_cor = round(fin_tot_corr);
-            
-            %RECOMPUTE XMAT
-            all_shift_stimmat_up = all_stimmat_up;
-            if ~fit_unCor
-                for i=1:NT
-                    all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-                end
-            end
-            all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
-            all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-            
-        else %otherwise use overall EP sequence
-            all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
-            all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-        end
+        %%
+        cur_Robs_new = all_binned_sua_new(use_vec_new,all_mod_SUnum(cc));
+        cc_uinds_new = find(~isnan(cur_Robs_new));
         
-        stim_mod_signs = [cur_rGQM.mods(:).sign];
-        tempMod = NMMfit_scale(cur_rGQM,cur_Robs,all_Xmat_shift);
-        [~,~,~,~,~,temp_fgint] = NMMmodel_eval(tempMod,cur_Robs,all_Xmat_shift);
-        rel_filt_weights = std(temp_fgint);
-        rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
-        sacStimProc(cc).rel_filt_weights = rel_filt_weights;
-                
+        %%
+%         other_SUs = (n_probes+1):n_chs;
+%         other_SUs(other_SUs==cc) = [];
+        other_SUs = 1:length(SU_numbers);
+        other_SUs(other_SUs==all_mod_SUnum(cc)) = [];
+        
+%         other_Robs = Robs_mat(:,other_SUs);
+%         other_Robs(isnan(other_Robs)) = 0;
+        other_Robs = all_binned_sua_new(use_vec_new,other_SUs);
+        other_Robs(isnan(other_Robs)) = 0;
+        
+        nOtherSUs = size(other_Robs,2);
+        other_flen = 25*2;
+        other_sp = NMMcreate_stim_params([other_flen nOtherSUs]);
+        other_X = create_time_embedding(other_Robs,other_sp);
+        
+        mod_sp(1) = NMMcreate_stim_params(1);
+        mod_sp(2) = other_sp;
+        other_rp = NMMcreate_reg_params('lambda_d2T',500,'lambda_L2',5);
+        
+        
+        [corLL, ~, ~, G,~,~,nullLL] = NMMmodel_eval(cor_GQM, cur_Robs, all_Xmat_shift(cc_uinds,:));
+        G = G - cor_GQM.spk_NL_params(1);
+        Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
+        Gint = Gint(cc_uinds_new);
+        Gint(isnan(Gint)) = 0;
+        
+        X{1} = Gint;
+        X{2} = other_X(cc_uinds_new,:);
+        
+        cor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
+        cor_other.mods(1).reg_params = NMMcreate_reg_params();
+        cor_other = NMMfit_filters(cor_other,cur_Robs_new,X,[],[1 2],1);
+        
+        [uncorLL, ~, ~, G] = NMMmodel_eval(uncor_GQM, cur_Robs, all_Xmat(cc_uinds,:));
+        G = G - cor_GQM.spk_NL_params(1);
+        Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
+        Gint = Gint(cc_uinds_new);
+        Gint(isnan(Gint)) = 0;
+        X{1} = Gint;
+        X{2} = other_X(cc_uinds_new,:);
+        uncor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
+        uncor_other.mods(1).reg_params = NMMcreate_reg_params();
+        uncor_other = NMMfit_filters(uncor_other,cur_Robs_new,X,[],[1 2],1);
+
+        cor_otherOnly = NMMinitialize_model(mod_sp,[1],{'lin'},other_rp,[2],[],'exp');
+        cor_otherOnly = NMMfit_filters(cor_otherOnly,cur_Robs_new,X,[],[],1);
+        
+        temp = reshape(cor_other.mods(2).filtK,other_flen,[]);
+        temp2 = reshape(uncor_other.mods(2).filtK,other_flen,[]);
+        temp3 = reshape(cor_otherOnly.mods(1).filtK,other_flen,[]);
     else
         sacStimProc(cc).used = false;
     end

@@ -481,7 +481,7 @@ if strcmp(rec_type,'LP')
 else
     clust_params.exclude_adjacent = false;
 end
-[all_binned_mua,all_binned_sua,Clust_data] = ...
+[all_binned_mua,all_binned_sua,Clust_data,all_su_spk_times] = ...
     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
     all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);
 SU_probes = Clust_data.SU_probes;
@@ -747,150 +747,118 @@ rpt_taxis(trial_dur - rpt_taxis < end_buffer) = [];
 all_trial_dur = all_trial_end_times-all_trial_start_times;
 
 rpt_trials = find(all_trial_Se == rpt_seed);
+rpt_trials(all_trial_rptframes(rpt_trials) > 0) = []; %get rid of any repeat trials where there were repeat frames
+
 n_rpts = length(rpt_trials);
 all_rpt_inds = find(ismember(all_trialvec(used_inds),rpt_trials));
 all_nonrpt_inds = find(~ismember(all_trialvec(used_inds),rpt_trials));
 
-all_X{2} = Xblock(used_inds(all_rpt_inds),:);
-all_X{3} = Xsac(all_rpt_inds,:);
-all_X{4} = Xmsac(all_rpt_inds,:);
-
 %%
 full_psth = nan(n_rpts,length(rpt_taxis),length(targs));
 cor_pred_rate = nan(length(all_rpt_inds),length(targs));
-for cc = 1:length(targs)
+for cc = targs
     
-    ss = targs(cc);
-    loo_cc = find(loo_set == ss);
-    cc_uinds = find(~isnan(Robs_mat(:,ss)));
+    fprintf('Starting model fits for unit %d\n',cc);
+    loo_cc = find(loo_set == cc); %index within the LOOXV set
+    cc_uinds = full_inds(~isnan(Robs_mat(full_inds,cc))); %set of used indices where this unit was isolated
+    cur_Robs = Robs_mat(cc_uinds,cc);
     
     if ~isempty(cc_uinds)
         fprintf('Unit %d of %d\n',cc,length(targs));
         
-        fin_fix_corr = nan(NT,1);
-        fin_fix_std = nan(NT,1);
-        fin_fix_corr(~isnan(fix_ids)) = it_fix_post_mean_LOO(loo_cc,end,fix_ids(~isnan(fix_ids)));
-        fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
-        fin_fix_std(~isnan(fix_ids)) = it_fix_post_std_LOO(loo_cc,end,fix_ids(~isnan(fix_ids)));
-        fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
-        fin_fix_corr = fin_fix_corr*sp_dx;
-        fin_fix_std = fin_fix_std*sp_dx;
+        cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
+        cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
+        cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
+        cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
+        [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+            cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
         
-        fin_drift_corr = squeeze(drift_post_mean_LOO(loo_cc,end,:)*sp_dx);
-        fin_drift_std = squeeze(drift_post_std_LOO(loo_cc,end,:)*sp_dx);
-        fin_drift_corr_neural = fin_drift_corr;
-        
-        for ii = 1:length(trial_start_inds)
-            cur_inds = trial_start_inds(ii):trial_end_inds(ii);
-            fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
-            fin_drift_std(cur_inds(1:end-sac_shift)) = fin_drift_std(cur_inds(sac_shift+1:end));
-        end
-        fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
-        fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
-        
-        fin_tot_corr = fin_fix_corr + fin_drift_corr;
-        fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
-        
-        for ii = 1:length(fix_start_inds)
-            cur_inds = fix_start_inds(ii):fix_stop_inds(ii);
-            if length(cur_inds) > sac_shift
-                fin_drift_corr_neural(cur_inds(1:sac_shift)) = nan;
-            else
-                fin_drift_corr_neural(cur_inds) = nan;
-            end
-        end
-        for ii = 1:length(fix_start_inds)-1
-            cur_inds = fix_stop_inds(ii):fix_start_inds(ii+1);
-            fin_drift_corr_neural(cur_inds) = nan;
-        end
-        fin_tot_corr_neural = fin_fix_corr + fin_drift_corr_neural';
-        
-        fin_shift_cor = round(fin_tot_corr/sp_dx);
-        fin_shift_cor(isnan(fin_shift_cor)) = 0;
+        fin_shift_cor = round(fin_tot_corr);
         
         %RECOMPUTE XMAT
         all_shift_stimmat_up = all_stimmat_up;
-%         for i=1:NT
-%             all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-%         end
-        drift_Xmat = create_time_embedding(all_shift_stimmat_up,stim_params_us);
-        drift_Xmat = drift_Xmat(used_inds,use_kInds_up);
-        
-        all_used_rpt_inds = all_rpt_inds(~isnan(Robs_mat(all_rpt_inds,ss)));
-        used_rpt_inds = find(ismember(all_rpt_inds,all_used_rpt_inds));
-        
-        %%
-        su_num = find(SU_numbers == all_mod_SUnum(ss-n_probes));
-        all_spk_trials{cc} = [];
-        all_rel_times{cc} = [];
-        for ii = 1:length(rpt_trials)
-            cur_inds = find(all_trialvec(used_inds) == rpt_trials(ii));
-            cur_inds(size(full_psth,2)+1:end) = [];
-            full_psth(ii,1:length(cur_inds),cc) = Robs_mat(cur_inds,ss);
-            
-            if ~isempty(su_num)
-                cur_spk_set = find(all_su_spk_times{su_num} > all_trial_start_times(rpt_trials(ii)) & ...
-                    all_su_spk_times{su_num} < all_trial_end_times(rpt_trials(ii)));
-                spk_times = all_su_spk_times{su_num}(cur_spk_set);
-                all_spk_trials{cc} = [all_spk_trials{cc}; ones(size(cur_spk_set))*ii];
-                all_rel_times{cc} = [all_rel_times{cc}; spk_times-all_trial_start_times(rpt_trials(ii))];
-            end
+        for i=1:NT
+            all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
         end
+        all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
+        all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
         
-        %%
-        all_X{1} = drift_Xmat(all_rpt_inds,:);
-        
-        %CORRECTED AND UNCORRECTED MODEL FITS
-        cur_cormod = ModData(ss).rectGQM;
-        cur_Xtargs = [cur_cormod.mods(:).Xtarget];
-        cur_cormod.mods(cur_Xtargs > 1) = [];
-        cur_cormod = NMMfit_logexp_spkNL(cur_cormod,Robs_mat(all_used_rpt_inds,ss),get_Xcell_tInds(all_X,used_rpt_inds),[],[],[2; 3]);
-        [corrLL, penLL, cor_pred_rate(:,cc),G,~,~,nullLL] = NMMmodel_eval(cur_cormod,Robs_mat(all_rpt_inds,ss),all_X);
-        var_data.cor_mods(cc) = cur_cormod;
-        
-        neur_eye_pos(:,:,cc) = nan(length(rpt_taxis),length(rpt_trials));
-        for ii = 1:length(rpt_trials)
-            test_rpt_inds = find(all_trialvec(used_inds(all_rpt_inds)) == rpt_trials(ii));
-            test_rpt_inds(length(rpt_taxis)+1:end) = [];
-            neur_eye_pos(1:length(test_rpt_inds),ii,cc) = fin_tot_corr_neural(all_rpt_inds(test_rpt_inds));
-        end
-        
-        %% calculate model-predicted EM variance during single-trial data
-        %     %NOTE< SHOULD IMPLEMENT THIS IN A PARALLELIZED FASHION FOR SPEED>>>
-        %     all_used_nonrpt_inds = all_nonrpt_inds(~isnan(Robs_mat(all_nonrpt_inds,cur_runit_ind)));
-        %     used_nonrpt_inds = find(ismember(all_nonrpt_inds,all_used_nonrpt_inds));
-        %
-        %     all_X{1} = drift_Xmat(all_used_nonrpt_inds,:);
-        %     cur_cormod = dit_mods_spkNL_LOO{cur_runit_ind,end}(cur_unit_ind);
-        %     cur_cormod.mods(cur_Xtargs > 1) = [];
-        %     cur_cormod = NMMfit_logexp_spkNL(cur_cormod,Robs_mat(used_nonrpt_inds,cur_runit_ind),all_X{1},[],[],[1 2]);
-        % %     all_X{2} = Xblock(used_inds(all_nonrpt_inds),:);
-        % %     all_X{3} = Xsac(all_nonrpt_inds,:);
-        % %     all_X{4} = Xmsac(all_nonrpt_inds,:);
-        %     rate_out = nan(n_shifts,length(all_nonrpt_inds));
-        %     for ii = 1:n_shifts
-        % %         fprintf('Shift %d of %d\n',ii,n_shifts);
-        %         all_X{1} = all_Xmat_us(used_inds(all_nonrpt_inds),:)*shift_mat{ii};
-        %         [~,~,rate_out(ii,:)] = NMMmodel_eval(cur_cormod,[],all_X{1});
-        %     end
-        %     disc_fin_tot_corr = round(fin_tot_corr/sp_dx);
-        %     uu = find(disc_fin_tot_corr >= -max_shift & disc_fin_tot_corr <= max_shift);
-        %     ep_dist = hist(disc_fin_tot_corr(uu),shifts);
-        %     ep_dist = ep_dist/sum(ep_dist);
-        %
-        %     cond_mrate = sum(bsxfun(@times,rate_out(:,used_nonrpt_inds),ep_dist'));
-        %     rate_out_ms = bsxfun(@minus,rate_out(:,used_nonrpt_inds),cond_mrate);
-        %     cond_var = sum(bsxfun(@times,rate_out_ms.^2,ep_dist'));
-        %     em_var = mean(cond_var);
-        %
-        %     ov_mrate = mean(Robs_mat(used_nonrpt_inds,cur_runit_ind));
-        %     tot_var = mean(sum(bsxfun(@times,(rate_out(:,used_nonrpt_inds)-ov_mrate).^2,ep_dist')));
-        %     var_data.st_mod_emvar(ss) = em_var;
-        %     var_data.st_mod_psthvar(ss) = nanvar(cond_mrate);
-        %     var_data.st_mod_totvar(ss) = tot_var;
-        %     var_data.st_mod_emvfrac(ss) = em_var/tot_var;
-        
+    else %otherwise use overall EP sequence
+        all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
+        all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
     end
+    
+    all_used_rpt_inds = all_rpt_inds(~isnan(Robs_mat(all_rpt_inds,cc)));
+    used_rpt_inds = find(ismember(all_rpt_inds,all_used_rpt_inds));
+    
+    %%
+    su_num = find(SU_numbers == all_mod_SUnum(cc));
+    all_spk_trials{cc} = [];
+    all_rel_times{cc} = [];
+    for ii = 1:length(rpt_trials)
+        cur_inds = find(all_trialvec(used_inds) == rpt_trials(ii));
+        cur_inds(size(full_psth,2)+1:end) = [];
+        full_psth(ii,1:length(cur_inds),cc) = Robs_mat(cur_inds,cc);
+        
+        if ~isempty(su_num)
+            cur_spk_set = find(all_su_spk_times{su_num} > all_trial_start_times(rpt_trials(ii)) & ...
+                all_su_spk_times{su_num} < all_trial_end_times(rpt_trials(ii)));
+            spk_times = all_su_spk_times{su_num}(cur_spk_set);
+            all_spk_trials{cc} = [all_spk_trials{cc}; ones(size(cur_spk_set))*ii];
+            all_rel_times{cc} = [all_rel_times{cc}; spk_times-all_trial_start_times(rpt_trials(ii))];
+        end
+    end
+    
+    %%    
+    %CORRECTED AND UNCORRECTED MODEL FITS
+    cur_cormod = ModData(cc).rectGQM;
+    cur_Xtargs = [cur_cormod.mods(:).Xtarget];
+    cur_cormod = NMMfit_logexp_spkNL(cur_cormod,Robs_mat(all_used_rpt_inds,cc),all_Xmat_shift(all_rpt_inds,:),[],[],[2; 3]);
+    [corrLL, penLL, cor_pred_rate(:,cc),G,~,~,nullLL] = NMMmodel_eval(cur_cormod,Robs_mat(all_rpt_inds,cc),all_X);
+    var_data.cor_mods(cc) = cur_cormod;
+    
+    neur_eye_pos(:,:,cc) = nan(length(rpt_taxis),length(rpt_trials));
+    for ii = 1:length(rpt_trials)
+        test_rpt_inds = find(all_trialvec(used_inds(all_rpt_inds)) == rpt_trials(ii));
+        test_rpt_inds(length(rpt_taxis)+1:end) = [];
+        neur_eye_pos(1:length(test_rpt_inds),ii,cc) = fin_tot_corr_neural(all_rpt_inds(test_rpt_inds));
+    end
+    
+    %% calculate model-predicted EM variance during single-trial data
+    %     %NOTE< SHOULD IMPLEMENT THIS IN A PARALLELIZED FASHION FOR SPEED>>>
+    %     all_used_nonrpt_inds = all_nonrpt_inds(~isnan(Robs_mat(all_nonrpt_inds,cur_runit_ind)));
+    %     used_nonrpt_inds = find(ismember(all_nonrpt_inds,all_used_nonrpt_inds));
+    %
+    %     all_X{1} = drift_Xmat(all_used_nonrpt_inds,:);
+    %     cur_cormod = dit_mods_spkNL_LOO{cur_runit_ind,end}(cur_unit_ind);
+    %     cur_cormod.mods(cur_Xtargs > 1) = [];
+    %     cur_cormod = NMMfit_logexp_spkNL(cur_cormod,Robs_mat(used_nonrpt_inds,cur_runit_ind),all_X{1},[],[],[1 2]);
+    % %     all_X{2} = Xblock(used_inds(all_nonrpt_inds),:);
+    % %     all_X{3} = Xsac(all_nonrpt_inds,:);
+    % %     all_X{4} = Xmsac(all_nonrpt_inds,:);
+    %     rate_out = nan(n_shifts,length(all_nonrpt_inds));
+    %     for ii = 1:n_shifts
+    % %         fprintf('Shift %d of %d\n',ii,n_shifts);
+    %         all_X{1} = all_Xmat_us(used_inds(all_nonrpt_inds),:)*shift_mat{ii};
+    %         [~,~,rate_out(ii,:)] = NMMmodel_eval(cur_cormod,[],all_X{1});
+    %     end
+    %     disc_fin_tot_corr = round(fin_tot_corr/sp_dx);
+    %     uu = find(disc_fin_tot_corr >= -max_shift & disc_fin_tot_corr <= max_shift);
+    %     ep_dist = hist(disc_fin_tot_corr(uu),shifts);
+    %     ep_dist = ep_dist/sum(ep_dist);
+    %
+    %     cond_mrate = sum(bsxfun(@times,rate_out(:,used_nonrpt_inds),ep_dist'));
+    %     rate_out_ms = bsxfun(@minus,rate_out(:,used_nonrpt_inds),cond_mrate);
+    %     cond_var = sum(bsxfun(@times,rate_out_ms.^2,ep_dist'));
+    %     em_var = mean(cond_var);
+    %
+    %     ov_mrate = mean(Robs_mat(used_nonrpt_inds,cur_runit_ind));
+    %     tot_var = mean(sum(bsxfun(@times,(rate_out(:,used_nonrpt_inds)-ov_mrate).^2,ep_dist')));
+    %     var_data.st_mod_emvar(ss) = em_var;
+    %     var_data.st_mod_psthvar(ss) = nanvar(cond_mrate);
+    %     var_data.st_mod_totvar(ss) = tot_var;
+    %     var_data.st_mod_emvfrac(ss) = em_var/tot_var;
+    
 end
 
 %% Compute overall eye pos estimate
