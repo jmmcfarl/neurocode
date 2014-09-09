@@ -7,8 +7,8 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M297';
-Expt_name = 'M277';
+Expt_name = 'M296';
+% Expt_name = 'M277';
 use_MUA = false;
 bar_ori = 90; %bar orientation to use (only for UA recs)
 
@@ -731,9 +731,12 @@ for ii = 1:sac_buff+1
     cur_inds = saccade_stop_inds + (ii-1);
     cur_inds(cur_inds > NT) = [];
     in_sac_inds(cur_inds) = 1;
+end
+for ii = 1:length(saccade_start_inds)
     cur_inds = saccade_start_inds(ii):saccade_stop_inds(ii);
     in_sac_inds(cur_inds) = 1;
 end
+
 in_sac_inds = logical(in_sac_inds);
 
 blink_inds = find(used_is_blink);
@@ -881,11 +884,11 @@ full_EP_emb = nan(n_rpts,length(rpt_taxis),back_look);
 full_EP_filt = nan(n_rpts,length(rpt_taxis));
 for ii = 1:length(rpt_trials)
     cur_inds = find(all_trialvec(used_inds(all_rpt_inds)) == rpt_trials(ii));
-    in_sac(ii,:) = in_sac_inds(all_rpt_inds(cur_inds)) | in_blink_inds(all_rpt_inds(cur_inds));
-    full_EP(ii,:) = rpt_EP(cur_inds);
-    full_EP_emb(ii,:,:) = rpt_EP_emb(cur_inds,:);
+    in_sac(ii,1:length(cur_inds)) = in_sac_inds(all_rpt_inds(cur_inds)) | in_blink_inds(all_rpt_inds(cur_inds));
+    full_EP(ii,1:length(cur_inds)) = rpt_EP(cur_inds);
+    full_EP_emb(ii,1:length(cur_inds),:) = rpt_EP_emb(cur_inds,:);
     
-    full_EP_filt(ii,:) = conv(rpt_EP(cur_inds),back_kern,'same');
+    full_EP_filt(ii,1:length(cur_inds)) = conv(rpt_EP(cur_inds),back_kern,'same');
 end
 full_EP(in_sac) = nan;
 full_EP_filt(in_sac) = nan;
@@ -916,7 +919,7 @@ sorted_full_psth = nan(size(full_psth_ms));
 for tt = 1:length(rpt_taxis)
     sorted_mod_prates(:,tt,:) = mod_prates_ms(b(:,tt),tt,:);
     sorted_mod_prates(isnan(a(:,tt)),tt,:) = nan;
-
+    
     sorted_full_psth(:,tt,:) = full_psth_ms(b(:,tt),tt,:);
     sorted_full_psth(isnan(a(:,tt)),tt,:) = nan;
 end
@@ -926,7 +929,7 @@ space = 0.05;
 poss_lags = 0:space:maxlag;
 [II,JJ] = meshgrid(1:n_rpts);
 
-max_tlag = 0;
+max_tlag = 10;
 tlags = [-max_tlag:max_tlag];
 full_psth_shifted = nan(n_rpts,length(rpt_taxis),length(targs),length(tlags));
 for tt = 1:length(tlags)
@@ -942,11 +945,11 @@ for cc = 1:length(targs)
         
         Y2 = squeeze(full_psth_ms(:,tt,cc));
         
-%         cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
-%         cur_Dmat(logical(eye(n_rpts))) = nan;
-     cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
-    cur_Dmat(logical(eye(n_rpts))) = nan;
-       for jj = 1:length(poss_lags)-1
+        %         cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
+        %         cur_Dmat(logical(eye(n_rpts))) = nan;
+        cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
+        cur_Dmat(logical(eye(n_rpts))) = nan;
+        for jj = 1:length(poss_lags)-1
             curset = find(cur_Dmat > poss_lags(jj) & cur_Dmat <= poss_lags(jj+1));
             cur_XC(tt,jj,:,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:,:,:),Y2(JJ(curset),:,:)),1));
         end
@@ -957,17 +960,17 @@ end
 %%
 x_bin_edges = (poss_lags(1:end-1)+poss_lags(2:end))/2;
 % b = 0.5:2:maxlag;
-b = 0.05:0.1:maxlag;
+b = 0.5:0.5:maxlag;
 
 all_ZPT = nan(length(targs),length(targs),length(tlags));
 for ii = 1:length(targs)
-   for jj = 1:length(targs)
+    for jj = 1:length(targs)
         for kk = 1:length(tlags)
             x = x_bin_edges;
             y = squeeze(all_XC(:,ii,jj,kk));
             bad = find(isnan(y));  x(bad) = []; y(bad) = [];
             ss = fnxtr(csape(b,y(:).'/fnval(fnxtr(csape(b,eye(length(b)),'var')),x(:).'),'var'));
-            all_ZPT(ii,jj,kk) = fnval(ss,0);            
+            all_ZPT(ii,jj,kk) = fnval(ss,0);
         end
     end
 end
@@ -985,10 +988,10 @@ for ii = 1:length(targs)
         if ii ~= jj
             psth_xcov(ii,jj,:) = xcov(all_psths(:,ii),all_psths(:,jj),max_tlag,'biased');
             
-%             uset = find(~isnan(Robs_mat(all_rpt_inds,targs(ii))) & ~isnan(Robs_mat(all_rpt_inds,targs(jj))));
-%             if ~isempty(uset)
-%                 obs_xcov(ii,jj,:) = xcov(Robs_mat(all_rpt_inds(uset),targs(ii)),Robs_mat(all_rpt_inds(uset),targs(jj)),max_tlag,'biased');
-%             end
+            %             uset = find(~isnan(Robs_mat(all_rpt_inds,targs(ii))) & ~isnan(Robs_mat(all_rpt_inds,targs(jj))));
+            %             if ~isempty(uset)
+            %                 obs_xcov(ii,jj,:) = xcov(Robs_mat(all_rpt_inds(uset),targs(ii)),Robs_mat(all_rpt_inds(uset),targs(jj)),max_tlag,'biased');
+            %             end
             uset = find(~isnan(unfolded_psth_ms(:,ii)) & ~isnan(unfolded_psth_ms(:,jj)));
             if ~isempty(uset)
                 obs_xcov(ii,jj,:) = xcov(unfolded_psth_ms(uset,ii),unfolded_psth_ms(uset,jj),max_tlag,'biased');
@@ -1008,21 +1011,21 @@ tot_cov = nanvar(unfolded_psth_ms);
 close all
 ii = 1;
 for ii = 1:length(targs)
-subplot(3,1,1);
-imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
-ca = caxis();
-cam = max(abs(ca));
-caxis([-cam cam]);
-subplot(3,1,2);
-imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
-% imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
-caxis([-cam cam]*0.5);
-subplot(3,1,3);
-imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
-% imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
-caxis([-cam cam]*0.5);
-pause
-clf
+    subplot(3,1,1);
+    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
+    ca = caxis();
+    cam = max(abs(ca));
+    caxis([-cam cam]);
+    subplot(3,1,2);
+    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
+    % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
+    caxis([-cam cam]);
+    subplot(3,1,3);
+    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
+    % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
+    caxis([-cam cam]);
+    pause
+    clf
 end
 
 
@@ -1043,8 +1046,8 @@ for tt = 1:length(rpt_taxis)
     Y1 = squeeze(mod_prates_ms(:,tt,:));
     Y2 = squeeze(mod_prates_ms(:,tt,:));
     
-%             cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
-%             cur_Dmat(logical(eye(n_rpts))) = nan;
+    %             cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
+    %             cur_Dmat(logical(eye(n_rpts))) = nan;
     cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
     cur_Dmat(logical(eye(n_rpts))) = nan;
     
@@ -1080,19 +1083,66 @@ mtot_cov = nanvar(unfolded_mod_prates);
 close all
 ii = 1;
 for ii = 1:length(targs)
-subplot(3,1,1);
-imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
-ca = caxis();
-cam = max(abs(ca));
-caxis([-cam cam]);
-subplot(3,1,2);
-imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
-% imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
-caxis([-cam cam]);
-subplot(3,1,3);
-imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
-% imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
-caxis([-cam cam]);
-pause
-clf
+    subplot(3,1,1);
+    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
+    ca = caxis();
+    cam = max(abs(ca));
+    caxis([-cam cam]);
+    subplot(3,1,2);
+    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
+    % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
+    caxis([-cam cam]);
+    subplot(3,1,3);
+    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
+    % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
+    caxis([-cam cam]);
+    pause
+    clf
 end
+
+%%
+maxlag = round(0.1/new_dt);
+htr_xcovs = nan(length(targs),length(targs),2*maxlag+1);
+for ii = 1:length(targs)
+    sig1 = all_binned_sua_new(:,ii);
+    for jj= 1:length(targs)
+        if ii ~= jj
+            sig2 = all_binned_sua_new(:,jj);
+            uinds = find(~isnan(sig1) & ~isnan(sig2));
+            if ~isempty(uinds)
+                [htr_xcovs(ii,jj,:),htr_lags] = xcov(sig1(uinds),sig2(uinds),maxlag,'biased');
+            end
+        end
+    end
+end
+
+%%
+close all
+ii = 1;
+for ii = 1:length(targs)
+    ii
+%     subplot(2,2,1);
+%     imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
+%     ca = caxis();
+%     cam = max(abs(ca));
+%     caxis([-cam cam]);
+%     subplot(2,2,3);
+%     imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
+%     % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
+%     caxis([-cam cam]);
+%     subplot(2,2,2);
+%     imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
+%     % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
+%     caxis([-cam cam]);
+%     
+%     subplot(2,2,4);
+    imagescnan(htr_lags*new_dt,1:length(targs),squeeze(htr_xcovs(ii,:,:)));
+    % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
+    ca = caxis();
+    cam = max(abs(ca));
+    caxis([-cam cam]);
+    
+    pause
+    clf
+end
+

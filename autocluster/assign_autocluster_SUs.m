@@ -3,7 +3,7 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'G099';
+Expt_name = 'M281';
 
 Expt_num = str2num(Expt_name(2:end));
 if Expt_name(1) == 'M'
@@ -79,8 +79,9 @@ elseif strcmp(Expt_name,'G093')
     target_blocks(target_blocks == 28 | target_blocks == 52) = [];
 end
 
-if isfield(Expts{1}.Header,'exptno')
-raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+fused = find(cellfun(@(X) length(X),Expts) > 0,1);
+if isfield(Expts{fused}.Header,'exptno')
+    raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
 else
     raw_block_nums = 1:max(target_blocks);
 end
@@ -242,7 +243,7 @@ else
     end
 end
 
-bin_width = 0.0015;
+bin_width = 0.001;
 t_axis = loadedData.Vtime(1):bin_width:loadedData.Vtime(end);
 binned_spikes = [];
 for ii = 1:length(good_SUs)
@@ -279,8 +280,8 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-block_num = 6;
-pair = [25 26];
+block_num = 20;
+pair = [24 26];
 spk_pts = [-12:27];
 
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
@@ -350,15 +351,18 @@ switch Expt_name
     case 'M281'
         init_use_SUs = [4 5 6 7 8 9 10 13 17 18 20 22 24 26 27 28]; %M281
     case 'M287'
-        init_use_SUs = [2 6 7 8 9 11 12 13 16 18 19 21 24]; %M287
+%         init_use_SUs = [2 6 7 8 9 11 12 13 16 18 19 21 24]; %M287
+        init_use_SUs = [2 6 7 9 11 12 13 16 18 19 21 24]; %M287
     case 'M289'
-        init_use_SUs = [3 8 9 17 19 20]; %M289
+%         init_use_SUs = [3 8 9 17 19 20]; %M289
+        init_use_SUs = [3 8 9 17 20]; %M289
     case 'M294'
-        init_use_SUs = [3 6 8 9 10 11 13 15 18 22]; %M294
+%         init_use_SUs = [3 6 8 9 10 11 13 15 18 22]; %M294
+        init_use_SUs = [3 6 9 10 11 13 15 18 22]; %M294
     case 'M296'
         init_use_SUs = [11 13 15 16 17 18 21 23 26];
     case 'M297'
-        init_use_SUs = [1 2 4 6 7 10 11 14 19 21 22 23 27 28 29];
+        init_use_SUs = [1 2 4 6 10 11 14 19 21 22 23 28 29];
 
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
@@ -477,16 +481,18 @@ switch Expt_name
         SU_ID_mat([1:10],2) = nan;
         SU_ID_mat([12:end],6) = nan;
         SU_ID_mat([1:10],7) = nan;
-        SU_ID_mat([1:10],8) = nan;
+%         SU_ID_mat([1:10],8) = nan;
         SU_ID_mat([1:31],9) = nan;
         SU_ID_mat([10:end],11) = nan;
         SU_ID_mat([9:end],13) = nan;
         SU_ID_mat([1:23 28],18) = nan;
         SU_ID_mat([11:end],19) = nan;
-        SU_ID_mat([1:10],21) = nan;
-        SU_ID_mat([1:26],24) = nan;
+        SU_ID_mat([1:10 34:end],21) = nan;
+        SU_ID_mat([1:33],24) = nan;
         
-    case 'M289'
+        SU_ID_mat(~isnan(SU_ID_mat(:,24)),24) = SU_ID_mat(find(~isnan(SU_ID_mat(:,21)),1),21); %24 is the same as 21
+        
+   case 'M289'
         SU_ID_mat([1:18],3) = nan;
         SU_ID_mat([1:5],8) = nan;
         SU_ID_mat([1:5],20) = nan;
@@ -494,13 +500,14 @@ switch Expt_name
     case 'M294'
         SU_ID_mat([24],3) = nan;
         SU_ID_mat([24 30:end],6) = nan;
-        SU_ID_mat([30:end],8) = nan;
+%         SU_ID_mat([30:end],8) = nan;
         SU_ID_mat([30:end],9) = nan;
-        SU_ID_mat([1:22],10) = nan;
+        SU_ID_mat([1:29],10) = nan;
         SU_ID_mat([30:end],13) = nan;
         SU_ID_mat([1:29],17) = nan;
         SU_ID_mat([1:12],22) = nan;
         
+        SU_ID_mat(~isnan(SU_ID_mat(:,10)),10) = SU_ID_mat(find(~isnan(SU_ID_mat(:,9)),1),9); %10 is the same as 9
     case 'M296'
         SU_ID_mat([1],13) = nan;
         SU_ID_mat([12 13],15) = nan;

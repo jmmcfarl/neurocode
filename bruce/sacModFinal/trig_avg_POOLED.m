@@ -1058,6 +1058,35 @@ line(xl,[1 1],'color','k');
 % % close(f2);
 
 
+%% MSAC TOWARDS VS AWAY FROM RF
+N_msacs = [all_SU_data(:).N_msacs];
+msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);
+
+all_msac_Tow = reshape([all_SU_data(msac_used_SUs).msac_towards_avg],[],length(msac_used_SUs))';
+all_msac_Away = reshape([all_SU_data(msac_used_SUs).msac_away_avg],[],length(msac_used_SUs))';
+if sm_sigma > 0
+    for ii = 1:size(all_msac_Par,1)
+        all_msac_Tow(ii,:) = jmm_smooth_1d_cor(all_msac_Tow(ii,:),sm_sigma);
+        all_msac_Away(ii,:) = jmm_smooth_1d_cor(all_msac_Away(ii,:),sm_sigma);
+    end
+end
+search_range = [0 0.2];
+[par_Sfact,par_inhtime] = get_tavg_peaks(-(all_msac_Tow-1),tlags,search_range);
+[orth_Sfact,orth_inhtime] = get_tavg_peaks(-(all_msac_Away-1),tlags,search_range);
+
+search_range = [0.1 0.3];
+[par_Efact,par_exctime] = get_tavg_peaks(all_msac_Tow-1,tlags,search_range);
+[orth_Efact,orth_exctime] = get_tavg_peaks(all_msac_Away-1,tlags,search_range);
+
+xl = [-0.15 0.4];
+yl = [0.75 1.2];
+has_both = find(~isnan(all_msac_Tow(:,1)) & ~isnan(all_msac_Away(:,1)));
+f2 = figure(); 
+hold on
+h1=shadedErrorBar(tlags,nanmean(all_msac_Tow),nanstd(all_msac_Tow)/sqrt(length(has_both)),{'color','k'});
+h2=shadedErrorBar(tlags,nanmean(all_msac_Away),nanstd(all_msac_Away)/sqrt(length(has_both)),{'color','b'});
+xlim(xl);ylim(yl);
+line(xl,[1 1],'color','k');
 
 %% ANALYZE LAMINAR DEPENDENCIES
 load('/home/james/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')

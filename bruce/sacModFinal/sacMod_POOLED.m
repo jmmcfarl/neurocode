@@ -516,7 +516,7 @@ hold on
 % h1=shadedErrorBar(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_SUs,:)),std(all_gsac_Nsmodinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
 % h2=shadedErrorBar(slags*dt,mean(all_gsac_Nsmodinforate(use_gsac_SUs,:)),std(all_gsac_Nsmodinforate(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 h1=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinfo(use_gsac_SUs,:)),std(all_gsac_NTBinfo(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
-% h2=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinforate(use_gsac_SUs,:)),std(all_gsac_NTBinforate(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
+h2=shadedErrorBar(TB_slags*dt,mean(all_gsac_NTBinforate(use_gsac_SUs,:)),std(all_gsac_NTBinforate(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','k'});
 % legend([h1.mainLine h2.mainLine],{'TB','Mod-pred'});
 xlabel('Time (s)');
 ylabel('Relative info');

@@ -6,8 +6,8 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M297';
-Expt_name = 'G093';
+% Expt_name = 'M296';
+Expt_name = 'G086';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -702,15 +702,18 @@ xv_inds = find(ismember(all_trialvec(used_inds),xv_trials));
 full_inds = find(ismember(all_trialvec(used_inds),use_trials));
 
 %%
-sac_buff = round(0.05/dt);
+sac_buff = round(0.06/dt);
 in_sac_inds = zeros(NT,1);
 for ii = 1:sac_buff+1
     cur_inds = saccade_stop_inds + (ii-1);
     cur_inds(cur_inds > NT) = [];
     in_sac_inds(cur_inds) = 1;
+end
+for ii = 1:length(saccade_start_inds)
     cur_inds = saccade_start_inds(ii):saccade_stop_inds(ii);
     in_sac_inds(cur_inds) = 1;
 end
+
 in_sac_inds = logical(in_sac_inds);
 
 blink_inds = find(used_is_blink);
@@ -737,6 +740,24 @@ if use_MUA
 else
     targs = setdiff(1:n_chs,1:n_probes); %SU only
 end
+
+%%
+Xsac = zeros(NT,length(slags));
+Xmsac = zeros(NT,length(slags));
+for ii = 1:n_sac_bins
+    cur_sac_target = saccade_start_inds(big_sacs) + slags(ii);
+    uu = find(cur_sac_target > 1 & cur_sac_target < NT);
+    cur_sac_target = cur_sac_target(uu);
+    cur_sac_target(all_trialvec(used_inds(cur_sac_target)) ~= saccade_trial_inds(big_sacs(uu))) = [];
+    Xsac(cur_sac_target,ii) = 1;
+    
+    cur_sac_target = saccade_start_inds(micro_sacs) + slags(ii);
+    uu = find(cur_sac_target > 1 & cur_sac_target < NT);
+    cur_sac_target = cur_sac_target(uu);
+    cur_sac_target(all_trialvec(used_inds(cur_sac_target)) ~= saccade_trial_inds(micro_sacs(uu))) = [];
+    Xmsac(cur_sac_target,ii) = 1;
+end
+
 
 %%
 %in these experiments the trials with static fp were the sim sac trials
@@ -790,80 +811,177 @@ all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
 all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
 
 %%
+gain_d2T = 50;
+silent = 1;
 for ss = 1:length(targs)
     cc = targs(ss);
     cur_Robs = Robs_mat(:,cc);
     cc_uinds = find(~isnan(cur_Robs));
+    cur_Xsac = Xmsac(cc_uinds,:);
+    
     if ~isempty(cc_uinds)
         cur_mod = ModData(cc).rectGQM;
         cur_mod = NMMfit_scale(cur_mod,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
         cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
         
         mod_fits(ss) = cur_mod;
-                
-    end  
-end
-
-%%
-full_EP_mat = nan(n_ET_trials,length(rpt_taxis));
-for ii = 1:n_ET_trials
-    cur_inds = find(all_trialvec(used_inds)==used_static_fix_trials(ii));
-    full_EP_mat(ii,:) = fin_tot_corr(cur_inds);
-end
-
-
-%%
-n_frames = trial_dur/dt;
-%filter outputs
-nPix = stim_params.stim_dims(2); %number of bars
-%    nPix = sp.stim_dims(2);
-if ismember(Expt_name,{'G091','G092','G093'})
-    dds = 0.67;
-else
-    dds = 0.12;
-end
-
-%create random bar stim
-rand_stim = zeros(n_frames,nPix);
-rand_mat = rand(n_frames,nPix);
-rand_stim(rand_mat <= dds/2) = -1;
-rand_stim(rand_mat >= 1-(dds/2)) = 1;
-
-%up-sample bars
-rpt_stim = zeros(size(rand_stim,1),nPix*spatial_usfac);
-for ii = 1:size(rand_stim,2)
-    for jj = 1:spatial_usfac
-        rpt_stim(:,spatial_usfac*(ii-1)+jj) = rand_stim(:,ii);
+        
+        stim_mod_signs = [cur_mod.mods(:).sign];
+        [~,~,~,~,filt_outs,fgint] = NMMmodel_eval(cur_mod,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
+        fgint = bsxfun(@times,fgint,stim_mod_signs);
+        stimG = sum(fgint,2);
+        
+        Xsac_tot = bsxfun(@times,cur_Xsac,stimG);
+        clear tr_stim
+        tr_stim{1} = [stimG];
+        tr_stim{2} = cur_Xsac;
+        tr_stim{3} = Xsac_tot;
+        clear sac_stim_params
+        sac_stim_params(1) = NMMcreate_stim_params(1);
+        sac_stim_params(2:3) = NMMcreate_stim_params([size(Xsac_tot,2)]);
+        mod_signs = [1 1 1];
+        Xtargets = [1 2 3];
+        NL_types = {'lin','lin','lin'};
+        
+        sac_reg_params = NMMcreate_reg_params('lambda_d2T',gain_d2T,'boundary_conds',[0 0 0]);
+        cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+        cur_mod.mods(1).reg_params = NMMcreate_reg_params();
+        cur_mod.spk_NL_params = mod_fits(ss).spk_NL_params;
+        cur_mod = NMMfit_filters(cur_mod,cur_Robs(cc_uinds),tr_stim,[],[],silent);
+               
+        sacmod_fits(ss) = cur_mod;
     end
 end
-rpt_stim_emb = create_time_embedding(rpt_stim,stim_params_us);
-rpt_stim_emb = rpt_stim_emb(:,use_kInds_up);
-beg_buff_frames = round(beg_buffer/dt);
-end_buff_frames = round(end_buffer/dt);
-rpt_stim_emb([1:beg_buff_frames (end-end_buff_frames+1):end],:) = [];
-
 
 %%
-ep_rpt_stim = nan(n_ET_trials,length(rpt_taxis),length(use_kInds_up));
-for ii = 1:n_ET_trials
-    shift_rpt_stim = rpt_stim;
-    for jj=1:length(rpt_taxis)
-        shift_rpt_stim(jj+beg_buff_frames,:) = shift_matrix_Nd(rpt_stim(jj,:),-round(full_EP_mat(ii,jj)),2);
+
+poss_SDs = [0.05 0.075 0.09 0.1 0.11 0.125 0.15];
+for sd = 1:length(poss_SDs)
+    sd
+    
+    cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
+    cur_fix_post_std = squeeze(it_fix_post_std(end,:));
+    cur_drift_post_mean = squeeze(drift_post_mean(end,:));
+    cur_drift_post_std = squeeze(drift_post_std(end,:));
+    
+    % cur_drift_post_mean = zeros(size(cur_drift_post_mean));
+    
+    [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+        cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+    
+    % for ii = 1:n_fixs
+    %    cur_fix_inds = fix_start_inds(ii):fix_stop_inds(ii);
+    %    fin_tot_corr(cur_fix_inds) = fin_tot_corr(cur_fix_inds) - nanmean(fin_tot_corr(cur_fix_inds));
+    % end
+    
+    used_sf_inds = find(ismember(all_trialvec(used_inds),used_static_fix_trials));
+    
+%     %remove overall median offset in EP
+%     fin_tot_corr = fin_tot_corr - nanmedian(fin_tot_corr(used_sf_inds));
+%     
+%     %rescale robust SD
+%     fin_tot_corr = fin_tot_corr./robust_std_dev(fin_tot_corr(used_sf_inds))*poss_SDs(sd)/sp_dx;
+    %%
+    
+    full_EP_mat = nan(n_ET_trials,length(rpt_taxis));
+    full_EP_blink = false(n_ET_trials,length(rpt_taxis));
+    full_EP_sac = false(n_ET_trials,length(rpt_taxis));
+    for ii = 1:n_ET_trials
+        cur_inds = find(all_trialvec(used_inds)==used_static_fix_trials(ii));
+        full_EP_mat(ii,:) = fin_tot_corr(cur_inds);
+        full_EP_blink(ii,:) = in_blink_inds(cur_inds);
+        full_EP_sac(ii,:) = in_sac_inds(cur_inds);
     end
-    temp = create_time_embedding(shift_rpt_stim,stim_params_us);
-    ep_rpt_stim(ii,:,:) = temp((beg_buff_frames+1):(end-end_buff_frames),use_kInds_up);
+    
+    full_EP_blink = repmat(full_EP_blink,[1 1 length(targs)]);
+    full_EP_sac = repmat(full_EP_sac,[1 1 length(targs)]);
+    
+    full_Xmsac = Xmsac(used_sf_inds,:);
+    %% CREATE SINGLE-TRIAL STIM
+    n_frames = trial_dur/dt;
+    %filter outputs
+    nPix = stim_params.stim_dims(2); %number of bars
+    %    nPix = sp.stim_dims(2);
+    if ismember(Expt_name,{'G091','G092','G093'})
+        dds = 0.67;
+    else
+        dds = 0.12;
+    end
+    
+    n_repeat_stims = 10;
+    for nn = 1:n_repeat_stims        
+        %create random bar stim
+        rand_stim = zeros(n_frames,nPix);
+        rand_mat = rand(n_frames,nPix);
+        rand_stim(rand_mat <= dds/2) = -1;
+        rand_stim(rand_mat >= 1-(dds/2)) = 1;
+        
+        %up-sample bars
+        rpt_stim = zeros(size(rand_stim,1),nPix*spatial_usfac);
+        for ii = 1:size(rand_stim,2)
+            for jj = 1:spatial_usfac
+                rpt_stim(:,spatial_usfac*(ii-1)+jj) = rand_stim(:,ii);
+            end
+        end
+        rpt_stim_emb = create_time_embedding(rpt_stim,stim_params_us);
+        rpt_stim_emb = rpt_stim_emb(:,use_kInds_up);
+        beg_buff_frames = round(beg_buffer/dt);
+        end_buff_frames = round(end_buffer/dt);
+        rpt_stim_emb([1:beg_buff_frames (end-end_buff_frames+1):end],:) = [];
+        
+        
+        %% CREATE EYECORRECTED STIMULUS
+        ep_rpt_stim = nan(n_ET_trials,length(rpt_taxis),length(use_kInds_up));
+        for ii = 1:n_ET_trials
+            shift_rpt_stim = rpt_stim;
+            for jj=1:length(rpt_taxis)
+                shift_rpt_stim(jj+beg_buff_frames,:) = shift_matrix_Nd(rpt_stim(jj,:),-round(full_EP_mat(ii,jj)),2);
+            end
+            temp = create_time_embedding(shift_rpt_stim,stim_params_us);
+            ep_rpt_stim(ii,:,:) = temp((beg_buff_frames+1):(end-end_buff_frames),use_kInds_up);
+        end
+        ep_rpt_stim = permute(ep_rpt_stim,[2 1 3]);
+        ep_rpt_stim = reshape(ep_rpt_stim,[],length(use_kInds_up));
+        
+        %% COMPUTE TBT RATE RESPONSES
+        mod_allrates = nan(size(ep_rpt_stim,1),length(targs));
+        smod_allrates = nan(size(ep_rpt_stim,1),length(targs));
+        mod_psth = nan(length(rpt_taxis),length(targs));
+        for ss = 1:length(targs)
+            cur_mod = mod_fits(ss);
+            [~,~,mod_psth(:,ss)] = NMMmodel_eval(cur_mod,[],rpt_stim_emb);
+            
+            [~,~,mod_allrates(:,ss),G] = NMMmodel_eval(cur_mod,[],ep_rpt_stim);
+            stimG = G - cur_mod.spk_NL_params(1);
+            
+            Xsac_tot = bsxfun(@times,full_Xmsac,stimG);
+            tr_stim{1} = [stimG];
+            tr_stim{2} = full_Xmsac;
+            tr_stim{3} = Xsac_tot;
+            [~,~,smod_allrates(:,ss)] = NMMmodel_eval(sacmod_fits(ss),[],tr_stim);
+            
+        end
+        mod_allrates = reshape(mod_allrates,[],n_ET_trials,length(targs));
+        mod_allrates = permute(mod_allrates,[2 1 3]);
+        
+        smod_allrates = reshape(smod_allrates,[],n_ET_trials,length(targs));
+        smod_allrates = permute(smod_allrates,[2 1 3]);
+        
+        mod_allrates(full_EP_blink) = nan;
+        smod_allrates(full_EP_blink) = nan;
+        %     mod_allrates(full_EP_sac) = nan;
+        
+        emp_psths = squeeze(nanmean(mod_allrates));
+        sac_emp_psths = squeeze(nanmean(smod_allrates));
+        
+        
+        %%
+        emp_psth_var(nn,:) = nanvar(emp_psths);
+        theor_psth_var(nn,:) = nanvar(mod_psth);
+        emp_signal_var(nn,:) = squeeze(nanmean(nanvar(mod_allrates,[],2)))';
+        
+    end
+    
+    avg_ratio(sd,:) = mean(emp_psth_var./emp_signal_var);
 end
-ep_rpt_stim = permute(ep_rpt_stim,[2 1 3]);
-ep_rpt_stim = reshape(ep_rpt_stim,[],length(use_kInds_up));
-%%
-mod_allrates = nan(size(ep_rpt_stim,1),length(targs));
-mod_psth = nan(length(targs),length(rpt_taxis));
-for ss = 1:length(targs)
-    cur_mod = mod_fits(ss);
-            [~,~,mod_psth(ss,:)] = NMMmodel_eval(cur_mod,[],rpt_stim_emb);
 
-    [~,~,mod_allrates(:,ss)] = NMMmodel_eval(cur_mod,[],ep_rpt_stim);
-end
-mod_allrates = reshape(mod_allrates,[],n_ET_trials,length(targs));
-mod_allrates = permute(mod_allrates,[2 1 3]);
-emp_psths = squeeze(mean(mod_allrates));

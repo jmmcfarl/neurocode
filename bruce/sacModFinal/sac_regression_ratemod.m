@@ -85,18 +85,14 @@ use_coils = [1 0];
 
 %% SET ANALYSIS PARAMETERS
 stim_fs = 100; %in Hz
-dt = 0.005;
+dt = 0.01;
 
 min_trial_dur = 0.75;
 beg_buffer = 0.2;
 end_buffer = 0.05;
 
-backlag = round(0.25/dt);
-forwardlag = round(0.55/dt);
-
-sua_sm_sig = (0.01/dt);
-% mua_sm_sig = (0.005/dt);
-mua_sm_sig = 0;
+backlag = round(0.2/dt);
+forlag = round(0.4/dt);
 
 if strcmp(Expt_name,'G081') || ismember(Expt_num,[232 235 239])
     trial_dur = 2;
@@ -110,7 +106,6 @@ max_sac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
 max_gsac_dur = 0.1;
 
-nboot = 200; %number of bootstrap samples for computing trig-avg SD
 
 %% LOAD EXPTS STRUCT
 cd(data_dir)
@@ -382,56 +377,6 @@ SU_numbers = Clust_data.SU_numbers;
 SU_isodist = Clust_data.SU_isodists;
 SU_Lratio = Clust_data.SU_Lratios;
 
-%% SMOOTH AND NORMALIZE SPIKING DATA
-all_mua_rate = nan(size(all_binned_mua));
-mua_block_mean_rates = nan(length(cur_block_set),n_probes);
-mua_block_n_spikes = nan(length(cur_block_set),n_probes);
-for ee = 1:length(cur_block_set)
-    cur_block_inds = find(all_blockvec==ee);
-    if ~isempty(cur_block_inds)
-        for cc = 1:n_probes
-            if mua_sm_sig > 0
-                all_mua_rate(cur_block_inds,cc) = jmm_smooth_1d_cor(all_binned_mua(cur_block_inds,cc),mua_sm_sig);
-            else
-                all_mua_rate(cur_block_inds,cc) = all_binned_mua(cur_block_inds,cc);
-            end
-        end
-        mua_block_mean_rates(ee,:) = mean(all_mua_rate(cur_block_inds,:));
-        mua_block_n_spikes(ee,:) = sum(all_binned_mua(cur_block_inds,:));
-    end
-end
-
-all_sua_rate = nan(size(all_binned_sua));
-sua_block_mean_rates = nan(length(cur_block_set),length(SU_numbers));
-sua_block_n_spikes = nan(length(cur_block_set),length(SU_numbers));
-for ee = 1:length(cur_block_set)
-    cur_block_inds = find(all_blockvec==ee);
-    if ~isempty(cur_block_inds)
-        for ss = 1:length(SU_numbers)
-            if sua_sm_sig > 0
-                all_sua_rate(cur_block_inds,ss) = jmm_smooth_1d_cor(all_binned_sua(cur_block_inds,ss),sua_sm_sig);
-            else
-                all_sua_rate(cur_block_inds,ss) = all_binned_sua(cur_block_inds,ss);
-            end
-        end
-        sua_block_mean_rates(ee,:) = mean(all_sua_rate(cur_block_inds,:));
-        sua_block_n_spikes(ee,:) = sum(all_binned_sua(cur_block_inds,:));
-    end
-end
-
-%normalized firing rates within each block
-all_sua_rate_norm = nan(size(all_sua_rate));
-all_mua_rate_norm = nan(size(all_mua_rate));
-for ee = 1:length(cur_block_set)
-    cur_block_inds = find(all_blockvec==ee);
-    if ~isempty(cur_block_inds)
-        all_sua_rate_norm(cur_block_inds,:) = bsxfun(@rdivide,all_sua_rate(cur_block_inds,:),...
-            sua_block_mean_rates(ee,:));
-        all_mua_rate_norm(cur_block_inds,:) = bsxfun(@rdivide,all_mua_rate(cur_block_inds,:),...
-            mua_block_mean_rates(ee,:));
-    end
-end
-
 %% DEFINE DATA USED FOR ANALYSIS
 used_inds = find(all_tsince_start >= beg_buffer & all_ttill_end >= end_buffer);
 
@@ -643,201 +588,158 @@ else
     msac_Orth_sub = msac_Orth;
 end
 
-%% FOR TBT experiments, normalize firing rates separately within each trial-type
-if is_TBT_expt
-    grayback_trial_inds = find(ismember(all_trialvec,grayback_gs_trials));
-    all_mua_rate_norm(grayback_trial_inds,:) = bsxfun(@rdivide,all_mua_rate_norm(grayback_trial_inds,:),nanmean(all_mua_rate_norm(grayback_trial_inds,:)));
-    all_sua_rate_norm(grayback_trial_inds,:) = bsxfun(@rdivide,all_sua_rate_norm(grayback_trial_inds,:),nanmean(all_sua_rate_norm(grayback_trial_inds,:)));
+
+%%
+n_blocks = length(unique(all_blockvec));
+Xblock = zeros(length(all_t_axis),n_blocks);
+for i = 1:n_blocks
+    cur_set = find(all_blockvec==i);
+    Xblock(cur_set,i) = 1;
+end
+
+%%
+sim_sac_trials = all_trialvec(all_sim_sacs);
+
+slags = -backlag:forlag;
+n_sac_bins = length(slags);
+Xsac = zeros(length(all_t_axis),length(slags));
+Xmsac = zeros(length(all_t_axis),length(slags));
+Xsimsac = zeros(length(all_t_axis),length(slags));
+for ii = 1:n_sac_bins
+    cur_sac_target = sac_start_inds(gsac_set) + slags(ii);
+    uu = find(cur_sac_target > 1 & cur_sac_target < length(all_t_axis));
+    cur_sac_target = cur_sac_target(uu);
+    cur_sac_target(all_trialvec(cur_sac_target) ~= sac_trial_inds(gsac_set(uu))) = [];
+    Xsac(cur_sac_target,ii) = 1;
     
-    imback_trial_inds = find(ismember(all_trialvec,imback_gs_trials));
-    all_mua_rate_norm(imback_trial_inds,:) = bsxfun(@rdivide,all_mua_rate_norm(imback_trial_inds,:),nanmean(all_mua_rate_norm(imback_trial_inds,:)));
-    all_sua_rate_norm(imback_trial_inds,:) = bsxfun(@rdivide,all_sua_rate_norm(imback_trial_inds,:),nanmean(all_sua_rate_norm(imback_trial_inds,:)));
+    cur_sac_target = sac_start_inds(micro_set) + slags(ii);
+    uu = find(cur_sac_target > 1 & cur_sac_target < length(all_t_axis));
+    cur_sac_target = cur_sac_target(uu);
+    cur_sac_target(all_trialvec(cur_sac_target) ~= sac_trial_inds(micro_set(uu))) = [];
+    Xmsac(cur_sac_target,ii) = 1;
 
-    simsac_trial_inds = find(ismember(all_trialvec,sim_sac_trials));
-    all_mua_rate_norm(simsac_trial_inds,:) = bsxfun(@rdivide,all_mua_rate_norm(simsac_trial_inds,:),nanmean(all_mua_rate_norm(simsac_trial_inds,:)));
-    all_sua_rate_norm(simsac_trial_inds,:) = bsxfun(@rdivide,all_sua_rate_norm(simsac_trial_inds,:),nanmean(all_sua_rate_norm(simsac_trial_inds,:)));
+    cur_sac_target = all_sim_sacs + slags(ii);
+    uu = find(cur_sac_target > 1 & cur_sac_target < length(all_t_axis));
+    cur_sac_target = cur_sac_target(uu);
+    cur_sac_target(all_trialvec(cur_sac_target) ~= sim_sac_trials(uu)) = [];
+    Xsimsac(cur_sac_target,ii) = 1;
 end
 
-%% SACCADE TIMING ANALYSIS
-sac_sm = round(0.025/dt);
-binned_msacs = hist(sac_start_inds(micro_set),1:length(all_t_axis));
-binned_gsacs = hist(sac_start_inds(gsac_set),1:length(all_t_axis));
-binned_msac_sm = jmm_smooth_1d_cor(binned_msacs,sac_sm);
-binned_gsac_sm = jmm_smooth_1d_cor(binned_gsacs,sac_sm);
+%%
+cd(save_dir)
+sname = 'sac_trig_avg_data';
+sname = [sname sprintf('_ori%d',bar_ori)];
+load(sname);
 
-maxlag = round(0.5/dt);
-[gen_data.msac_acorr,acorr_lags] = xcov(binned_msac_sm,maxlag,'coeff');
-[gen_data.gsac_acorr,acorr_lags] = xcov(binned_gsac_sm,maxlag,'coeff');
-[gen_data.msac_gsac_xcorr,acorr_lags] = xcov(binned_gsac_sm,binned_msac_sm,maxlag,'coeff');
+tlags = trig_avg_params.lags;
+tdt = trig_avg_params.dt;
+tlags = tlags*tdt;
 
-gen_data.N_blinks = sum(used_is_blink);
-gen_data.N_msacs = length(micro_set);
-gen_data.N_gsacs = length(gsac_set);
-gen_data.N_simsacs = length(all_sim_sacs);
-gen_data.N_simmsacs = length(all_sim_msacs);
-gen_data.N_blanks = length(all_sim_blanks);
-gen_data.N_msacs_gray = length(intersect(micro_set,gback_sacs));
-gen_data.N_gsacs_gray = length(intersect(gsac_set,gback_sacs));
-gen_data.N_msacs_im = length(intersect(micro_set,iback_sacs));
-gen_data.N_gsacs_im = length(intersect(gsac_set,iback_sacs));
-gen_data.N_msacs_Par = length(msac_Par);
-gen_data.N_msacs_Orth = length(msac_Orth);
+%% COMPUTE CROSS CORRELATION BETWEEN MSAC TIMES WITH GSACS AND SIMSACS
+binned_msacs = Xmsac(:,slags==0);
+binned_gsacs = Xsac(:,slags==0);
+binned_simsacs = Xsimsac(:,slags==0);
 
-%% COMPUTE TRIG AVGS FOR MUA
+non_simsac_trials = setdiff(1:length(unique(all_trialvec)),sim_sac_trials);
 
-%set trial numbers to Inf outside of used inds so they don't get included in trig averaging
-used_trialvec = ones(size(all_trialvec))*Inf;
-used_trialvec(used_inds) = all_trialvec(used_inds);
+maxlag = round(0.75/dt);
+cur_uinds = used_inds(ismember(all_trialvec(used_inds),sim_sac_trials));
+[msac_simsac_xcorr,xcorr_lags] = xcov(binned_msacs,binned_simsacs,maxlag,'coeff');
 
-fprintf('Computing trig avgs for MUA\n');
-%general averages
-[mua_data.msac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(gsac_set),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.simsac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,all_sim_sacs,backlag,forwardlag,[],used_trialvec,0);
-[mua_data.simmsac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,all_sim_msacs,backlag,forwardlag,[],used_trialvec,0);
-[mua_data.blank_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,all_sim_blanks,backlag,forwardlag,[],used_trialvec,0);
+cur_uinds = used_inds(ismember(all_trialvec(used_inds),non_simsac_trials));
+[msac_gsac_xcorr,xcorr_lags] = xcov(binned_msacs,binned_gsacs,maxlag,'coeff');
 
-[mua_data.msac_burst_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_bursts),backlag,forwardlag,[],used_trialvec,0);
+xcorr_data.msac_simsac_xcorr = msac_simsac_xcorr;
+xcorr_data.msac_gsac_xcorr = msac_gsac_xcorr;
+xcorr_data.lags = xcorr_lags*dt;
 
-%background dependent
-[mua_data.msac_gray_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(intersect(micro_set,gback_sacs)),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_gray_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(intersect(gsac_set,gback_sacs)),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_im_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(intersect(micro_set,iback_sacs)),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_im_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(intersect(gsac_set,iback_sacs)),backlag,forwardlag,[],used_trialvec,0);
+%%
+lambda_d2T = 50;
+lambda_L2 = 5;
+min_sacs = 100;
+silent = 1;
 
-%timing 
-[mua_data.msac_end_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_stop_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_end_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_stop_inds(gsac_set),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_peak_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_peak_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_peak_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_peak_inds(gsac_set),backlag,forwardlag,[],used_trialvec,0);
+stim_params(1) = NMMcreate_stim_params(n_blocks);
+stim_params(2:4) = NMMcreate_stim_params(length(slags));
+reg_params = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'lambda_L2',lambda_L2);
 
-%amp dependent
-[mua_data.large_msac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(large_msacs),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.small_msac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(small_msacs),backlag,forwardlag,[],used_trialvec,0);
-
-%sac-direction dependent
-[mua_data.msac_towards_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_towards),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_away_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_aways),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_vert_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_vert),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_hor_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_hor),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_Orth_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Orth),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_Par_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Par),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_Orth_sub_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Orth_sub),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_Par_sub_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_Par_sub),backlag,forwardlag,[],used_trialvec,0);
-
-[mua_data.msac_gr_vert_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_gray_vert),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.msac_gr_hor_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_gray_hor),backlag,forwardlag,[],used_trialvec,0);
-
-[mua_data.gsac_out_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(outsacs),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_in_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(insacs),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_neg_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(negsacs),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_pos_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(possacs),backlag,forwardlag,[],used_trialvec,0);
-
-[mua_data.gsac_outpos_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(out_pos_sacs),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_inpos_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(in_pos_sacs),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_outneg_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(out_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
-[mua_data.gsac_inneg_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(in_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
-
-[mua_data.blink_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(used_is_blink),backlag,forwardlag,[],used_trialvec,0);
-
-mua_data.avg_rates = mean(all_binned_mua(used_inds,:));
-mua_data.tot_nspikes = sum(all_binned_mua(used_inds,:));
-
-%% COMPUTE TRIG AVGS FOR SUA
-block_SU_rates = nan(length(cur_block_set),length(SU_probes));
-for ii = 1:length(cur_block_set)
-    block_SU_rates(ii,:) = nanmean(all_binned_sua(all_blockvec == ii,:));
-end
+X{1} = Xblock;
+X{2} = Xsac;
+X{3} = Xmsac;
+X{4} = Xsimsac;
 
 for ss = 1:length(SU_numbers)
-    fprintf('Computing trig avgs for SU %d of %d\n',ss,length(SU_numbers));
+    fprintf('Computing GLMs for SU %d of %d\n',ss,length(SU_numbers));
+     
+    cc_uinds = used_inds(~isnan(all_binned_sua(used_inds,ss)));
+    cur_Robs = all_binned_sua(cc_uinds,ss);
     
-    sua_data(ss).SU_numbers = SU_numbers(ss);
-    sua_data(ss).probe_numbers = SU_probes(ss);
+    mod_signs = [1];
+    mod_Xtargs = [1];
+    if sua_data(ss).N_gsacs >= min_sacs
+        mod_signs = [mod_signs 1];
+        mod_Xtargs = [mod_Xtargs 2];
+    end
+    if sua_data(ss).N_msacs >= min_sacs
+        mod_signs = [mod_signs 1];
+        mod_Xtargs = [mod_Xtargs 3];
+    end
+    if sua_data(ss).N_simsacs >= min_sacs
+        mod_signs = [mod_signs 1];
+        mod_Xtargs = [mod_Xtargs 4];
+    end
     
-    sua_data(ss).avg_rates = nanmean(all_binned_sua(used_inds,ss));
-    sua_data(ss).tot_nspikes = nansum(all_binned_sua(used_inds,ss));
-    sua_data(ss).N_used_samps = nansum(~isnan(all_binned_sua(used_inds,ss)));
+    glm = NMMinitialize_model(stim_params,mod_signs,repmat({'lin'},1,length(mod_signs)),reg_params,mod_Xtargs);
+    glm.mods(1).reg_params = NMMcreate_reg_params();
     
-    cur_Ublocks = find(~isnan(block_SU_rates(:,ss)));
+    glm = NMMfit_filters(glm,cur_Robs,get_Xcell_tInds(X,cc_uinds),[],[],silent);
+    glm = NMMfit_logexp_spkNL( glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
     
-    sua_data(ss).rate_stability_cv = nanstd(block_SU_rates(cur_Ublocks,ss))./nanmean(block_SU_rates(cur_Ublocks,ss));
-    sua_data(ss).dprime_stability_cv = nanstd(Clust_data.SU_dprimes(ss,cur_Ublocks))/nanmean(Clust_data.SU_dprimes(ss,cur_Ublocks));
-    sua_data(ss).SU_Lratio = nanmean(Clust_data.SU_Lratios(ss,cur_Ublocks));
-    sua_data(ss).SU_isodist = nanmean(Clust_data.SU_isodists(ss,cur_Ublocks(Clust_data.SU_isoRel(ss,cur_Ublocks)==1)),2);
-    sua_data(ss).SU_refract = nanmean(Clust_data.SU_refract(ss,cur_Ublocks));
-    sua_data(ss).SU_dprime = nanmean(Clust_data.SU_dprimes(ss,cur_Ublocks));
+    [LL, penLL, pred_rate, G, gint, fgint] = NMMmodel_eval(glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
+    avg_mod_outs = nanmean(fgint);
+    temp_kerns = [glm.mods(2:end).filtK];
     
-    sua_data(ss).N_msacs = sum(~isnan(all_binned_sua(sac_start_inds(micro_set),ss)));
-    sua_data(ss).N_gsacs = sum(~isnan(all_binned_sua(sac_start_inds(gsac_set),ss)));
-    sua_data(ss).N_simsacs = sum(~isnan(all_binned_sua(all_sim_sacs,ss)));
-    sua_data(ss).N_simmsacs = sum(~isnan(all_binned_sua(all_sim_msacs,ss)));
-    sua_data(ss).N_blanks = sum(~isnan(all_binned_sua(all_sim_blanks,ss)));
-    sua_data(ss).N_msacs_gray = sum(~isnan(all_binned_sua(sac_start_inds(intersect(micro_set,gback_sacs)),ss)));
-    sua_data(ss).N_gsacs_gray = sum(~isnan(all_binned_sua(sac_start_inds(intersect(gsac_set,gback_sacs)),ss)));
-    sua_data(ss).N_msacs_im = sum(~isnan(all_binned_sua(sac_start_inds(intersect(micro_set,iback_sacs)),ss)));
-    sua_data(ss).N_gsacs_im = sum(~isnan(all_binned_sua(sac_start_inds(intersect(gsac_set,iback_sacs)),ss)));
-    sua_data(ss).N_msacs_hor = sum(~isnan(all_binned_sua(sac_start_inds(msac_hor),ss)));
-    sua_data(ss).N_msacs_vert = sum(~isnan(all_binned_sua(sac_start_inds(msac_vert),ss)));
+    sua_data(ss).glm_avg_rate = mean(cur_Robs);
+    sua_data(ss).glm_lags = slags;
+    sua_data(ss).glm_dt = dt;
     
-    %general averages
-    [sua_data(ss).msac_avg,lags,sua_data(ss).msac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_avg,lags,sua_data(ss).gsac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(gsac_set),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).simsac_avg,lags,sua_data(ss).simsac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_sacs,backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).simmsac_avg,lags,sua_data(ss).simmsac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_msacs,backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).blank_avg,lags,sua_data(ss).blank_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_blanks,backlag,forwardlag,nboot,used_trialvec,0);
-    
-    %background dependent
-    [sua_data(ss).msac_gray_avg,lags,sua_data(ss).msac_gray_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_gray_avg,lags,sua_data(ss).gsac_gray_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).msac_im_avg,lags,sua_data(ss).msac_im_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_im_avg,lags,sua_data(ss).gsac_im_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    
-    %dont compute error bars for these...
-    
-    %timing dependent
-    [sua_data(ss).msac_burst_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_bursts),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_end_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_stop_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_end_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_stop_inds(gsac_set),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_peak_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_peak_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_peak_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_peak_inds(gsac_set),backlag,forwardlag,[],used_trialvec,0);
-    
-    %sac-location dependent
-    [sua_data(ss).gsac_out_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(outsacs),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_in_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(insacs),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_neg_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(negsacs),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_pos_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(possacs),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_outpos_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(out_pos_sacs),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_inpos_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(in_pos_sacs),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_outneg_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(out_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).gsac_inneg_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(in_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
-    
-    %msac-direction dependent
-    [sua_data(ss).msac_towards_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_towards),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_away_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_aways),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_vert_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_vert),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_hor_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_hor),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_Par_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Par),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_Orth_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Orth),backlag,forwardlag,[],used_trialvec,0);
+    gsac_kern = find(mod_Xtargs(2:end) == 2);
+    if ~isempty(gsac_kern)
+        other_kerns = find(mod_Xtargs ~= 2);
+        g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns));
+        exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+        rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+        sua_data(ss).glm_gsac_rate = rate_out;
+    else
+        sua_data(ss).glm_gsac_rate = nan;
+    end
+ 
+    msac_kern = find(mod_Xtargs(2:end) == 3);
+    if ~isempty(msac_kern)
+        other_kerns = find(mod_Xtargs ~= 3);
+        g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns));
+        exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+        rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+        sua_data(ss).glm_msac_rate = rate_out;
+    else
+        sua_data(ss).glm_msac_rate = nan;
+    end
 
-    [sua_data(ss).msac_Par_sub_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Par_sub),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_Orth_sub_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_Orth_sub),backlag,forwardlag,[],used_trialvec,0);
-
-    [sua_data(ss).msac_gr_vert_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_vert),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_gr_hor_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_hor),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_gr_Par_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_Par),backlag,forwardlag,[],used_trialvec,0);
-    [sua_data(ss).msac_gr_Orth_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_Orth),backlag,forwardlag,[],used_trialvec,0);
-
-    [sua_data(ss).blink_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(used_is_blink),backlag,forwardlag,[],used_trialvec,0);
+    simsac_kern = find(mod_Xtargs(2:end) == 4);
+    if ~isempty(simsac_kern)
+        other_kerns = find(mod_Xtargs ~= 4);
+        g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns));
+        exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+        rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+        sua_data(ss).glm_simsac_rate = rate_out;
+    else
+        sua_data(ss).glm_simsac_rate = nan;
+    end
 
 end
 
 %%
-trig_avg_params = struct('mua_sm_sig',mua_sm_sig,'sua_sm_sig',sua_sm_sig,'dt',dt,'lags',lags,'min_trial_dur',min_trial_dur,...
-    'beg_buffer',beg_buffer,'end_buffer',end_buffer,'good_coils',good_coils,'bar_ori',bar_ori,'nboot',nboot,'micro_thresh',micro_thresh);
-
 cd(save_dir)
-sname = 'sac_trig_avg_data';
+sname = 'sac_glm_data';
 sname = [sname sprintf('_ori%d',bar_ori)];
-save(sname,'sua_data','mua_data','gen_data','trig_avg_params');
-
+save(sname,'sua_data','xcorr_data');
