@@ -1,3 +1,4 @@
+
 %
 % clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
@@ -13,7 +14,7 @@ global Expt_name bar_ori use_MUA
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
-fit_unCor = true;
+fit_unCor = false;
 fit_subMod = false;
 fitUpstream = false;
 fitSTA = false;

@@ -3,7 +3,7 @@
 clear all
 clc
 
-fit_unCor = 1;
+fit_unCor = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';

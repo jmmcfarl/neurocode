@@ -1,11 +1,11 @@
-clear all
-close all
+% clear all
+% close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'G087';
-bar_ori = 0;
+% Expt_name = 'G095';
+% bar_ori = 0;
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -661,7 +661,7 @@ silent = 1;
 
 stim_params(1) = NMMcreate_stim_params(n_blocks);
 stim_params(2:4) = NMMcreate_stim_params(length(slags));
-reg_params = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'lambda_L2',lambda_L2);
+reg_params = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'lambda_L2',lambda_L2,'boundary_conds',[0 0 0]);
 
 X{1} = Xblock;
 X{2} = Xsac;
@@ -670,76 +670,95 @@ X{4} = Xsimsac;
 
 for ss = 1:length(SU_numbers)
     fprintf('Computing GLMs for SU %d of %d\n',ss,length(SU_numbers));
-     
+    
     cc_uinds = used_inds(~isnan(all_binned_sua(used_inds,ss)));
     cur_Robs = all_binned_sua(cc_uinds,ss);
-    
-    mod_signs = [1];
-    mod_Xtargs = [1];
-    if sua_data(ss).N_gsacs >= min_sacs
-        mod_signs = [mod_signs 1];
-        mod_Xtargs = [mod_Xtargs 2];
-    end
-    if sua_data(ss).N_msacs >= min_sacs
-        mod_signs = [mod_signs 1];
-        mod_Xtargs = [mod_Xtargs 3];
-    end
-    if sua_data(ss).N_simsacs >= min_sacs
-        mod_signs = [mod_signs 1];
-        mod_Xtargs = [mod_Xtargs 4];
-    end
-    
-    glm = NMMinitialize_model(stim_params,mod_signs,repmat({'lin'},1,length(mod_signs)),reg_params,mod_Xtargs);
-    glm.mods(1).reg_params = NMMcreate_reg_params();
-    
-    glm = NMMfit_filters(glm,cur_Robs,get_Xcell_tInds(X,cc_uinds),[],[],silent);
-    glm = NMMfit_logexp_spkNL( glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
-    
-    [LL, penLL, pred_rate, G, gint, fgint] = NMMmodel_eval(glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
-    avg_mod_outs = nanmean(fgint);
-    temp_kerns = [glm.mods(2:end).filtK];
-    
-    sua_data(ss).glm_avg_rate = mean(cur_Robs);
-    sua_data(ss).glm_lags = slags;
-    sua_data(ss).glm_dt = dt;
-    
-    gsac_kern = find(mod_Xtargs(2:end) == 2);
-    if ~isempty(gsac_kern)
-        other_kerns = find(mod_Xtargs ~= 2);
-        g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns));
-        exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-        rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-        sua_data(ss).glm_gsac_rate = rate_out;
-    else
-        sua_data(ss).glm_gsac_rate = nan;
-    end
- 
-    msac_kern = find(mod_Xtargs(2:end) == 3);
-    if ~isempty(msac_kern)
-        other_kerns = find(mod_Xtargs ~= 3);
-        g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns));
-        exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-        rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-        sua_data(ss).glm_msac_rate = rate_out;
-    else
-        sua_data(ss).glm_msac_rate = nan;
-    end
+    if ~isempty(cc_uinds)
+        mod_signs = [1];
+        mod_Xtargs = [1];
+        if sua_data(ss).N_gsacs >= min_sacs
+            mod_signs = [mod_signs 1];
+            mod_Xtargs = [mod_Xtargs 2];
+        end
+        if sua_data(ss).N_msacs >= min_sacs
+            mod_signs = [mod_signs 1];
+            mod_Xtargs = [mod_Xtargs 3];
+        end
+        if sua_data(ss).N_simsacs >= min_sacs
+            mod_signs = [mod_signs 1];
+            mod_Xtargs = [mod_Xtargs 4];
+        end
+        
+        glm = NMMinitialize_model(stim_params,mod_signs,repmat({'lin'},1,length(mod_signs)),reg_params,mod_Xtargs);
+        glm.mods(1).reg_params = NMMcreate_reg_params();
+        
+        glm = NMMfit_filters(glm,cur_Robs,get_Xcell_tInds(X,cc_uinds),[],[],silent);
+        glm = NMMfit_logexp_spkNL( glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
+        
+        [LL, penLL, pred_rate, G, gint, fgint] = NMMmodel_eval(glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
+        avg_mod_outs = nanmean(fgint);
+        temp_kerns = [glm.mods(2:end).filtK];
+        
+        sua_data(ss).glm_ovavg_rate = mean(cur_Robs);
+        sua_data(ss).glm_lags = slags;
+        sua_data(ss).glm_dt = dt;
+        
+        gsac_kern = find(mod_Xtargs(2:end) == 2);
+        if ~isempty(gsac_kern)
+            other_kerns = find(mod_Xtargs ~= 2);
+            g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns));
+            exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+            rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+            sua_data(ss).glm_gsac_rate = rate_out;
+            
+            trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+            sua_data(ss).tavg_gsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
+        else
+            sua_data(ss).glm_gsac_rate = nan;
+            sua_data(ss).tavg_gsac_rate = nan;
+        end
+        any_gsac = find(any(Xsac(cc_uinds,:) > 0,2));
+        sua_data(ss).glm_gsac_avgrate = mean(cur_Robs(any_gsac));
+        
+        msac_kern = find(mod_Xtargs(2:end) == 3);
+        if ~isempty(msac_kern)
+            other_kerns = find(mod_Xtargs ~= 3);
+            g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns));
+            exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+            rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+            sua_data(ss).glm_msac_rate = rate_out;
+            
+            trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+            sua_data(ss).tavg_msac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
+        else
+            sua_data(ss).glm_msac_rate = nan;
+            sua_data(ss).tavg_msac_rate = nan;
+        end
+        any_msac = find(any(Xmsac(cc_uinds,:) > 0,2));
+        sua_data(ss).glm_msac_avgrate = mean(cur_Robs(any_msac));
+        
+        simsac_kern = find(mod_Xtargs(2:end) == 4);
+        if ~isempty(simsac_kern)
+            other_kerns = find(mod_Xtargs ~= 4);
+            g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns));
+            exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+            rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+            sua_data(ss).glm_simsac_rate = rate_out;
+            
+            trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+            sua_data(ss).tavg_simsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
+        else
+            sua_data(ss).glm_simsac_rate = nan;
+            sua_data(ss).tavg_simsac_rate = nan;
+        end
+        any_simsac = find(any(Xsimsac(cc_uinds,:) > 0,2));
+        sua_data(ss).glm_simsac_avgrate = mean(cur_Robs(any_simsac));
 
-    simsac_kern = find(mod_Xtargs(2:end) == 4);
-    if ~isempty(simsac_kern)
-        other_kerns = find(mod_Xtargs ~= 4);
-        g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns));
-        exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-        rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-        sua_data(ss).glm_simsac_rate = rate_out;
-    else
-        sua_data(ss).glm_simsac_rate = nan;
     end
-
 end
 
 %%
 cd(save_dir)
 sname = 'sac_glm_data';
 sname = [sname sprintf('_ori%d',bar_ori)];
-save(sname,'sua_data','xcorr_data');
+save(sname,'sua_data','xcorr_data','trig_avg_params');
