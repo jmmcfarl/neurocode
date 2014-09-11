@@ -8,7 +8,7 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % Expt_name = 'M294';
-Expt_name = 'M296';
+Expt_name = 'M275';
 use_MUA = false;
 bar_ori = 90; %bar orientation to use (only for UA recs)
 
@@ -786,14 +786,14 @@ cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
 cur_fix_post_std = squeeze(it_fix_post_std(end,:));
 cur_drift_post_mean = squeeze(drift_post_mean(end,:));
 cur_drift_post_std = squeeze(drift_post_std(end,:));
-[best_fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+[fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
     cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
 
 if length(used_inds) ~= length(cur_drift_post_mean)
     error('ET data mismatch!');
 end
 
-fin_shift_cor = round(best_fin_tot_corr);
+fin_shift_cor = round(fin_tot_corr);
 fin_shift_cor(isnan(fin_shift_cor)) = 0;
 
 %RECOMPUTE XMAT
@@ -802,67 +802,64 @@ for i=1:NT
     best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
 end
 
+all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
+all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
+
 %%
-all_EP = nan(n_rpts,length(rpt_taxis),n_chs);
-full_psth = nan(n_rpts,length(rpt_taxis),n_chs);
-mod_prates = nan(n_rpts,length(rpt_taxis),n_chs);
-all_fin_tot_corr = nan(length(all_rpt_inds),n_chs);
-for ss = 1:n_chs
-    ss
-    cur_Robs = Robs_mat(:,ss);
+all_EP = nan(n_rpts,length(rpt_taxis),length(targs));
+full_psth = nan(n_rpts,length(rpt_taxis),length(targs));
+mod_prates = nan(n_rpts,length(rpt_taxis),length(targs));
+% uncor_prates = nan(n_rpts,length(rpt_taxis),length(targs));
+all_fin_tot_corr = nan(length(all_rpt_inds),length(targs));
+for ss = 1:length(targs)
+    cc = targs(ss)
+    cur_Robs = Robs_mat(:,cc);
     cc_uinds = find(~isnan(cur_Robs(all_rpt_inds)));
     if ~isempty(cc_uinds)
         %% RECONSTRUCT LOO STIM
-        loo_cc = find(loo_set == ss); %index within the LOOXV set
+        loo_cc = find(loo_set == cc); %index within the LOOXV set
         
-        if ~isempty(loo_cc)
-            cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-            cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-            cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-            cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-            [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-                cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-            
-            all_fin_tot_corr(:,ss) = fin_tot_corr(all_rpt_inds);
-            fin_shift_cor = round(fin_tot_corr);
-            
-            %RECOMPUTE XMAT
-            all_shift_stimmat_up = all_stimmat_up;
-            for i=1:NT
-                all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-            end
-            
-        else
-            all_shift_stimmat_up = best_shift_stimmat_up;
-        end
-        
-        all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
-        all_Xmat_shift = all_Xmat_shift(used_inds(all_rpt_inds),use_kInds_up);
+%         cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
+%         cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
+%         cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
+%         cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
+%         [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+%             cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+%         
+%         all_fin_tot_corr(:,ss) = fin_tot_corr(all_rpt_inds);
+%         fin_shift_cor = round(fin_tot_corr);
+%         
+%         %RECOMPUTE XMAT
+%         all_shift_stimmat_up = all_stimmat_up;
+%         for i=1:NT
+%             all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+%         end
+%         all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
+%         all_Xmat_shift = all_Xmat_shift(used_inds(all_rpt_inds),use_kInds_up);
         
         %%
-        if ~isempty(ModData(ss).unit_data)
-            cor_rGQM = ModData(ss).rectGQM;
-            cor_rGQM = NMMfit_logexp_spkNL(cor_rGQM,cur_Robs(all_rpt_inds(cc_uinds)),all_Xmat_shift(cc_uinds,:));
-            [~,~,cor_prate] = NMMmodel_eval(cor_rGQM,cur_Robs(all_rpt_inds),all_Xmat_shift);
-            
-            for ii = 1:length(rpt_trials)
-                cur_inds = find(all_trialvec(used_inds) == rpt_trials(ii));
-                cur_inds(size(full_psth,2)+1:end) = [];
-                
-                cur_rinds = find(ismember(all_rpt_inds,cur_inds));
-                mod_prates(ii,1:length(cur_rinds),ss) = cor_prate(cur_rinds);
-            end
-        end
+        cor_rGQM = ModData(cc).rectGQM;
+        cor_rGQM = NMMfit_logexp_spkNL(cor_rGQM,cur_Robs(all_rpt_inds(cc_uinds)),all_Xmat_shift(all_rpt_inds(cc_uinds),:));
+        [~,~,cor_prate] = NMMmodel_eval(cor_rGQM,cur_Robs(all_rpt_inds),all_Xmat_shift(all_rpt_inds,:));
+        
+        %     uncor_rGQM = ModData(cc).rectGQM_unCor;
+        %     uncor_rGQM = NMMfit_logexp_spkNL(uncor_rGQM,cur_Robs(all_rpt_inds(cc_uinds)),all_Xmat(cc_uinds,:));
+        %     [~,~,uncor_prate] = NMMmodel_eval(uncor_rGQM,cur_Robs(all_rpt_inds),all_Xmat);
         
         %%
         for ii = 1:length(rpt_trials)
             cur_inds = find(all_trialvec(used_inds) == rpt_trials(ii));
             cur_inds(size(full_psth,2)+1:end) = [];
-            full_psth(ii,1:length(cur_inds),ss) = Robs_mat(cur_inds,ss);
+            full_psth(ii,1:length(cur_inds),ss) = Robs_mat(cur_inds,cc);
+            
+            %         all_EP(ii,1:length(cur_inds),cc) = fin_tot_corr(cur_inds);
+            
+            cur_rinds = find(ismember(all_rpt_inds,cur_inds));
+            mod_prates(ii,1:length(cur_rinds),ss) = cor_prate(cur_rinds);
+            %         uncor_prates(ii,1:length(cur_rinds),ss) = uncor_prate(cur_rinds);
         end
     end
 end
-
 %%
 
 back_look = 7;
@@ -870,7 +867,7 @@ back_kern = zeros(back_look*2+1,1);
 back_kern(1:back_look+1) = 1;
 back_kern = flipud(back_kern/sum(back_kern));
 
-rpt_EP = best_fin_tot_corr(all_rpt_inds);
+rpt_EP = fin_tot_corr(all_rpt_inds);
 rpt_EPnan = rpt_EP;
 rpt_EPnan(in_sac_inds(all_rpt_inds)) = nan;
 rpt_EPnan(in_blink_inds(all_rpt_inds)) = nan;
@@ -895,13 +892,323 @@ full_EP(in_sac) = nan;
 full_EP_filt(in_sac) = nan;
 
 
+%% LOAD LFP DATA
+cd(data_dir)
+if strcmp(rec_type,'LP')
+    Fs = 1000;
+    dsf = 6;
+    Fsd = Fs/dsf;
+    niqf = Fs/2;
+    new_niqf = Fsd/2;
+    [bb,aa] = butter(2,0.8*new_niqf/niqf);
+    use_lfps = 1:2:n_probes;
+elseif strcmp(rec_type,'UA')
+    Fs = 400.0032;
+    dsf = 2;
+    Fsd = Fs/dsf;
+    niqf = Fs/2;
+    new_niqf = Fsd/2;
+    [bb,aa] = butter(2,0.8*new_niqf/niqf);
+    use_lfps = 1:n_probes;
+    %     use_lfps = [28 SU_probes];
+end
+
+full_lfps = [];
+full_lfp_taxis = [];
+cur_toffset = 0;
+ublock_set = 1:length(cur_block_set);
+if Expt_num == 275
+    bad_blocks = 9;
+    ublock_set(bad_blocks) = [];
+end
+for ee = ublock_set
+    
+    fprintf('Loading LFPs, Expt %d of %d\n',ee,length(cur_block_set));
+    
+    if strcmp(rec_type,'LP')
+        fname = sprintf('lemM%dA.%d.lfp.mat',Expt_num,em_block_nums(ee));
+        load(fname);
+        
+        tlens = arrayfun(@(X) length(X.ftime),LFP.Trials);
+        bad_trials = find(tlens == 0);
+        LFP.Trials(bad_trials) = [];
+        n_trials(ee) = length(LFP.Trials);
+        lfp_trial_starts = [LFP.Trials(:).ftime]/1e4;
+        lfp_trial_ends = [LFP.Trials(:).End]/1e4;
+        expt_lfp_t_axis = [];
+        expt_lfps = [];
+        for tt = 1:n_trials(ee)
+            %         tt
+            cur_npts = size(LFP.Trials(tt).LFP,1);
+            cur_t_end(tt) = lfp_trial_starts(tt)+(cur_npts-1)/Fs;
+            cur_t_axis = (lfp_trial_starts(tt):1/Fs:cur_t_end(tt)) + cur_toffset;
+            
+            if ~isempty(expt_lfp_t_axis)
+                cur_sp = find(cur_t_axis > max(expt_lfp_t_axis),1,'first');
+            else
+                cur_sp = 1;
+            end
+            cur_t_axis = cur_t_axis(cur_sp:end);
+            if length(cur_t_axis) > 50 & size(LFP.Trials(tt).LFP,2) == n_probes
+                cur_LFP = double([LFP.Trials(tt).LFP]);
+                cur_LFP = cur_LFP(cur_sp:end,use_lfps);
+                if dsf > 1
+                    cur_LFP = filtfilt(bb,aa,cur_LFP);
+                    cur_LFP = downsample(cur_LFP,dsf);
+                    cur_t_axis = downsample(cur_t_axis,dsf);
+                end
+                if size(cur_LFP,2) == length(use_lfps)
+                    expt_lfp_t_axis = [expt_lfp_t_axis; cur_t_axis(:)];
+                    expt_lfps = [expt_lfps; cur_LFP];
+                end
+            end
+        end
+    else
+        lfp_fname = sprintf('Expt%d_LFP.mat',cur_block_set(ee));
+        load(lfp_fname);
+        
+        cur_lfps = bsxfun(@times,double(lfp_mat(:,use_lfps)),lfp_int2V(use_lfps)');
+        if dsf > 1
+            cur_lfps = filtfilt(bb,aa,cur_lfps);
+            expt_lfps = downsample(cur_lfps,dsf);
+            expt_lfp_t_axis = downsample(lfp_t_ax',dsf);
+        end
+    end
+    
+    cur_uset = find(all_blockvec == ee);
+    if ~isempty(cur_uset)
+        uinds = find(expt_lfp_t_axis >= all_t_axis(cur_uset(1)) & expt_lfp_t_axis <= all_t_axis(cur_uset(end)));
+        full_lfps = cat(1,full_lfps,expt_lfps(uinds,:));
+        full_lfp_taxis = cat(1,full_lfp_taxis,expt_lfp_t_axis(uinds));
+    end
+    cur_toffset = trial_toffset(ee);
+end
+
+interp_lfps = interp1(full_lfp_taxis,full_lfps,all_t_axis);
+% interp_lfps(ismember(all_blockvec,bad_blocks),:) = nan;
+interp_lfps = interp_lfps(used_inds,:);
+interp_lfps = nanzscore(interp_lfps);
+
 %%
-rpt_avg_rates = nanmean(reshape(full_psth,[],n_chs));
-rpt_avg_prates = nanmean(reshape(mod_prates,[],n_chs));
+tbt_LFPs = nan(length(rpt_trials),length(rpt_taxis),length(use_lfps));
+for ii = 1:length(rpt_trials)
+    cur_inds = find(all_trialvec(used_inds(all_rpt_inds)) == rpt_trials(ii));
+    tbt_LFPs(ii,1:length(cur_inds),:) = interp_lfps(cur_inds,:);
+end
+[a,b] = sort(full_EP_filt);
+sorted_LFPs = nan(size(tbt_LFPs));
+for tt = 1:length(rpt_taxis)
+    sorted_LFPs(:,tt,:) = tbt_LFPs(b(:,tt),tt,:);
+    sorted_LFPs(isnan(a(:,tt)),tt,:) = nan;
+end
+
+%%
+silent = 1;
+for cc = 1:length(use_lfps);
+    cur_LFP = interp_lfps(:,cc);
+    Xmat = abs(all_Xmat_shift);
+    
+    fit_inds = find(ismember(all_trialvec(used_inds),use_trials));
+    mod_signs = [1];
+    Xtargets = [1];
+    lfp_stim_params = NMMcreate_stim_params([flen use_nPix_us]);
+    
+    d2XT = 20;
+    reg_params = NMMcreate_reg_params('lambda_d2XT',d2XT);
+    lfp_mod = NMMinitialize_model(lfp_stim_params,mod_signs,{'lin'},reg_params,Xtargets,[],'linear');
+    lfp_mod = NMMfit_filters(lfp_mod,cur_LFP(fit_inds),Xmat(fit_inds,:),[],[],silent);
+    
+    [~,~,predlfp] = NMMmodel_eval(lfp_mod,cur_LFP,Xmat);
+    lfp_expvar(cc) = var(predlfp);
+    
+    stimpred_LFP(cc,:) = predlfp;
+end
+residual_LFPs = interp_lfps - stimpred_LFP';
+
+interp_stimpred = interp1(all_t_axis(used_inds),stimpred_LFP',full_lfp_taxis);
+interp_stimpred(isnan(interp_stimpred)) = 0;
+full_residual_LFPs = full_lfps - interp_stimpred;
+%%
+maxl = round(1/dt);
+all_LFP_TAs = nan(length(targs),maxl*2+1,length(use_lfps));
+for ss = 1:length(targs)
+    cc = targs(ss)
+  cur_Robs = Robs_mat(:,cc);
+  cc_uinds = find(~isnan(cur_Robs));
+  
+  spk_inds = convert_to_spikebins(cur_Robs(cc_uinds));
+  [cur_TA,cur_lags] = get_event_trig_avg_v3(interp_lfps(cc_uinds,:),spk_inds,maxl,maxl);
+  
+  all_LFP_TAs(ss,:,:) = cur_TA;
+    
+end
+
+%%
+nwfreqs = 15;
+min_freq = 1; max_freq = 40;
+min_scale = 1/max_freq*Fsd;
+max_scale = 1/min_freq*Fsd;
+scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
+wfreqs = scal2frq(scales,'cmor1-1',1/Fsd);
+
+all_ampgram = nan(length(all_t_axis),length(use_lfps),length(wfreqs));
+all_phasegram = nan(length(all_t_axis),length(use_lfps),length(wfreqs));
+for cc = 1:length(use_lfps)
+    cc
+%     cur_LFP = full_lfps(:,cc);
+    cur_LFP = full_residual_LFPs(:,cc);
+    cur_cwt = cwt(cur_LFP,scales,'cmor1-1');
+    cur_phasegram = angle(cur_cwt);
+    cur_ampgram = abs(cur_cwt);
+    interp_phasegram = mod(interp1(full_lfp_taxis,unwrap(cur_phasegram'+pi),all_t_axis),2*pi)-pi;
+    interp_ampgram = interp1(full_lfp_taxis,cur_ampgram',all_t_axis);
+    
+    all_ampgram(:,cc,:) = interp_ampgram;
+    all_phasegram(:,cc,:) = interp_phasegram;
+end
+
+all_ampgram = all_ampgram(used_inds,:,:);
+all_phasegram = all_phasegram(used_inds,:,:);
+
+X{1} = reshape(cos(all_phasegram).*all_ampgram,[],length(wfreqs)*length(use_lfps));
+X{2} = reshape(sin(all_phasegram).*all_ampgram,[],length(wfreqs)*length(use_lfps));
+
+%%
+for ss = 1:length(targs)
+    cc = targs(ss)
+    
+    if cc > n_probes
+        su_ind = find(SU_numbers == all_mod_SUnum(cc));
+        [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
+    else
+        [~,nearest_lfp] = min(abs(use_lfps - cc));
+    end
+    cur_LFP = full_lfps(:,nearest_lfp);
+    
+    cur_Robs = Robs_mat(:,cc);
+    cc_uinds = find(~isnan(cur_Robs) & ~isnan(interp_lfps(:,nearest_lfp)));
+    cc_uinds(~ismember(all_trialvec(used_inds(cc_uinds)),use_trials)) = [];
+    if ~isempty(cc_uinds)
+    %%
+    cor_rGQM = ModData(cc).rectGQM;
+    cor_rGQM = NMMfit_logexp_spkNL(cor_rGQM,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
+    [~,~,cor_prate,G] = NMMmodel_eval(cor_rGQM,cur_Robs,all_Xmat_shift);
+    stim_G = G - cor_rGQM.spk_NL_params(1);
+    X{3} = stim_G;
+    %%
+    
+    %     nwfreqs = 15;
+    %     min_freq = 1; max_freq = 40;
+    %     min_scale = 1/max_freq*Fsd;
+    %     max_scale = 1/min_freq*Fsd;
+    %     scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
+    %     wfreqs = scal2frq(scales,'cmor1-1',1/Fsd);
+    %
+    %     cur_cwt = cwt(cur_LFP,scales,'cmor1-1');
+    %     cur_phasegram = angle(cur_cwt);
+    %     cur_ampgram = abs(cur_cwt);
+    %     interp_phasegram = mod(interp1(full_lfp_taxis,unwrap(cur_phasegram'),all_t_axis),2*pi);
+    %     interp_ampgram = interp1(full_lfp_taxis,cur_ampgram',all_t_axis);
+    %     interp_ampgram = bsxfun(@rdivide,interp_ampgram,nanstd(interp_ampgram));
+    %
+    %     AXcos = cos(interp_phasegram(used_inds(cc_uinds),:)).*interp_ampgram(used_inds(cc_uinds),:);
+    %     AXsin = sin(interp_phasegram(used_inds(cc_uinds),:)).*interp_ampgram(used_inds(cc_uinds),:);
+    %     Xcos = cos(interp_phasegram(used_inds(cc_uinds),:));
+    %     Xsin = sin(interp_phasegram(used_inds(cc_uinds),:));
+    
+    %%
+    
+    silent = 1;
+    NL_types = repmat({'lin'},1,3);
+%     mod_signs = [1 1 1];
+%     Xtargets = [1 2 3];
+    mod_signs = [1 1];
+    Xtargets = [1 2];
+    sac_stim_params(1:2) = NMMcreate_stim_params([length(wfreqs) length(use_lfps)]);
+    sac_stim_params(3) = NMMcreate_stim_params(1);
+    %     tr_stim{1} = AXcos;
+    %     tr_stim{2} = AXsin;
+    %     tr_stim{1} = Xcos;
+    %     tr_stim{2} = Xsin;
+    
+    d2T = 10;
+    sac_reg_params = NMMcreate_reg_params('lambda_d2T',d2T);
+    lfp_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+    if length(mod_signs) == 3
+    lfp_mod.mods(3).reg_params = NMMcreate_reg_params();
+    end
+    lfp_mod = NMMfit_filters(lfp_mod,cur_Robs(cc_uinds),get_Xcell_tInds(X,cc_uinds),[],[],silent);
+    
+    %%
+    %     AXcos = cos(interp_phasegram(used_inds,:)).*interp_ampgram(used_inds,:);
+    %     AXsin = sin(interp_phasegram(used_inds,:)).*interp_ampgram(used_inds,:);
+    %     tr_stim{1} = AXcos;
+    %     tr_stim{2} = AXsin;
+    [~,~,all_lfp_prate,lfp_G,~,lfp_fgint] = NMMmodel_eval(lfp_mod,[],X);
+    lfp_G = sum(lfp_fgint(:,1:2),2);
+    
+    cc_rpt_inds = all_rpt_inds(~isnan(Robs_mat(all_rpt_inds,cc)));
+    [rpt_LL,~,~,~,~,~,rpt_nullLL] = NMMmodel_eval(lfp_mod,Robs_mat(cc_rpt_inds,cc),get_Xcell_tInds(X,cc_rpt_inds));
+    
+    %%
+    %     max_lag = 40;
+    %     lag_vec = -max_lag:max_lag;
+    %     tot_lags = length(lag_vec);
+    %     cur_LFP = interp_lfps(cc_uinds,:);
+    %     %otherwise loop over lags and manually shift the stim matrix
+    %     Npix = 24;
+    %     Xmat = zeros(length(cc_uinds), Npix*tot_lags);
+    %     for n = 1:tot_lags
+    %         Xmat(:,n-1+(1:tot_lags:(Npix*tot_lags))) = shift_mat_zpad( cur_LFP, lag_vec(n), 1);
+    %     end
+    %
+    %     stim_params = NMMcreate_stim_params([tot_lags Npix]);
+    %     reg_params = NMMcreate_reg_params('lambda_L2',5);
+    %
+    %       lfp_mod = NMMinitialize_model(stim_params,1,{'lin'},reg_params,1);
+    %     lfp_mod = NMMfit_filters(lfp_mod,cur_Robs(cc_uinds),Xmat,[],[],silent);
+    
+    %%
+    tbt_LFP_ratepred = nan(length(rpt_trials),length(rpt_taxis));
+    tbt_stim_ratepred = nan(length(rpt_trials),length(rpt_taxis));
+    tbt_LFP_G = nan(length(rpt_trials),length(rpt_taxis));
+    for ii = 1:length(rpt_trials)
+        cur_inds = find(all_trialvec(used_inds(all_rpt_inds)) == rpt_trials(ii));
+        tbt_LFP_ratepred(ii,1:length(cur_inds)) = all_lfp_prate(all_rpt_inds(cur_inds));
+        tbt_stim_ratepred(ii,1:length(cur_inds)) = cor_prate(all_rpt_inds(cur_inds));
+        tbt_LFP_G(ii,1:length(cur_inds)) = lfp_G(all_rpt_inds(cur_inds));
+    end
+    % [a,b] = sort(full_EP_filt);
+    [a,b] = sort(tbt_LFP_G);
+    sorted_LFP_pred = nan(size(tbt_LFP_ratepred));
+    sorted_LFP_psth = nan(size(tbt_LFP_ratepred));
+    for tt = 1:length(rpt_taxis)
+        sorted_LFP_pred(:,tt) = tbt_LFP_ratepred(b(:,tt),tt,:);
+        sorted_LFP_pred(isnan(a(:,tt)),tt) = nan;
+        sorted_LFP_psth(:,tt) = full_psth(b(:,tt),tt,find(targs==cc));
+        sorted_LFP_psth(isnan(a(:,tt)),tt) = nan;
+    end
+    
+    lfp_mod_var(ss) = var(tbt_LFP_ratepred(:));
+    lfp_mod_psth(ss,:) = nanmean(tbt_LFP_ratepred);
+    %%
+    end
+end
+
+
+
+
+
+
+
+%%
+rpt_avg_rates = nanmean(reshape(full_psth,[],length(targs)));
+rpt_avg_prates = nanmean(reshape(mod_prates,[],length(targs)));
 full_psth_ms = bsxfun(@minus,full_psth,reshape(rpt_avg_rates,1,1,[]));
 trial_avg_rates = nanmean(full_psth_ms,2);
 full_psth_ms = bsxfun(@minus,full_psth_ms,trial_avg_rates);
 mod_prates_ms = bsxfun(@minus,mod_prates,reshape(rpt_avg_prates,1,1,[]));
+all_psths = squeeze(nanmean(full_psth_ms));
 
 %%
 ep_naninds = isnan(full_EP(:));
@@ -924,225 +1231,3 @@ for tt = 1:length(rpt_taxis)
     sorted_full_psth(:,tt,:) = full_psth_ms(b(:,tt),tt,:);
     sorted_full_psth(isnan(a(:,tt)),tt,:) = nan;
 end
-%%
-maxlag = 10;
-space = 0.05;
-poss_lags = 0:space:maxlag;
-[II,JJ] = meshgrid(1:n_rpts);
-
-max_tlag = 0;
-tlags = [-max_tlag:max_tlag];
-full_psth_shifted = nan(n_rpts,length(rpt_taxis),length(targs),length(tlags));
-for tt = 1:length(tlags)
-    full_psth_shifted(:,:,:,tt) = shift_matrix_Nd(full_psth_ms,-tlags(tt),2);
-end
-
-all_XC = zeros(length(poss_lags)-1,length(targs),length(targs),length(tlags));
-for cc = 1:length(targs)
-    cc
-    cur_XC = nan(length(rpt_taxis),length(poss_lags)-1,length(targs),length(tlags));
-    for tt = 1:length(rpt_taxis)
-        Y1 = squeeze(full_psth_shifted(:,tt,:,:));
-        
-        Y2 = squeeze(full_psth_ms(:,tt,cc));
-        
-        %         cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
-        %         cur_Dmat(logical(eye(n_rpts))) = nan;
-        cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
-        cur_Dmat(logical(eye(n_rpts))) = nan;
-        for jj = 1:length(poss_lags)-1
-            curset = find(cur_Dmat > poss_lags(jj) & cur_Dmat <= poss_lags(jj+1));
-            cur_XC(tt,jj,:,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:,:,:),Y2(JJ(curset),:,:)),1));
-        end
-    end
-    all_XC(:,:,cc,:) = squeeze(nanmean(cur_XC));
-end
-
-%%
-x_bin_edges = (poss_lags(1:end-1)+poss_lags(2:end))/2;
-% b = 0.5:2:maxlag;
-b = 0.5:0.5:maxlag;
-
-all_ZPT = nan(length(targs),length(targs),length(tlags));
-for ii = 1:length(targs)
-    for jj = 1:length(targs)
-        for kk = 1:length(tlags)
-            x = x_bin_edges;
-            y = squeeze(all_XC(:,ii,jj,kk));
-            bad = find(isnan(y));  x(bad) = []; y(bad) = [];
-            ss = fnxtr(csape(b,y(:).'/fnval(fnxtr(csape(b,eye(length(b)),'var')),x(:).'),'var'));
-            all_ZPT(ii,jj,kk) = fnval(ss,0);
-        end
-    end
-end
-
-%%
-unfolded_psth_ms = reshape(permute(full_psth_ms,[2 1 3]),[],length(targs));
-
-all_psths = squeeze(nanmean(full_psth_ms));
-psth_xcov = nan(length(targs),length(targs),2*max_tlag+1);
-obs_xcov = nan(length(targs),length(targs),2*max_tlag+1);
-% for ii = 1:length(targs)-1
-%     for jj = (ii+1):length(targs)
-for ii = 1:length(targs)
-    for jj = 1:length(targs)
-        if ii ~= jj
-            psth_xcov(ii,jj,:) = xcov(all_psths(:,ii),all_psths(:,jj),max_tlag,'biased');
-            
-            %             uset = find(~isnan(Robs_mat(all_rpt_inds,targs(ii))) & ~isnan(Robs_mat(all_rpt_inds,targs(jj))));
-            %             if ~isempty(uset)
-            %                 obs_xcov(ii,jj,:) = xcov(Robs_mat(all_rpt_inds(uset),targs(ii)),Robs_mat(all_rpt_inds(uset),targs(jj)),max_tlag,'biased');
-            %             end
-            uset = find(~isnan(unfolded_psth_ms(:,ii)) & ~isnan(unfolded_psth_ms(:,jj)));
-            if ~isempty(uset)
-                obs_xcov(ii,jj,:) = xcov(unfolded_psth_ms(uset,ii),unfolded_psth_ms(uset,jj),max_tlag,'biased');
-            end
-        end
-    end
-end
-
-%%
-zero_tlag = find(tlags == 0);
-signal_cov = squeeze(all_ZPT(:,:,zero_tlag));
-signal_cov = diag(signal_cov);
-psth_cov = nanvar(all_psths);
-tot_cov = nanvar(unfolded_psth_ms);
-%%
-close all
-ii = 1;
-for ii = 1:length(targs)
-    subplot(3,1,1);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
-    ca = caxis();
-    cam = max(abs(ca));
-    caxis([-cam cam]);
-    subplot(3,1,2);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
-    % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
-    caxis([-cam cam]);
-    subplot(3,1,3);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
-    % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
-    caxis([-cam cam]);
-    pause
-    clf
-end
-
-
-%%
-maxlag = 10;
-space = 0.05;
-poss_lags = 0:space:maxlag;
-
-
-% mod_prates_shifted = nan(n_rpts,length(rpt_taxis),length(targs),length(tlags));
-% for tt = 1:length(tlags)
-%     mod_prates_shifted(:,:,:,tt) = shift_matrix_Nd(mod_prates_ms,-tlags(tt),2);
-% end
-
-cur_XC = nan(length(rpt_taxis),length(poss_lags)-1,length(targs));
-for tt = 1:length(rpt_taxis)
-    %         Y1 = squeeze(mod_prates_shifted(:,tt,:,:));
-    Y1 = squeeze(mod_prates_ms(:,tt,:));
-    Y2 = squeeze(mod_prates_ms(:,tt,:));
-    
-    %             cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
-    %             cur_Dmat(logical(eye(n_rpts))) = nan;
-    cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
-    cur_Dmat(logical(eye(n_rpts))) = nan;
-    
-    for jj = 1:length(poss_lags)-1
-        curset = find(cur_Dmat >= poss_lags(jj) & cur_Dmat < poss_lags(jj+1));
-        cur_XC(tt,jj,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:,:),Y2(JJ(curset),:)),1));
-    end
-end
-all_mXC = squeeze(nanmean(cur_XC));
-
-%%
-x_bin_edges = (poss_lags(1:end-1)+poss_lags(2:end))/2;
-b = 0.05:0.1:5;
-
-all_mZPT = nan(length(targs),1);
-for ii = 1:length(targs)
-    x = x_bin_edges;
-    y = squeeze(all_mXC(:,ii));
-    bad = find(isnan(y));  x(bad) = []; y(bad) = [];
-    ss = fnxtr(csape(b,y(:).'/fnval(fnxtr(csape(b,eye(length(b)),'var')),x(:).'),'var'));
-    all_mZPT(ii) = fnval(ss,0);
-end
-
-%%
-unfolded_mod_prates = reshape(permute(mod_prates_ms,[2 1 3]),[],length(targs));
-
-all_mod_psths = squeeze(nanmean(mod_prates_ms));
-msignal_cov = squeeze(all_mZPT);
-mpsth_cov = nanvar(all_mod_psths);
-mtot_cov = nanvar(unfolded_mod_prates);
-%%
-
-close all
-ii = 1;
-for ii = 1:length(targs)
-    subplot(3,1,1);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
-    ca = caxis();
-    cam = max(abs(ca));
-    caxis([-cam cam]);
-    subplot(3,1,2);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
-    % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
-    caxis([-cam cam]);
-    subplot(3,1,3);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
-    % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
-    caxis([-cam cam]);
-    pause
-    clf
-end
-
-%%
-maxlag = round(0.1/new_dt);
-htr_xcovs = nan(length(targs),length(targs),2*maxlag+1);
-for ii = 1:length(targs)
-    sig1 = all_binned_sua_new(:,ii);
-    for jj= 1:length(targs)
-        if ii ~= jj
-            sig2 = all_binned_sua_new(:,jj);
-            uinds = find(~isnan(sig1) & ~isnan(sig2));
-            if ~isempty(uinds)
-                [htr_xcovs(ii,jj,:),htr_lags] = xcov(sig1(uinds),sig2(uinds),maxlag,'biased');
-            end
-        end
-    end
-end
-
-%%
-close all
-ii = 1;
-for ii = 1:length(targs)
-    ii
-%     subplot(2,2,1);
-%     imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
-%     ca = caxis();
-%     cam = max(abs(ca));
-%     caxis([-cam cam]);
-%     subplot(2,2,3);
-%     imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
-%     % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
-%     caxis([-cam cam]);
-%     subplot(2,2,2);
-%     imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
-%     % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
-%     caxis([-cam cam]);
-%     
-%     subplot(2,2,4);
-    imagescnan(htr_lags*new_dt,1:length(targs),squeeze(htr_xcovs(ii,:,:)));
-    % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
-    ca = caxis();
-    cam = max(abs(ca));
-    caxis([-cam cam]);
-    
-    pause
-    clf
-end
-

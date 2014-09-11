@@ -56,7 +56,7 @@ trig_avg_analysis;
 Expt_name = 'M297'; bar_ori = 90;
 trig_avg_analysis;
 
-%% JBE TRIG AVGS ORI=0
+%% JBE TRIG AVGS 
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
@@ -68,6 +68,19 @@ for Elist_cnt = 1:length(Expt_list)
     trig_avg_analysis;
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 end
+
+clear all
+addpath('~/James_scripts/bruce/eye_tracking_improvements/');
+addpath('~/James_scripts/bruce/sacModFinal/');
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093'};
+global Expt_name bar_ori
+bar_ori = 90;
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    trig_avg_analysis;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori
+end
+
 
 %% REGRESSION SACMOD ANALYSIS
 clear all

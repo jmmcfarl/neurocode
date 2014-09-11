@@ -4,8 +4,14 @@
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G095';
+% Expt_name = 'G087';
 % bar_ori = 0;
+
+savename = 'sac_glm_data';
+include_bursts = 1;
+if include_bursts
+    savename = [savename '_withbursts'];
+end
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -453,7 +459,9 @@ out_bounds = abs(sac_prepos(2,:)) > EP_bounds | abs(sac_postpos(2,:)) > EP_bound
 sacburst_set = find([saccades(:).isi] < sac_burst_isi | [saccades(:).next_isi] < sac_burst_isi);
 micro_set = find([saccades(:).amplitude] < micro_thresh & ~used_is_blink' & ~out_bounds);
 msac_bursts = micro_set(ismember(micro_set,sacburst_set));
+if ~include_bursts
 micro_set(ismember(micro_set,sacburst_set)) = []; %eliminate microsacs that are part of a 'burst'
+end
 
 %saccade amplitude along parallel axis
 sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
@@ -628,6 +636,9 @@ end
 %%
 cd(save_dir)
 sname = 'sac_trig_avg_data';
+if include_bursts
+    sname = [sname '_withburst'];
+end
 sname = [sname sprintf('_ori%d',bar_ori)];
 load(sname);
 
@@ -635,24 +646,32 @@ tlags = trig_avg_params.lags;
 tdt = trig_avg_params.dt;
 tlags = tlags*tdt;
 
-%% COMPUTE CROSS CORRELATION BETWEEN MSAC TIMES WITH GSACS AND SIMSACS
+%% COMPUTE CROSS CORRELATION BETWEEN MSAC TIMES WITH GSACS AND SIMSACS10
 binned_msacs = Xmsac(:,slags==0);
 binned_gsacs = Xsac(:,slags==0);
 binned_simsacs = Xsimsac(:,slags==0);
 
 non_simsac_trials = setdiff(1:length(unique(all_trialvec)),sim_sac_trials);
 
-maxlag = round(0.75/dt);
-cur_uinds = used_inds(ismember(all_trialvec(used_inds),sim_sac_trials));
-[msac_simsac_xcorr,xcorr_lags] = xcov(binned_msacs,binned_simsacs,maxlag,'coeff');
+maxlag = round(1/dt);
+cur_uinds = find(ismember(all_trialvec(used_inds),sim_sac_trials));
+% [msac_simsac_xcorr,xcorr_lags] = xcov(binned_msacs,binned_simsacs,maxlag,'coeff');
+[msac_simsac_xcorr,xcorr_lags] = get_event_trig_avg_v3(binned_msacs(cur_uinds),find(binned_simsacs(cur_uinds)==1),maxlag,maxlag,all_trialvec(used_inds(cur_uinds)));
 
-cur_uinds = used_inds(ismember(all_trialvec(used_inds),non_simsac_trials));
-[msac_gsac_xcorr,xcorr_lags] = xcov(binned_msacs,binned_gsacs,maxlag,'coeff');
+cur_uinds = find(ismember(all_trialvec(used_inds),non_simsac_trials));
+% [msac_gsac_xcorr,xcorr_lags] = xcov(binned_msacs,binned_gsacs,maxlag,'coeff');
+[msac_gsac_xcorr,xcorr_lags] = get_event_trig_avg_v3(binned_msacs(cur_uinds),find(binned_gsacs(cur_uinds)==1),maxlag,maxlag,all_trialvec(used_inds(cur_uinds)));
+
+cur_uinds = 1:length(used_inds);
+[msac_msac_xcorr,xcorr_lags] = get_event_trig_avg_v3(binned_msacs(cur_uinds),find(binned_msacs(cur_uinds)==1),maxlag,maxlag,all_trialvec(used_inds(cur_uinds)));
+msac_msac_xcorr(xcorr_lags == 0) = 0;
 
 xcorr_data.msac_simsac_xcorr = msac_simsac_xcorr;
 xcorr_data.msac_gsac_xcorr = msac_gsac_xcorr;
+xcorr_data.msac_msac_xcorr = msac_msac_xcorr;
 xcorr_data.lags = xcorr_lags*dt;
 
+xcorr_data.ov_msac_rate = sum(Xmsac(:,slags==0))/size(Xmsac,1)/dt;
 %%
 lambda_d2T = 50;
 lambda_L2 = 5;
@@ -759,6 +778,5 @@ end
 
 %%
 cd(save_dir)
-sname = 'sac_glm_data';
-sname = [sname sprintf('_ori%d',bar_ori)];
-save(sname,'sua_data','xcorr_data','trig_avg_params');
+savename = [savename sprintf('_ori%d',bar_ori)];
+save(savename,'sua_data','xcorr_data','trig_avg_params');

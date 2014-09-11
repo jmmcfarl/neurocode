@@ -15,14 +15,20 @@ global Expt_name bar_ori use_MUA
 % 
 
 fit_unCor = false;
-fit_subMod = true;
-fitUpstream = true;
-fitSTA = true;
+fit_subMod = false;
+fitUpstream = false;
+fitSTA = false;
 fitMsacs = true;
-fit_msacUpstream = true;
-fitFullPostMod = true;
+fit_msacUpstream = false;
+fitFullPostMod = false;
+
+include_bursts = 1;
 
 sname = 'sacStimProcFin';
+if include_bursts
+    sname = [sname '_withbursts'];
+end
+
 mod_data_name = 'corrected_models2';
 % mod_data_name = 'corrected_models';
 
@@ -613,7 +619,9 @@ sacburst_set = find([saccades(:).isi] < sac_burst_isi | [saccades(:).next_isi] <
 micro_sacs = find([saccades(:).amplitude] < micro_thresh & ~used_is_blink' & ~out_bounds);
 
 msac_bursts = micro_sacs(ismember(micro_sacs,sacburst_set));
-micro_sacs(ismember(micro_sacs,sacburst_set)) = []; %eliminate microsacs that are part of a 'burst'
+if ~include_bursts
+    micro_sacs(ismember(micro_sacs,sacburst_set)) = []; %eliminate microsacs that are part of a 'burst'
+end
 
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks (and whose duration is not too long to be suspicious

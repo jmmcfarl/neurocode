@@ -3,7 +3,7 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M281';
+Expt_name = 'M294';
 
 Expt_num = str2num(Expt_name(2:end));
 if Expt_name(1) == 'M'
@@ -228,7 +228,7 @@ end
 % caxis([2 ca(2)]);
 
 %% CHECK SPIKE CORRELATIONS
-block_num = 20;
+block_num = 15;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
 if Expt_name(1) == 'G'
@@ -271,6 +271,22 @@ for ii = 1:length(good_SUs)-1
 end
 max_cond_prob = max(cond_p1,cond_p2);
 
+maxlag = round(0.01/bin_width);
+htr_xcovs = nan(length(good_SUs),length(good_SUs),2*maxlag+1);
+for ii = 1:length(good_SUs)
+   ii
+   sig1 = binned_spikes(:,ii);
+    for jj= 1:length(good_SUs)
+        if ii ~= jj
+            sig2 = binned_spikes(:,jj);
+            uinds = find(~isnan(sig1) & ~isnan(sig2));
+            if ~isempty(uinds)
+                [htr_xcovs(ii,jj,:),htr_lags] = xcov(sig1(uinds),sig2(uinds),maxlag,'coeff');
+            end
+        end
+    end
+end
+
 figure('name',sprintf('Block %d',block_num));
 imagesc(max_cond_prob); set(gca,'ydir','normal');
 set(gca,'xtick',1:length(good_SUs),'xticklabel',good_SUs);
@@ -280,8 +296,8 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-block_num = 20;
-pair = [24 26];
+block_num = 15;
+pair = [11 13];
 spk_pts = [-12:27];
 
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
@@ -362,7 +378,8 @@ switch Expt_name
     case 'M296'
         init_use_SUs = [11 13 15 16 17 18 21 23 26];
     case 'M297'
-        init_use_SUs = [1 2 4 6 10 11 14 19 21 22 23 28 29];
+%         init_use_SUs = [1 2 4 6 10 11 14 19 21 22 23 28 29];
+       init_use_SUs = [1 2 4 6 9 11 14 19 21 22 23 28 29];
 
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED

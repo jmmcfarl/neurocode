@@ -5,9 +5,9 @@ addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV
 
-Expt_name = 'M287';
+Expt_name = 'M297';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 0; %bar orientation to use (only for UA recs)
+bar_ori = 90; %bar orientation to use (only for UA recs)
 
 recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
