@@ -4,8 +4,8 @@
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'M294';
-bar_ori = 0;
+% Expt_name = 'M294';
+% bar_ori = 0;
 
 savename = 'sac_glm_data';
 include_bursts = 0;
@@ -724,12 +724,14 @@ for ss = 1:length(SU_numbers)
         
         gsac_kern = find(mod_Xtargs(2:end) == 2);
         if ~isempty(gsac_kern)
-            other_kerns = find(mod_Xtargs ~= 2);
-            g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns));
-            exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-            rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-            sua_data(ss).glm_gsac_rate = rate_out;
+%             other_kerns = find(mod_Xtargs ~= 2);
+%             g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns));
+%             exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+%             rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+%             sua_data(ss).glm_gsac_rate = rate_out;
             
+            block_arate = nan(n_blocks,1); 
+            block_rate_out = nan(n_blocks,length(slags));
             for bb = 1:n_blocks
                 cur_set = find(all_blockvec(cc_uinds) == bb);
                 block_arate(bb) = nanmean(cur_Robs(cur_set));
@@ -738,8 +740,9 @@ for ss = 1:length(SU_numbers)
                 g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns)) + glm.mods(1).filtK(bb);
                 exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
                 block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
-                
             end
+            
+            sua_data(ss).glm_gsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate'));
             
             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_gsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
@@ -752,12 +755,25 @@ for ss = 1:length(SU_numbers)
         
         msac_kern = find(mod_Xtargs(2:end) == 3);
         if ~isempty(msac_kern)
-            other_kerns = find(mod_Xtargs ~= 3);
-            g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns));
-            exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-            rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-            sua_data(ss).glm_msac_rate = rate_out;
-            
+%             other_kerns = find(mod_Xtargs ~= 3);
+%             g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns));
+%             exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+%             rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+%             sua_data(ss).glm_msac_rate = rate_out;
+ 
+            block_arate = nan(n_blocks,1); 
+            block_rate_out = nan(n_blocks,length(slags));
+            for bb = 1:n_blocks
+                cur_set = find(all_blockvec(cc_uinds) == bb);
+                block_arate(bb) = nanmean(cur_Robs(cur_set));
+                
+                other_kerns = find(mod_Xtargs ~= 3 & mod_Xtargs ~= 1);
+                g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns)) + glm.mods(1).filtK(bb);
+                exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+                block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
+            end
+            sua_data(ss).glm_msac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate'));
+
             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_msac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
         else
@@ -769,12 +785,25 @@ for ss = 1:length(SU_numbers)
         
         simsac_kern = find(mod_Xtargs(2:end) == 4);
         if ~isempty(simsac_kern)
-            other_kerns = find(mod_Xtargs ~= 4);
-            g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns));
-            exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-            rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-            sua_data(ss).glm_simsac_rate = rate_out;
-            
+%             other_kerns = find(mod_Xtargs ~= 4);
+%             g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns));
+%             exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+%             rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
+%             sua_data(ss).glm_simsac_rate = rate_out;
+ 
+    block_arate = nan(n_blocks,1); 
+            block_rate_out = nan(n_blocks,length(slags));
+            for bb = 1:n_blocks
+                cur_set = find(all_blockvec(cc_uinds) == bb);
+                block_arate(bb) = nanmean(cur_Robs(cur_set));
+                
+                other_kerns = find(mod_Xtargs ~= 4 & mod_Xtargs ~= 1);
+                g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns)) + glm.mods(1).filtK(bb);
+                exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+                block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
+            end
+            sua_data(ss).glm_simsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate'));
+           
             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_simsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
         else
