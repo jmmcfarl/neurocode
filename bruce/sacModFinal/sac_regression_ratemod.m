@@ -742,7 +742,7 @@ for ss = 1:length(SU_numbers)
                 block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
             end
             
-            sua_data(ss).glm_gsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate'));
+            sua_data(ss).glm_gsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate));
             
             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_gsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
@@ -772,7 +772,7 @@ for ss = 1:length(SU_numbers)
                 exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
                 block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
             end
-            sua_data(ss).glm_msac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate'));
+            sua_data(ss).glm_msac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate));
 
             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_msac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
@@ -802,7 +802,7 @@ for ss = 1:length(SU_numbers)
                 exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
                 block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
             end
-            sua_data(ss).glm_simsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate'));
+            sua_data(ss).glm_simsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate));
            
             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_simsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
