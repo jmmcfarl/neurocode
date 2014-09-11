@@ -8,7 +8,7 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % Expt_name = 'M294';
-Expt_name = 'M296';
+Expt_name = 'M297';
 use_MUA = false;
 bar_ori = 90; %bar orientation to use (only for UA recs)
 
@@ -905,13 +905,18 @@ mod_prates_ms = bsxfun(@minus,mod_prates,reshape(rpt_avg_prates,1,1,[]));
 
 %%
 ep_naninds = isnan(full_EP(:));
-full_psth_ms = reshape(full_psth_ms,[],length(targs));
+full_psth_ms = reshape(full_psth_ms,[],n_chs);
 full_psth_ms(ep_naninds,:) = nan;
-full_psth_ms = reshape(full_psth_ms,n_rpts,[],length(targs));
+full_psth_ms = reshape(full_psth_ms,n_rpts,[],n_chs);
 
-mod_prates_ms = reshape(mod_prates_ms,[],length(targs));
+mod_prates_ms = reshape(mod_prates_ms,[],n_chs);
 mod_prates_ms(ep_naninds,:) = nan;
-mod_prates_ms = reshape(mod_prates_ms,n_rpts,[],length(targs));
+mod_prates_ms = reshape(mod_prates_ms,n_rpts,[],n_chs);
+
+all_psths = squeeze(nanmean(full_psth_ms));
+psth_cov = nanvar(all_psths);
+unfolded_psth_ms = reshape(permute(full_psth_ms,[2 1 3]),[],n_chs);
+tot_cov = nanvar(unfolded_psth_ms);
 
 %%
 [a,b] = sort(full_EP_filt);
@@ -930,17 +935,17 @@ space = 0.05;
 poss_lags = 0:space:maxlag;
 [II,JJ] = meshgrid(1:n_rpts);
 
-max_tlag = 0;
+max_tlag = 10;
 tlags = [-max_tlag:max_tlag];
-full_psth_shifted = nan(n_rpts,length(rpt_taxis),length(targs),length(tlags));
+full_psth_shifted = nan(n_rpts,length(rpt_taxis),n_chs,length(tlags));
 for tt = 1:length(tlags)
     full_psth_shifted(:,:,:,tt) = shift_matrix_Nd(full_psth_ms,-tlags(tt),2);
 end
 
-all_XC = zeros(length(poss_lags)-1,length(targs),length(targs),length(tlags));
-for cc = 1:length(targs)
+all_XC = zeros(length(poss_lags)-1,n_chs,n_chs,length(tlags));
+for cc = 1:n_chs
     cc
-    cur_XC = nan(length(rpt_taxis),length(poss_lags)-1,length(targs),length(tlags));
+    cur_XC = nan(length(rpt_taxis),length(poss_lags)-1,n_chs,length(tlags));
     for tt = 1:length(rpt_taxis)
         Y1 = squeeze(full_psth_shifted(:,tt,:,:));
         
@@ -963,9 +968,9 @@ x_bin_edges = (poss_lags(1:end-1)+poss_lags(2:end))/2;
 % b = 0.5:2:maxlag;
 b = 0.5:0.5:maxlag;
 
-all_ZPT = nan(length(targs),length(targs),length(tlags));
-for ii = 1:length(targs)
-    for jj = 1:length(targs)
+all_ZPT = nan(length(targs),n_chs,length(tlags));
+for ii = 1:n_chs
+    for jj = 1:n_chs
         for kk = 1:length(tlags)
             x = x_bin_edges;
             y = squeeze(all_XC(:,ii,jj,kk));
@@ -977,15 +982,11 @@ for ii = 1:length(targs)
 end
 
 %%
-unfolded_psth_ms = reshape(permute(full_psth_ms,[2 1 3]),[],length(targs));
 
-all_psths = squeeze(nanmean(full_psth_ms));
-psth_xcov = nan(length(targs),length(targs),2*max_tlag+1);
-obs_xcov = nan(length(targs),length(targs),2*max_tlag+1);
-% for ii = 1:length(targs)-1
-%     for jj = (ii+1):length(targs)
-for ii = 1:length(targs)
-    for jj = 1:length(targs)
+psth_xcov = nan(n_chs,n_chs,2*max_tlag+1);
+obs_xcov = nan(n_chs,n_chs,2*max_tlag+1);
+for ii = 1:n_chs
+    for jj = 1:n_chs
         if ii ~= jj
             psth_xcov(ii,jj,:) = xcov(all_psths(:,ii),all_psths(:,jj),max_tlag,'biased');
             
@@ -1001,34 +1002,64 @@ for ii = 1:length(targs)
     end
 end
 
+zlag = find(tlags == 0);
+for ii = 1:n_chs
+    if ii <= n_probes
+        surr_units = [ii-1 ii+1];
+        surr_units(surr_units < 1 | surr_units > n_probes) = [];
+        obs_xcov(ii,surr_units,zlag) = nan;
+    else
+        temp = find(targs == ii);
+        su_pr = SU_probes(temp);
+        surr_units = su_pr + [-1 0 1];
+        surr_units(surr_units < 1 | surr_units > n_probes) = [];
+        obs_xcov(ii,surr_units,zlag) = nan;
+    end
+end
 %%
 zero_tlag = find(tlags == 0);
 signal_cov = squeeze(all_ZPT(:,:,zero_tlag));
 signal_cov = diag(signal_cov);
-psth_cov = nanvar(all_psths);
-tot_cov = nanvar(unfolded_psth_ms);
 %%
 close all
 ii = 1;
-for ii = 1:length(targs)
+for ii = 1:n_chs
     subplot(3,1,1);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
+    imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(ii,:,:)));
     ca = caxis();
     cam = max(abs(ca));
     caxis([-cam cam]);
     subplot(3,1,2);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
+    imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
     % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
-    caxis([-cam cam]);
+    caxis([-cam cam]*0.5);
     subplot(3,1,3);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
+    imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
     % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
-    caxis([-cam cam]);
+    caxis([-cam cam]*0.5);
     pause
     clf
 end
 
+%%
+all_obs_xcov = reshape(permute(obs_xcov,[3 1 2]),length(tlags),[]);
+all_psth_xcov = reshape(permute(psth_xcov,[3 1 2]),length(tlags),[]);
+all_ZPT_xcov = reshape(permute(all_ZPT,[3 1 2]),length(tlags),[]);
 
+all_psth_diff = all_obs_xcov - all_psth_xcov;
+all_ZPT_diff = all_obs_xcov - all_ZPT_xcov;
+
+[PI,PJ] = meshgrid(1:n_chs);
+PP = [PI(:) PJ(:)];
+has_SU = any(PP > n_probes,2);
+both_SU = all(PP > n_probes,2);
+
+% int_region = find(abs(tlags*dt) <= 0.05);
+int_region = find(abs(tlags*dt) <= 0.03);
+net_obs_xcov = nansum(all_obs_xcov(int_region,:));
+net_psth_diffcov = nansum(all_psth_diff(int_region,:));
+net_psth_cov = nansum(all_psth_xcov(int_region,:));
+net_ZPT_diffcov = nansum(all_ZPT_diff(int_region,:));
 %%
 maxlag = 10;
 space = 0.05;
@@ -1082,18 +1113,18 @@ mtot_cov = nanvar(unfolded_mod_prates);
 
 close all
 ii = 1;
-for ii = 1:length(targs)
+for ii = targs
     subplot(3,1,1);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)));
+    imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(ii,:,:)));
     ca = caxis();
     cam = max(abs(ca));
     caxis([-cam cam]);
     subplot(3,1,2);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
+    imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(ii,:,:)-psth_xcov(ii,:,:)));
     % imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
     caxis([-cam cam]);
     subplot(3,1,3);
-    imagescnan(tlags*dt,1:length(targs),squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
+    imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(ii,:,:)-all_ZPT(ii,:,:)));
     % imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
     caxis([-cam cam]);
     pause

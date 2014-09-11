@@ -10,6 +10,7 @@ all_MU_data = [];
 %% LOAD JBE
 base_sname = 'corrected_models2';
 base_tname = 'sac_trig_avg_data';
+% base_tname = 'sac_trig_avg_data_withburst';
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
@@ -88,6 +89,7 @@ end
 %% LOAD LEM
 base_sname = 'corrected_models';
 base_tname = 'sac_trig_avg_data';
+% base_tname = 'sac_trig_avg_data_withburst';
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
 n_probes = 24;
@@ -1500,9 +1502,12 @@ ylabel('Relative rate');
 title('Gsac TA Grayback');
 
 %% MSAC BURSTS
+
 N_msacs = [all_SU_data(:).N_msacs];
 msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);
-msac_used_SUs = msac_used_SUs(ismember(msac_used_SUs,lem_SUs));
+
+%use only jbe since he's the only one who has significant msac bursts
+msac_used_SUs = msac_used_SUs(ismember(msac_used_SUs,jbe_SUs));
 
 all_msac = reshape([all_SU_data(msac_used_SUs).msac_avg],[],length(msac_used_SUs))';
 all_msac_bursts = reshape([all_SU_data(msac_used_SUs).msac_burst_avg],[],length(msac_used_SUs))';
@@ -1513,9 +1518,20 @@ if sm_sigma > 0
     end
 end
 xl = [-0.15 0.4];
+yl = [0.7 1.25];
+
 f2 = figure(); 
 hold on
 h1=shadedErrorBar(tlags,nanmean(all_msac),nanstd(all_msac)/sqrt(length(msac_used_SUs)),{'color','k'});
 h2=shadedErrorBar(tlags,nanmean(all_msac_bursts),nanstd(all_msac_bursts)/sqrt(length(msac_used_SUs)),{'color','b'});
 xlim(xl);ylim(yl);
 line(xl,[1 1],'color','k');
+
+
+fig_width = 3.5; rel_height = 0.8;
+
+
+figufy(f2);
+fname = [fig_dir 'MUA_Burst_noburst.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);

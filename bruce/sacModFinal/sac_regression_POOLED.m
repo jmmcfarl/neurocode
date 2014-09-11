@@ -1,16 +1,18 @@
 %%
-close all
+% close all
 clear all
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 
 all_SU_data = [];
 all_SU_NPdata = [];
 all_MU_data = [];
+all_XC_data = [];
 
-%% LOAD JBE
 base_sname = 'corrected_models2';
 base_tname = 'sac_glm_data';
-obase_tname = 'sac_trig_avg_data';
+% base_tname = 'sac_glm_data_withbursts';
+
+%% LOAD JBE
 
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
@@ -29,8 +31,9 @@ for ee = 1:length(Expt_list)
             load(sname);
             tname = strcat(sac_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
             load(tname);
-            tname = strcat(sac_dir,obase_tname,sprintf('_ori%d',ori_list(ee,ii)));
-            load(tname,'trig_avg_params');
+            
+            xcorr_data.animal = 'jbe';
+            all_XC_data = cat(1,all_XC_data,xcorr_data);
             
             ucells = arrayfun(@(x) length(x.unit_data),ModData) > 0;
             ModData = ModData(ucells);
@@ -90,9 +93,6 @@ for ee = 1:length(Expt_list)
 end
 
 %% LOAD LEM
-base_sname = 'corrected_models';
-base_tname = 'sac_trig_avg_data';
-base_tname = 'sac_glm_data';
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
 n_probes = 24;
@@ -112,6 +112,9 @@ for ee = 1:length(Expt_list)
             tname = strcat(sac_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
             load(tname);
             
+            xcorr_data.animal = 'lem';
+            all_XC_data = cat(1,all_XC_data,xcorr_data);
+
             ucells = arrayfun(@(x) length(x.unit_data),ModData) > 0;
             ModData = ModData(ucells);
             Mod_SU_numbers = arrayfun(@(x) x.unit_data.SU_number,ModData);
@@ -211,6 +214,46 @@ N_simsacs = [all_SU_data(:).N_simsacs];
 N_simmsacs = [all_SU_data(:).N_simmsacs]; %simulated microsacs
 N_blanks = [all_SU_data(:).N_blanks];
 
+%%
+xc_lags = all_XC_data(1).lags;
+xc_dt = median(diff(xc_lags));
+xc_sm = 0.02/xc_dt;
+msac_gsac_xcorr = reshape([all_XC_data(:).msac_gsac_xcorr],[],length(all_XC_data))';
+msac_simsac_xcorr = reshape([all_XC_data(:).msac_simsac_xcorr],[],length(all_XC_data))';
+msac_msac_xcorr = reshape([all_XC_data(:).msac_msac_xcorr],[],length(all_XC_data))';
+
+for ii = 1:length(all_XC_data)
+    msac_gsac_xcorr(ii,:) = jmm_smooth_1d_cor(msac_gsac_xcorr(ii,:),xc_sm);
+    msac_simsac_xcorr(ii,:) = jmm_smooth_1d_cor(msac_simsac_xcorr(ii,:),xc_sm);
+    msac_msac_xcorr(ii,:) = jmm_smooth_1d_cor(msac_msac_xcorr(ii,:),xc_sm);
+end
+
+f1 = figure();
+hold on
+h1=shadedErrorBar(xc_lags,nanmean(msac_gsac_xcorr)/xc_dt,nanstd(msac_gsac_xcorr)/sqrt(length(all_XC_data))/xc_dt,{'color','r'});
+h2=shadedErrorBar(xc_lags,nanmean(msac_simsac_xcorr)/xc_dt,nanstd(msac_simsac_xcorr)/sqrt(length(all_XC_data))/xc_dt,{'color','b'});
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Msac_xcorrs.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+
+
+
+% jj = find(strcmp({all_XC_data(:).animal},'jbe'));
+% ll = find(strcmp({all_XC_data(:).animal},'lem'));
+% f2 = figure();
+% hold on
+% h3=shadedErrorBar(xc_lags,nanmean(msac_msac_xcorr(jj,:))/xc_dt,nanstd(msac_msac_xcorr(jj,:))/sqrt(length(jj))/xc_dt,{'color','r'});
+% h3=shadedErrorBar(xc_lags,nanmean(msac_msac_xcorr(ll,:))/xc_dt,nanstd(msac_msac_xcorr(ll,:))/sqrt(length(ll))/xc_dt,{'color','k'});
+
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f2);
+% fname = [fig_dir 'Msac_acorr_compare.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f2);
+
 
 %% GSACS GLM VS TRIGAVG
 
@@ -242,11 +285,11 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_glm_rates.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_glm_rates.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% MSACS GLM VS TRIGAVG
 msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);
@@ -312,8 +355,38 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
+%% MSACS GLM VS TRIGAVG
+msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);
+msac_used_SUs = msac_used_SUs(ismember(msac_used_SUs,jbe_SUs));
+
+all_msac = reshape([all_SU_data(msac_used_SUs).tavg_msac_rate],[],length(msac_used_SUs))';
+all_msac = bsxfun(@rdivide,all_msac,[all_SU_data(msac_used_SUs).glm_msac_avgrate]');
+
+% if sm_sigma > 0
+%     for ii = 1:size(all_msac,1)
+%         all_msac(ii,:) = jmm_smooth_1d_cor(all_msac(ii,:),sm_sigma);
+%     end
+% end
+
+reg_msac = reshape([all_SU_data(msac_used_SUs).glm_msac_rate],[],length(msac_used_SUs))';
+nreg_msac = bsxfun(@rdivide,reg_msac,[all_SU_data(msac_used_SUs).glm_msac_avgrate]');
+reg_lags = all_SU_data(1).glm_lags*all_SU_data(1).glm_dt;
+
+% close all
+xl = [-0.15 0.4];
+
+f1 = figure(); hold on
+% h2=shadedErrorBar(reg_lags,nanmean(nreg_msac),nanstd(nreg_msac)/sqrt(length(msac_used_SUs)),{'color','b'});
+h2=shadedErrorBar(reg_lags,nanmean(nreg_msac),nanstd(nreg_msac)/sqrt(length(msac_used_SUs)),{'color','r'});
+xlim(xl);
+ylim([0.7 1.25]);
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlabel('Time (s)');
+ylabel('Relative rate');
+
 fig_width = 3.5; rel_height = 0.8;
 figufy(f1);
-fname = [fig_dir 'Simsac_glm_rates.pdf'];
+fname = [fig_dir 'Msac_GLM_burstcompare.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);

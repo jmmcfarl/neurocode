@@ -1189,7 +1189,7 @@ for ss = 1:length(targs)
         sorted_LFP_psth(isnan(a(:,tt)),tt) = nan;
     end
     
-    lfp_mod_var(ss) = var(tbt_LFP_ratepred(:));
+    lfp_mod_var(ss) = nanvar(tbt_LFP_ratepred(:));
     lfp_mod_psth(ss,:) = nanmean(tbt_LFP_ratepred);
     %%
     end

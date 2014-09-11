@@ -4,11 +4,11 @@
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G087';
-% bar_ori = 0;
+Expt_name = 'M294';
+bar_ori = 0;
 
 savename = 'sac_glm_data';
-include_bursts = 1;
+include_bursts = 0;
 if include_bursts
     savename = [savename '_withbursts'];
 end
@@ -729,6 +729,17 @@ for ss = 1:length(SU_numbers)
             exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
             rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
             sua_data(ss).glm_gsac_rate = rate_out;
+            
+            for bb = 1:n_blocks
+                cur_set = find(all_blockvec(cc_uinds) == bb);
+                block_arate(bb) = nanmean(cur_Robs(cur_set));
+                
+                other_kerns = find(mod_Xtargs ~= 2 & mod_Xtargs ~= 1);
+                g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns)) + glm.mods(1).filtK(bb);
+                exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
+                block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
+                
+            end
             
             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_gsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
