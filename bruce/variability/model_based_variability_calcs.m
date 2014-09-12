@@ -7,8 +7,8 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'M296';
-% Expt_name = 'G086';
+% Expt_name = 'M296';
+Expt_name = 'G086';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -145,7 +145,7 @@ end
 
 %%
 
-flen = 15;
+flen = 12;
 spatial_usfac = 2;
 
 %these recs have larger bar widths
@@ -516,8 +516,10 @@ end
 fprintf('Loading ET data\n');
 cd(et_dir)
 load(et_mod_data_name,'all_mod*');
-load(et_anal_name,'drift*','it_*','et_tr_set','et_saccades');
+load(et_anal_name,'drift*','it_*','et_tr_set','et_saccades','dit_mods');
 tr_set = et_tr_set;
+dit_mods = dit_mods{end};
+it_mods = it_mods{1};
 
 fprintf('Loading model fits\n');
 cd(mod_data_dir)
@@ -764,112 +766,529 @@ end
 all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
 all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
 
-all_shift_stimmat_up = all_stimmat_up;
-all_Xmat = create_time_embedding(all_shift_stimmat_up,stim_params_us);
+all_Xmat = create_time_embedding(all_stimmat_up,stim_params_us);
 all_Xmat = all_Xmat(used_inds,use_kInds_up);
 
 %%
-SU_inds = (n_probes+1):n_chs;
-R_corr = nancorr(Robs_mat(:,SU_inds));
-R_corr(logical(eye(length(SU_inds)))) = nan;
+% SU_inds = (n_probes+1):n_chs;
+% R_corr = nancorr(Robs_mat(:,SU_inds));
+% R_corr(logical(eye(length(SU_inds)))) = nan;
+% 
+% SU_stim_predrates = nan(length(used_inds),length(SU_inds));
+% for cc = 1:length(SU_inds)
+%     cor_GQM = ModData(SU_inds(cc)).bestGQM;
+%     [~, ~, cur_predrate] = NMMmodel_eval(cor_GQM, [], all_Xmat_shift);
+%     SU_stim_predrates(:,cc) = cur_predrate;
+% end
+% P_corr = nancorr(SU_stim_predrates);
+% P_corr(logical(eye(length(SU_inds)))) = nan;
 
-SU_stim_predrates = nan(length(used_inds),length(SU_inds));
-for cc = 1:length(SU_inds)
-    cor_GQM = ModData(SU_inds(cc)).bestGQM;
-    [~, ~, cur_predrate] = NMMmodel_eval(cor_GQM, cur_Robs, all_Xmat_shift);
+
+unit_inds = 1:n_chs;
+R_corr = nancorr(Robs_mat(:,unit_inds));
+R_corr(logical(eye(length(unit_inds)))) = nan;
+
+SU_stim_predrates = nan(length(used_inds),length(unit_inds));
+for cc = 1:length(unit_inds)
+    cc
+%     if cc > n_probes
+%     cor_GQM = ModData(SU_inds(cc)).bestGQM;
+%     else
+        cor_GQM = dit_mods(cc);
+        cor_GQM.mods([cor_GQM.mods(:).Xtarget] ~= 1) = [];
+%     end
+    [~, ~, cur_predrate] = NMMmodel_eval(cor_GQM, [], all_Xmat_shift);
     SU_stim_predrates(:,cc) = cur_predrate;
 end
 P_corr = nancorr(SU_stim_predrates);
-P_corr(logical(eye(length(SU_inds)))) = nan;
+P_corr(logical(eye(length(unit_inds)))) = nan;
 
-%% MAIN ANALYSIS LOOP
-cd(anal_dir)
-silent = 1;
-
-for cc = targs
-    
-    fprintf('Starting model fits for unit %d\n',cc);
-    loo_cc = find(loo_set == cc); %index within the LOOXV set
-    cc_uinds = full_inds(~isnan(Robs_mat(full_inds,cc))); %set of used indices where this unit was isolated
-    cur_tr_inds = find(ismember(cc_uinds,tr_inds)); %subset for training
-    cur_xv_inds = find(ismember(cc_uinds,xv_inds)); %subset for XV
-    
-    cur_Robs = Robs_mat(cc_uinds,cc);
-    
-    sacStimProc(cc).ModData = ModData(cc);
-    sacStimProc(cc).used = true;
-    
-    cor_GQM = ModData(cc).bestGQM;
-    uncor_GQM = ModData(cc).bestGQM_unCor;
-    
-    %%
-    if ~isempty(cc_uinds)
-        
-                 
-        %%
-        cor_GQM = NMMfit_logexp_spkNL(cor_GQM,cur_Robs,all_Xmat_shift(cc_uinds,:));
-        cor_GQM = NMMfit_scale(cor_GQM,cur_Robs,all_Xmat_shift(cc_uinds,:));
-
-        uncor_GQM = NMMfit_logexp_spkNL(uncor_GQM,cur_Robs,all_Xmat(cc_uinds,:));
-        uncor_GQM = NMMfit_scale(uncor_GQM,cur_Robs,all_Xmat(cc_uinds,:));
-        
-        %%
-        cur_Robs_new = all_binned_sua_new(use_vec_new,all_mod_SUnum(cc));
-        cc_uinds_new = find(~isnan(cur_Robs_new));
-        
-        %%
-%         other_SUs = (n_probes+1):n_chs;
-%         other_SUs(other_SUs==cc) = [];
-        other_SUs = 1:length(SU_numbers);
-        other_SUs(other_SUs==all_mod_SUnum(cc)) = [];
-        
+% %% MAIN ANALYSIS LOOP
+% cd(anal_dir)
+% silent = 1;
+% 
+% for cc = targs
+%     
+%     fprintf('Starting model fits for unit %d\n',cc);
+%     loo_cc = find(loo_set == cc); %index within the LOOXV set
+%     cc_uinds = full_inds(~isnan(Robs_mat(full_inds,cc))); %set of used indices where this unit was isolated
+%     cur_tr_inds = find(ismember(cc_uinds,tr_inds)); %subset for training
+%     cur_xv_inds = find(ismember(cc_uinds,xv_inds)); %subset for XV
+%     
+%     cur_Robs = Robs_mat(cc_uinds,cc);
+%     
+%     sacStimProc(cc).ModData = ModData(cc);
+%     sacStimProc(cc).used = true;
+%     
+%     cor_GQM = ModData(cc).bestGQM;
+%     uncor_GQM = ModData(cc).bestGQM_unCor;
+%     
+%     %%
+%     if ~isempty(cc_uinds)
+%         
+%                  
+%         %%
+%         cor_GQM = NMMfit_logexp_spkNL(cor_GQM,cur_Robs,all_Xmat_shift(cc_uinds,:));
+%         cor_GQM = NMMfit_scale(cor_GQM,cur_Robs,all_Xmat_shift(cc_uinds,:));
+% 
+%         uncor_GQM = NMMfit_logexp_spkNL(uncor_GQM,cur_Robs,all_Xmat(cc_uinds,:));
+%         uncor_GQM = NMMfit_scale(uncor_GQM,cur_Robs,all_Xmat(cc_uinds,:));
+%         
+%         %%
+% %         cur_Robs_new = all_binned_sua_new(use_vec_new,all_mod_SUnum(cc));
+% %         cc_uinds_new = find(~isnan(cur_Robs_new));
+%         
+%         %%
+% %         other_SUs = (n_probes+1):n_chs;
+% %         other_SUs(other_SUs==cc) = [];
+% %         other_SUs = 1:length(SU_numbers);
+% %         other_SUs(other_SUs==all_mod_SUnum(cc)) = [];
+%         
+%         other_SUs= 100;
+% 
+% 
 %         other_Robs = Robs_mat(:,other_SUs);
 %         other_Robs(isnan(other_Robs)) = 0;
-        other_Robs = all_binned_sua_new(use_vec_new,other_SUs);
-        other_Robs(isnan(other_Robs)) = 0;
-        
-        nOtherSUs = size(other_Robs,2);
-        other_flen = 25*2;
-        other_sp = NMMcreate_stim_params([other_flen nOtherSUs]);
-        other_X = create_time_embedding(other_Robs,other_sp);
-        
-        mod_sp(1) = NMMcreate_stim_params(1);
-        mod_sp(2) = other_sp;
-        other_rp = NMMcreate_reg_params('lambda_d2T',500,'lambda_L2',5);
-        
-        
-        [corLL, ~, ~, G,~,~,nullLL] = NMMmodel_eval(cor_GQM, cur_Robs, all_Xmat_shift(cc_uinds,:));
-        G = G - cor_GQM.spk_NL_params(1);
-        Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
-        Gint = Gint(cc_uinds_new);
-        Gint(isnan(Gint)) = 0;
-        
-        X{1} = Gint;
-        X{2} = other_X(cc_uinds_new,:);
-        
-        cor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
-        cor_other.mods(1).reg_params = NMMcreate_reg_params();
-        cor_other = NMMfit_filters(cor_other,cur_Robs_new,X,[],[1 2],1);
-        
-        [uncorLL, ~, ~, G] = NMMmodel_eval(uncor_GQM, cur_Robs, all_Xmat(cc_uinds,:));
-        G = G - cor_GQM.spk_NL_params(1);
-        Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
-        Gint = Gint(cc_uinds_new);
-        Gint(isnan(Gint)) = 0;
-        X{1} = Gint;
-        X{2} = other_X(cc_uinds_new,:);
-        uncor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
-        uncor_other.mods(1).reg_params = NMMcreate_reg_params();
-        uncor_other = NMMfit_filters(uncor_other,cur_Robs_new,X,[],[1 2],1);
+% %         other_Robs = all_binned_sua_new(use_vec_new,other_SUs);
+% %         other_Robs(isnan(other_Robs)) = 0;
+%         
+%         nOtherSUs = size(other_Robs,2);
+%         other_flen = 50;
+%         other_sp = NMMcreate_stim_params([other_flen nOtherSUs]);
+%         other_X = create_time_embedding(other_Robs,other_sp);
+%         
+%         mod_sp(1) = NMMcreate_stim_params(1);
+%         mod_sp(2) = other_sp;
+%         other_rp = NMMcreate_reg_params('lambda_d2T',5000,'lambda_L2',50);
+%         
+%         
+%         [corLL, ~, ~, G,~,~,nullLL] = NMMmodel_eval(cor_GQM, cur_Robs, all_Xmat_shift(cc_uinds,:));
+%         G = G - cor_GQM.spk_NL_params(1);
+% %         Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
+% %         Gint = Gint(cc_uinds_new);
+% %         Gint(isnan(Gint)) = 0;
+%         
+% %         temp = NMMinitialize_model(mod_sp(1),1,{'lin'});
+% %         temp = NMMfit_filters(temp,other_Robs,G);
+% %         temp = NMMfit_logexp_spkNL(temp,other_Robs,G);
+% %         [~, ~, other_Rpred] = NMMmodel_eval(temp, [], G);
+% %         other_residual = other_Robs - other_Rpred;
+% %         other_X = create_time_embedding(other_residual,other_sp);
+% 
+% %         X{1} = Gint;
+% %         X{2} = other_X(cc_uinds_new,:);
+%         X{1} = G;
+%         X{2} = other_X(cc_uinds,:);
+% 
+%         cor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
+%         cor_other.mods(1).reg_params = NMMcreate_reg_params();
+%         cor_other.mods(1).filtK = 1;
+% %         cor_other = NMMfit_filters(cor_other,cur_Robs_new,X,[],[1 2],1);
+%          cor_other = NMMfit_filters(cor_other,cur_Robs,X,[],[1 2],1);
+%  
+%          fixed_other = cor_other;
+%         fixed_other.mods(1).filtK = 1;
+%          fixed_other = NMMfit_filters(fixed_other,cur_Robs,X,[],[2],1);
+% 
+%         [uncorLL, ~, ~, G] = NMMmodel_eval(uncor_GQM, cur_Robs, all_Xmat(cc_uinds,:));
+%         G = G - cor_GQM.spk_NL_params(1);
+% %         Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
+% %         Gint = Gint(cc_uinds_new);
+% %         Gint(isnan(Gint)) = 0;
+% %         X{1} = Gint;
+% %         X{2} = other_X(cc_uinds_new,:);
+%         X{1} = G;
+%         X{2} = other_X(cc_uinds,:);
+%         uncor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
+%         uncor_other.mods(1).reg_params = NMMcreate_reg_params();
+%         uncor_other.mods(1).filtK = 1;
+% %         uncor_other = NMMfit_filters(uncor_other,cur_Robs_new,X,[],[1 2],1);
+%         uncor_other = NMMfit_filters(uncor_other,cur_Robs,X,[],[2],1);
+% 
+% %         cor_otherOnly = NMMinitialize_model(mod_sp,[1],{'lin'},other_rp,[2],[],'exp');
+% % %         cor_otherOnly = NMMfit_filters(cor_otherOnly,cur_Robs_new,X,[],[],1);
+% %         cor_otherOnly = NMMfit_filters(cor_otherOnly,cur_Robs,X,[],[],1);
+% %         
+% %         temp = reshape(cor_other.mods(2).filtK,other_flen,[]);
+% %         temp2 = reshape(uncor_other.mods(2).filtK,other_flen,[]);
+% %         temp3 = reshape(cor_otherOnly.mods(1).filtK,other_flen,[]);
+%     else
+%         sacStimProc(cc).used = false;
+%     end
+% end
+% 
 
-        cor_otherOnly = NMMinitialize_model(mod_sp,[1],{'lin'},other_rp,[2],[],'exp');
-        cor_otherOnly = NMMfit_filters(cor_otherOnly,cur_Robs_new,X,[],[],1);
-        
-        temp = reshape(cor_other.mods(2).filtK,other_flen,[]);
-        temp2 = reshape(uncor_other.mods(2).filtK,other_flen,[]);
-        temp3 = reshape(cor_otherOnly.mods(1).filtK,other_flen,[]);
-    else
-        sacStimProc(cc).used = false;
-    end
+%%
+silent = 1;
+cor_prate = nan(n_chs,length(used_inds));
+uncor_prate = nan(n_chs,length(used_inds));
+lfp_prate = nan(n_chs,length(used_inds));
+lfp_uprate = nan(n_chs,length(used_inds));
+cor_simspks = nan(n_chs,length(used_inds));
+for cc = 97:n_chs
+    cc
+    cur_Robs = Robs_mat(:,cc);
+    cc_uinds = find(~isnan(cur_Robs));
+    
+    % cor_GQM = ModData(cc).bestGQM;
+    % uncor_GQM = ModData(cc).bestGQM_unCor;
+    
+    cor_GQM = dit_mods(cc);
+    cor_GQM.mods([cor_GQM.mods(:).Xtarget] ~= 1) = [];
+    uncor_GQM = it_mods(cc);
+    uncor_GQM.mods([uncor_GQM.mods(:).Xtarget] ~= 1) = [];
+    
+    cor_GQM = NMMfit_logexp_spkNL(cor_GQM,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
+    cor_GQM = NMMfit_scale(cor_GQM,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
+%     cor_GQM = NIMinit_spkhist(cor_GQM,20,1);
+%     cor_GQM.spk_hist.negCon = 0;
+%     cor_GQM = NMMfit_filters(cor_GQM,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:),[],[]);
+ 
+    [~, ~, cor_prate(cc,cc_uinds),cor_G] = NMMmodel_eval(cor_GQM, cur_Robs(cc_uinds), all_Xmat_shift(cc_uinds,:));
+    
+%     % then generating function affected by generated spikes
+%     Lh = cor_GQM.spk_hist.bin_edges(end);
+%     h = zeros(1,Lh); % spike-history term
+%     for n = 1:cor_GQM.spk_hist.spkhstlen
+%         h(cor_GQM.spk_hist.bin_edges(n):(cor_GQM.spk_hist.bin_edges(n+1)-1)) = cor_GQM.spk_hist.coefs(n);
+%     end
+%     h = h - mean(h);
+    
+%     % Simulate over time (all reps at once)
+%     spkstemp = zeros(length(cc_uinds)+Lh,1);  % add buffer at beginning for spike history
+%     Gspkhist = zeros(length(cc_uinds)+Lh,1);
+%     simr = zeros(length(cc_uinds)+Lh,1);
+%     cor_G = [zeros(Lh,1); cor_G];
+%     for t = 1:length(cc_uinds)
+%         Gspkhist(t+Lh) = cor_G(t+Lh) + h * spkstemp(Lh+t-(1:Lh),:);
+%         
+%         simr(t+Lh) = cor_GQM.spk_NL_params(3)*log(1+exp(Gspkhist(t+Lh)*cor_GQM.spk_NL_params(2)));
+%         spkstemp(t+Lh,:) = poissrnd(simr(t+Lh));
+%     end
+%     cor_simspks(cc,cc_uinds) = spkstemp((Lh+1):end);
+
+    uncor_GQM = NMMfit_logexp_spkNL(uncor_GQM,cur_Robs(cc_uinds),all_Xmat(cc_uinds,:));
+    uncor_GQM = NMMfit_scale(uncor_GQM,cur_Robs(cc_uinds),all_Xmat(cc_uinds,:));
+    
+    [~, ~, uncor_prate(cc,cc_uinds),uncor_G] = NMMmodel_eval(uncor_GQM, [], all_Xmat(cc_uinds,:));
+    
+    
+%     if cc > n_probes
+%         su_ind = find(SU_numbers == all_mod_SUnum(cc));
+%         [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
+%     else
+%         [~,nearest_lfp] = min(abs(use_lfps - cc));
+%     end
+%     cur_LFP = full_lfps(:,nearest_lfp);
+%     
+%     nwfreqs = 15;
+%     min_freq = 1; max_freq = 40;
+%     min_scale = 1/max_freq*Fsd;
+%     max_scale = 1/min_freq*Fsd;
+%     scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
+%     wfreqs = scal2frq(scales,'cmor1-1',1/Fsd);
+%     
+%     cur_cwt = cwt(cur_LFP,scales,'cmor1-1');
+%     cur_phasegram = angle(cur_cwt);
+%     cur_ampgram = abs(cur_cwt);
+%     interp_phasegram = mod(interp1(full_lfp_taxis,unwrap(cur_phasegram'),all_t_axis),2*pi);
+%     interp_ampgram = interp1(full_lfp_taxis,cur_ampgram',all_t_axis);
+%     interp_ampgram = bsxfun(@rdivide,interp_ampgram,nanstd(interp_ampgram));
+%     
+%     AXcos = cos(interp_phasegram(used_inds(cc_uinds),:)).*interp_ampgram(used_inds(cc_uinds),:);
+%     AXsin = sin(interp_phasegram(used_inds(cc_uinds),:)).*interp_ampgram(used_inds(cc_uinds),:);
+%     
+%     NL_types = repmat({'lin'},1,3);
+%     mod_signs = [1 1 1];
+%     Xtargets = [1 2 3];
+%     sac_stim_params(1:2) = NMMcreate_stim_params([length(wfreqs) 1]);
+%     sac_stim_params(3) = NMMcreate_stim_params(1);
+%     tr_stim{1} = AXcos;
+%     tr_stim{2} = AXsin;
+%     tr_stim{3} = cor_G;
+%     d2T = 1;
+%     sac_reg_params = NMMcreate_reg_params('lambda_d2T',d2T);
+%     lfp_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+%     if length(mod_signs) == 3
+%         lfp_mod.mods(3).reg_params = NMMcreate_reg_params();
+%     end
+%     lfp_mod = NMMfit_filters(lfp_mod,cur_Robs(cc_uinds),tr_stim,[],[],silent);
+%     [~, ~, lfp_prate(cc,cc_uinds)] = NMMmodel_eval(lfp_mod, [],tr_stim);
+%     tr_stim{3} = uncor_G;
+%     lfp_mod = NMMfit_filters(lfp_mod,cur_Robs(cc_uinds),tr_stim,[],[],silent);
+%     [~, ~, lfp_uprate(cc,cc_uinds)] = NMMmodel_eval(lfp_mod, [],tr_stim);
+    
 end
 
+
+%%
+Robs_tsub = Robs_mat;
+n_trials = length(unique(all_trialvec(used_inds)));
+for tt = 1:n_trials
+    cur_inds = find(all_trialvec(used_inds) == tt);
+   cur_means = nanmean(Robs_mat(cur_inds,:));
+   Robs_tsub(cur_inds,:) = bsxfun(@minus,Robs_mat(cur_inds,:),cur_means);    
+end
+
+%%
+max_lag = 25;
+lags = -max_lag:max_lag;
+n_lags = length(lags);
+obs_acovs = nan(n_chs,n_lags);
+lfp_acovs = nan(n_chs,n_lags);
+cor_acovs = nan(n_chs,n_lags);
+uncor_acovs = nan(n_chs,n_lags);
+for cc = 97:n_chs
+    cc
+    cur_Robs = Robs_tsub(:,cc);
+    cc_uinds = find(~isnan(cur_Robs));
+    [obs_acovs(cc,:),lags] = xcov(cur_Robs(cc_uinds),cur_Robs(cc_uinds),max_lag,'biased');
+%     [lfp_acovs(cc,:),lags] = xcov(lfp_prate(cc,cc_uinds),lfp_prate(cc,cc_uinds),max_lag,'biased');
+    [cor_acovs(cc,:),lags] = xcov(cor_prate(cc,cc_uinds),cor_prate(cc,cc_uinds),max_lag,'biased');
+%     [simspk_acovs(cc,:),lags] = xcov(cor_simspks(cc,cc_uinds),cor_simspks(cc,cc_uinds),max_lag,'biased');
+    [uncor_acovs(cc,:),lags] = xcov(uncor_prate(cc,cc_uinds),uncor_prate(cc,cc_uinds),max_lag,'biased');
+    
+end
+
+obs_acovs(:,lags==0) = nan;
+lfp_acovs(:,lags == 0) = nan;
+cor_acovs(:,lags == 0) = nan;
+simspk_acovs(:,lags == 0) = nan;
+uncor_acovs(:,lags==0) = nan;
+
+for cc = 97:n_chs
+    plot(lags,obs_acovs(cc,:),'k')
+    hold on
+    plot(lags,cor_acovs(cc,:),'r')
+    plot(lags,uncor_acovs(cc,:),'b')
+    pause
+    clf
+end
+%%
+close all
+max_lag = 20;
+for cc1 = 97:102;
+    for cc2 = (cc1+1):103
+        % cc1 = 97;
+        % cc2 = 103;
+        cur_Robs1 = Robs_tsub(:,cc1);
+        cur_Robs2 = Robs_tsub(:,cc2);
+%         cur_Robs1 = Robs_mat(:,cc1);
+%         cur_Robs2 = Robs_mat(:,cc2);
+        cc_uinds = find(~isnan(cur_Robs1) & ~isnan(cur_Robs2));
+        [cur_obs_xcovs,lags] = xcov(cur_Robs1(cc_uinds),cur_Robs2(cc_uinds),max_lag,'biased');
+        % [cur_sim_xcovs,lags] = xcov(cor_simspks(cc1,cc_uinds),cor_simspks(cc2,cc_uinds),max_lag,'biased');
+        [cur_cor_xcovs,lags] = xcov(cor_prate(cc1,cc_uinds),cor_prate(cc2,cc_uinds),max_lag,'biased');
+        [cur_uncor_xcovs,lags] = xcov(uncor_prate(cc1,cc_uinds),uncor_prate(cc2,cc_uinds),max_lag,'biased');
+        % [cur_lfp_xcovs,lags] = xcov(lfp_prate(cc1,cc_uinds),lfp_prate(cc2,cc_uinds),max_lag,'biased');
+        % [cur_ulfp_xcovs,lags] = xcov(lfp_uprate(cc1,cc_uinds),lfp_uprate(cc2,cc_uinds),max_lag,'biased');
+        plot(lags,cur_obs_xcovs)
+        hold on
+        plot(lags,cur_cor_xcovs,'r')
+        plot(lags,cur_uncor_xcovs,'k')
+        %     plot(lags,cur_lfp_xcovs,'g')
+        %     plot(lags,cur_ulfp_xcovs,'m')
+        
+        [cc1 cc2]
+        pause
+        clf
+    end
+end
+%%
+silent = 1;
+cc1 = 103;
+cc2 = 97;
+
+cur_Robs1 = Robs_mat(:,cc1);
+cur_Robs2 = Robs_mat(:,cc2);
+cc_uinds = find(~isnan(cur_Robs1) & ~isnan(cur_Robs2));
+% 
+% cor_GQM1 = ModData(cc1).bestGQM;
+% uncor_GQM1 = ModData(cc1).bestGQM_unCor;
+    cor_GQM1 = dit_mods(cc1);
+    cor_GQM1.mods([cor_GQM1.mods(:).Xtarget] ~= 1) = [];
+    uncor_GQM1 = it_mods(cc1);
+    uncor_GQM1.mods([uncor_GQM1.mods(:).Xtarget] ~= 1) = [];
+
+cor_GQM1 = NMMfit_logexp_spkNL(cor_GQM1,cur_Robs1(cc_uinds),all_Xmat_shift(cc_uinds,:));
+cor_GQM1 = NMMfit_scale(cor_GQM1,cur_Robs1(cc_uinds),all_Xmat_shift(cc_uinds,:));
+% cor_GQM1 = NIMinit_spkhist(cor_GQM1,20);
+% % cor_GQM1.spk_hist.negCon = 1;
+% cor_GQM1 = NMMfit_filters(cor_GQM1,cur_Robs1(cc_uinds),all_Xmat_shift(cc_uinds,:),[],[-1]);
+
+% uncor_GQM1 = NMMfit_logexp_spkNL(uncor_GQM1,cur_Robs1(cc_uinds),all_Xmat(cc_uinds,:));
+% uncor_GQM1 = NMMfit_scale(uncor_GQM1,cur_Robs1(cc_uinds),all_Xmat(cc_uinds,:));
+  
+% cor_GQM2 = ModData(cc2).bestGQM;
+% uncor_GQM2 = ModData(cc2).bestGQM_unCor;
+    cor_GQM2 = dit_mods(cc2);
+    cor_GQM2.mods([cor_GQM2.mods(:).Xtarget] ~= 1) = [];
+    uncor_GQM2 = it_mods(cc2);
+    uncor_GQM2.mods([uncor_GQM2.mods(:).Xtarget] ~= 1) = [];
+
+cor_GQM2 = NMMfit_logexp_spkNL(cor_GQM2,cur_Robs2(cc_uinds),all_Xmat_shift(cc_uinds,:));
+cor_GQM2 = NMMfit_scale(cor_GQM2,cur_Robs2(cc_uinds),all_Xmat_shift(cc_uinds,:));
+% cor_GQM2 = NIMinit_spkhist(cor_GQM2,20);
+% % cor_GQM2.spk_hist.negCon = 1;
+% cor_GQM2 = NMMfit_filters(cor_GQM2,cur_Robs1(cc_uinds),all_Xmat_shift(cc_uinds,:),[],[-1]);
+
+uncor_GQM2 = NMMfit_logexp_spkNL(uncor_GQM2,cur_Robs2(cc_uinds),all_Xmat(cc_uinds,:));
+uncor_GQM2 = NMMfit_scale(uncor_GQM2,cur_Robs2(cc_uinds),all_Xmat(cc_uinds,:));
+
+
+%%
+[~, ~, cor_prate1,cor_G1] = NMMmodel_eval(cor_GQM1, cur_Robs1(cc_uinds), all_Xmat_shift(cc_uinds,:));
+[~, ~, uncor_prate1,uncor_G1] = NMMmodel_eval(uncor_GQM1, [], all_Xmat(cc_uinds,:));
+[~, ~, cor_prate2,cor_G2] = NMMmodel_eval(cor_GQM2, cur_Robs2(cc_uinds), all_Xmat_shift(cc_uinds,:));
+[~, ~, uncor_prate2,uncor_G2] = NMMmodel_eval(uncor_GQM2, [], all_Xmat(cc_uinds,:));
+
+Gpts = [cor_G1 cor_G2 ];
+% Gpts = [uncor_G1 uncor_G2];
+% Gpts = [cor_G1];
+
+%%
+cur_Robs1_ms = cur_Robs1(cc_uinds) - nanmean(cur_Robs1);
+cur_Robs2_ms = cur_Robs2(cc_uinds) - nanmean(cur_Robs2);
+
+max_tlag = 20;
+tlags = [-max_tlag:max_tlag];
+cur_Robs1_shifted = nan(length(cc_uinds),length(tlags));
+for tt = 1:length(tlags)
+    cur_Robs1_shifted(:,tt) = shift_matrix_Nd(cur_Robs1_ms,-tlags(tt),1);
+end
+
+%%
+gdiff_thresh = 0.05;
+n_sims =5 ;
+avg_xcorrs = nan(n_sims,length(tlags));
+for rr = 1:n_sims
+    rr
+    n_rpts = 1e4;
+    rand_pts = randperm(size(Gpts,1));
+    rand_pts = rand_pts(1:n_rpts)';
+    randG = Gpts(rand_pts,:);
+    Dmat = squareform(pdist(randG,'chebychev'));
+    Dmat(logical(eye(n_rpts))) = nan;
+    [II,JJ] = meshgrid(1:n_rpts);
+    % Dmat(II <= JJ) = nan;
+    % [bvals,bestlocs] = sort(Dmat(:));
+    
+    [bvals,bestlocs] = min(Dmat,[],2);    
+        
+    best_pairs = [rand_pts rand_pts(bestlocs)];
+        
+    bad_pts = find(bvals > gdiff_thresh);
+    best_pairs(bad_pts,:) = [];
+    cur_nrpts = size(best_pairs,1);
+    
+    % chunkwin = 2*max_lag+1;
+    all_xcorrs = nan(cur_nrpts,length(tlags));
+    for ii = 1:cur_nrpts
+        cur_set1 = best_pairs(ii,1);
+        cur_set2 = best_pairs(ii,2);
+        if min([cur_set1(:); cur_set2(:)]) > 0 && max([cur_set1(:); cur_set2(:)]) < length(cc_uinds)
+            %         all_xcorrs(ii,:) = xcov(cur_Robs2(cur_set1),cur_Robs2(cur_set2),max_lag,'biased');
+            all_xcorrs(ii,:) = bsxfun(@times,cur_Robs1_shifted(cur_set1,:),cur_Robs2_ms(cur_set2));
+        end
+    end
+    avg_xcorrs(rr,:) = nanmean(all_xcorrs);
+    avg_bvals(rr) = mean(bvals)/sqrt(2);
+end
+%%
+spks1 = poissrnd(cor_prate1);
+spks2 = poissrnd(cor_prate2);
+uncor_spks1 = poissrnd(uncor_prate1);
+uncor_spks2 = poissrnd(uncor_prate2);
+
+% [~, ~, ~, G] = NMMmodel_eval(cor_GQM1, [], all_Xmat_shift(cc_uinds,:));
+% G = G - cor_GQM1.spk_NL_params(1);
+[~, ~, ~, G] = NMMmodel_eval(cor_GQM1, [], all_Xmat(cc_uinds,:));
+G = G - cor_GQM1.spk_NL_params(1);
+
+nOtherSUs = size(spks2,2);
+other_flen = 50;
+mod_sp(2) = NMMcreate_stim_params([other_flen nOtherSUs]);
+other_X = create_time_embedding(spks2,mod_sp(2));
+
+
+X{1} = G;
+X{2} = other_X;
+
+mod_sp(1) = NMMcreate_stim_params(1);
+other_rp = NMMcreate_reg_params('lambda_d2T',500,'lambda_L2',5);
+cor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2]);
+cor_other.mods(1).reg_params = NMMcreate_reg_params();
+cor_other.mods(1).filtK = 1;
+cor_other = NMMfit_filters(cor_other,spks1,X,[],[1 2],1);
+
+%%
+max_lag = 50;
+[obs_xcov,lags] = xcov(cur_Robs1(cc_uinds),cur_Robs2(cc_uinds),max_lag,'biased');
+[cor_xcov,lags] = xcov(spks1,spks2,max_lag,'biased');
+[uncor_xcov,lags] = xcov(uncor_spks1,uncor_spks2,max_lag,'biased');
+
+[obs_acov1,lags] = xcov(cur_Robs1(cc_uinds),cur_Robs1(cc_uinds),max_lag,'biased');
+obs_acov1(lags==0) = nan;
+[obs_acov2,lags] = xcov(cur_Robs2(cc_uinds),cur_Robs2(cc_uinds),max_lag,'biased');
+obs_acov2(lags==0) = nan;
+
+[cor_acov1,lags] = xcov(spks1,spks1,max_lag,'biased');
+% [cor_acov1,lags] = xcov(cor_prate1,cor_prate1,max_lag,'biased');
+cor_acov1(lags==0) = nan;
+[uncor_acov1,lags] = xcov(uncor_spks1,uncor_spks1,max_lag,'biased');
+uncor_acov1(lags==0) = nan;
+
+[cor_acov2,lags] = xcov(spks2,spks2,max_lag,'biased');
+% [cor_acov2,lags] = xcov(cor_prate2,cor_prate2,max_lag,'biased');
+cor_acov2(lags==0) = nan;
+[uncor_acov2,lags] = xcov(uncor_spks2,uncor_spks2,max_lag,'biased');
+uncor_acov2(lags==0) = nan;
+
+%%    mod_sp(1) = NMMcreate_stim_params(1);
+    mod_sp(2) = other_sp;
+    other_rp = NMMcreate_reg_params('lambda_d2T',5000,'lambda_L2',50);
+    
+    
+    [corLL, ~, ~, G,~,~,nullLL] = NMMmodel_eval(cor_GQM, cur_Robs, all_Xmat_shift(cc_uinds,:));
+    G = G - cor_GQM.spk_NL_params(1);
+    %         Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
+    %         Gint = Gint(cc_uinds_new);
+    %         Gint(isnan(Gint)) = 0;
+    
+    %         temp = NMMinitialize_model(mod_sp(1),1,{'lin'});
+    %         temp = NMMfit_filters(temp,other_Robs,G);
+    %         temp = NMMfit_logexp_spkNL(temp,other_Robs,G);
+    %         [~, ~, other_Rpred] = NMMmodel_eval(temp, [], G);
+    %         other_residual = other_Robs - other_Rpred;
+    %         other_X = create_time_embedding(other_residual,other_sp);
+    
+    %         X{1} = Gint;
+    %         X{2} = other_X(cc_uinds_new,:);
+    X{1} = G;
+    X{2} = other_X(cc_uinds,:);
+    
+    cor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
+    cor_other.mods(1).reg_params = NMMcreate_reg_params();
+    cor_other.mods(1).filtK = 1;
+    %         cor_other = NMMfit_filters(cor_other,cur_Robs_new,X,[],[1 2],1);
+    cor_other = NMMfit_filters(cor_other,cur_Robs,X,[],[1 2],1);
+    
+    fixed_other = cor_other;
+    fixed_other.mods(1).filtK = 1;
+    fixed_other = NMMfit_filters(fixed_other,cur_Robs,X,[],[2],1);
+    
+    [uncorLL, ~, ~, G] = NMMmodel_eval(uncor_GQM, cur_Robs, all_Xmat(cc_uinds,:));
+    G = G - cor_GQM.spk_NL_params(1);
+    %         Gint = interp1(all_t_axis(used_inds(cc_uinds)),G,all_t_axis_new(use_vec_new));
+    %         Gint = Gint(cc_uinds_new);
+    %         Gint(isnan(Gint)) = 0;
+    %         X{1} = Gint;
+    %         X{2} = other_X(cc_uinds_new,:);
+    X{1} = G;
+    X{2} = other_X(cc_uinds,:);
+    uncor_other = NMMinitialize_model(mod_sp,[1 1],{'lin','lin'},other_rp,[1 2],[],'exp');
+    uncor_other.mods(1).reg_params = NMMcreate_reg_params();
+    uncor_other.mods(1).filtK = 1;
+    %         uncor_other = NMMfit_filters(uncor_other,cur_Robs_new,X,[],[1 2],1);
+    uncor_other = NMMfit_filters(uncor_other,cur_Robs,X,[],[2],1);
+    

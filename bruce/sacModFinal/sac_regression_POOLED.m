@@ -277,7 +277,7 @@ xl = [-0.15 0.4];
 
 f1 = figure(); hold on
 h1=shadedErrorBar(reg_lags,nanmean(all_gsac),nanstd(all_gsac)/sqrt(length(gsac_used_SUs)),{'color','r'});
-h2=shadedErrorBar(reg_lags,nanmean(nreg_gsac),nanstd(nreg_gsac)/sqrt(length(gsac_used_SUs)),{'color','b'});
+h2=shadedErrorBar(reg_lags,nanmean(reg_gsac),nanstd(reg_gsac)/sqrt(length(gsac_used_SUs)),{'color','b'});
 xlim(xl);
 ylim([0.7 1.25]);
 line(xl,[1 1],'color','k');
@@ -285,11 +285,11 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_glm_rates.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Gsac_glm_rates.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 %% MSACS GLM VS TRIGAVG
 msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);
@@ -312,7 +312,7 @@ xl = [-0.15 0.4];
 
 f1 = figure(); hold on
 h1=shadedErrorBar(reg_lags,nanmean(all_msac),nanstd(all_msac)/sqrt(length(msac_used_SUs)),{'color','r'});
-h2=shadedErrorBar(reg_lags,nanmean(nreg_msac),nanstd(nreg_msac)/sqrt(length(msac_used_SUs)),{'color','b'});
+h2=shadedErrorBar(reg_lags,nanmean(reg_msac),nanstd(reg_msac)/sqrt(length(msac_used_SUs)),{'color','b'});
 xlim(xl);
 ylim([0.7 1.25]);
 line(xl,[1 1],'color','k');
@@ -347,13 +347,20 @@ xl = [-0.15 0.4];
 
 f1 = figure(); hold on
 h1=shadedErrorBar(reg_lags,nanmean(all_simsac),nanstd(all_simsac)/sqrt(length(simsac_used_SUs)),{'color','r'});
-h2=shadedErrorBar(reg_lags,nanmean(nreg_simsac),nanstd(nreg_simsac)/sqrt(length(simsac_used_SUs)),{'color','b'});
+h2=shadedErrorBar(reg_lags,nanmean(reg_simsac),nanstd(reg_simsac)/sqrt(length(simsac_used_SUs)),{'color','b'});
 xlim(xl);
-ylim([0.8 1.15]);
+ylim([0.85 1.15]);
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
+
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Simsac_glm_rates.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 %% MSACS GLM VS TRIGAVG
 msac_used_SUs = find(N_msacs >= min_Nsacs & avg_rates >= min_rate);

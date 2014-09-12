@@ -904,7 +904,7 @@ if strcmp(rec_type,'LP')
     use_lfps = 1:2:n_probes;
 elseif strcmp(rec_type,'UA')
     Fs = 400.0032;
-    dsf = 2;
+    dsf = 4;
     Fsd = Fs/dsf;
     niqf = Fs/2;
     new_niqf = Fsd/2;
