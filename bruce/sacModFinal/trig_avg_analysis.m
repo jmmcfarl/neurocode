@@ -4,7 +4,7 @@
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G087';
+% Expt_name = 'M297';
 % bar_ori = 0;
 
 include_bursts = 1;
@@ -112,7 +112,7 @@ max_sac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
 max_gsac_dur = 0.1;
 
-nboot = 200; %number of bootstrap samples for computing trig-avg SD
+nboot = 500; %number of bootstrap samples for computing trig-avg SD
 
 %% LOAD EXPTS STRUCT
 cd(data_dir)

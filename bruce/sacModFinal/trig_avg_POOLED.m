@@ -7,7 +7,7 @@ all_SU_data = [];
 all_SU_NPdata = [];
 all_MU_data = [];
 
-%% LOAD JBE
+% LOAD JBE
 base_sname = 'corrected_models2';
 base_tname = 'sac_trig_avg_data';
 % base_tname = 'sac_trig_avg_data_withburst';
@@ -1096,7 +1096,7 @@ boundary_enums = [boundary_class(:).Expt_num];
 
 gsac_gray_used_SUs = find(N_gray_gsacs >= min_Nsacs & avg_rates >= min_rate);
 
-mua_gsac_gray_avg = [mua_MU_data(:).gsac_gray_avg]';
+mua_gsac_gray_avg = [all_MU_data(:).gsac_gray_avg]';
 sua_gsac_gray_avg = reshape([all_SU_data(:).gsac_gray_avg],[],length(all_SU_data))';
 if mua_sm_sigma > 0
     for ii = 1:size(mua_gsac_gray_avg,1)
@@ -1115,18 +1115,21 @@ n_lem_expts = length(un_lem_expts);
 gran_gsac = nan(n_lem_expts,length(tlags));
 supra_gsac = nan(n_lem_expts,length(tlags));
 infra_gsac = nan(n_lem_expts,length(tlags));
-all_gran_supt = [];
-all_supra_supt = [];
-all_infra_supt = [];
-all_gran_enht = [];
-all_supra_enht = [];
-all_infra_enht = [];
-all_supt = [];
-all_enht = [];
+% all_gran_supt = [];
+% all_supra_supt = [];
+% all_infra_supt = [];
+% all_gran_enht = [];
+% all_supra_enht = [];
+% all_infra_enht = [];
+% all_supt = [];
+% all_enht = [];
 all_relloc = [];
 all_gran_SUs = [];
 all_infra_SUs = [];
 all_supra_SUs = [];
+all_gran_probes = [];
+all_infra_probes = [];
+all_supra_probes = [];
 for ee = 1:n_lem_expts
    cur_mua_set = find(MU_expt_nums == un_lem_expts(ee));
    cur_bound_info = find(boundary_enums == un_lem_expts(ee),1);
@@ -1137,26 +1140,26 @@ for ee = 1:n_lem_expts
    supra_probes = 1:(cur_ub-1);
    infra_probes = (cur_lb+1):24;
    
-   [~,cur_supt] = min(mua_gsac_gray_avg(cur_mua_set,:),[],2);
-   [~,cur_enht] = max(mua_gsac_gray_avg(cur_mua_set,:),[],2);
-   all_supt = cat(1,all_supt,cur_supt);
-   all_enht = cat(1,all_enht,cur_enht);
-   cur_relpos = (1:24) - cur_ub;
-   all_relloc = cat(2,all_relloc,cur_relpos);
+%    [~,cur_supt] = min(mua_gsac_gray_avg(cur_mua_set,:),[],2);
+%    [~,cur_enht] = max(mua_gsac_gray_avg(cur_mua_set,:),[],2);
+%    all_supt = cat(1,all_supt,cur_supt);
+%    all_enht = cat(1,all_enht,cur_enht);
+%    cur_relpos = (1:24) - cur_ub;
+%    all_relloc = cat(2,all_relloc,cur_relpos);
    if ~isempty(gran_probes)
        gran_gsac(ee,:) = mean(mua_gsac_gray_avg(cur_mua_set(gran_probes),:));
-       all_gran_supt = cat(1,all_gran_supt,cur_supt(gran_probes));
-       all_gran_enht = cat(1,all_gran_enht,cur_enht(gran_probes));
+%        all_gran_supt = cat(1,all_gran_supt,cur_supt(gran_probes));
+%        all_gran_enht = cat(1,all_gran_enht,cur_enht(gran_probes));
    end
    if ~isempty(supra_probes)
        supra_gsac(ee,:) = mean(mua_gsac_gray_avg(cur_mua_set(supra_probes),:));
-       all_supra_supt = cat(1,all_supra_supt,cur_supt(supra_probes));
-       all_supra_enht = cat(1,all_supra_enht,cur_enht(supra_probes));
+%        all_supra_supt = cat(1,all_supra_supt,cur_supt(supra_probes));
+%        all_supra_enht = cat(1,all_supra_enht,cur_enht(supra_probes));
    end
    if ~isempty(infra_probes)
        infra_gsac(ee,:) = mean(mua_gsac_gray_avg(cur_mua_set(infra_probes),:));
-       all_infra_supt = cat(1,all_infra_supt,cur_supt(infra_probes));
-       all_infra_enht = cat(1,all_infra_enht,cur_enht(infra_probes));
+%        all_infra_supt = cat(1,all_infra_supt,cur_supt(infra_probes));
+%        all_infra_enht = cat(1,all_infra_enht,cur_enht(infra_probes));
    end
    
    cur_SU_set = find([all_SU_data(:).expt_num] == un_lem_expts(ee));
@@ -1165,7 +1168,20 @@ for ee = 1:n_lem_expts
    all_gran_SUs = cat(2,all_gran_SUs,cur_SU_set(ismember(cur_SU_probenums,gran_probes)));
    all_infra_SUs = cat(2,all_infra_SUs,cur_SU_set(ismember(cur_SU_probenums,infra_probes)));
    all_supra_SUs = cat(2,all_supra_SUs,cur_SU_set(ismember(cur_SU_probenums,supra_probes)));
+   all_gran_probes = cat(2,all_gran_probes,cur_mua_set(gran_probes));
+   all_supra_probes = cat(2,all_supra_probes,cur_mua_set(supra_probes));
+   all_infra_probes = cat(2,all_infra_probes,cur_mua_set(infra_probes));
 end
+
+search_range = [0 0.2];
+[granMU_sup,granMU_supt] = get_tavg_peaks(-(mua_gsac_gray_avg(all_gran_probes,:)-1),tlags,search_range);
+[infraMU_sup,infraMU_supt] = get_tavg_peaks(-(mua_gsac_gray_avg(all_infra_probes,:)-1),tlags,search_range);
+[supraMU_sup,supraMU_supt] = get_tavg_peaks(-(mua_gsac_gray_avg(all_supra_probes,:)-1),tlags,search_range);
+
+search_range = [0 0.3];
+[granMU_enh,granMU_enht] = get_tavg_peaks((mua_gsac_gray_avg(all_gran_probes,:)-1),tlags,search_range);
+[infraMU_enh,infraMU_enht] = get_tavg_peaks((mua_gsac_gray_avg(all_infra_probes,:)-1),tlags,search_range);
+[supraMU_enh,supraMU_enht] = get_tavg_peaks((mua_gsac_gray_avg(all_supra_probes,:)-1),tlags,search_range);
 
 xr = [-0.05 0.3];
 yl = [0.7 1.3];
@@ -1188,15 +1204,28 @@ ylim(yl);
 % h2=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_supra_SUs,:)),nanstd(sua_gsac_gray_avg(all_supra_SUs,:))/sqrt(length(all_supra_SUs)),{'color','b'});
 % h3=shadedErrorBar(tlags,nanmean(sua_gsac_gray_avg(all_infra_SUs,:)),nanstd(sua_gsac_gray_avg(all_infra_SUs,:))/sqrt(length(all_infra_SUs)),{'color','r'});
 
-[granSU_sup,granSU_supt] = min(sua_gsac_gray_avg(all_gran_SUs,:),[],2);
-[infraSU_sup,infraSU_supt] = min(sua_gsac_gray_avg(all_infra_SUs,:),[],2);
-[supraSU_sup,supraSU_supt] = min(sua_gsac_gray_avg(all_supra_SUs,:),[],2);
+search_range = [0 0.2];
+[granSU_sup,granSU_supt] = get_tavg_peaks(-(sua_gsac_gray_avg(all_gran_SUs,:)-1),tlags,search_range);
+[infraSU_sup,infraSU_supt] = get_tavg_peaks(-(sua_gsac_gray_avg(all_infra_SUs,:)-1),tlags,search_range);
+[supraSU_sup,supraSU_supt] = get_tavg_peaks(-(sua_gsac_gray_avg(all_supra_SUs,:)-1),tlags,search_range);
+% [granSU_sup,granSU_supt] = min(sua_gsac_gray_avg(all_gran_SUs,:),[],2);
+% [infraSU_sup,infraSU_supt] = min(sua_gsac_gray_avg(all_infra_SUs,:),[],2);
+% [supraSU_sup,supraSU_supt] = min(sua_gsac_gray_avg(all_supra_SUs,:),[],2);
 
 % % trange = tlags(tlags > 0.02 & tlags < 0.125);
 trange = linspace(0.025,0.125,20);
-gran_hist = histc(tlags(all_gran_supt),trange);
-sup_hist = histc(tlags(all_supra_supt),trange);
-infra_hist = histc(tlags(all_infra_supt),trange);
+% gran_hist = histc(tlags(all_gran_supt),trange);
+% sup_hist = histc(tlags(all_supra_supt),trange);
+% infra_hist = histc(tlags(all_infra_supt),trange);
+% gran_hist = histc(tlags(granSU_supt),trange);
+% sup_hist = histc(tlags(all_supra_supt),trange);
+% infra_hist = histc(tlags(all_infra_supt),trange);
+% gran_hist = histc(granSU_supt,trange);
+% sup_hist = histc(supraSU_supt,trange);
+% infra_hist = histc(infraSU_supt,trange);
+gran_hist = histc(granMU_supt,trange);
+sup_hist = histc(supraMU_supt,trange);
+infra_hist = histc(infraMU_supt,trange);
 
 f2 = figure();
 % subplot(2,1,1);
@@ -1208,6 +1237,7 @@ xlabel('Suppresion timing');
 ylabel('Relative freq');
 legend('Granular','Supra-gran','Infra-gran');
 xlim([0.025 0.125]);
+
 
 % % trange = tlags(tlags > 0.05 & tlags < 0.3);
 % trange = linspace(0.,0.3,20);
@@ -1223,16 +1253,16 @@ xlim([0.025 0.125]);
 
 
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'MUA_Lamdep_STA.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'MUA_Lamdep_suphist.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'MUA_Lamdep_STA.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'MUA_Lamdep_suphist.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 
 % 

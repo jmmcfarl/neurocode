@@ -1,4 +1,4 @@
-function [ev_avg,lags,ev_std,n_events,ev_mat] = get_event_trig_avg_v3(sig,event_inds,backlag,forwardlag,nboot,trial_ids,inc_prev_trial)
+function [ev_avg,lags,ev_std,n_events,ev_mat,ev_cis] = get_event_trig_avg_v3(sig,event_inds,backlag,forwardlag,nboot,trial_ids,inc_prev_trial)
 %
 % [ev_avg,lags] = get_event_trig_avg(sig,event_inds,backlag,forwardlag)
 %
@@ -117,4 +117,5 @@ else %if error bars are requested
     boot_avgs = reshape(boot_avgs,[nboot length(lags) p]);
     ev_avg = squeeze(mean(boot_avgs));
     ev_std = squeeze(std(boot_avgs));
+    ev_cis = prctile(boot_avgs,[2.5 97.5]);
 end

@@ -8,7 +8,7 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % Expt_name = 'M294';
-Expt_name = 'M297';
+Expt_name = 'M296';
 use_MUA = false;
 bar_ori = 90; %bar orientation to use (only for UA recs)
 
@@ -1023,7 +1023,7 @@ signal_cov = diag(signal_cov);
 %%
 close all
 ii = 1;
-for ii = 1:n_chs
+for ii = 25:n_chs
     subplot(3,1,1);
     imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(ii,:,:)));
     ca = caxis();
@@ -1177,3 +1177,117 @@ for ii = 1:length(targs)
     clf
 end
 
+%%
+close all
+fig_dir = '/home/james/Desktop/';
+
+cc = 27;
+x_bin_edges = (poss_lags(1:end-1)+poss_lags(2:end))/2;
+b = 0.5:0.5:maxlag;
+
+for kk = 1:length(tlags)
+    x = x_bin_edges;
+    y = squeeze(all_XC(:,cc,cc,kk));
+    bad = find(isnan(y));  x(bad) = []; y(bad) = [];
+    ss(kk) = fnxtr(csape(b,y(:).'/fnval(fnxtr(csape(b,eye(length(b)),'var')),x(:).'),'var'));
+end
+
+uset = find(tlags*dt >= 0 & tlags*dt <= 0.06);
+cmap = jet(length(uset));
+xval = linspace(0,maxlag,100);
+f1 = figure(); hold on
+for ii = 1:length(uset)
+    temp = fnval(ss(uset(ii)),xval);
+    plot(xval*sp_dx,temp,'color',cmap(ii,:),'linewidth',1);
+end
+ii = 1;
+temp = fnval(ss(uset(ii)),xval);
+plot(xval*sp_dx,temp,'color',cmap(ii,:),'linewidth',2);
+axis tight
+xl = xlim();
+line(xl,[0 0],'color','k');
+xlabel('Eye trajectory difference (deg)');
+ylabel('Covariance');
+
+xl = [1 2];
+f2 = figure();
+imagescnan(rpt_taxis,1:n_rpts,full_psth(:,:,cc));
+xlabel('Time (s)');
+ylabel('Trial');
+xlim(xl);
+
+f3 = figure();
+imagescnan(rpt_taxis,1:n_rpts,mod_prates(:,:,cc));
+xlabel('Time (s)');
+ylabel('Trial');
+xlim(xl);
+
+f4 = NMMdisplay_model(ModData(cc).rectGQM);
+f4 = f4.stim_filts;
+
+xl = [-0.06 0.06];
+f5 = figure();
+subplot(3,1,1);
+imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(cc,:,:)));
+title('Observed')
+ca = caxis();
+cam = max(abs(ca))*0.5;
+caxis([-cam cam]);
+xlim(xl);
+subplot(3,1,2);
+imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(cc,:,:)-psth_xcov(cc,:,:)));
+title('PSTH corrected')
+% imagescnan(tlags*dt,1:length(targs),squeeze(psth_xcov(ii,:,:)));
+caxis([-cam cam]);
+xlim(xl);
+subplot(3,1,3);
+imagescnan(tlags*dt,1:n_chs,squeeze(obs_xcov(cc,:,:)-all_ZPT(cc,:,:)));
+% imagescnan(tlags*dt,1:length(targs),squeeze(all_ZPT(ii,:,:)));
+title('Eye Pos Corrected')
+caxis([-cam cam]);
+xlim(xl);
+xlabel('Time lag (s)');
+
+
+fig_width = 5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir sprintf('acorr_fun_ex%d.pdf',cc)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+
+figufy(f2);
+fname = [fig_dir sprintf('Observed_TBT_ex%d.pdf',cc)];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+
+figufy(f3);
+fname = [fig_dir sprintf('Predicted_TBT_ex%d.pdf',cc)];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+
+fig_width = 10; rel_height = 0.9;
+figufy(f4);
+fname = [fig_dir sprintf('Model_ex%d.pdf',cc)];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
+
+fig_width = 5; rel_height = 2.5;
+figufy(f5);
+fname = [fig_dir sprintf('Xcov_comparison_ex%d.pdf',cc)];
+exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f5);
+
+%%
+xl = [1 2];
+
+f1 = figure();
+imagescnan(rpt_taxis,1:n_rpts,full_EP);
+xlabel('Time (s)');
+ylabel('Trial');
+caxis([-8 8]);
+xlim(xl);
+
+fig_width = 5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'EP_stack.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);

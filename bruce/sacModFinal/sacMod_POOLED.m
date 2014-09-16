@@ -7,7 +7,7 @@ fit_unCor = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
-base_sname = 'sacStimProc4';
+base_sname = 'sacStimProcFin';
 % base_sname = 'sacStimProc2';
 % base_ename = 'sacStimProc';
 base_timename = 'sac_info_timing';
@@ -792,8 +792,8 @@ for ii = 1:length(all_SU_data)
     
     tkerns = squeeze(std(mod_filts,[],2));
     tkerns = bsxfun(@rdivide,tkerns,sqrt(sum(tkerns.^2)));
-    tkerns = bsxfun(@times,tkerns,all_SU_data(ii).rel_filt_weights);
-    tkerns(:,all_SU_data(ii).rel_filt_weights==0) = 0;
+    tkerns = bsxfun(@times,tkerns,all_SU_data(ii).ModData.rectGQM.rel_filt_weights);
+    tkerns(:,all_SU_data(ii).ModData.rectGQM.rel_filt_weights==0) = 0;
     %     tkerns(:,qfilts) = tkerns(:,qfilts).^2;
     
     
@@ -897,10 +897,10 @@ line(xl,[1 1],'color','k');
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
-figufy(f3);
-fname = [fig_dir 'Gsac_EI_ratio.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
+% figufy(f3);
+% fname = [fig_dir 'Gsac_EI_ratio.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
 
 %% ANALYZE LAMINAR DEPENDENCIES
 load('/home/james/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')
@@ -1007,6 +1007,12 @@ line(xl,yl,'color','k');
 xlabel('Time lag (s)');
 ylabel('Suppression timing (s)');
 
+lem_uset = uu(ismember(uu,lem_SUs));
+group_id = nan(length(all_SU_data));
+group_id(all_supra_SUs) = 1;
+group_id(all_gran_SUs) = 2;
+group_id(all_infra_SUs) = 3;
+aoctool(emtime(lem_uset),gsac_inhtime(lem_uset),group_id(lem_uset),0.05,[],[],[],'on',4);
 
 % xl = [0.02 0.12];
 % yl = [0.1 0.3];

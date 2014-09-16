@@ -810,10 +810,14 @@ end
 all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
 all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
 
+all_Xmat = create_time_embedding(all_stimmat_up,stim_params_us);
+all_Xmat = all_Xmat(used_inds,use_kInds_up);
+
 %%
 gain_d2T = 50;
 silent = 1;
-mod_prates = nan(length(targs),length(used_inds));
+mod_prate = nan(length(used_inds),length(targs));
+umod_prate = nan(length(used_inds),length(targs));
 for ss = 1:length(targs)
     cc = targs(ss);
     cur_Robs = Robs_mat(:,cc);
@@ -828,9 +832,15 @@ for ss = 1:length(targs)
         mod_fits(ss) = cur_mod;
         
         stim_mod_signs = [cur_mod.mods(:).sign];
-        [~,~,mod_prate(ss,cc_uinds),~,filt_outs,fgint] = NMMmodel_eval(cur_mod,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
+        [~,~,mod_prate(cc_uinds,ss),~,filt_outs,fgint] = NMMmodel_eval(cur_mod,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
         fgint = bsxfun(@times,fgint,stim_mod_signs);
         stimG = sum(fgint,2);
+
+        cur_mod = ModData(cc).rectGQM_unCor;  
+        cur_mod = NMMfit_scale(cur_mod,cur_Robs(cc_uinds),all_Xmat(cc_uinds,:));
+        cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cc_uinds),all_Xmat(cc_uinds,:));
+        
+        [~,~,umod_prate(cc_uinds,ss)] = NMMmodel_eval(cur_mod,cur_Robs(cc_uinds),all_Xmat(cc_uinds,:));
         
 %         Xsac_tot = bsxfun(@times,cur_Xsac,stimG);
 %         clear tr_stim
@@ -854,13 +864,26 @@ for ss = 1:length(targs)
     end
 end
 
-P_corr = corr(mod_prate');
+%%
+
+P_corr = nan(length(targs));
+mod_xcorrs = nan(length(targs),length(targs),2*max_lags+1);
+umod_xcorrs = nan(length(targs),length(targs),2*max_lags+1);
+for ii = 1:length(targs)
+    ii
+    for jj = 1:length(targs)
+        cur_inds = find(~isnan(mod_prate(:,ii)) & ~isnan(mod_prate(:,jj)));
+        P_corr(ii,jj) = corr(mod_prate(cur_inds,ii),mod_prate(cur_inds,jj));
+        mod_xcorrs(ii,jj,:) = xcov(mod_prate(cur_inds,ii),mod_prate(cur_inds,jj),max_lags,'biased');
+        umod_xcorrs(ii,jj,:) = xcov(umod_prate(cur_inds,ii),umod_prate(cur_inds,jj),max_lags,'biased');
+    end
+end
 
 %%
 
-% poss_SDs = [0.05 0.075 0.09 0.1 0.11 0.125 0.15];
+poss_SDs = [0.05 0.075 0.09 0.1 0.11 0.125 0.15];
 % for sd = 1:length(poss_SDs)
-%     sd
+    sd = 5;
     
     cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
     cur_fix_post_std = squeeze(it_fix_post_std(end,:));
@@ -879,11 +902,11 @@ P_corr = corr(mod_prate');
     
     used_sf_inds = find(ismember(all_trialvec(used_inds),used_static_fix_trials));
     
-%     %remove overall median offset in EP
-%     fin_tot_corr = fin_tot_corr - nanmedian(fin_tot_corr(used_sf_inds));
-%     
-%     %rescale robust SD
-%     fin_tot_corr = fin_tot_corr./robust_std_dev(fin_tot_corr(used_sf_inds))*poss_SDs(sd)/sp_dx;
+    %remove overall median offset in EP
+    fin_tot_corr = fin_tot_corr - nanmedian(fin_tot_corr(used_sf_inds));
+    
+    %rescale robust SD
+    fin_tot_corr = fin_tot_corr./robust_std_dev(fin_tot_corr(used_sf_inds))*poss_SDs(sd)/sp_dx;
     %%
     
     full_EP_mat = nan(n_ET_trials,length(rpt_taxis));
@@ -958,11 +981,11 @@ P_corr = corr(mod_prate');
             [~,~,mod_allrates(:,ss),G] = NMMmodel_eval(cur_mod,[],ep_rpt_stim);
             stimG = G - cur_mod.spk_NL_params(1);
             
-            Xsac_tot = bsxfun(@times,full_Xmsac,stimG);
-            tr_stim{1} = [stimG];
-            tr_stim{2} = full_Xmsac;
-            tr_stim{3} = Xsac_tot;
-            [~,~,smod_allrates(:,ss)] = NMMmodel_eval(sacmod_fits(ss),[],tr_stim);
+%             Xsac_tot = bsxfun(@times,full_Xmsac,stimG);
+%             tr_stim{1} = [stimG];
+%             tr_stim{2} = full_Xmsac;
+%             tr_stim{3} = Xsac_tot;
+%             [~,~,smod_allrates(:,ss)] = NMMmodel_eval(sacmod_fits(ss),[],tr_stim);
             
         end
         
@@ -977,14 +1000,14 @@ P_corr = corr(mod_prate');
         
         mod_allrates = reshape(mod_allrates,[],n_ET_trials,length(targs));
         mod_allrates = permute(mod_allrates,[2 1 3]);
-        
-        smod_allrates = reshape(smod_allrates,[],n_ET_trials,length(targs));
-        smod_allrates = permute(smod_allrates,[2 1 3]);
+%         
+%         smod_allrates = reshape(smod_allrates,[],n_ET_trials,length(targs));
+%         smod_allrates = permute(smod_allrates,[2 1 3]);
         
         
         
         mod_allrates(full_EP_blink) = nan;
-        smod_allrates(full_EP_blink) = nan;
+%         smod_allrates(full_EP_blink) = nan;
         %     mod_allrates(full_EP_sac) = nan;
         
         emp_psths = squeeze(nanmean(mod_allrates));
@@ -1006,6 +1029,8 @@ P_corr = corr(mod_prate');
         emp_psth_xcovs(nn,:,:,:) = all_psth_xcovs;
     end
     
+    avg_psth_xcovs = squeeze(nanmean(emp_psth_xcovs));
+    avg_sig_xcovs = squeeze(nanmean(emp_sig_xcovs));
 %     avg_ratio(sd,:) = mean(emp_psth_var./emp_signal_var);
 % end
 
