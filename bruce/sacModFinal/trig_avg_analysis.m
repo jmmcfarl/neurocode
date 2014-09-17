@@ -7,7 +7,7 @@ global Expt_name bar_ori
 % Expt_name = 'M297';
 % bar_ori = 0;
 
-include_bursts = 1;
+include_bursts = 0;
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -368,6 +368,7 @@ if is_TBT_expt
 end
 
 trial_start_inds = [1; find(diff(all_trialvec) > 0)+1];
+trial_stop_inds = [find(diff(all_trialvec) > 0); length(all_trialvec)];
 
 %% BIN SPIKES FOR MU AND SU
 clust_params.n_probes = n_probes;
@@ -743,6 +744,8 @@ fprintf('Computing trig avgs for MUA\n');
 [mua_data.gsac_inneg_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(in_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
 
 [mua_data.blink_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(used_is_blink),backlag,forwardlag,[],used_trialvec,0);
+[mua_data.tonset_avg] = get_event_trig_avg_v3(all_mua_rate_norm,trial_start_inds,backlag,forwardlag,[],[],0);
+[mua_data.toffset_avg] = get_event_trig_avg_v3(all_mua_rate_norm,trial_stop_inds,backlag,forwardlag,[],[],0);
 
 mua_data.avg_rates = mean(all_binned_mua(used_inds,:));
 mua_data.tot_nspikes = sum(all_binned_mua(used_inds,:));
@@ -833,6 +836,8 @@ for ss = 1:length(SU_numbers)
     [sua_data(ss).msac_gr_Orth_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_gray_Orth),backlag,forwardlag,[],used_trialvec,0);
     
     [sua_data(ss).blink_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(used_is_blink),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).tonset_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),trial_start_inds,backlag,forwardlag,[],[],0);
+    [sua_data(ss).toffset_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),trial_stop_inds,backlag,forwardlag,[],[],0);
     
 end
 

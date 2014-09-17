@@ -7,8 +7,8 @@ global Expt_name bar_ori use_MUA fit_unCor
 
 % Expt_name = 'G088';
 % bar_ori = 0; %bar orientation to use (only for UA recs)
-use_MUA = false;
-fit_unCor = true; %fit models to uncorrected stim?
+use_MUA = true;
+fit_unCor = false; %fit models to uncorrected stim?
 
 
 save_name = 'corrected_models2';
@@ -175,8 +175,8 @@ switch Expt_num
         full_nPix = 22;
     case 294
         full_nPix = 20;
-%     case 296
-%         full_nPix = 54;
+        %     case 296
+        %         full_nPix = 54;
 end
 
 %exclude data at beginning and end of each trial
@@ -266,7 +266,7 @@ all_trial_end_times = [];
 all_bin_edge_pts = [];
 all_spk_times = cell(n_probes,1);
 all_clust_ids = cell(n_probes,1);
-all_spk_inds = cell(n_probes,1);   
+all_spk_inds = cell(n_probes,1);
 all_trial_rptframes = [];
 
 trial_toffset = zeros(length(cur_block_set),1);
@@ -339,10 +339,10 @@ for ee = 1:n_blocks;
     for tt = 1:n_trials
         cur_stim_times = Expts{cur_block}.Trials(use_trials(tt)).Start'/1e4;
         n_frames = size(left_stim_mats{use_trials(tt)},1);
-         if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes')
+        if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes')
             cur_nrpt_frames(tt) = length(Expts{cur_block}.Trials(use_trials(tt)).rptframes);
         end
-       if n_frames > 0
+        if n_frames > 0
             if length(cur_stim_times) == 1
                 cur_stim_times = (cur_stim_times:dt*Fr:(cur_stim_times + (n_frames-1)*dt*Fr))';
                 cur_stim_times(cur_stim_times > trial_end_times(use_trials(tt))) = [];
@@ -373,8 +373,8 @@ for ee = 1:n_blocks;
         end
     end
     trial_cnt = trial_cnt + n_trials;
-        all_trial_rptframes = [all_trial_rptframes; cur_nrpt_frames];
-
+    all_trial_rptframes = [all_trial_rptframes; cur_nrpt_frames];
+    
     %need to keep track of block time offsets for LP recordings
     if strcmp(rec_type,'LP')
         trial_toffset(ee) = all_t_bin_edges(end);
@@ -633,9 +633,10 @@ if strcmp(rec_type,'UA')
 end
 
 %%
-% cd(save_dir)
-% load(save_name);
+cd(save_dir)
+load(save_name);
 
+targs = 1:n_probes;
 %%
 for cc = targs
     fprintf('Starting model fits for unit %d\n',cc);
@@ -723,18 +724,7 @@ for cc = targs
         
         %% FIT (eye-corrected) STIM-PROCESSING MODEL
         fprintf('Fitting stim models for unit %d\n',cc);
-        
-        max_Emods = 3;
-        max_Imods = 3;
-        
         silent = 1;
-%         if mode(expt_dds(cur_block_set)) == 12
-%             base_lambda_d2XT = 50;
-%             base_lambda_L1 = 5;
-%         else
-%             base_lambda_d2XT = 200;
-%             base_lambda_L1 = 10;
-%         end
         if mode(expt_dds(cur_block_set)) == 12
             base_lambda_d2XT = 25;
             base_lambda_L1 = 2.5; %(5)
@@ -746,88 +736,118 @@ for cc = targs
         init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_lambda_d2XT,'boundary_conds',[0 0 0]);
         mod_stim_params(1) = NMMcreate_stim_params([flen use_nPix_us],dt);
         
-        %start out with just a linear filter
-        nEfilts = 0;
-        nIfilts = 0;
-        
-        stim_mod_signs = [1 ones(1,nEfilts) -1*ones(1,nIfilts)];
-        stim_Xtargs = [ones(1,length(stim_mod_signs))];
-        stim_NL_types = [{'lin'} repmat({'quad'},1,nEfilts) repmat({'quad'},1,nIfilts)];
-        
-        init_mod = NMMinitialize_model( mod_stim_params, stim_mod_signs, stim_NL_types, init_reg_params,stim_Xtargs);
-        init_mod = NMMfit_filters(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
-        [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
-        vgint = var(gint);sgint = std(gint);
-        init_mod = NMMadjust_regularization(init_mod,find(stim_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./vgint(stim_Xtargs==1));
-        init_mod = NMMadjust_regularization(init_mod,find(stim_Xtargs==1),'lambda_L1',base_lambda_L1./sgint(stim_Xtargs==1));
-        
-        bestGQM = NMMfit_filters(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
-        bestGQM_spkNL = NMMfit_logexp_spkNL(bestGQM,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
-        if isempty(cur_xv_inds)
-            error('Need xval trials');
-        end
-        [bestGQM_xvLL, ~, ~, ~, ~, ~, nullxvLL] = NMMmodel_eval(bestGQM_spkNL, cur_Robs(cur_xv_inds), all_Xmat_shift(cur_xv_inds,:));
-        
-        %now try adding up to max_Emods exc squared filters. Stop when xval
-        %LL doesn't improve
-        cur_imp = Inf;
-        while nEfilts < max_Emods && cur_imp > 0
-            cur_mod = bestGQM;
-            cur_mod = NMMadd_NLinput(cur_mod,'quad',1,1,0.1*randn(flen*use_nPix_us,1),init_reg_params);
-            nEfilts = nEfilts + 1;
+        if cc <= n_probes %for MUA just fit a 3-filter quad model
             
-            fprintf('Fitting model with LIN + %dE and %dI\n',nEfilts,nIfilts);
-            cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
-            [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
-            vgint = var(gint); sgint = std(gint);
-            cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_d2XT',base_lambda_d2XT./vgint(end));
-            cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_L1',base_lambda_L1./sgint(end));
-            cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
-            cur_mod_spkNL = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
-            cur_mod_xvLL = NMMmodel_eval(cur_mod_spkNL, cur_Robs(cur_xv_inds), all_Xmat_shift(cur_xv_inds,:));
+            %start out with just a linear filter
+            nEfilts = 2;
+            nIfilts = 0;
             
-            cur_imp = cur_mod_xvLL - bestGQM_xvLL;
-            if cur_imp > 0
-                fprintf('Keeping new model\n');
-                bestGQM = cur_mod;
-                bestGQM_spkNL = cur_mod_spkNL;
-                bestGQM_xvLL = cur_mod_xvLL;
+            stim_mod_signs = [1 ones(1,nEfilts) -1*ones(1,nIfilts)];
+            stim_Xtargs = [ones(1,length(stim_mod_signs))];
+            stim_NL_types = [{'lin'} repmat({'quad'},1,nEfilts) repmat({'quad'},1,nIfilts)];
+            
+            init_mod = NMMinitialize_model( mod_stim_params, stim_mod_signs, stim_NL_types, init_reg_params,stim_Xtargs);
+            init_mod = NMMfit_filters(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+            [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+            vgint = var(gint);sgint = std(gint);
+            init_mod = NMMadjust_regularization(init_mod,find(stim_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./vgint(stim_Xtargs==1));
+            init_mod = NMMadjust_regularization(init_mod,find(stim_Xtargs==1),'lambda_L1',base_lambda_L1./sgint(stim_Xtargs==1));
+            
+            bestGQM = NMMfit_filters(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+            bestGQM_spkNL = NMMfit_logexp_spkNL(bestGQM,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+            if isempty(cur_xv_inds)
+                error('Need xval trials');
             end
-        end
-        
-        %now try adding up to max_Imods inh squared filters. Stop when xval
-        %LL doesn't improve
-        cur_imp = Inf;
-        while nIfilts < max_Emods && cur_imp > 0
-            cur_mod = bestGQM;
-            cur_mod = NMMadd_NLinput(cur_mod,'quad',-1,1,0.1*randn(flen*use_nPix_us,1),init_reg_params);
-            nIfilts = nIfilts + 1;
+            [bestGQM_xvLL, ~, ~, ~, ~, ~, nullxvLL] = NMMmodel_eval(bestGQM_spkNL, cur_Robs(cur_xv_inds), all_Xmat_shift(cur_xv_inds,:));
+            bestGQM.xvLLimp = (bestGQM_xvLL-nullxvLL)/log(2);
             
-            fprintf('Fitting model with LIN + %dE and %dI\n',nEfilts,nIfilts);
-            cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
-            [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
-            vgint = var(gint); sgint = std(gint);
-            cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_d2XT',base_lambda_d2XT./vgint(end));
-            cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_L1',base_lambda_L1./sgint(end));
-            cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
-            cur_mod_spkNL = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
-            cur_mod_xvLL = NMMmodel_eval(cur_mod_spkNL, cur_Robs(cur_xv_inds), all_Xmat_shift(cur_xv_inds,:));
+        else %for SUA try a number of different model structures and pick the best by xvalLL
             
-            cur_imp = cur_mod_xvLL - bestGQM_xvLL;
-            if cur_imp > 0
-                fprintf('Keeping new model\n');
-                bestGQM = cur_mod;
-                bestGQM_spkNL = cur_mod_spkNL;
-                bestGQM_xvLL = cur_mod_xvLL;
+            max_Emods = 3;
+            max_Imods = 3;
+            
+            %start out with just a linear filter
+            nEfilts = 0;
+            nIfilts = 0;
+            
+            stim_mod_signs = [1 ones(1,nEfilts) -1*ones(1,nIfilts)];
+            stim_Xtargs = [ones(1,length(stim_mod_signs))];
+            stim_NL_types = [{'lin'} repmat({'quad'},1,nEfilts) repmat({'quad'},1,nIfilts)];
+            
+            init_mod = NMMinitialize_model( mod_stim_params, stim_mod_signs, stim_NL_types, init_reg_params,stim_Xtargs);
+            init_mod = NMMfit_filters(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+            [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+            vgint = var(gint);sgint = std(gint);
+            init_mod = NMMadjust_regularization(init_mod,find(stim_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./vgint(stim_Xtargs==1));
+            init_mod = NMMadjust_regularization(init_mod,find(stim_Xtargs==1),'lambda_L1',base_lambda_L1./sgint(stim_Xtargs==1));
+            
+            bestGQM = NMMfit_filters(init_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+            bestGQM_spkNL = NMMfit_logexp_spkNL(bestGQM,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+            if isempty(cur_xv_inds)
+                error('Need xval trials');
             end
+            [bestGQM_xvLL, ~, ~, ~, ~, ~, nullxvLL] = NMMmodel_eval(bestGQM_spkNL, cur_Robs(cur_xv_inds), all_Xmat_shift(cur_xv_inds,:));
+            
+            %now try adding up to max_Emods exc squared filters. Stop when xval
+            %LL doesn't improve
+            cur_imp = Inf;
+            while nEfilts < max_Emods && cur_imp > 0
+                cur_mod = bestGQM;
+                cur_mod = NMMadd_NLinput(cur_mod,'quad',1,1,0.1*randn(flen*use_nPix_us,1),init_reg_params);
+                nEfilts = nEfilts + 1;
+                
+                fprintf('Fitting model with LIN + %dE and %dI\n',nEfilts,nIfilts);
+                cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+                [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+                vgint = var(gint); sgint = std(gint);
+                cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_d2XT',base_lambda_d2XT./vgint(end));
+                cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_L1',base_lambda_L1./sgint(end));
+                cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+                cur_mod_spkNL = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+                cur_mod_xvLL = NMMmodel_eval(cur_mod_spkNL, cur_Robs(cur_xv_inds), all_Xmat_shift(cur_xv_inds,:));
+                
+                cur_imp = cur_mod_xvLL - bestGQM_xvLL;
+                if cur_imp > 0
+                    fprintf('Keeping new model\n');
+                    bestGQM = cur_mod;
+                    bestGQM_spkNL = cur_mod_spkNL;
+                    bestGQM_xvLL = cur_mod_xvLL;
+                end
+            end
+            
+            %now try adding up to max_Imods inh squared filters. Stop when xval
+            %LL doesn't improve
+            cur_imp = Inf;
+            while nIfilts < max_Emods && cur_imp > 0
+                cur_mod = bestGQM;
+                cur_mod = NMMadd_NLinput(cur_mod,'quad',-1,1,0.1*randn(flen*use_nPix_us,1),init_reg_params);
+                nIfilts = nIfilts + 1;
+                
+                fprintf('Fitting model with LIN + %dE and %dI\n',nEfilts,nIfilts);
+                cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+                [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+                vgint = var(gint); sgint = std(gint);
+                cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_d2XT',base_lambda_d2XT./vgint(end));
+                cur_mod = NMMadjust_regularization(cur_mod,length(cur_mod.mods),'lambda_L1',base_lambda_L1./sgint(end));
+                cur_mod = NMMfit_filters(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:),[],[],silent);
+                cur_mod_spkNL = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cur_tr_inds),all_Xmat_shift(cur_tr_inds,:));
+                cur_mod_xvLL = NMMmodel_eval(cur_mod_spkNL, cur_Robs(cur_xv_inds), all_Xmat_shift(cur_xv_inds,:));
+                
+                cur_imp = cur_mod_xvLL - bestGQM_xvLL;
+                if cur_imp > 0
+                    fprintf('Keeping new model\n');
+                    bestGQM = cur_mod;
+                    bestGQM_spkNL = cur_mod_spkNL;
+                    bestGQM_xvLL = cur_mod_xvLL;
+                end
+            end
+            
+            bestGQM.xvLLimp = (bestGQM_xvLL-nullxvLL)/log(2);
         end
-        
-        bestGQM.xvLLimp = (bestGQM_xvLL-nullxvLL)/log(2);
-        
         %% Fit a GQM with the linear filter split into two rectified subunits
         %convert linear filter into separate thresh-lin filters and refit
         rectGQM = bestGQM;
-        rectGQM.mods = [rectGQM.mods; rectGQM.mods(1)];
+        rectGQM.mods = [rectGQM.mods(:); rectGQM.mods(1)];
         rectGQM.mods(end).sign = -1;
         rectGQM.mods(end).filtK = -rectGQM.mods(end).filtK; %initialize filter to be negative of the linear filter
         rectGQM.mods(1).NLtype = 'threshlin'; rectGQM.mods(end).NLtype = 'threshlin';
@@ -953,7 +973,7 @@ for cc = targs
         tune_props.RF_ecc = sqrt(screen_X.^2 + screen_Y.^2);
         
         ModData(cc).tune_props = tune_props;
- 
+        
         %% CALCULATE UNCORRECTED TUNING PROPERTIES
         clear tune_props_unCor
         if fit_unCor

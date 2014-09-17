@@ -9,7 +9,7 @@ all_MU_data = [];
 
 % LOAD JBE
 base_sname = 'corrected_models2';
-base_tname = 'sac_trig_avg_data';
+base_tname = 'sac_trig_avg_data2';
 % base_tname = 'sac_trig_avg_data_withburst';
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
@@ -88,7 +88,7 @@ end
 
 %% LOAD LEM
 base_sname = 'corrected_models';
-base_tname = 'sac_trig_avg_data';
+base_tname = 'sac_trig_avg_data2';
 % base_tname = 'sac_trig_avg_data_withburst';
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
@@ -1096,25 +1096,39 @@ boundary_enums = [boundary_class(:).Expt_num];
 
 gsac_gray_used_SUs = find(N_gray_gsacs >= min_Nsacs & avg_rates >= min_rate);
 
-mua_gsac_gray_avg = [all_MU_data(:).gsac_gray_avg]';
-sua_gsac_gray_avg = reshape([all_SU_data(:).gsac_gray_avg],[],length(all_SU_data))';
+mua_gsac_avg = [all_MU_data(:).gsac_gray_avg]';
+mua_stim_avg = [all_MU_data(:).tonset_avg]';
+mua_blink_avg = [all_MU_data(:).blink_avg]';
+sua_gsac_avg = reshape([all_SU_data(:).gsac_gray_avg],[],length(all_SU_data))';
 if mua_sm_sigma > 0
-    for ii = 1:size(mua_gsac_gray_avg,1)
-        mua_gsac_gray_avg(ii,:) = jmm_smooth_1d_cor(mua_gsac_gray_avg(ii,:),mua_sm_sigma);
+    for ii = 1:size(mua_gsac_avg,1)
+        mua_gsac_avg(ii,:) = jmm_smooth_1d_cor(mua_gsac_avg(ii,:),mua_sm_sigma);
+        mua_stim_avg(ii,:) = jmm_smooth_1d_cor(mua_stim_avg(ii,:),mua_sm_sigma);
+        mua_blink_avg(ii,:) = jmm_smooth_1d_cor(mua_blink_avg(ii,:),mua_sm_sigma);
     end
 end
 if sm_sigma > 0
-    for ii = 1:size(sua_gsac_gray_avg,1)
-        sua_gsac_gray_avg(ii,:) = jmm_smooth_1d_cor(sua_gsac_gray_avg(ii,:),sm_sigma);
+    for ii = 1:size(sua_gsac_avg,1)
+        sua_gsac_avg(ii,:) = jmm_smooth_1d_cor(sua_gsac_avg(ii,:),sm_sigma);
     end
 end
 
 un_lem_expts = unique(MU_expt_nums(lem_MUs));
 n_lem_expts = length(un_lem_expts);
 
+interp_ax = 1:0.5:24;
+all_lbs = [boundary_class(:).lb];
+all_ubs = [boundary_class(:).ub];
+mean_lb = mean(all_lbs);
+mean_ub = mean(all_ubs);
+mean_diff = mean_lb-mean_ub;
+
 gran_gsac = nan(n_lem_expts,length(tlags));
 supra_gsac = nan(n_lem_expts,length(tlags));
 infra_gsac = nan(n_lem_expts,length(tlags));
+gran_stim = nan(n_lem_expts,length(tlags));
+supra_stim = nan(n_lem_expts,length(tlags));
+infra_stim = nan(n_lem_expts,length(tlags));
 % all_gran_supt = [];
 % all_supra_supt = [];
 % all_infra_supt = [];
@@ -1130,38 +1144,68 @@ all_supra_SUs = [];
 all_gran_probes = [];
 all_infra_probes = [];
 all_supra_probes = [];
+
+all_interp_mua_ta = nan(n_lem_expts,length(interp_ax),length(tlags));
+all_interp_mua_stim = nan(n_lem_expts,length(interp_ax),length(tlags));
+all_interp_mua_blink = nan(n_lem_expts,length(interp_ax),length(tlags));
 for ee = 1:n_lem_expts
    cur_mua_set = find(MU_expt_nums == un_lem_expts(ee));
    cur_bound_info = find(boundary_enums == un_lem_expts(ee),1);
    cur_ub = boundary_class(cur_bound_info).ub;
    cur_lb = boundary_class(cur_bound_info).lb;
     
+   cur_diff = cur_lb - cur_ub;
+   cur_slope = cur_diff/mean_diff;
+   cur_off = mean_ub - cur_ub*cur_slope;
+   cur_ax = (1:24)*cur_slope + cur_off;
+   
+   cur_mua_gsac_avgs = mua_gsac_avg(cur_mua_set,:);
+   cur_mua_stim_avgs = mua_stim_avg(cur_mua_set,:);
+   cur_mua_blink_avgs = mua_blink_avg(cur_mua_set,:);
+   if length(cur_mua_set) > 24
+        cur_mua_gsac_avgs = 0.5*cur_mua_gsac_avgs(1:24,:) + 0.5*cur_mua_gsac_avgs(25:end,:);
+        cur_mua_stim_avgs = 0.5*cur_mua_stim_avgs(1:24,:) + 0.5*cur_mua_stim_avgs(25:end,:);
+        cur_mua_blink_avgs = 0.5*cur_mua_blink_avgs(1:24,:) + 0.5*cur_mua_blink_avgs(25:end,:);
+   end
+   
    gran_probes = (cur_ub+1):(cur_lb-1);
    supra_probes = 1:(cur_ub-1);
    infra_probes = (cur_lb+1):24;
    
-%    [~,cur_supt] = min(mua_gsac_gray_avg(cur_mua_set,:),[],2);
-%    [~,cur_enht] = max(mua_gsac_gray_avg(cur_mua_set,:),[],2);
+%    [~,cur_supt] = min(cur_mua_gsac_avgs,[],2);
+%    [~,cur_enht] = max(cur_mua_gsac_avgs,[],2);
 %    all_supt = cat(1,all_supt,cur_supt);
 %    all_enht = cat(1,all_enht,cur_enht);
 %    cur_relpos = (1:24) - cur_ub;
 %    all_relloc = cat(2,all_relloc,cur_relpos);
    if ~isempty(gran_probes)
-       gran_gsac(ee,:) = mean(mua_gsac_gray_avg(cur_mua_set(gran_probes),:));
+       gran_gsac(ee,:) = mean(cur_mua_gsac_avgs(gran_probes,:));
+       gran_stim(ee,:) = mean(cur_mua_stim_avgs(gran_probes,:));
 %        all_gran_supt = cat(1,all_gran_supt,cur_supt(gran_probes));
 %        all_gran_enht = cat(1,all_gran_enht,cur_enht(gran_probes));
    end
    if ~isempty(supra_probes)
-       supra_gsac(ee,:) = mean(mua_gsac_gray_avg(cur_mua_set(supra_probes),:));
+       supra_gsac(ee,:) = mean(cur_mua_gsac_avgs(supra_probes,:));
+       supra_stim(ee,:) = mean(cur_mua_stim_avgs(supra_probes,:));
 %        all_supra_supt = cat(1,all_supra_supt,cur_supt(supra_probes));
 %        all_supra_enht = cat(1,all_supra_enht,cur_enht(supra_probes));
    end
    if ~isempty(infra_probes)
-       infra_gsac(ee,:) = mean(mua_gsac_gray_avg(cur_mua_set(infra_probes),:));
+       infra_gsac(ee,:) = mean(cur_mua_gsac_avgs(infra_probes,:));
+       infra_stim(ee,:) = mean(cur_mua_stim_avgs(infra_probes,:));
 %        all_infra_supt = cat(1,all_infra_supt,cur_supt(infra_probes));
 %        all_infra_enht = cat(1,all_infra_enht,cur_enht(infra_probes));
    end
    
+   cur_interp_mua_ta = interp1(cur_ax,cur_mua_gsac_avgs,interp_ax);
+   all_interp_mua_ta(ee,:,:) = cur_interp_mua_ta;
+ 
+   cur_interp_mua_stim = interp1(cur_ax,cur_mua_stim_avgs,interp_ax);
+   all_interp_mua_stim(ee,:,:) = cur_interp_mua_stim;
+
+   cur_interp_mua_blink = interp1(cur_ax,cur_mua_blink_avgs,interp_ax);
+   all_interp_mua_blink(ee,:,:) = cur_interp_mua_blink;
+
    cur_SU_set = find([all_SU_data(:).expt_num] == un_lem_expts(ee));
    cur_SU_set = cur_SU_set(ismember(cur_SU_set,gsac_gray_used_SUs));
    cur_SU_probenums = [all_SU_data(cur_SU_set).probe_numbers];
@@ -1173,15 +1217,26 @@ for ee = 1:n_lem_expts
    all_infra_probes = cat(2,all_infra_probes,cur_mua_set(infra_probes));
 end
 
+
 search_range = [0 0.2];
-[granMU_sup,granMU_supt] = get_tavg_peaks(-(mua_gsac_gray_avg(all_gran_probes,:)-1),tlags,search_range);
-[infraMU_sup,infraMU_supt] = get_tavg_peaks(-(mua_gsac_gray_avg(all_infra_probes,:)-1),tlags,search_range);
-[supraMU_sup,supraMU_supt] = get_tavg_peaks(-(mua_gsac_gray_avg(all_supra_probes,:)-1),tlags,search_range);
+[granMU_sup,granMU_supt] = get_tavg_peaks(-(mua_gsac_avg(all_gran_probes,:)-1),tlags,search_range);
+[infraMU_sup,infraMU_supt] = get_tavg_peaks(-(mua_gsac_avg(all_infra_probes,:)-1),tlags,search_range);
+[supraMU_sup,supraMU_supt] = get_tavg_peaks(-(mua_gsac_avg(all_supra_probes,:)-1),tlags,search_range);
 
 search_range = [0 0.3];
-[granMU_enh,granMU_enht] = get_tavg_peaks((mua_gsac_gray_avg(all_gran_probes,:)-1),tlags,search_range);
-[infraMU_enh,infraMU_enht] = get_tavg_peaks((mua_gsac_gray_avg(all_infra_probes,:)-1),tlags,search_range);
-[supraMU_enh,supraMU_enht] = get_tavg_peaks((mua_gsac_gray_avg(all_supra_probes,:)-1),tlags,search_range);
+[granMU_enh,granMU_enht] = get_tavg_peaks((mua_gsac_avg(all_gran_probes,:)-1),tlags,search_range);
+[infraMU_enh,infraMU_enht] = get_tavg_peaks((mua_gsac_avg(all_infra_probes,:)-1),tlags,search_range);
+[supraMU_enh,supraMU_enht] = get_tavg_peaks((mua_gsac_avg(all_supra_probes,:)-1),tlags,search_range);
+
+stim_poss_lags = find(tlags > 0);
+stimon_peaks = nan(size(mua_stim_avg,1),1);
+for ii = 1:size(mua_stim_avg,1)
+%     [~,curpeak] = findpeaks(mua_stim_avg(ii,stim_poss_lags),'npeaks',1,'minpeakheight',1);
+%     stimon_peaks(ii) = stim_poss_lags(curpeak);
+    curpeak = find(mua_stim_avg(ii,stim_poss_lags) > 1,1);
+    stimon_peaks(ii) = stim_poss_lags(curpeak);
+end
+stimon_t = tlags(stimon_peaks);
 
 xr = [-0.05 0.3];
 yl = [0.7 1.3];
@@ -1192,6 +1247,14 @@ h1=shadedErrorBar(tlags,nanmean(gran_gsac),nanstd(gran_gsac)/sqrt(n_lem_expts),{
 h3=shadedErrorBar(tlags,nanmean(infra_gsac),nanstd(infra_gsac)/sqrt(n_lem_expts),{'color','r'});
 xlim(xr);
 ylim(yl);
+
+f1 = figure(); hold on
+h2=shadedErrorBar(tlags,nanmean(supra_stim),nanstd(supra_stim)/sqrt(n_lem_expts),{'color','b'});
+h1=shadedErrorBar(tlags,nanmean(gran_stim),nanstd(gran_stim)/sqrt(n_lem_expts),{'color','k'});
+h3=shadedErrorBar(tlags,nanmean(infra_stim),nanstd(infra_stim)/sqrt(n_lem_expts),{'color','r'});
+xlim(xr);
+ylim([0.25 1.5]);
+
 % line(mean(tlags(all_gran_supt)) + [0 0],yl,'color','k');
 % line(mean(tlags(all_supra_supt)) + [0 0],yl,'color','b');
 % line(mean(tlags(all_infra_supt)) + [0 0],yl,'color','r');
