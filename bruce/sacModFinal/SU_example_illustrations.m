@@ -39,24 +39,24 @@ if strcmp(rec_type,'LP')
     end
 end
 
-fname = 'sacStimProc2';
+fname = 'sacStimProcFin';
 fname = [fname sprintf('_ori%d',bar_ori)];
 if fit_unCor
     fname = [fname '_unCor'];
 end
 
-fname2 = 'sacStimProc';
-fname2 = [fname2 sprintf('_ori%d',bar_ori)];
-if fit_unCor
-    fname2 = [fname2 '_unCor'];
-end
+% fname2 = 'sacStimProc';
+% fname2 = [fname2 sprintf('_ori%d',bar_ori)];
+% if fit_unCor
+%     fname2 = [fname2 '_unCor'];
+% end
 
 anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-anal_dir2 = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
+% anal_dir2 = ['/home/james/Analysis/bruce/' Expt_name '/sac_mod/'];
 cd(anal_dir)
 load(fname);
-cd(anal_dir2)
-temp2 = load(fname2);
+% cd(anal_dir2)
+% temp2 = load(fname2);
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/summary_figs/';
 et_anal_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
@@ -102,8 +102,8 @@ sua_sm = 0.005/dt;
 for cc = (n_probes+1):length(sacStimProc);
     if sacStimProc(cc).used && ~isempty(sacStimProc(cc).gsac_post_singmod)
         
-        sacStimProc(cc).gsacGainMod = temp2.sacStimProc(cc).gsacGainMod;
-        sacStimProc(cc).gsac_modinfo = temp2.sacStimProc(cc).gsac_modinfo;
+%         sacStimProc(cc).gsacGainMod = temp2.sacStimProc(cc).gsacGainMod;
+%         sacStimProc(cc).gsac_modinfo = temp2.sacStimProc(cc).gsac_modinfo;
         
         
     cur_GQM = sacStimProc(cc).ModData.rectGQM;
@@ -239,11 +239,11 @@ xlabel('Generating signal');
     
     %mod info rate
     subplot(3,3,8)
-    plot(slags*dt,sacStimProc(cc).gsac_spost_modinfo'.*sacStimProc(cc).gsac_avg_rate);
+    plot(slags*dt,sacStimProc(cc).gsac_spost_modinfo.*sacStimProc(cc).gsac_avg_rate);
     hold on;
     plot(Xtick*dt,sacStimProc(cc).gsac_TB_info.*sacStimProc(cc).gsac_TB_avg_rate,'r');
-    plot(slags*dt,sacStimProc(cc).gsac_modinfo'.*sacStimProc(cc).gsac_avg_rate,'k');
-    plot(slags*dt,sacStimProc(cc).gsac_sub_modinfo'.*sacStimProc(cc).gsac_avg_rate,'m');
+    plot(slags*dt,sacStimProc(cc).gsac_modinfo.*sacStimProc(cc).gsac_avg_rate,'k');
+    plot(slags*dt,sacStimProc(cc).gsac_sub_modinfo.*sacStimProc(cc).gsac_avg_rate,'m');
     axis tight
     yl = ylim();
     line(slags(mmmloc([1 1]))*dt,yl,'color','k');
@@ -340,6 +340,12 @@ xlabel('Generating signal');
     n_columns = max(round(sqrt(Nmods/2)),1);
     n_rows = ceil(Nmods/n_columns);
     figufy(sh.stim_filts);
+    xl = [10 25];
+    for ii = 1:n_columns*n_rows
+       subplot(n_rows,n_columns,ii)
+       xlim(xl);
+    end
+    
     fig_width = 6*n_columns;
     rel_height = 0.8*n_rows/n_columns/2;
     fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'stim_mod.pdf'];

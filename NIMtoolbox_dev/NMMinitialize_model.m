@@ -85,6 +85,7 @@ for imod = 1:Nmods
     if ~strcmp(NL_types{imod},poss_NL_types)
         error('Unsupported NL type');
     end
+    tmod.Kcon = 0;
     mods = [mods,tmod];
 end
 

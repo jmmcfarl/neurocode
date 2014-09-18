@@ -1,6 +1,6 @@
-function nim_out = NMMfit_scale( nim, Robs, Xstims, Gmults, silent, desired_optim_params )
+function nim_out = NMMfit_scale( nim, Robs, Xstims, Gmults, Uindx, silent, desired_optim_params )
 %
-% Usage: nim_out = NMMfit_scale( nim, Robs, Xstims, <Gmults{}>, <silent>, <desired_optim_params> )
+% Usage: nim_out = NMMfit_scale( nim, Robs, Xstims, <Gmults{}>, <Uindx>, <silent>, <desired_optim_params> )
 %
 % Optimizes the upstream NLs (in terms of tent-basis functions) (plus extra linear terms if desired) for
 % given stimulus filters
@@ -29,6 +29,12 @@ if ~iscell(Xstims)
 	clear Xstims
 	Xstims{1} = tmp;
 end
+if nargin < 6
+  silent = 1;
+end
+if nargin < 7
+  desired_optim_params = [];
+end
 
 NT = size(Xstims{1},1); %stimulus dimensions
 
@@ -36,22 +42,25 @@ NT = size(Xstims{1},1); %stimulus dimensions
 if (nargin < 4) || (length(Gmults) < Nmods)
   Gmults{Nmods} = [];
 end
-
 if nargin < 5
-    silent = 1;
-end
-if nargin < 6
-    desired_optim_params = [];
+  Uindx = [];
 end
 
-%make sure Robs is a column vector
-if size(Robs,2) > size(Robs,1)
-    Robs = Robs';
+% Index X-matrices and Robs
+RobsFULL = Robs;
+if ~isempty(Uindx)
+  for nn = 1:length(Xstims)
+    Xstims{nn} = Xstims{nn}(Uindx,:);
+  end
+  Robs = RobsFULL(Uindx);
 end
+
+% Make sure Robs is a column vector
+Robs = Robs(:);
 
 %add spk NL constant if it isnt already there
 if length(nim.spk_NL_params) < 4
-    nim.spk_NL_params(4) = 0;
+	nim.spk_NL_params(4) = 0;
 end
 
 %% Initialize X-matrix and initial point
@@ -140,23 +149,20 @@ if spkhstlen
 	nim_out.spk_hist.coefs = nim_out.spk_hist.coefs * params(end-1);
 end
 
-if any(params(1:end-1) < 0)
-    fprintf('Warning, some scale factors less than 0!\n');
-    params(1:end-1) = abs(params(1:end-1));
-end
-
 for ii = 1:Nmods
-    if strcmp(nim_out.mods(ii).NLtype,'quad')
+    
+    % Incorporate gains into filters
+    if strcmp(nim.mods(ii).NLtype,'quad')
         nim_out.mods(ii).filtK = nim_out.mods(ii).filtK * sqrt(params(ii));
     else
-        % Incorporate gains into filters
         nim_out.mods(ii).filtK = nim_out.mods(ii).filtK * params(ii);
     end
-    % If non-parmetric nonlinearity, need to scale x- and y- axes
-    if strcmp(nim.mods(ii).NLtype,'nonpar')
-        nim_out.mods(ii).NLx = nim_out.mods(ii).NLx * params(ii);
-        nim_out.mods(ii).NLy = nim_out.mods(ii).NLy * params(ii);
-    end
+    
+	% If non-parmetric nonlinearity, need to scale x- and y- axes
+	if strcmp(nim.mods(ii).NLtype,'nonpar')
+		nim_out.mods(ii).NLx = nim_out.mods(ii).NLx * params(ii);
+		nim_out.mods(ii).NLy = nim_out.mods(ii).NLy * params(ii);
+	end
 end
 
 %% COMPUTE FINAL LL Values

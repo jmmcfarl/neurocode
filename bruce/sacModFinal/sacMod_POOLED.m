@@ -7,7 +7,8 @@ fit_unCor = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
-base_sname = 'sacStimProcFin';
+% base_sname = 'sacStimProcFin';
+base_sname = 'sacStimProcTest';
 % base_sname = 'sacStimProc2';
 % base_ename = 'sacStimProc';
 base_timename = 'sac_info_timing';

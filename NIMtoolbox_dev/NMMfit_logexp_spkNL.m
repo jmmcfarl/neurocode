@@ -1,6 +1,6 @@
-function [nim_out,bin_centers,nonpar] = NMMfit_logexp_spkNL( nim, Robs, Xstim, Gmults, display, hold_const )
+function [nim_out,bin_centers,nonpar] = NMMfit_logexp_spkNL( nim, Robs, Xstim, Gmults, Uindx, display, hold_const )
 %
-% Usage: nim_out = NMMfit_logexp_spkNL( nim, Robs, Xstim, <Gmults>, <display>, <hold_const> )
+% Usage: nim_out = NMMfit_logexp_spkNL( nim, Robs, Xstim, <Gmults>, <Uindx>, <display>, <hold_const> )
 %
 % Fit 3 parameters of a alpha/beta*log(1+exp(beta*(x-theta))) model for the spiking nonlinearity.
 % INPUTS:
@@ -19,16 +19,15 @@ if nargin < 4
 	Gmults = [];
 end
 if nargin < 5
-	display = 0;
+  Uindx = [];
 end
 if nargin < 6
+	display = 0;
+end
+if nargin < 7
 	hold_const = [];
 end
 
-%make sure Robs is a column vector
-if size(Robs,2) > size(Robs,1)
-	Robs = Robs';
-end
 if ~iscell(Xstim)
 	tmp = Xstim;
 	clear Xstim
@@ -36,7 +35,19 @@ if ~iscell(Xstim)
 end
 NT = size(Xstim{1},1);
 
-%add spk NL constant if it isnt already there
+% Index X-matrices and Robs
+RobsFULL = Robs;
+if ~isempty(Uindx)
+  for nn = 1:length(Xstim)
+    Xstim{nn} = Xstim{nn}(Uindx,:);
+  end
+  Robs = RobsFULL(Uindx);
+end
+
+% Make sure Robs is a column vector
+Robs = Robs(:);
+
+% Add spk NL constant if it isnt already there
 if length(nim.spk_NL_params) < 4
     nim.spk_NL_params(4) = 0;
 end

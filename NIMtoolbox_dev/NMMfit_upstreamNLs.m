@@ -1,6 +1,6 @@
-function nim_out = NMMfit_upstreamNLs( nim, Robs, Xstims, Gmults, desired_targets, rescale_NLs, silent, desired_optim_params, regmat_custom )
+function nim_out = NMMfit_upstreamNLs( nim, Robs, Xstims, Gmults, Uindx, rescale_NLs, silent, desired_optim_params, regmat_custom, desired_targets )
 %
-% Usage: nim_out = NMMfit_upstreamNLs( nim, Robs, Xstims, <Gmults>, <desired_targets>, <rescale_NLs>, <silent>, <desired_optim_params>, <regmat_custom> )
+% Usage: nim_out = NMMfit_upstreamNLs( nim, Robs, Xstims, <Gmults>, <Uindx>, <rescale_NLs>, <silent>, <desired_optim_params>, <regmat_custom>, <desired_targets> )
 %
 % Optimizes the upstream NLs (in terms of tent-basis functions) (plus extra linear terms if desired) for
 % given stimulus filters
@@ -49,13 +49,13 @@ if ~iscell(Xstims)
 	Xstims{1} = tmp;
 end
 if nargin < 5
-	desired_targets = [];
+	Uindx = [];
 end
 if (nargin < 6) || isempty(rescale_NLs)
 	rescale_NLs = 1;
 end
 if (nargin < 7) || isempty(silent)
-	silent = 1;
+	silent = 0;
 end
 if (nargin < 8) || isempty(desired_optim_params)
 	desired_optim_params = [];
@@ -63,15 +63,26 @@ end
 if nargin < 9
 	regmat_custom = [];
 end
-
-%make sure Robs is a column vector
-if size(Robs,2) > size(Robs,1)
-	Robs = Robs';
+if nargin < 10
+	desired_targets = [];
 end
 
-%add spk NL constant if it isnt already there
+% Index X-matrices and Robs
+RobsFULL = Robs;
+if ~isempty(Uindx)
+  for nn = 1:length(Xstims)
+    Xstims{nn} = Xstims{nn}(Uindx,:);
+  end
+  Robs = RobsFULL(Uindx);
+  NT = length(Robs);
+end
+
+% Make sure Robs is a column vector
+Robs = Robs(:);
+
+% Add spk NL constant if it isnt already there
 if length(nim.spk_NL_params) < 4
-    nim.spk_NL_params(4) = 0;
+	nim.spk_NL_params(4) = 0;
 end
 
 %% FIND SUBUNITS WITH NONPAR UPSTREAM NLS
@@ -89,7 +100,7 @@ if isempty(poss_targets)
 	disp('No subunits have nonpar NLs. Exiting function...');
 	return
 end
-poss_targets = [poss_targets -1 -2]; %add spk hist and lin filter to possible targets
+poss_targets = [poss_targets -1]; %add spk hist and lin filter to possible targets
 
 if length(unique(n_tbfs)) ~= 1
 	error('Have to have same number of tent-bases for each subunit');
@@ -106,12 +117,15 @@ else %if no targets are specified use all possible targets (all subunits with no
 	targets = poss_targets;
 end
 
-non_targets = setdiff([1:Nmods -1 -2],targets); %set of subunits that are not being optimized
+non_targets = setdiff([1:Nmods -1],targets); %set of subunits that are not being optimized
 Ntargets = sum(targets > 0); %number of target subunits
 
 %% CREATE SPIKE HISTORY Xmat IF NEEDED
 if spkhstlen > 0
-	Xspkhst = create_spkhist_Xmat(Robs,nim.spk_hist.bin_edges);
+	Xspkhst = create_spkhist_Xmat( RobsFULL, nim.spk_hist.bin_edges );
+  if ~isempty(Uindx)
+    Xspkhst = Xspkhst(Uindx,:);
+  end
 else
 	Xspkhst = [];
 end

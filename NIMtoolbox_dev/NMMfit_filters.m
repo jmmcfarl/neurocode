@@ -1,6 +1,6 @@
-function nim_out = NMMfit_filters( nim, Robs, Xstims, Gmults, targets, silent, desired_optim_params, regmat_custom,sign_con)
+function nim_out = NMMfit_filters( nim, Robs, Xstims, Gmults, Uindx, silent, desired_optim_params, regmat_custom,targets)
 %
-% Usage: nim_out = NMMfit_filters( nim, Robs, Xstims, <Gmults>, <targets>, <silent>, <desired_optim_params>, <regmat_custom>,<sign_con> )
+% Usage: nim_out = NMMfit_filters( nim, Robs, Xstims, <Gmults>, <Uindx>, <silent>, <desired_optim_params>, <regmat_custom>,<targets> )
 %
 % Optimizes the stimulus filters (plus extra linear terms if desired) for
 % given upstream NLs
@@ -11,7 +11,7 @@ function nim_out = NMMfit_filters( nim, Robs, Xstims, Gmults, targets, silent, d
 %       Xstim: time-embedded stimulus mat
 %       <XLin>: Matrix specifying additional linear predictors
 %       <targets>: Vector of indices specifying which subunits to optimize.
-%           (-1 = spk history filter, and -2 = extra linear filter) Default is to optimize all elements
+%           (-1 = spk history filter, and -2 = offset only) Default is to optimize all elements
 %       <silent>: 0 to display optimization iterations, and 1 to suppress them
 %       <desired_optim_params>: Struct of optimization parameters
 % OUTPUTS:
@@ -20,7 +20,11 @@ function nim_out = NMMfit_filters( nim, Robs, Xstims, Gmults, targets, silent, d
 %% PROCESS INPUTS
 Nmods = length(nim.mods);
 if (nargin < 4) || (length(Gmults) < Nmods)
-    Gmults{Nmods} = [];
+	Gmults{Nmods} = [];
+end
+
+if nargin < 5
+	Uindx = [];
 end
 
 % Process Xstims (in case multiple Xstims)
@@ -29,11 +33,8 @@ if ~iscell(Xstims)
     clear Xstims
     Xstims{1} = tmp;
 end
-if nargin < 5
-	targets = [];
-end
 if (nargin < 6) || isempty(silent)
-	silent = 1;
+	silent = 0;
 end
 if nargin < 7
 	desired_optim_params = [];
@@ -42,13 +43,20 @@ if nargin < 8
 	regmat_custom = [];
 end
 if nargin < 9
-	sign_con = [];
+	targets = [];
+end
+
+% Index X-matrices and Robs
+RobsFULL = Robs;
+if ~isempty(Uindx)
+  for nn = 1:length(Xstims)
+    Xstims{nn} = Xstims{nn}(Uindx,:);
+  end
+  Robs = RobsFULL(Uindx);
 end
 
 % Make sure Robs is a column vector
-if size(Robs,2) > size(Robs,1)
-    Robs = Robs';
-end
+Robs = Robs(:);
 
 for n = 1:Nmods
     [NT,filtLen] = size(Xstims{nim.mods(n).Xtarget}); %stimulus dimensions
@@ -60,35 +68,39 @@ end
 spkhstlen = nim.spk_hist.spkhstlen;
 
 if max(targets) > Nmods %check input targets
-    error('Invalid target specified');
+	error('Invalid target specified');
 end
 if isempty(targets) %default is to optimize all model components
     targets = 1:Nmods;
     if spkhstlen > 0
         targets = [targets -1]; %optimize spike hist filter
     end
+elseif targets == -2
+    targets = [];
 end
+
 Ntargets = sum(targets > 0); %number of targeted subunits
 non_targets = setdiff([1:Nmods -1 -2],targets); %elements of the model held constant
 
 if ismember(-1,targets) && spkhstlen == 0
-    error('No spk history term initialized')
+	error('No spk history term initialized')
 end
-%if ismember(-2,targets) && lin_dims == 0
-%    error('No extra linear filter optimized')
-%end
 
-%add spk NL constant if it isnt already there
+% Add spk NL constant if it isnt already there
 if length(nim.spk_NL_params) < 4
-    nim.spk_NL_params(4) = 0;
+	nim.spk_NL_params(4) = 0;
 end
 
 %% PARSE INITIAL PARAMETERS
-%compute initial fit parameters
+% Compute initial fit parameters
 initial_params = [];
+sign_con = [];
 for imod = targets(targets > 0)
-    cur_kern = nim.mods(imod).filtK';
-    initial_params = [initial_params; cur_kern']; %add coefs to initial param vector
+	cur_kern = nim.mods(imod).filtK';
+	if nim.mods(imod).Kcon ~= 0
+    sign_con(length(initial_params)+(1:length(cur_kern))) = nim.mods(imod).Kcon;
+  end
+	initial_params = [initial_params; cur_kern']; % add coefs to initial param vector
 end
 
 % Add in spike history coefs
@@ -96,8 +108,9 @@ if ismember(-1,targets)
     initial_params = [initial_params; nim.spk_hist.coefs];
 end
 
-initial_params(end+1) = nim.spk_NL_params(1); %add constant offset
+initial_params(end+1) = nim.spk_NL_params(1); % add constant offset
 initial_params = initial_params(:);
+
 %% COMPUTE L1 PENALTY IF APPLICABLE
 lambda_L1 = zeros(size(initial_params));
 cnt = 0;
@@ -107,7 +120,7 @@ for ii = 1:Ntargets
     lambda_L1(cur_inds) = nim.mods(targets(ii)).reg_params.lambda_L1;
     cnt = cnt + filtLen;
 end
-lambda_L1 = lambda_L1/sum(Robs); %since we are dealing with LL/spk
+lambda_L1 = lambda_L1/sum(Robs); % since we are dealing with LL/spk
 
 %% PRECOMPUTE 'TENT-BASIS' DERIVATIVES OF UPSTREAM NLS IF NEEDED
 if any(strcmp('nonpar',{nim.mods(targets(targets > 0)).NLtype}))
@@ -116,7 +129,7 @@ if any(strcmp('nonpar',{nim.mods(targets(targets > 0)).NLtype}))
             NLx = nim.mods(targets(ii)).NLx;
             NL = nim.mods(targets(ii)).NLy;
             
-            %compute derivative of non-linearity
+            % Compute derivative of non-linearity
             fpr = zeros(1,length(NLx)-1);
             for n = 1:length(fpr)
                 fpr(n) = (NL(n+1)-NL(n))/(NLx(n+1)-NLx(n));
@@ -132,9 +145,12 @@ end
 
 %% CREATE SPIKE HISTORY Xmat IF NEEDED
 if nim.spk_hist.spkhstlen > 0
-    Xspkhst = create_spkhist_Xmat(Robs,nim.spk_hist.bin_edges);
+	Xspkhst = create_spkhist_Xmat( RobsFULL, nim.spk_hist.bin_edges );
+  if ~isempty(Uindx)
+    Xspkhst = Xspkhst(Uindx,:);
+  end
 else
-    Xspkhst = [];
+	Xspkhst = [];
 end
 
 %% COMPUTE NET OUPTUT OF ALL NON-TARGET PREDICTORS
@@ -173,15 +189,21 @@ end
 if ismember(-1,non_targets) && spkhstlen > 0
     nt_gout = nt_gout + Xspkhst*nim.spk_hist.coefs(:);
 end
-%if ismember(-2,non_targets) && lin_dims > 0
-%    nt_gout = nt_gout + XLin*nim.kLin(:);
-%end
 
 %% IDENTIFY ANY CONSTRAINTS
 use_con = 0;
+A = []; Aeq = []; %initialize constraint matrices
 LB = -Inf*ones(size(initial_params));
 UB = Inf*ones(size(initial_params));
-A = []; Aeq = []; %initialize constraint matrices
+
+% Constrain any of the filters to be positive or negative
+if ~isempty(sign_con)
+  LB(sign_con == 1) = 0;
+  UB(sign_con == -1) = 0;
+ 
+  use_con = 1;
+end
+
 if spkhstlen > 0 && ismember(-1,targets) %if optimizing spk history term
     %negative constraint on spk history coefs
     if nim.spk_hist.negCon == 1
@@ -192,12 +214,7 @@ if spkhstlen > 0 && ismember(-1,targets) %if optimizing spk history term
         use_con = 1;
     end
 end
-if ~isempty(sign_con)
-    LB(sign_con == 1) = 0;
-    UB(sign_con == -1) = 0;
-   
-    use_con = 1;
-end
+
 beq = zeros(size(Aeq,1),1);
 b = zeros(size(A,1),1);
 
@@ -226,7 +243,7 @@ if use_con == 0 %if no constraints
             optim_params.optTol = 1e-4;
             optim_params.progTol = 1e-8;
             if silent == 0
-                optim_params.verbose = 1;
+                optim_params.verbose = 2;
             else
                 optim_params.verbose = 0;
             end
@@ -253,7 +270,7 @@ if use_con == 0 %if no constraints
             optim_params.progTol = 1e-8;
             optim_params.Method = 'lbfgs';
             if silent == 0
-                optim_params.verbose = 1;
+                optim_params.verbose = 2;
             else
                 optim_params.verbose = 0;
             end
@@ -296,7 +313,7 @@ else %if there are constraints
         optim_params.optTol = 1e-4;
         optim_params.progTol = 1e-6;
         if silent == 0
-            optim_params.verbose = 1;
+            optim_params.verbose = 2;
         else
             optim_params.verbose = 0;
         end
@@ -334,7 +351,7 @@ for ii = 1:Ntargets
     cnt = cnt + filtLen;
 end
 
-[LL, penLL, ~, G, gint, fgint] = NMMmodel_eval( nim_out, Robs, Xstims, Gmults, regmat_custom );
+[LL, nullLL, ~, G, gint, fgint, penLL] = NMMeval_model( nim_out, Robs, Xstims, Gmults, [], regmat_custom );
 nim_out.LL_seq = cat(1,nim_out.LL_seq,LL);
 nim_out.penLL_seq = cat(1,nim_out.penLL_seq,penLL);
 nim_out.opt_history = cat(1,nim_out.opt_history,{'filt'});
