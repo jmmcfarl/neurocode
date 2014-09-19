@@ -1,13 +1,14 @@
-clear all
-close all
+% clear all
+% close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'G093';
-bar_ori = 0;
+% Expt_name = 'G093';
+% bar_ori = 0;
 
 include_bursts = 0;
+nboot = 500; %number of bootstrap samples for computing trig-avg SD
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -112,7 +113,6 @@ max_sac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
 max_gsac_dur = 0.1;
 
-nboot = 500; %number of bootstrap samples for computing trig-avg SD
 
 %% LOAD EXPTS STRUCT
 cd(data_dir)
@@ -764,17 +764,18 @@ for ss = 1:length(SU_numbers)
     sua_data(ss).N_msacs_vert = sum(~isnan(all_binned_sua(sac_start_inds(msac_vert),ss)));
     
     %general averages
-    [sua_data(ss).msac_avg,lags,sua_data(ss).msac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_avg,lags,sua_data(ss).gsac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(gsac_set),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).simsac_avg,lags,sua_data(ss).simsac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_sacs,backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).simmsac_avg,lags,sua_data(ss).simmsac_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_msacs,backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).blank_avg,lags,sua_data(ss).blank_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_blanks,backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).msac_avg,lags,sua_data(ss).msac_std,~,~,sua_data(ss).msac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).gsac_avg,lags,sua_data(ss).gsac_std,~,~,sua_data(ss).gsac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(gsac_set),backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).simsac_avg,lags,sua_data(ss).simsac_std,~,~,sua_data(ss).simsac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_sacs,backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).simmsac_avg,lags,sua_data(ss).simmsac_std,~,~,sua_data(ss).simmsac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_msacs,backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).blank_avg,lags,sua_data(ss).blank_std,~,~,sua_data(ss).blank_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_blanks,backlag,forwardlag,nboot,used_trialvec,0);
     
     %background dependent
-    [sua_data(ss).msac_gray_avg,lags,sua_data(ss).msac_gray_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_gray_avg,lags,sua_data(ss).gsac_gray_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).msac_im_avg,lags,sua_data(ss).msac_im_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_im_avg,lags,sua_data(ss).gsac_im_std] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).msac_gray_avg,lags,sua_data(ss).msac_gray_std,~,~,sua_data(ss).msac_gray_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).gsac_gray_avg,lags,sua_data(ss).gsac_gray_std,~,~,sua_data(ss).gsac_gray_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).msac_im_avg,lags,sua_data(ss).msac_im_std,~,~,sua_data(ss).msac_im_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).gsac_im_avg,lags,sua_data(ss).gsac_im_std,~,~,sua_data(ss).gsac_im_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
+    
     
     %dont compute error bars for these...
     

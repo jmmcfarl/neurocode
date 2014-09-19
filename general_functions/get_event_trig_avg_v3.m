@@ -65,6 +65,8 @@ n_events = length(event_inds);
 if n_events < min_nevents
     ev_avg = nan(length(lags),p);
     ev_std = nan(length(lags),p);
+    ev_mat = nan;
+    ev_cis = nan(length(lags),2);
     return
 end
 
@@ -117,5 +119,5 @@ else %if error bars are requested
     boot_avgs = reshape(boot_avgs,[nboot length(lags) p]);
     ev_avg = squeeze(mean(boot_avgs));
     ev_std = squeeze(std(boot_avgs));
-    ev_cis = prctile(boot_avgs,[2.5 97.5]);
+    ev_cis = prctile(boot_avgs,[5 95]);
 end

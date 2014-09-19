@@ -3,15 +3,21 @@ clear all
 clc
 
 fit_unCor = 0;
+include_bursts = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
 base_sname = 'sacStimProcFin';
 
+if include_bursts
+    base_tname = strcat(base_tname,'_withbursts');
+    base_sname = strcat(base_sname,'_withbursts');
+end
+
 all_SU_data = [];
 all_SU_NPdata = [];
 all_SU_tdata = [];
-all_SU_timedata = [];
+% all_SU_timedata = [];
 
 %% LOAD JBE
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
@@ -26,13 +32,15 @@ for ee = 1:length(Expt_list)
     
     for ii =  1:2
         if ~isnan(ori_list(ee,ii))
-            sname = strcat(sac_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
-            temp = load(sname);
-            tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
+            %load trig avg data
+            tname = strcat(sac_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
+            temp = load(tname);
+            %load stimulus proc data
+            sname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
             if fit_unCor
-                tname = strcat(tname,'_unCor');
+                sname = strcat(sname,'_unCor');
             end
-            load(tname);            
+            load(sname);            
                        
             %SU numbers for trig avg data
             tavg_SU_numbers = [temp.sua_data(:).SU_numbers];
@@ -48,7 +56,7 @@ for ee = 1:length(Expt_list)
             [lia,locb] = ismember(tavg_SU_numbers,SM_SU_numbers);
             lia_inds = find(lia);
             base_xvLLimps = ones(size(tavg_SU_numbers))*-Inf;
-            base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia)).*SM_SU_rates(locb(lia));
+            base_xvLLimps(lia) = SM_SU_xvLLimp(locb(lia)).*SM_SU_rates(locb(lia)); %get the total LL's for these units
             for jj = 1:length(sua_data);
                 sua_data(jj).xvLLimp = base_xvLLimps(lia_inds(jj));
                 sua_data(jj).N_gsacs = temp.sua_data(lia_inds(jj)).N_gsacs;
@@ -59,6 +67,7 @@ for ee = 1:length(Expt_list)
             [sua_data.bar_ori] = deal(ori_list(ee,ii));
             [sua_data.animal] = deal('jbe');
             
+            %store key numbers for each orientation in this recording.
             ori_SU_nums(ii,:) = tavg_SU_numbers;
             ori_xvLLimps(ii,:) = base_xvLLimps;
             ori_sua_data{ii}(lia) = sua_data;
@@ -72,7 +81,7 @@ for ee = 1:length(Expt_list)
         ori_xvLLimps = [ori_xvLLimps; ones(size(ori_xvLLimps))*-Inf];
     end
     [mvals,mlocs] = max(ori_xvLLimps,[],1);
-    nplocs = mod(mlocs,2)+1; %these are indices for the NP ori
+    nplocs = mod(mlocs,2)+1; %these are indices for the non-pref ori
     for ii = 1:length(mvals)
         if mvals(ii) > 0
             if ori_xvLLimps(nplocs(ii),ii) > 0 %if the NP ori had usable data
@@ -106,13 +115,13 @@ for ee = 1:length(Expt_list)
     
     for ii =  1:2
         if ~isnan(ori_list(ee,ii))
-            sname = strcat(sac_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
-            temp = load(sname);
-            tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
+            tname = strcat(sac_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
+            temp = load(tname);
+            sname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
             if fit_unCor
-                tname = strcat(tname,'_unCor');
+                sname = strcat(sname,'_unCor');
             end
-            load(tname);
+            load(sname);
             
             tavg_SU_numbers = [temp.sua_data(:).SU_numbers];
             
@@ -175,9 +184,9 @@ tlags = tlags*Tdt;
 
 %% SELECT USABLE CELLS
 %selection criteria
-min_rate = 5; %in Hz (5)
-min_Nsacs = 1e3; % (1e3)
-min_TA_Nsacs = 250;
+min_rate = 5; % min avg rate in Hz (5)
+min_Nsacs = 1e3; % min number of saccades for full analysis (1e3) 
+min_TA_Nsacs = 250; %min number of saccades for trig avg analysis
 % min_xvLLimp = 0.05; %(0.05);
 
 tot_Nunits = length(all_SU_data);
@@ -186,7 +195,6 @@ tot_spikes = arrayfun(@(x) x.ModData.unit_data.tot_spikes,all_SU_data)';
 rec_dur = arrayfun(@(x) x.ModData.unit_data.N_used_samps,all_SU_data)'*dt/60;
 expt_nums = [all_SU_data(:).expt_num];
 expt_oris = [all_SU_data(:).bar_ori];
-% xvLLimps = [all_SU_data(:).xvLLimp];
 % mod_LLimps = [all_SU_data(:).gsac_spost_ov_modinfo];
 mod_LLimps = [all_SU_data(:).xvLLimp];
 
@@ -197,7 +205,6 @@ clust_dprime = arrayfun(@(x) x.ModData.unit_data.SU_dprime,all_SU_data)';
 rate_stability_cv = arrayfun(@(x) x.ModData.unit_data.rate_stability_cv,all_SU_data)';
 dprime_stability_cv = arrayfun(@(x) x.ModData.unit_data.dprime_stability_cv,all_SU_data)';
 
-lem_fov_SUs = intersect(fov_SUs,lem_SUs);
 jbe_SUs = find(strcmp('jbe',{all_SU_data(:).animal}));
 lem_SUs = find(strcmp('lem',{all_SU_data(:).animal}));
 
@@ -206,6 +213,7 @@ lem_parafov_expt_nums = [270 277 281 287 289 294 229 297];
 fov_SUs = find([all_SU_data(:).expt_num] < 200 | ismember([all_SU_data(:).expt_num],lem_fov_expt_nums));
 parafov_SUs = find([all_SU_data(:).expt_num] > 200 & ~ismember([all_SU_data(:).expt_num],lem_fov_expt_nums));
 lem_parafov_SUs = intersect(parafov_SUs,lem_SUs);
+lem_fov_SUs = intersect(fov_SUs,lem_SUs);
 
 N_gsacs = [all_SU_data(:).N_gsacs];
 N_msacs = [all_SU_data(:).N_msacs];
