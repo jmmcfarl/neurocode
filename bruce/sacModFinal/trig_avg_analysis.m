@@ -828,5 +828,5 @@ if include_bursts
     sname = [sname '_withburst'];
 end
 sname = [sname sprintf('_ori%d',bar_ori)];
-save(sname,'sua_data','mua_data','gen_data','trig_avg_params');
+save(sname,'sua_data','mua_data','trig_avg_params');
 
