@@ -7,8 +7,8 @@ fit_unCor = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
-% base_sname = 'sacStimProcFin';
-base_sname = 'sacStimProcTest';
+base_sname = 'sacStimProcFin';
+% base_sname = 'sacStimProcTest';
 % base_sname = 'sacStimProc2';
 % base_ename = 'sacStimProc';
 base_timename = 'sac_info_timing';
@@ -585,15 +585,11 @@ ylabel('Relative information');
 
 %% PLOT SPIKE-WEIGHTED GEN SIGNALS
 
-all_gsac_TB_gmean = reshape([all_SU_data(:).gsac_sacCond_Gavg],[],length(all_SU_data))';
-ov_TB_gmean = [all_SU_data(:).gsac_Gavg];
 
-all_gsac_spk_gmean = reshape([all_SU_data(:).gsac_spkCondG],[],length(all_SU_data))';
-ov_gmean = [all_SU_data(:).gsac_ovspkCondG];
+all_gsac_spk_gmean = reshape([all_SU_data(:).gsac_spkCondI],[],length(all_SU_data))';
+ov_gmean = [all_SU_data(:).gsac_ovspkCondI];
 
-% all_gsac_TB_gmean = bsxfun(@rdivide,all_gsac_TB_gmean,ov_TB_gmean');
 % all_gsac_spk_gmean = bsxfun(@rdivide,all_gsac_spk_gmean,ov_gmean');
-all_gsac_TB_gmean = bsxfun(@minus,all_gsac_TB_gmean,ov_TB_gmean');
 all_gsac_spk_gmean = bsxfun(@minus,all_gsac_spk_gmean,ov_gmean');
 
 TB_slags = all_SU_data(1).gsac_TB_lagX;
@@ -817,7 +813,7 @@ all_nIkerns = bsxfun(@rdivide,all_Ikerns,sqrt(sum(all_Ikerns.^2,2)));
 
 tax = (0:(flen-1))*dt + dt/2;
 
-min_NIfilts = 1;
+min_NIfilts = 2;
 
 all_gsac_Egain = reshape([all_SU_data(:).gsac_post_Egains],[],length(all_SU_data))';
 all_gsac_Igain = reshape([all_SU_data(:).gsac_post_Igains],[],length(all_SU_data))';
@@ -1439,7 +1435,7 @@ for cc = 1:length(all_SU_data)
     cur_filts = reshape([all_SU_data(cc).ModData.rectGQM.mods(:).filtK],flen,[],length(stim_mod_signs));
     filt_tkerns = squeeze(std(cur_filts,[],2));
     filt_tkerns = bsxfun(@rdivide,filt_tkerns,sqrt(sum(filt_tkerns.^2)));
-    filt_tkerns = bsxfun(@times,filt_tkerns,all_SU_data(cc).rel_filt_weights);
+    filt_tkerns = bsxfun(@times,filt_tkerns,all_SU_data(cc).ModData.rectGQM.rel_filt_weights);
     filt_tkerns(:,all_SU_data(cc).rel_filt_weights==0) = 0;
     
     avg_tkern = squeeze(mean(filt_tkerns,2));
@@ -1498,8 +1494,8 @@ f1 = figure();
 plot(slags*dt,weight_avg_tlag(use_gsac_SUs,:),'k')
 hold on
 h1=shadedErrorBar(slags*dt,mean(weight_avg_tlag(use_gsac_SUs,:)),std(weight_avg_tlag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
-% h1=shadedErrorBar(slags*dt,mean(weight_avg_elag(use_gsac_SUs,:)),std(weight_avg_elag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
-% h1=shadedErrorBar(slags*dt,mean(weight_avg_ilag(use_gsac_SUs,:)),std(weight_avg_ilag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','g'});
+h1=shadedErrorBar(slags*dt,mean(weight_avg_elag(use_gsac_SUs,:)),std(weight_avg_elag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
+h1=shadedErrorBar(slags*dt,mean(weight_avg_ilag(use_gsac_SUs,:)),std(weight_avg_ilag(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','g'});
 xlabel('Time since saccade onset (s)');
 ylabel('Change in stimulus response latency');
 

@@ -530,10 +530,14 @@ if is_TBT_expt
     gback_sacs = find(ismember(sac_trial_inds,grayback_gs_trials));
     iback_sacs = find(ismember(sac_trial_inds,imback_trials));
     ss_sacs = find(ismember(sac_trial_inds,sim_sac_trials));
+    Ngback_inds = sum(ismember(all_trialvec(used_inds),grayback_gs_trials));
+    Niback_inds = sum(ismember(all_trialvec(used_inds),imback_trials));
 else
     gback_sacs = find(ismember(all_blockvec(sac_start_inds),grayback_gs_expts));
     iback_sacs = find(ismember(all_blockvec(sac_start_inds),imback_gs_expts));
     ss_sacs = find(ismember(all_blockvec(sac_start_inds),sim_sac_expts));
+    Ngback_inds = sum(ismember(all_blockvec(used_inds),grayback_gs_expts));
+    Niback_inds = sum(ismember(all_blockvec(used_inds),imback_gs_expts));
 end
 
 gray_msac_set = intersect(gback_sacs,micro_set);
@@ -618,6 +622,10 @@ gen_data.N_msacs_im = length(intersect(micro_set,iback_sacs));
 gen_data.N_gsacs_im = length(intersect(gsac_set,iback_sacs));
 gen_data.N_msacs_Par = length(msac_Par);
 gen_data.N_msacs_Orth = length(msac_Orth);
+
+gen_data.Tot_time = length(used_inds);
+gen_data.Gback_time = Ngback_inds;
+gen_data.Iback_time = Niback_inds;
 
 %%
 trig_avg_params = struct('dt',dt,'min_trial_dur',min_trial_dur,'beg_buffer',beg_buffer,...

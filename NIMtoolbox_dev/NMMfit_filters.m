@@ -34,7 +34,7 @@ if ~iscell(Xstims)
     Xstims{1} = tmp;
 end
 if (nargin < 6) || isempty(silent)
-	silent = 0;
+	silent = 1;
 end
 if nargin < 7
 	desired_optim_params = [];
