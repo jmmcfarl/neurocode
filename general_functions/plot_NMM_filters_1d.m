@@ -1,4 +1,4 @@
-function [h] = plot_NMM_filters_1d(nim,pix_ax,lag_ax,stim_Xtarg)
+function [fig_props] = plot_NMM_filters_1d(nim,pix_ax,lag_ax,stim_Xtarg)
 
 
 if nargin < 4 || isempty(stim_Xtarg)
@@ -16,12 +16,12 @@ if nargin < 3 || isempty(lag_ax)
     lag_ax = ((1:nLags)*dt - dt/2)*1e3;
 end
 %%
-Xtargs = [nim.mods(:).Xtargets];
+Xtargs = [nim.mods(:).Xtarget];
 stim_mods = find(Xtargs == stim_Xtarg);
 
 %% CREATE FIGURE SHOWING INDIVIDUAL SUBUNITS
 
-h = figure();
+fig_props.h = figure();
 n_columns = max(round(sqrt(length(stim_mods)/2)),1);
 n_rows = ceil(length(stim_mods)/n_columns);
 
@@ -29,24 +29,32 @@ for imod = 1:length(stim_mods)
     thismod = nim.mods(stim_mods(imod));
     
     %PLOT FILTER
-    subplot(n_rows,2*n_columns,(imod-1)*2+1);
-    if nPix == 1 %if temporal-only stim
-        imagesc(1:nPix(1),tax,reshape(thismod.filtK,nLags,nPix(1)));
-        cl = max(abs(thismod.filtK));
-        caxis([-cl cl]);
-        %colormap(jet);
-        colormap(gray);
-        set(gca,'ydir','normal');
-        xlabel('Pixels')
-        ylabel('Time lags');
-    end
+    subplot(n_rows,n_columns,(imod-1)+1);
+    imagesc(pix_ax,lag_ax,reshape(thismod.filtK,nLags,nPix(1)));
+    cl = max(abs(thismod.filtK));
+    caxis([-cl cl]);
+    %colormap(jet);
+    colormap(gray);
+    set(gca,'ydir','normal');
+    xlabel('Pixels')
+    ylabel('Time lags');
+    
+    NLtype = 'NP';
     if strcmp(thismod.NLtype,'lin')
-        title('Linear stimulus filter','fontsize',14)
-    elseif thismod.sign == 1
-        title('Excitatory stimulus filter','fontsize',14);
-    elseif thismod.sign == -1
-        title('Suppressive stimulus filter','fontsize',14);
+        NLtype = 'Lin';
+    elseif strcmp(thismod.NLtype,'quad')
+        NLtype = 'Quad';
+    elseif strcmp(thismod.NLtype,'threshlin')
+        NLtype = 'Tlin';
     end
+    if thismod.sign == 1
+        NLsign = 'E';
+    else
+        NLsign = 'I';
+    end
+    title(sprintf('%s %s-filt',NLtype,NLsign));
 end
-
+fig_props.dims = [n_rows n_columns];
+fig_props.nmods = length(stim_mods);
+%%
 

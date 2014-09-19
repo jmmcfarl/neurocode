@@ -1,4 +1,4 @@
-function [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(stim_mod,Robs,Xmat,Xsac_mat,lambda_d2T,lambda_L2,init_gain_kernel,max_iter)
+function [preGainMod] = fit_pre_gainmodel(stim_mod,Robs,Xmat,Xsac_mat,poss_d2T,poss_L2,tr_inds,xv_inds)
 
 cur_NT = length(Robs);
 stim_dims = stim_mod.stim_params(1).stim_dims;
@@ -6,13 +6,6 @@ flen = stim_dims(1);
 klen = prod(stim_dims);
 n_lags = size(Xsac_mat,2);
 
-%if no initial post-gain kernel is specified, assume it's all zeros
-if nargin < 7 || isempty(init_gain_kernel)
-    init_gain_kernel = zeros(n_lags,1);
-end
-if nargin < 8
-    max_iter = Inf;
-end
 
 %convert Xmat into TxLxD matrix
 rXmat = reshape(Xmat,[cur_NT flen stim_dims(2)]);
@@ -28,99 +21,64 @@ for pp = 1:n_lags
 end
 
 %defaults for minFunc are 1e-5 and 1e-9
-silent = 1;
 optim_params.optTol = 1e-5;
 optim_params.progTol = 1e-8;
 optim_params.Method = 'lbfgs';
 optim_params.Display = 'off';
 
 %initialize regularization params
-rp = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'boundary_conds',[0 0 0]);
+rp = NMMcreate_reg_params('lambda_d2T',1,'boundary_conds',[0 0 0]);
 nim = NMMinitialize_model(NMMcreate_stim_params(n_lags),1,{'lin'},rp);
 L2_mats = create_L2_matrices_NMM( nim );
 
-initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
-cur_params = initial_params;
-gain_kernel = init_gain_kernel;
-
-cur_LLimp = -Inf;
-cur_LL = 1e5;
-imp_thresh = -1e-6;
-it = 1;
-while cur_LLimp <= imp_thresh && it <= max_iter
-    
-    %fit upstream filter and offset filter, given post-gain filter
-    fprintf('Iteration %d\n',it);
-    [params{it},mval(it)] = minFunc( @(K) LLinternal_alphas_full(stim_mod, K, Robs, rXmat, Xsac_mat ...
-        ,gain_kernel, sac_filt_outs, L2_mats, lambda_d2T,lambda_L2), cur_params, optim_params);
-    cur_params = params{it};
-    cur_LLimp = mval(it) - cur_LL;
-    cur_LL = mval(it);
-    
-    %after one iteration save the model (this has pre-gain but no
-    %post-gain)
-    if it == 1
-        sacGainOnlyMod.gain_kernel = zeros(n_lags,1);
-        sacGainOnlyMod.stim_kernel = cur_params(1:n_lags);
-        sacGainOnlyMod.off_kernel = cur_params((n_lags+1):2*n_lags);
-        sacGainOnlyMod.theta = cur_params(end);
-        sacGainOnlyMod.stim_mod = stim_mod;
-        sacGainOnlyMod.LL = eval_sacgain_mod(sacGainOnlyMod,Robs,Xmat,Xsac_mat);
+if length(poss_d2T) > 1 || length(poss_L2) > 1
+    L2_xvLL = nan(length(poss_d2T),length(poss_L2));
+    for ii = 1:length(poss_d2T)
+        cur_lambda_d2T = poss_d2T(ii);
+        for jj = 1:length(poss_L2)
+            cur_lambda_L2 = poss_L2(jj);
+            
+            fprintf('Fitting pre-model d2T %d/%d, L2 %d/%d\n',ii,length(poss_d2T),jj,length(poss_L2));
+            initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
+            %fit upstream filter and offset filter, given post-gain filter
+            [params,mval] = minFunc( @(K) LLinternal_alphas_full(stim_mod, K, Robs(tr_inds), rXmat(tr_inds,:,:), Xsac_mat(tr_inds,:) ...
+                , sac_filt_outs(:,:,tr_inds), L2_mats, cur_lambda_d2T,cur_lambda_L2), initial_params, optim_params);
+            [~,~,L2_xvLL(ii,jj)] = LLinternal_alphas_full(stim_mod, params, Robs(xv_inds), rXmat(xv_inds,:,:),...
+                Xsac_mat(xv_inds,:) , sac_filt_outs(:,:,xv_inds), L2_mats, cur_lambda_d2T,cur_lambda_L2);
+            
+        end
     end
     
-    %create upstream filtered Xmat
-    sac_emb = create_time_embedding(Xsac_mat*cur_params(1:n_lags),NMMcreate_stim_params(flen));
-    sac_Xmat = bsxfun(@times,rXmat,sac_emb);
-    cur_Xmat = reshape(rXmat + sac_Xmat,[cur_NT klen]);
+    [~,optloc] = min(L2_xvLL(:));
+    [optloc_x,optloc_y] = ind2sub([length(poss_d2T) length(poss_L2)],optloc);
+    opt_d2T = poss_d2T(optloc_x);
+    opt_L2 = poss_L2(optloc_y);
     
-    %get output of model with this upstream filtered Xmat
-    [LL, penLL, pred_rate, G] = NMMmodel_eval(stim_mod,Robs,cur_Xmat);
-    g_tot = G - stim_mod.spk_NL_params(1);
-    Xsac_tot = bsxfun(@times,Xsac_mat,g_tot);
-    
-    %now fit the post-gain filter and offset filter, given this upstream
-    %filter
-    tr_stim{1} = [g_tot];
-    tr_stim{2} = Xsac_mat;
-    tr_stim{3} = Xsac_tot;
-    clear sac_stim_params
-    sac_stim_params(1) = NMMcreate_stim_params(1);
-    sac_stim_params(2) = NMMcreate_stim_params(size(Xsac_tot,2));
-    sac_stim_params(3) = NMMcreate_stim_params(size(Xsac_tot,2));
-    sac_reg_params = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'lambda_L2',lambda_L2,'boundary_conds',[0 0 0]);
-    
-    mod_signs = [1 1 1];
-    Xtargets = [1 2 3];
-    NL_types = {'lin','lin','lin'};
-    temp_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
-    temp_mod.mods(1).filtK = 1;
-    temp_mod.mods(2).filtK = cur_params((n_lags+1):2*n_lags);
-    temp_mod.spk_NL_params(1) = cur_params(end);
-    temp_mod.spk_NL_params(2:end) = stim_mod.spk_NL_params(2:end);
-    temp_mod.mods(1).reg_params = NMMcreate_reg_params();
-    temp_mod = NMMfit_filters(temp_mod,Robs,tr_stim,[],[],silent); %fit only offset and post-gain filters (dont refit gain on G)
-    gainLL(it) = temp_mod.LL_seq(end);
-    
-    gain_kernel = temp_mod.mods(3).filtK + temp_mod.mods(1).filtK-1;
-    gain_kern_est(it,:) = gain_kernel;
-    cur_params((n_lags+1):2*n_lags) = temp_mod.mods(2).filtK; %update estimate of offset filter
-    cur_params(end) = temp_mod.spk_NL_params(1);
-    it = it + 1;
+else
+    opt_d2T = poss_d2T; opt_L2 = poss_L2; L2_xvLL = nan;
 end
 
-sacGainMod.gain_kernel = gain_kernel;
-sacGainMod.stim_kernel = cur_params(1:n_lags);
-sacGainMod.off_kernel = cur_params((n_lags+1):2*n_lags);
-sacGainMod.theta = cur_params(end);
-sacGainMod.stim_mod = stim_mod;
-sacGainMod.gain_offset = temp_mod.mods(1).filtK;
+initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
+%fit upstream filter and offset filter, given post-gain filter
+[params,mval] = minFunc( @(K) LLinternal_alphas_full(stim_mod, K, Robs, rXmat, Xsac_mat, ...
+    sac_filt_outs, L2_mats, opt_d2T,opt_L2), initial_params, optim_params);
 
-sacGainMod.LL = eval_prepost_gainmodel( sacGainMod, Robs, Xmat, Xsac_mat);
+preGainMod.stim_kernel = params(1:n_lags);
+preGainMod.off_kernel = params((n_lags+1):2*n_lags);
+preGainMod.theta = params(end);
+preGainMod.stim_mod = stim_mod;
+preGainMod.opt_d2T = opt_d2T;
+preGainMod.opt_L2 = opt_L2;
+preGainMod.fullxvLL = L2_xvLL;
+
+[~,~,LL] = LLinternal_alphas_full(stim_mod, params, Robs, rXmat,...
+    Xsac_mat , sac_filt_outs, L2_mats, opt_d2T,opt_L2);
+
+preGainMod.LL = -LL;
 
 end
-
 %%
-function [LL,LLgrad] = LLinternal_alphas_full( mod, params, Robs, Xmat, Xsac_mat, gain_kernel, sac_filt_outs, L2_mats,lambda,lambda_L2)
+function [LL,LLgrad,LLraw] = LLinternal_alphas_full( mod, params, Robs, Xmat, Xsac_mat, sac_filt_outs, L2_mats,lambda,lambda_L2)
 
 %F[ kX{I + gamma(tau)J(tau)} g(tau) + c(tau)]
 
@@ -166,10 +124,6 @@ for ii = 1:Nmods
     Gstim = Gstim + fgint*mod.mods(ii).sign;
     
 end
-
-%compute multiplicative (post-filtering) gain output
-gainfun = Xsac_mat*gain_kernel;
-Gstim = Gstim + Gstim.*gainfun;
 
 %add in sac offset term
 G = theta + Gstim + Xsac_mat*params((n_lags+1):(2*n_lags));
@@ -227,13 +181,12 @@ LLgrad(end) = sum(residual);
 
 %%
 
-post_out = 1+gainfun;
 for pp = 1:n_lags
     
     for ii = 1:Nmods
         
         if strcmp(mod.mods(ii).NLtype,'lin')
-            LLgrad(pp) = LLgrad(pp) + (residual.*post_out.*gint(:,ii)* mod.mods(ii).sign)' *squeeze(sac_filt_outs(pp,ii,:));
+            LLgrad(pp) = LLgrad(pp) + (residual.*gint(:,ii)* mod.mods(ii).sign)' *squeeze(sac_filt_outs(pp,ii,:));
         else
             if strcmp(mod.mods(ii).NLtype,'nonpar')
                 fpg = piececonst_process(gint(:,ii),fprimes{ii}, mod.mods(ii).NLx);
@@ -245,7 +198,7 @@ for pp = 1:n_lags
             else
                 error('Unsupported NL type')
             end
-            LLgrad(pp) = LLgrad(pp) + (post_out.*fpg.*residual*mod.mods(ii).sign)' * squeeze(sac_filt_outs(pp,ii,:));
+            LLgrad(pp) = LLgrad(pp) + (fpg.*residual*mod.mods(ii).sign)' * squeeze(sac_filt_outs(pp,ii,:));
         end
     end
     
@@ -271,11 +224,12 @@ if lambda_L2 > 0
 else
     L2_penalty = 0;
 end
+LLraw = LL;
 LL = LL - smooth_penalty - L2_penalty;
 LLgrad = LLgrad - LLgrad_pen;
 
 %% CONVERT TO NEGATIVE LLS AND NORMALIZE BY NSPKS
-
+LLraw = -LLraw/Nspks;
 LL = -LL/Nspks;
 LLgrad = -LLgrad/Nspks;
 end

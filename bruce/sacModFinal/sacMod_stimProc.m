@@ -1,6 +1,6 @@
 
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,10 +9,10 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% % Expt_name = 'M297';
-% Expt_name = 'G093';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'M297';
+Expt_name = 'G093';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -35,14 +35,16 @@ mod_data_name = 'corrected_models2';
 % mod_data_name = 'corrected_models';
 
 %%
-% poss_gain_d2T = logspace(log10(1),log10(1e3),8);
-% poss_gain_L2 = [0 0.5 1 5 10];
-% poss_sub_d2T = logspace(log10(10),log10(1e4),6);
-% poss_TB_lambdas = logspace(log10(0.1),log10(50),6);
-poss_gain_d2T = 50;
-poss_gain_L2 = 0.5;
-poss_sub_d2T = 100;
-poss_TB_lambdas = 5;
+poss_gain_d2T = logspace(log10(1),log10(1e3),8);
+poss_gain_L2 = [0 1 5 10];
+poss_pre_d2T = logspace(log10(1),log10(500),5);
+poss_sub_d2T = logspace(log10(10),log10(1e4),6);
+poss_TB_lambdas = logspace(log10(0.1),log10(50),6);
+% poss_gain_d2T = 50;
+% poss_pre_d2T = logspace(log10(1),log10(500),5);
+% poss_gain_L2 = 0.5;
+% poss_sub_d2T = 100;
+% poss_TB_lambdas = 5;
 
 fullMod_d2T = 5;
 fullMod_L2 = 5;
@@ -799,11 +801,11 @@ for cc = targs
     if ~isempty(cc_uinds)
         
         if fit_unCor
-        cur_rGQM = ModData(cc).rectGQM_unCor;
-        cur_GQM = ModData(cc).bestGQM_unCor;
+            cur_rGQM = ModData(cc).rectGQM_unCor;
+            cur_GQM = ModData(cc).bestGQM_unCor;
         else
-        cur_rGQM = ModData(cc).rectGQM;
-        cur_GQM = ModData(cc).bestGQM;
+            cur_rGQM = ModData(cc).rectGQM;
+            cur_GQM = ModData(cc).bestGQM;
         end
         sacStimProc(cc).ModData = ModData(cc);
         sacStimProc(cc).used = true;
@@ -991,14 +993,21 @@ for cc = targs
             %% FIT UPSTREAM STIM-MODULATION
             if fitUpstream
                 fprintf('Fitting upstream saccade kernel\n');
-                maxIter = 1;
                 Xsac_mat = cur_Xsac(any_sac_inds,:);
-                [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
-                sacStimProc(cc).gsacGainMod = sacGainMod;
-                sacStimProc(cc).gsacGainOnlyMod = sacGainOnlyMod;
-                [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
-                sacStimProc(cc).gsac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
-                [~,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs, all_Xmat_shift, cur_Xsac);
+                cur_tr_inds = find(ismember(any_sac_inds,tr_sac_inds));
+                cur_xv_inds = find(ismember(any_sac_inds,xv_sac_inds));
+                [preGainMod] = fit_pre_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,poss_pre_d2T,opt_L2,cur_tr_inds,cur_xv_inds);
+                sacStimProc(cc).gsacPreGainMod = preGainMod;
+                [preLL,pre_pred_rate] = eval_pre_gainmodel( preGainMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
+                sacStimProc(cc).gsac_pre_ov_modinfo = mean(pre_pred_rate/mean(pre_pred_rate).*log2(pre_pred_rate/mean(pre_pred_rate)));
+                [~,pre_pred_rate] = eval_pre_gainmodel( preGainMod, cur_Robs, all_Xmat_shift, cur_Xsac);
+                
+%                 [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
+%                 sacStimProc(cc).gsacGainMod = sacGainMod;
+%                 sacStimProc(cc).gsacGainOnlyMod = sacGainOnlyMod;
+%                 [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
+%                 sacStimProc(cc).gsac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
+%                 [~,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs, all_Xmat_shift, cur_Xsac);
             end
             %         sacGainMod = sacStimProc(cc).gsacGainMod;
             
@@ -1221,7 +1230,7 @@ for cc = targs
             
             
             %% COMPUTE MODEL-BASED INFORMATION
-            [sac_spost_info,sac_fpost_info,sac_subpost_info,sac_info,sac_spost_offset,sac_spost_gain,sac_TB_modinfo] = deal(nan(length(slags),1));
+            [sac_spost_info,sac_fpost_info,sac_subpost_info,sac_pre_info,sac_spost_offset,sac_spost_gain,sac_TB_modinfo] = deal(nan(length(slags),1));
             
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(:,ii) == 1);
@@ -1232,7 +1241,7 @@ for cc = targs
                 
                 %compute LL and info for upstream model
                 if fitUpstream
-                    sac_info(ii) = nanmean(gain_pred_rate(temp).*log2(gain_pred_rate(temp)/mean(gain_pred_rate(temp))))/mean(gain_pred_rate(temp));
+                    sac_pre_info(ii) = nanmean(pre_pred_rate(temp).*log2(pre_pred_rate(temp)/mean(pre_pred_rate(temp))))/mean(pre_pred_rate(temp));
                 end
                 
                 %compute LL and info for gain/offset model
@@ -1261,16 +1270,21 @@ for cc = targs
             end
             
             if fitUpstream
-                sacStimProc(cc).gsac_modinfo = sac_info;
+                sacStimProc(cc).gsac_pre_modinfo = sac_pre_info;
             end
             if fit_subMod
                 sacStimProc(cc).gsac_sub_modinfo = sac_subpost_info;
             end
             
             %% Get LL-based infos
-            [sac_LL,sac_fpost_LL,sac_spost_LL,sac_subpost_LL,sac_TB_LL,sac_nullLL,sac_Nspks,sac_avgrate] = deal(nan(length(slags),1));
+            [sac_pre_LL,sac_fpost_LL,sac_spost_LL,sac_subpost_LL,sac_TB_LL,sac_nullLL,sac_Nspks,sac_avgrate] = deal(nan(length(slags),1));
+            
+            norm_stimE = nanzscore(g_exc);
+            norm_stimI = nanzscore(g_inh);
             
             spk_cond_G = nan(length(slags),1);
+            spk_cond_E = nan(length(slags),1);
+            spk_cond_I = nan(length(slags),1);
             spk_cond_lagG = nan(length(slags),flen);
             for ii = 1:length(slags)
                 temp = find(cur_Xsac(:,ii) == 1);
@@ -1282,7 +1296,7 @@ for cc = targs
                 
                 %compute LL and info for upstream model
                 if fitUpstream
-                    sac_LL(ii) = nansum(cur_Robs(temp).*log2(gain_pred_rate(temp)) - gain_pred_rate(temp));
+                    sac_pre_LL(ii) = nansum(cur_Robs(temp).*log2(pre_pred_rate(temp)) - pre_pred_rate(temp));
                 end
                 
                 %compute LL and info for gain/offset model
@@ -1293,6 +1307,8 @@ for cc = targs
                 end
                 %spike-weighted average of G (normalized)
                 spk_cond_G(ii) = sum(cur_Robs(temp).*norm_stimG(temp))/sum(cur_Robs(temp));
+                spk_cond_E(ii) = sum(cur_Robs(temp).*norm_stimE(temp))/sum(cur_Robs(temp));
+                spk_cond_I(ii) = sum(cur_Robs(temp).*norm_stimI(temp))/sum(cur_Robs(temp));
                                 
                 %compute LL and info for subpsace model
                 if fit_subMod
@@ -1314,8 +1330,14 @@ for cc = targs
             
             %store spike-weighted G data
             sacStimProc(cc).gsac_spkCondG = spk_cond_G;
+            sacStimProc(cc).gsac_spkCondE = spk_cond_E;
+            sacStimProc(cc).gsac_spkCondI = spk_cond_I;
             ov_spkCondG = sum(cur_Robs(any_sac_inds).*norm_stimG(any_sac_inds))/sum(cur_Robs(any_sac_inds));
+            ov_spkCondE = sum(cur_Robs(any_sac_inds).*norm_stimE(any_sac_inds))/sum(cur_Robs(any_sac_inds));
+            ov_spkCondI = sum(cur_Robs(any_sac_inds).*norm_stimI(any_sac_inds))/sum(cur_Robs(any_sac_inds));
             sacStimProc(cc).gsac_ovspkCondG = ov_spkCondG;
+            sacStimProc(cc).gsac_ovspkCondE = ov_spkCondE;
+            sacStimProc(cc).gsac_ovspkCondI = ov_spkCondI;
             
             sacStimProc(cc).gsac_avg_rate = sac_avgrate;
             
@@ -1328,9 +1350,8 @@ for cc = targs
             end
             %store upstream model info calcs
             if fitUpstream
-                sacStimProc(cc).gsac_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
-                sacStimProc(cc).gsac_ov_LLinfo = (sacGainMod.LL-nullLL)/log(2);
-                sacStimProc(cc).gsacOnly_ov_LLinfo = (sacGainOnlyMod.LL-nullLL)/log(2);
+                sacStimProc(cc).gsac_pre_LLinfo = (sac_pre_LL - sac_nullLL)./sac_Nspks;
+                sacStimProc(cc).gsac_pre_ov_LLinfo = (preGainMod.LL-nullLL)/log(2);
             end
             
             sacStimProc(cc).gsac_TB_LLinfo = sac_TB_LL;
@@ -1492,18 +1513,26 @@ for cc = targs
                 %% FIT UPSTREAM STIM-MODULATION
                 if fit_msacUpstream
                     fprintf('Fitting upstream saccade kernel\n');
-                    maxIter = 1;
                     Xsac_mat = cur_Xsac(any_sac_inds,:);
-                    [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
-                    sacStimProc(cc).msacGainMod = sacGainMod;
-                    sacStimProc(cc).msacGainOnlyMod = sacGainOnlyMod;
-                    [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
-                    sacStimProc(cc).msac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
-                    [~,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs, all_Xmat_shift, cur_Xsac);
+                    cur_poss_d2T = sacStimProc(cc).gsacPreGainMod.opt_d2T;
+                    cur_poss_L2 = sacStimProc(cc).gsacPreGainMod.opt_L2;
+                    [preGainMod] = fit_pre_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,cur_poss_d2T,cur_poss_L2);
+                    sacStimProc(cc).msacPreGainMod = preGainMod;
+                    [preLL,pre_pred_rate] = eval_pre_gainmodel( preGainMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
+                    sacStimProc(cc).msac_pre_ov_modinfo = mean(pre_pred_rate/mean(pre_pred_rate).*log2(pre_pred_rate/mean(pre_pred_rate)));
+                    [~,pre_pred_rate] = eval_pre_gainmodel( preGainMod, cur_Robs, all_Xmat_shift, cur_Xsac);
+                    
+%                     Xsac_mat = cur_Xsac(any_sac_inds,:);
+%                     [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
+%                     sacStimProc(cc).msacGainMod = sacGainMod;
+%                     sacStimProc(cc).msacGainOnlyMod = sacGainOnlyMod;
+%                     [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
+%                     sacStimProc(cc).msac_ov_modinfo = mean(gain_pred_rate/mean(gain_pred_rate).*log2(gain_pred_rate/mean(gain_pred_rate)));
+%                     [~,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs, all_Xmat_shift, cur_Xsac);
                 end
                 
                 %% COMPUTE MODEL-BASED INFORMATION
-                [sac_spost_info,sac_info,sac_spost_offset,sac_spost_gain] = deal(nan(length(slags),1));
+                [sac_spost_info,sac_pre_info,sac_spost_offset,sac_spost_gain] = deal(nan(length(slags),1));
                 for ii = 1:length(slags)
                     temp = find(cur_Xsac(:,ii) == 1);
                     
@@ -1513,7 +1542,7 @@ for cc = targs
                     
                     %compute LL and info for upstream model
                     if fit_msacUpstream
-                        sac_info(ii) = nanmean(gain_pred_rate(temp).*log2(gain_pred_rate(temp)/mean(gain_pred_rate(temp))))/mean(gain_pred_rate(temp));
+                        sac_pre_info(ii) = nanmean(pre_pred_rate(temp).*log2(pre_pred_rate(temp)/mean(pre_pred_rate(temp))))/mean(pre_pred_rate(temp));
                     end
                     
                     %compute LL and info for gain/offset model
@@ -1524,11 +1553,11 @@ for cc = targs
                 sacStimProc(cc).msac_spost_offset = sac_spost_offset;
                 sacStimProc(cc).msac_spost_gain = sac_spost_gain;
                 if fit_msacUpstream
-                    sacStimProc(cc).msac_modinfo = sac_info;
+                    sacStimProc(cc).msac_pre_modinfo = sac_pre_info;
                 end
                 
                 %% Get LL-based infos
-                [sac_LL,sac_fpost_LL,sac_spost_LL,sac_nullLL,sac_Nspks,sac_avgrate] = deal(nan(length(slags),1));
+                [sac_pre_LL,sac_fpost_LL,sac_spost_LL,sac_nullLL,sac_Nspks,sac_avgrate] = deal(nan(length(slags),1));
                 
                 spk_cond_G = nan(length(slags),1);
                 spk_cond_lagG = nan(length(slags),flen);
@@ -1542,7 +1571,7 @@ for cc = targs
                     
                     %compute LL and info for upstream model
                     if fit_msacUpstream
-                        sac_LL(ii) = nansum(cur_Robs(temp).*log2(gain_pred_rate(temp)) - gain_pred_rate(temp));
+                        sac_pre_LL(ii) = nansum(cur_Robs(temp).*log2(pre_pred_rate(temp)) - pre_pred_rate(temp));
                     end
                     
                     %compute LL and info for gain/offset model
@@ -1565,9 +1594,8 @@ for cc = targs
                 
                 %store upstream model info calcs
                 if fit_msacUpstream
-                    sacStimProc(cc).msac_LLinfo = (sac_LL - sac_nullLL)./sac_Nspks;
-                    sacStimProc(cc).msac_ov_LLinfo = (sacGainMod.LL-nullLL)/log(2);
-                    sacStimProc(cc).msacOnly_ov_LLinfo = (sacGainOnlyMod.LL-nullLL)/log(2);
+                    sacStimProc(cc).msac_pre_LLinfo = (sac_pre_LL - sac_nullLL)./sac_Nspks;
+                    sacStimProc(cc).msac_pre_ov_LLinfo = (preGainMod.LL-nullLL)/log(2);
                 end
                 
                 %% COMPUTE SAC-CONDITIONAL STAS

@@ -335,22 +335,27 @@ xlabel('Generating signal');
 %     close(f1);
     
     %%
-    sh = NMMdisplay_model(sacStimProc(cc).ModData.rectGQM);
-    Nmods = length(sacStimProc(cc).ModData.rectGQM.mods);
-    n_columns = max(round(sqrt(Nmods/2)),1);
-    n_rows = ceil(Nmods/n_columns);
-    figufy(sh.stim_filts);
-    xl = [10 25];
-    for ii = 1:n_columns*n_rows
-       subplot(n_rows,n_columns,ii)
-       xlim(xl);
+     cid = sprintf('E%d_C%d_',Expt_num,cc);
+   close all
+    stim_dims = sacStimProc(cc).ModData.rectGQM.stim_params(1).stim_dims;
+    pix_ax = (1:stim_dims(2))*sp_dx;
+    pix_ax = pix_ax - mean(pix_ax);
+    lag_ax = ((1:stim_dims(1))*dt - dt/2)*1e3;
+    pix_lim = [-0.3 0.3];
+    lag_lim = [0 140];
+    [fig_props] = plot_NMM_filters_1d(sacStimProc(cc).ModData.rectGQM,pix_ax,lag_ax);
+    
+    for ii = 1:fig_props.nmods
+       subplot(fig_props.dims(1),fig_props.dims(2),ii)
+       xlim(pix_lim);
+       ylim(lag_lim);
     end
     
-    fig_width = 6*n_columns;
-    rel_height = 0.8*n_rows/n_columns/2;
+    fig_width = 2*fig_props.dims(2);
+    rel_height = 0.8*fig_props.dims(1)/fig_props.dims(2);
     fname = [fig_dir cid sprintf('ori%d_',bar_ori) 'stim_mod.pdf'];
-    exportfig(sh.stim_filts,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-    close(sh.stim_filts);
+    exportfig(fig_props.h,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+    close(fig_props.h);
     
     end
 end

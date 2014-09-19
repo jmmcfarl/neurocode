@@ -5,9 +5,9 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-% Expt_name = 'G088';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-use_MUA = true;
+Expt_name = 'G087';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+use_MUA = false;
 fit_unCor = false; %fit models to uncorrected stim?
 
 
@@ -633,10 +633,10 @@ if strcmp(rec_type,'UA')
 end
 
 %%
-cd(save_dir)
-load(save_name);
-
-targs = 1:n_probes;
+% cd(save_dir)
+% load(save_name);
+% 
+% targs = 1:n_probes;
 %%
 for cc = targs
     fprintf('Starting model fits for unit %d\n',cc);
@@ -793,7 +793,8 @@ for cc = targs
             cur_imp = Inf;
             while nEfilts < max_Emods && cur_imp > 0
                 cur_mod = bestGQM;
-                cur_mod = NMMadd_NLinput(cur_mod,'quad',1,1,0.1*randn(flen*use_nPix_us,1),init_reg_params);
+                cur_mod = NMMadd_NLinput(cur_mod,'quad',1,1,0.1*randn(flen*use_nPix_us,1));
+                cur_mod.mods(end).reg_params = init_reg_params;
                 nEfilts = nEfilts + 1;
                 
                 fprintf('Fitting model with LIN + %dE and %dI\n',nEfilts,nIfilts);
@@ -820,7 +821,8 @@ for cc = targs
             cur_imp = Inf;
             while nIfilts < max_Emods && cur_imp > 0
                 cur_mod = bestGQM;
-                cur_mod = NMMadd_NLinput(cur_mod,'quad',-1,1,0.1*randn(flen*use_nPix_us,1),init_reg_params);
+                cur_mod = NMMadd_NLinput(cur_mod,'quad',-1,1,0.1*randn(flen*use_nPix_us,1));
+                cur_mod.mods(end).reg_params = init_reg_params;
                 nIfilts = nIfilts + 1;
                 
                 fprintf('Fitting model with LIN + %dE and %dI\n',nEfilts,nIfilts);
