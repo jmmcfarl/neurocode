@@ -1,5 +1,5 @@
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,9 +9,9 @@ global Expt_name bar_ori use_MUA
 
 
 % Expt_name = 'M296';
-Expt_name = 'G093';
+% Expt_name = 'M287';
 % use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 
@@ -720,7 +720,7 @@ end
 
 
 %%
-fname = 'sacStimProcTest';
+fname = 'sacStimProcFin';
 fname = [fname sprintf('_ori%d',bar_ori)];
 
 anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
