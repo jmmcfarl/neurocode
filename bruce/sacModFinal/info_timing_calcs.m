@@ -13,6 +13,7 @@ global Expt_name bar_ori use_MUA
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 
+mod_data_name = 'corrected_models2';
 
 
 %%
@@ -102,7 +103,6 @@ mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
 % et_anal_name = 'full_eyetrack';
 et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 et_anal_name = 'full_eyetrack_Rinit';
-mod_data_name = 'corrected_models';
 
 %if using coil info
 if any(use_coils > 0)

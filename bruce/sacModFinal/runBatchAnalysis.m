@@ -1,9 +1,9 @@
-%% LEM EYE TRACKING 
+%% LEM EYE TRACKING
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294'};
 global Expt_name bar_ori use_LOOXV
-bar_ori = nan; 
+bar_ori = nan;
 use_LOOXV = 1;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
@@ -44,7 +44,7 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
-bar_ori = nan; 
+bar_ori = nan;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     trig_avg_analysis;
@@ -56,7 +56,7 @@ trig_avg_analysis;
 Expt_name = 'M297'; bar_ori = 90;
 trig_avg_analysis;
 
-%% JBE TRIG AVGS 
+%% JBE TRIG AVGS
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
@@ -87,7 +87,7 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
-bar_ori = nan; 
+bar_ori = nan;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     gen_tavg_analysis;
@@ -129,7 +129,7 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
-bar_ori = nan; 
+bar_ori = nan;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     sac_regression_ratemod;
@@ -163,7 +163,7 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
-bar_ori = nan; 
+bar_ori = nan;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     fitCorrectedModels;
@@ -174,7 +174,7 @@ fitCorrectedModels;
 Expt_name = 'M297'; bar_ori = 90;
 fitCorrectedModels;
 
-%% JBE FIT COR MODELS 
+%% JBE FIT COR MODELS
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
@@ -198,46 +198,46 @@ for Elist_cnt = 1:length(Expt_list)
 end
 
 
-    %% LEM sacStimMod Analysis
-        clear all
-        addpath('~/James_scripts/bruce/eye_tracking_improvements/');
-        addpath('~/James_scripts/bruce/sacModFinal/');
-        Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
+%% LEM sacStimMod Analysis
+clear all
+addpath('~/James_scripts/bruce/eye_tracking_improvements/');
+addpath('~/James_scripts/bruce/sacModFinal/');
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 %         Expt_list = {'M294'};
-        global Expt_name bar_ori
-        bar_ori = nan; 
-        for Elist_cnt = 1:length(Expt_list)
-            Expt_name = Expt_list{Elist_cnt};
-            sacMod_stimProc;
-            clearvars -except Elist_cnt Expt_list Expt_name bar_ori
-        end
+global Expt_name bar_ori
+bar_ori = nan;
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    sacMod_stimProc;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori
+end
 
-        Expt_name = 'M297'; bar_ori = 0;
-        sacMod_stimProc;
-        Expt_name = 'M297'; bar_ori = 90;
-        sacMod_stimProc;
+Expt_name = 'M297'; bar_ori = 0;
+sacMod_stimProc;
+Expt_name = 'M297'; bar_ori = 90;
+sacMod_stimProc;
 
-        %% JBE sacStimMOd Analysis 
-        clear all
-        addpath('~/James_scripts/bruce/eye_tracking_improvements/');
-        addpath('~/James_scripts/bruce/sacModFinal/');
-        global Expt_name bar_ori
+%% JBE sacStimMOd Analysis
+clear all
+addpath('~/James_scripts/bruce/eye_tracking_improvements/');
+addpath('~/James_scripts/bruce/sacModFinal/');
+global Expt_name bar_ori
 
-        Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
-        bar_ori = 0;
-        for Elist_cnt = 1:length(Expt_list)
-            Expt_name = Expt_list{Elist_cnt};
-            sacMod_stimProc;
-            clearvars -except Elist_cnt Expt_list Expt_name bar_ori
-        end
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
+bar_ori = 0;
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    sacMod_stimProc;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori
+end
 
-        Expt_list = {'G085','G086','G087','G088','G089','G091','G093'};
-        bar_ori = 90;
-        for Elist_cnt = 1:length(Expt_list)
-            Expt_name = Expt_list{Elist_cnt};
-            sacMod_stimProc;
-            clearvars -except Elist_cnt Expt_list Expt_name bar_ori
-        end
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093'};
+bar_ori = 90;
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    sacMod_stimProc;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori
+end
 
 
 %% LEM sac_info_timing
@@ -246,7 +246,7 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
-bar_ori = nan; 
+bar_ori = nan;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     info_timing_calcs;
@@ -258,7 +258,7 @@ info_timing_calcs;
 Expt_name = 'M297'; bar_ori = 90;
 info_timing_calcs;
 
-%% JBE sac_info_timing Analysis 
+%% JBE sac_info_timing Analysis
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
@@ -287,7 +287,7 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori
-bar_ori = nan; 
+bar_ori = nan;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     sac_LP_LFP_analysis;
@@ -306,14 +306,14 @@ addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294'};
 global Expt_name bar_ori
-bar_ori = nan; 
+bar_ori = nan;
 for Elist_cnt = 1:length(Expt_list)
     Expt_name = Expt_list{Elist_cnt};
     sacMod_typedep;
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 end
 
-%% JBE sacStimTypeDep Analysis 
+%% JBE sacStimTypeDep Analysis
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 addpath('~/James_scripts/bruce/sacModFinal/');

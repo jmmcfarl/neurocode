@@ -1044,12 +1044,12 @@ RF_gSF = arrayfun(@(x) x.ModData.tune_props.RF_gSF,all_SU_data);
 
 %%
 info_tax = all_SU_timedata(1).lag_axis;
-all_info_before = reshape([all_SU_timedata(:).info_before],[],length(all_SU_timedata))';
-all_info_after = reshape([all_SU_timedata(:).info_after],[],length(all_SU_timedata))';
-all_info_during = reshape([all_SU_timedata(:).info_during],[],length(all_SU_timedata))';
-all_Binfo_before = reshape([all_SU_timedata(:).base_info_before],[],length(all_SU_timedata))';
-all_Binfo_after = reshape([all_SU_timedata(:).base_info_after],[],length(all_SU_timedata))';
-all_Binfo_during = reshape([all_SU_timedata(:).base_info_during],[],length(all_SU_timedata))';
+all_info_before = reshape([all_SU_timedata(use_gsac_SUs).info_before],[],length(use_gsac_SUs))';
+all_info_after = reshape([all_SU_timedata(use_gsac_SUs).info_after],[],length(use_gsac_SUs))';
+all_info_during = reshape([all_SU_timedata(use_gsac_SUs).info_during],[],length(use_gsac_SUs))';
+all_Binfo_before = reshape([all_SU_timedata(use_gsac_SUs).base_info_before],[],length(use_gsac_SUs))';
+all_Binfo_after = reshape([all_SU_timedata(use_gsac_SUs).base_info_after],[],length(use_gsac_SUs))';
+all_Binfo_during = reshape([all_SU_timedata(use_gsac_SUs).base_info_during],[],length(use_gsac_SUs))';
 
 baseline_info = mean(all_Binfo_before(:,1:20),2);
 
@@ -1062,9 +1062,9 @@ norm_Binfo_after = bsxfun(@rdivide,all_Binfo_after,baseline_info);
 norm_Binfo_during = bsxfun(@rdivide,all_Binfo_during,baseline_info);
 
 f1 = figure(); hold on
-shadedErrorBar(info_tax,mean(norm_info_before(use_gsac_SUs,:)),std(norm_info_before(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
-shadedErrorBar(info_tax,mean(norm_info_after(use_gsac_SUs,:)),std(norm_info_after(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
-shadedErrorBar(info_tax,mean(norm_info_during(use_gsac_SUs,:)),std(norm_info_during(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','k'});
+shadedErrorBar(info_tax,mean(norm_info_before),std(norm_info_before)/sqrt(length(use_gsac_SUs)),{'color','r'});
+shadedErrorBar(info_tax,mean(norm_info_after),std(norm_info_after)/sqrt(length(use_gsac_SUs)),{'color','b'});
+shadedErrorBar(info_tax,mean(norm_info_during),std(norm_info_during)/sqrt(length(use_gsac_SUs)),{'color','k'});
 
 % f2 = figure(); hold on
 % shadedErrorBar(info_tax,mean(norm_Binfo_before(use_gsac_SUs,:)),std(norm_Binfo_before(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
