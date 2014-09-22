@@ -585,6 +585,8 @@ ylabel('Relative information');
 
 %% PLOT SPIKE-WEIGHTED GEN SIGNALS
 
+all_gsac_spk_gmean = reshape([all_SU_data(:).gsac_spkCondE],[],length(all_SU_data))';
+ov_gmean = [all_SU_data(:).gsac_ovspkCondE];
 
 all_gsac_spk_gmean = reshape([all_SU_data(:).gsac_spkCondI],[],length(all_SU_data))';
 ov_gmean = [all_SU_data(:).gsac_ovspkCondI];
@@ -598,7 +600,7 @@ xl = [-0.1 0.3];
 
 f1 = figure();
 hold on
-h1=shadedErrorBar(slags*dt,mean(all_gsac_spk_gmean(use_gsac_SUs,:)),std(all_gsac_spk_gmean(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
+h1=shadedErrorBar(slags*dt,mean(all_gsac_spk_gmean(use_gsac_SUs,:)),std(all_gsac_spk_gmean(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
 xlabel('Time (s)');
 ylabel('Relative gain change');
 line(xl,[0 0],'color','k');
@@ -1114,7 +1116,7 @@ RF_gSF = arrayfun(@(x) x.ModData.tune_props.RF_gSF,all_SU_data);
 %% INFORMATION TIMING ANALYSIS
 info_tax = all_SU_timedata(1).lag_axis;
 uu = use_gsac_SUs;
-uu = use_jbe_SUs;
+% uu = use_jbe_SUs;
 % uu = use_lem_SUs;
 all_info_before = reshape([all_SU_timedata(uu).info_before],[],length(uu))';
 all_info_after = reshape([all_SU_timedata(uu).info_after],[],length(uu))';
@@ -1137,14 +1139,23 @@ f1 = figure(); hold on
 shadedErrorBar(info_tax,mean(norm_info_before),std(norm_info_before)/sqrt(length(uu)),{'color','r'});
 shadedErrorBar(info_tax,mean(norm_info_after),std(norm_info_after)/sqrt(length(uu)),{'color','b'});
 shadedErrorBar(info_tax,mean(norm_info_during),std(norm_info_during)/sqrt(length(uu)),{'color','k'});
-
-% f2 = figure(); hold on
-% shadedErrorBar(info_tax,mean(norm_Binfo_before(uu,:)),std(norm_Binfo_before(uu,:))/sqrt(length(uu)),{'color','r'});
-% shadedErrorBar(info_tax,mean(norm_Binfo_after(uu,:)),std(norm_Binfo_after(uu,:))/sqrt(length(uu)),{'color','b'});
-% shadedErrorBar(info_tax,mean(norm_Binfo_during(uu,:)),std(norm_Binfo_during(uu,:))/sqrt(length(uu)),{'color','k'});
 plot(info_tax,mean(norm_Binfo_before),'r--','linewidth',1);
 plot(info_tax,mean(norm_Binfo_after),'b--','linewidth',1);
 plot(info_tax,mean(norm_Binfo_during),'k--','linewidth',1);
+xlim([-0.2 0.2]);
+ylim([0 1.2])
+line([0 0],[0 1.2],'color','k')
+xlabel('Time since fixation onset (s)');
+ylabel('Relative stim info');
+
+exCell = find([all_SU_data(uu).expt_num] == 93,1,'last');
+f2 = figure(); hold on
+plot(info_tax,norm_info_before(exCell,:),'r','linewidth',2);
+plot(info_tax,norm_info_after(exCell,:),'b','linewidth',2);
+plot(info_tax,norm_info_during(exCell,:),'k','linewidth',2);
+plot(info_tax,norm_Binfo_before(exCell,:),'r--','linewidth',1);
+plot(info_tax,norm_Binfo_after(exCell,:),'b--','linewidth',1);
+plot(info_tax,norm_Binfo_during(exCell,:),'k--','linewidth',1);
 xlim([-0.2 0.2]);
 ylim([0 1.2])
 line([0 0],[0 1.2],'color','k')

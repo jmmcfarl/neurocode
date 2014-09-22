@@ -762,6 +762,7 @@ for cc = targs
     
     cur_Robs = Robs_mat(cc_uinds,cc);
     
+    %%
     if ~isempty(cc_uinds)
         %%
         cur_GQM = ModData(cc).rectGQM;

@@ -26,40 +26,37 @@ fitFullPostMod = true;
 include_bursts = 0;
 
 sname = 'sacStimProcFin';
-% sname = 'sacStimProcTest';
 if include_bursts
     sname = [sname '_withbursts'];
 end
 
 mod_data_name = 'corrected_models2';
-% mod_data_name = 'corrected_models';
 
 %%
-poss_gain_d2T = logspace(log10(1),log10(1e3),8);
-poss_gain_L2 = [0 1 5 10];
-poss_pre_d2T = logspace(log10(1),log10(200),6);
-poss_sub_d2T = logspace(log10(10),log10(1e4),6);
-poss_TB_lambdas = logspace(log10(0.1),log10(50),6);
+poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for post-gain models
+poss_gain_L2 = [0 1 5 10]; %range of L2 reg values 
+poss_pre_d2T = logspace(log10(1),log10(200),6); %range of d2T reg values for pre-gain models
+poss_sub_d2T = logspace(log10(10),log10(1e4),6); %range of d2T reg values for subspace models
+poss_TB_lambdas = logspace(log10(0.1),log10(50),6); %range of d2T reg values for TB models
 % poss_gain_d2T = 50;
 % poss_pre_d2T = logspace(log10(1),log10(500),5);
 % poss_gain_L2 = 0.5;
 % poss_sub_d2T = 100;
 % poss_TB_lambdas = 5;
 
+%reg parameters for full model (separate gain kernels for each subunit)
 fullMod_d2T = 5;
 fullMod_L2 = 5;
 
-% poss_gain_d2T = 5;
-% poss_sub_d2T = 5;
-% poss_TB_lambdas = 1;
-
-n_Gbins = 35;
-G_lambdas = 100;
+n_Gbins = 35; %number of bins for TB model
+G_lambdas = 100; %d2G reg parameter for TB model (smoothness in g-dimension)
 
 micro_thresh = 1; %max amp of microsac (deg)
 EP_bounds = 1;%eye position boundary (deg from central FP)
-sac_burst_isi = 0.15;
-max_gsac_dur = 0.1;
+sac_burst_isi = 0.15; %minimum inter-saccade interval for micros (to eliminate 'bursts')
+max_gsac_dur = 0.1; %maximum saccade duration before we call it a likely blink
+
+xv_frac = 0.2; %fraction of trials to use for cross-validation
 
 %%
 
@@ -479,7 +476,7 @@ if is_TBT_expt
     end
 end
 
-%%
+%% create up-sampled stimulus
 full_nPix_us = spatial_usfac*full_nPix;
 if spatial_usfac > 1
     all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
@@ -515,6 +512,7 @@ SU_probes = Clust_data.SU_probes;
 SU_numbers = Clust_data.SU_numbers;
 
 %% DEFINE DATA USED FOR ANALYSIS
+%dont use data at beginning and end of trial
 used_inds = find(all_tsince_start >= beg_buffer & (trial_dur-all_tsince_start) >= end_buffer);
 
 %for G093 use only data where stripe width is AT LEAST 2 deg
@@ -526,14 +524,7 @@ end
 
 NT = length(used_inds);
 
-%% CREATE EVENT PREDICTORS FOR REAL AND SIM SACCADES (POOLING MICRO AND MACRO SACS)
-Xblock = zeros(length(all_stim_times),n_blocks);
-for i = 1:n_blocks
-    cur_set = find(all_blockvec==i);
-    Xblock(cur_set,i) = 1;
-end
-
-%%
+%% load in ET data and model fits
 fprintf('Loading ET data\n');
 cd(et_dir)
 load(et_mod_data_name,'all_mod*');
@@ -603,7 +594,7 @@ if length(saccades) ~= length(et_saccades)
     interp_sac_stop_inds(bad_sacs) = [];
 end
 
-%% CREATE SACCADE PREDICTOR MATS
+%% PROCESS DETECTED SACCADES
 saccade_start_inds = find(ismember(used_inds,interp_sac_start_inds));
 used_saccade_set = find(ismember(interp_sac_start_inds,used_inds));
 %nearest index in the used data set of the saccade stop time
@@ -640,7 +631,8 @@ saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 msac_thresh = prctile(sac_amps(micro_sacs),50);
 big_msacs = micro_sacs(sac_amps(micro_sacs) > msac_thresh);
 small_msacs = micro_sacs(sac_amps(micro_sacs) < msac_thresh);
-%% DEFINE FIXATION POINTS
+
+%% DEFINE FIXATION DATA (FOR RECONSTRUCTING EYE POSITION SEQUENCE)
 trial_start_inds = [1; find(diff(all_trialvec(used_inds)) ~= 0) + 1];
 trial_end_inds = [find(diff(all_trialvec(used_inds)) ~= 0); NT];
 
@@ -704,25 +696,13 @@ for ss = 1:n_chs
     end
 end
 
-%% Create set of TR trials for Xval analysis
+%% Identify indices from non-repeat trials
 rpt_trials = find(all_trial_Se==rpt_seed);
 n_rpt_trials = length(rpt_trials);
 
 use_trials = unique(all_trialvec(used_inds));
 use_trials(ismember(use_trials,rpt_trials)) = []; %DONT USE REPEAT TRIALS!
 nuse_trials = length(use_trials);
-
-xv_frac = 0.2;
-n_xv_trials = round(xv_frac*nuse_trials);
-xv_trials = randperm(nuse_trials);
-xv_trials(n_xv_trials+1:end) = [];
-xv_trials = use_trials(xv_trials);
-tr_trials = setdiff(use_trials,xv_trials);
-n_tr_trials = length(tr_trials);
-fprintf('Initializing models with %d training trials and %d xval trials\n',n_tr_trials,n_xv_trials);
-
-tr_inds = find(ismember(all_trialvec(used_inds),tr_trials));
-xv_inds = find(ismember(all_trialvec(used_inds),xv_trials));
 full_inds = find(ismember(all_trialvec(used_inds),use_trials));
 
 %% CREATE SACCADE AND MICROSAC INDICATOR XMATS
@@ -791,20 +771,30 @@ for cc = targs
     fprintf('Starting model fits for unit %d\n',cc);
     loo_cc = find(loo_set == cc); %index within the LOOXV set
     cc_uinds = full_inds(~isnan(Robs_mat(full_inds,cc))); %set of used indices where this unit was isolated
-    cur_tr_inds = find(ismember(cc_uinds,tr_inds)); %subset for training
-    cur_xv_inds = find(ismember(cc_uinds,xv_inds)); %subset for XV
+    
+    use_trials = unique(all_trialvec(used_inds(cc_uinds))); %unique trials for this unit
+    use_trials(ismember(use_trials,rpt_trials)) = []; %DONT USE REPEAT TRIALS!
+    
+    nuse_trials = length(use_trials);
+    n_xv_trials = round(xv_frac*nuse_trials);
+    xv_trials = randperm(nuse_trials);
+    xv_trials(n_xv_trials+1:end) = [];
+    xv_trials = use_trials(xv_trials);
+    tr_trials = setdiff(use_trials,xv_trials);
+    n_tr_trials = length(tr_trials);
+    
+    cur_tr_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
+    cur_xv_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
     
     cur_Robs = Robs_mat(cc_uinds,cc);
     
     %%
     if ~isempty(cc_uinds)
         
-        if fit_unCor
+        if fit_unCor %if not using ET corrections
             cur_rGQM = ModData(cc).rectGQM_unCor;
-            cur_GQM = ModData(cc).bestGQM_unCor;
         else
             cur_rGQM = ModData(cc).rectGQM;
-            cur_GQM = ModData(cc).bestGQM;
         end
         sacStimProc(cc).ModData = ModData(cc);
         sacStimProc(cc).used = true;
@@ -837,15 +827,7 @@ for cc = targs
                         
         %% FOR GSACS
         cur_Xsac = Xsac(cc_uinds,:); %saccade indicator Xmat
-        
-        if is_TBT_expt
-            gs_trials = find(all_trial_Ff > 0);
-            gs_inds = find(ismember(all_trialvec(used_inds),gs_trials));
-        else
-            gs_blocks = [imback_gs_expts; grayback_gs_expts];
-            gs_inds = find(ismember(all_blockvec(used_inds),gs_blocks));
-        end
-                
+                        
         %only use indices within lagrange of a saccade
         any_sac_inds = find(any(cur_Xsac > 0,2));
         tr_sac_inds = cur_tr_inds(ismember(cur_tr_inds,any_sac_inds));
@@ -867,14 +849,13 @@ for cc = targs
                         
             %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
             
-            Xsac_tot = bsxfun(@times,cur_Xsac,stimG);
             clear tr_stim
-            tr_stim{1} = [stimG];
-            tr_stim{2} = cur_Xsac;
-            tr_stim{3} = Xsac_tot;
+            tr_stim{1} = [stimG]; %scalar-valued generating signal
+            tr_stim{2} = cur_Xsac; %saccade timing indicator matrix
+            tr_stim{3} = bsxfun(@times,cur_Xsac,stimG); %product of generating signal and saccade timing matrix
             clear sac_stim_params
             sac_stim_params(1) = NMMcreate_stim_params(1);
-            sac_stim_params(2:3) = NMMcreate_stim_params([size(Xsac_tot,2)]);
+            sac_stim_params(2:3) = NMMcreate_stim_params(length(slags));
             mod_signs = [1 1 1];
             Xtargets = [1 2 3];
             NL_types = {'lin','lin','lin'};
@@ -900,6 +881,11 @@ for cc = targs
             sacStimProc(cc).gsac_optL2 = opt_L2;
             sacStimProc(cc).gsac_optd2T = opt_d2T;
             
+            
+            sacMod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,[],Xtargets);
+            sacMod.spk_NL_params = cur_rGQM.spk_NL_params;
+            [sacMod] = sacMod_scan_regularization(sacMod,cur_Robs,tr_stim,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+            
             %% FIT POST-INTEGRATION GAIN USING OPTIMAL REGULARIZATION
             fprintf('Fitting post-filter models\n');
             sac_reg_params = NMMcreate_reg_params('lambda_d2T',opt_d2T,'lambda_L2',opt_L2,'boundary_conds',[0 0 0]);
@@ -917,7 +903,7 @@ for cc = targs
                 tr_stim{3} = Xsac_estim;
                 tr_stim{4} = Xsac_istim;
                 sac_stim_params(1) = NMMcreate_stim_params(2);
-                sac_stim_params(2:4) = NMMcreate_stim_params(size(cur_Xsac,2));
+                sac_stim_params(2:4) = NMMcreate_stim_params(length(slags));
                 mod_signs = [1 1 1 1];
                 Xtargets = [1 2 3 4];
                 NL_types = {'lin','lin','lin','lin'};
@@ -992,7 +978,12 @@ for cc = targs
                 [~,~,post_Fmod_predrate] = NMMmodel_eval( post_gsac_Fmod, cur_Robs, Ftr_stim);
                 sacStimProc(cc).gsac_post_Fmod = post_gsac_Fmod;
             end
-            
+ 
+            fullSacMod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,[],Xtargets);
+            fullSacMod.spk_NL_params = cur_rGQM.spk_NL_params;
+            [fullSacMod] = sacMod_scan_regularization(fullSacMod,cur_Robs,Ftr_stim,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+           
+
             %% FIT UPSTREAM STIM-MODULATION
             if fitUpstream
                 fprintf('Fitting upstream saccade kernel\n');
