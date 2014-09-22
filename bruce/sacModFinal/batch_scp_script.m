@@ -1,33 +1,47 @@
 clear all
 
 % base_fname = 'sacStimProcFin';
-base_fname = 'sac_info_timing';
+% base_fname = 'sac_info_timing';
+% base_fname = 'sac_info_timing';
+base_fname = 'corrected_models2';
 
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+
+copy_to = 'remote';
 
 results = zeros(length(Expt_list),2);
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
-    sac_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-    targ_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-    if ~exist(targ_dir,'dir')
-        r = system(sprintf('mkdir -p %s',targ_dir));
-        if r 
-            error('couldnt make directory');
+    source_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
+    dest_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
+    
+    if strcmp(copy_to,'local')
+        if ~exist(dest_dir,'dir')
+            r = system(sprintf('mkdir -p %s',dest_dir));
+            if r
+                error('couldnt make directory');
+            end
+            fprintf('made directory %s\n',dest_dir);
         end
-        fprintf('made directory %s\n',targ_dir);
-        
     end
     
     for oo = 1:2
         cur_ori = ori_list(ee,oo);
         if ~isnan(cur_ori)
-            cur_fname = strcat(sac_dir,base_fname,sprintf('_ori%d.mat',cur_ori));
-            fprintf('Copying from %s to %s\n',cur_fname,sac_dir);
-%             results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,sac_dir));
-            results(ee,oo) = system(sprintf('scp james@CA1:%s %s',cur_fname,targ_dir));
+            cur_fname = strcat(source_dir,base_fname,sprintf('_ori%d.mat',cur_ori));
+            if strcmp(copy_to,'local')
+                fprintf('Copying %s to remote %s\n',cur_fname,dest_dir);
+                results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));
+            elseif strcmp(copy_to,'remote')
+                fprintf('Copying %s from remote to %s\n',cur_fname,dest_dir);
+                results(ee,oo) = system(sprintf('scp %s james@Retina:%s',cur_fname,dest_dir));
+            else
+                error('invalid copy to');
+            end
+            %             results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,sac_dir));
+            %             results(ee,oo) = system(sprintf('scp james@CA1:%s %s',cur_fname,targ_dir));
         end
     end
 end
@@ -45,24 +59,35 @@ results = zeros(length(Expt_list),2);
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
-    sac_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-    targ_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-    if ~exist(targ_dir,'dir')
-        r = system(sprintf('mkdir -p %s',targ_dir));
-        if r 
-            error('couldnt make directory');
+   
+    source_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
+    dest_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
+   
+    if strcmp(copy_to,'local')
+        if ~exist(dest_dir,'dir')
+            r = system(sprintf('mkdir -p %s',dest_dir));
+            if r
+                error('couldnt make directory');
+            end
+            fprintf('made directory %s\n',dest_dir);
         end
-        fprintf('made directory %s\n',targ_dir);
-        
     end
     
     for oo = 1:2
         cur_ori = ori_list(ee,oo);
         if ~isnan(cur_ori)
-            cur_fname = strcat(sac_dir,base_fname,sprintf('_ori%d.mat',cur_ori));
-            fprintf('Copying from %s to %s\n',cur_fname,sac_dir);
-%             results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,sac_dir));
-            results(ee,oo) = system(sprintf('scp james@CA1:%s %s',cur_fname,targ_dir));
+            cur_fname = strcat(source_dir,base_fname,sprintf('_ori%d.mat',cur_ori));
+            if strcmp(copy_to,'local')
+                fprintf('Copying %s to remote %s\n',cur_fname,dest_dir);
+                results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));
+            elseif strcmp(copy_to,'remote')
+                fprintf('Copying %s from remote to %s\n',cur_fname,dest_dir);
+                results(ee,oo) = system(sprintf('scp %s james@Retina:%s',cur_fname,dest_dir));
+            else
+                error('invalid copy to');
+            end
+            %             results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,sac_dir));
+            %             results(ee,oo) = system(sprintf('scp james@CA1:%s %s',cur_fname,targ_dir));
         end
     end
 end

@@ -1,5 +1,5 @@
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,9 +9,9 @@ global Expt_name bar_ori use_MUA
 
 
 % Expt_name = 'M296';
-% Expt_name = 'M287';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'M287';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 mod_data_name = 'corrected_models2';
 
@@ -232,6 +232,11 @@ end
 cur_block_set = find(included_type & ~expt_binoc' & expt_Fr == 1 & expt_bar_ori == bar_ori);
 
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dds(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dds(cur_block_set));
+    cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
+end
 
 sim_sac_expts = find(~expt_has_ds(cur_block_set));
 imback_gs_expts = find(expt_has_ds(cur_block_set) & expt_imback(cur_block_set)');

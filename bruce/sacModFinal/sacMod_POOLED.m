@@ -21,14 +21,14 @@ all_SU_timedata = [];
 %% LOAD JBE
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
-% ori_list = [0 90; 0 90; 0 90; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
+% ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
-    osac_dir = ['~/Analysis/bruce/' Expt_name '/sac_mod/'];
+    osac_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
         sac_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
 %     sac_dir = ['~/Analysis/bruce/' Expt_name '/sac_mod/'];
     tavg_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
@@ -37,7 +37,7 @@ for ee = 1:length(Expt_list)
         if ~isnan(ori_list(ee,ii))
             sname = strcat(tavg_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
             temp = load(sname);
-            tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
+            tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)),sprintf('_ori%d',ori_list(ee,ii)));
             if fit_unCor
                 tname = strcat(tname,'_unCor');
             end
@@ -46,9 +46,9 @@ for ee = 1:length(Expt_list)
             load(timename);
             
             
-            if isfield(sacStimProc,'msac_ovavg_rate')
-                sacStimProc = rmfield(sacStimProc,'msac_ovavg_rate');
-            end
+%             if isfield(sacStimProc,'msac_ovavg_rate')
+%                 sacStimProc = rmfield(sacStimProc,'msac_ovavg_rate');
+%             end
 
 %             tname = strcat(osac_dir,base_ename,sprintf('_ori%d',ori_list(ee,ii)));
 %             temp2 = load(tname);
@@ -127,7 +127,7 @@ rmfield_list = {};
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
-    osac_dir = ['~/Analysis/bruce/' Expt_name '/sac_mod/'];
+    osac_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
         sac_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
 %     sac_dir = ['~/Analysis/bruce/' Expt_name '/sac_mod/'];
     tavg_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
@@ -136,7 +136,7 @@ for ee = 1:length(Expt_list)
         if ~isnan(ori_list(ee,ii))
             sname = strcat(tavg_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
             temp = load(sname);
-            tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
+            tname = strcat(sac_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)),sprintf('_ori%d',ori_list(ee,ii)));
              if fit_unCor
                 tname = strcat(tname,'_unCor');
             end
@@ -145,10 +145,10 @@ for ee = 1:length(Expt_list)
             load(timename);
             
             
-            if isfield(sacStimProc,'msac_ovavg_rate')
-            sacStimProc = rmfield(sacStimProc,'msac_ovavg_rate');
-            end
-            
+%             if isfield(sacStimProc,'msac_ovavg_rate')
+%             sacStimProc = rmfield(sacStimProc,'msac_ovavg_rate');
+%             end
+%             
 %                         tname = strcat(osac_dir,base_ename,sprintf('_ori%d',ori_list(ee,ii)));
 %             temp2 = load(tname);
 %             for bbb = 1:length(sacStimProc)
@@ -667,29 +667,39 @@ ylabel('Relative information');
 % all_gsac_offk = reshape(cell2mat(arrayfun(@(x) x.gsacGainMod.off_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
 % all_gsac_gainoff = arrayfun(@(x) x.gsacGainMod.gain_offset,all_SU_data)-1;
 
-all_gsac_stimk = reshape(cell2mat(arrayfun(@(x) x.gsacGainOnlyMod.stim_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
-all_gsac_offk = reshape(cell2mat(arrayfun(@(x) x.gsacGainOnlyMod.off_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
-all_gsac_gainoff = arrayfun(@(x) x.gsacGainMod.gain_offset,all_SU_data)-1;
+all_gsac_stimk = reshape(cell2mat(arrayfun(@(x) x.gsacPreGainMod.stim_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
+all_gsac_offk = reshape(cell2mat(arrayfun(@(x) x.gsacPreGainMod.off_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
+all_msac_stimk = reshape(cell2mat(arrayfun(@(x) x.msacPreGainMod.stim_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
+all_msac_offk = reshape(cell2mat(arrayfun(@(x) x.msacPreGainMod.off_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
 
 % all_gsac_gaink = bsxfun(@minus,all_gsac_gaink,all_gsac_gainoff);
 
-all_postgains = [];
-all_postoffs = [];
+all_gsac_postgains = [];
+all_gsac_postoffs = [];
+all_msac_postgains = [];
+all_msac_postoffs = [];
 for ii = 1:length(all_SU_data)
-    all_postgains = cat(1,all_postgains,all_SU_data(ii).gsac_post_singmod.mods(3).filtK');
-    all_postoffs = cat(1,all_postoffs,all_SU_data(ii).gsac_post_singmod.mods(2).filtK');
+    all_gsac_postgains = cat(1,all_gsac_postgains,all_SU_data(ii).gsac_post_singmod.mods(3).filtK');
+    all_gsac_postoffs = cat(1,all_gsac_postoffs,all_SU_data(ii).gsac_post_singmod.mods(2).filtK');
+    all_msac_postgains = cat(1,all_msac_postgains,all_SU_data(ii).msac_post_singmod.mods(3).filtK');
+    all_msac_postoffs = cat(1,all_msac_postoffs,all_SU_data(ii).msac_post_singmod.mods(2).filtK');
 end
 
 xl = [-0.1 0.3];
 yl = [0.6 1.2];
 
+uu = use_gsac_SUs;
+% uu = use_jbe_SUs;
+% uu = use_lem_SUs;
 f1 = figure();
 hold on
-% h1=shadedErrorBar(slags*dt,1+mean(all_gsac_gaink(use_gsac_SUs,:)),std(all_gsac_gaink(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
-h2=shadedErrorBar(slags*dt,1+mean(all_gsac_stimk(use_gsac_SUs,:)),std(all_gsac_stimk(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','k'});
-h3=plot(slags*dt,1+mean(all_postgains(use_gsac_SUs,:)),'m','linewidth',2);
-h3=plot(slags*dt,1+mean(all_postoffs(use_gsac_SUs,:)),'b','linewidth',2);
-h4=plot(slags*dt,1+mean(all_gsac_offk(use_gsac_SUs,:)),'r','linewidth',2);
+% h1=shadedErrorBar(slags*dt,1+mean(all_gsac_gaink(uu,:)),std(all_gsac_gaink(uu,:))/sqrt(length(uu)),{'color','b'});
+h2=shadedErrorBar(slags*dt,1+mean(all_gsac_stimk(uu,:)),std(all_gsac_stimk(uu,:))/sqrt(length(uu)),{'color','k'});
+h2=shadedErrorBar(slags*dt,1+mean(all_msac_stimk(uu,:)),std(all_msac_stimk(uu,:))/sqrt(length(uu)),{'color','b'});
+h3=plot(slags*dt,1+mean(all_gsac_postgains(uu,:)),'m','linewidth',2);
+h3=plot(slags*dt,1+mean(all_msac_postgains(uu,:)),'r','linewidth',2);
+% h3=plot(slags*dt,1+mean(all_gsac_postoffs(uuuub','linewidth',2);
+% h4=plot(slags*dt,1+mean(all_gsac_offk(use_gsac_SUs,:)),'r','linewidth',2);
 xlabel('Time (s)');
 ylabel('Relative info');
 line(xl,[1 1],'color','k');
@@ -808,12 +818,22 @@ end
 net_Estrength = mean(all_Ekerns,2);
 net_Istrength = mean(all_Ikerns,2);
 
+all_EI_xc = reshape([all_SU_data(:).EI_xc],[],length(all_SU_data))';
+EI_lags = all_SU_data(1).EI_xc_lags;
+
 all_nEkerns = bsxfun(@rdivide,all_Ekerns,sqrt(sum(all_Ekerns.^2,2)));
 all_nIkerns = bsxfun(@rdivide,all_Ikerns,sqrt(sum(all_Ikerns.^2,2)));
 
+all_postgains = [];
+all_postoffs = [];
+for ii = 1:length(all_SU_data)
+    all_postgains = cat(1,all_postgains,all_SU_data(ii).gsac_post_singmod.mods(3).filtK');
+    all_postoffs = cat(1,all_postoffs,all_SU_data(ii).gsac_post_singmod.mods(2).filtK');
+end
+
 tax = (0:(flen-1))*dt + dt/2;
 
-min_NIfilts = 2;
+min_NIfilts = 1;
 
 all_gsac_Egain = reshape([all_SU_data(:).gsac_post_Egains],[],length(all_SU_data))';
 all_gsac_Igain = reshape([all_SU_data(:).gsac_post_Igains],[],length(all_SU_data))';
@@ -836,7 +856,8 @@ end
 all_EI_ratio = (1+all_gsac_Egain)./(1+all_gsac_Igain);
 % all_EI_ratio = (1+all_gsac_Egain) - (1+all_gsac_Igain)+1;
 all_EI_mean = 0.5*(1+all_gsac_Egain)+0.5*(1+all_gsac_Igain);
-
+all_EI_diff = (all_gsac_Egain) - (all_gsac_Igain);
+all_EI_ratio = all_EI_diff;
 
 % all_gsac_offk = reshape(cell2mat(arrayfun(@(x) x.gsacGainMod.off_kernel,all_SU_data,'uniformoutput',0)),[],length(all_SU_data))';
 
@@ -845,11 +866,14 @@ all_gsac_ov_smodinfo = [all_SU_data(:).gsac_spost_ov_modinfo];
 all_gsac_smodinforate = all_gsac_smodinfo.*all_gsac_rates*dt;
 all_gsac_Nsmodinfo = bsxfun(@rdivide,all_gsac_smodinfo,all_gsac_ov_smodinfo');
 
+close all
+
 xl = [-0.1 0.3];
+% xl = [-0.05 0.2];
 
 f1 = figure();
 hold on
-h1=shadedErrorBar(slags*dt,1+mean(all_gsac_Egain(use_gsac_SUs,:)),std(all_gsac_Egain(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
+h1=shadedErrorBar(slags*dt,1+mean(all_gsac_Egain(use_gsac_Ikerns,:)),std(all_gsac_Egain(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','b'});
 h2=shadedErrorBar(slags*dt,1+mean(all_gsac_Igain(use_gsac_Ikerns,:)),std(all_gsac_Igain(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','r'});
 h1=plot(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_Ikerns,:)),'k','linewidth',2);
 xlabel('Time (s)');
@@ -866,17 +890,61 @@ f2 = figure();
 hold on
 % h1=shadedErrorBar(up_tax,mean(all_nEkerns_up(use_gsac_SUs,:)),std(all_nEkerns_up(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
 % h2=shadedErrorBar(up_tax,mean(all_nIkerns_up(use_gsac_Ikerns,:)),std(all_nIkerns_up(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','r'});
-h1=shadedErrorBar(tax,mean(all_nEkerns(use_gsac_SUs,:)),std(all_nEkerns(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
+h1=shadedErrorBar(tax,mean(all_nEkerns(use_gsac_Ikerns,:)),std(all_nEkerns(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','b'});
 h2=shadedErrorBar(tax,mean(all_nIkerns(use_gsac_Ikerns,:)),std(all_nIkerns(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','r'});
 xlim([0 tax(end)])
 
 f3 = figure();
-hold on
-ax = plotyy(slags*dt,mean(all_EI_ratio(use_gsac_Ikerns,:)),slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_Ikerns,:)));
+subplot(2,1,1)
 h1=shadedErrorBar(slags*dt,mean(all_EI_ratio(use_gsac_Ikerns,:)),std(all_EI_ratio(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','b'});
-set(ax(1),'ylim',[0.8 1.2],'ytick',[0.8:0.1:1.2]);
-set(ax(2),'ylim',[0.6 1.4],'ytick',[0.6:0.2:1.4]);
+% ylim([0.8 1.2]);
+ylim([-0.2 0.2]);
+% line(xl,[1 1],'color','k');
+line(xl,[0 0],'color','k');
+xlim(xl);
+
+subplot(2,1,2)
+hold on
+% h2=shadedErrorBar(slags*dt,mean(all_EI_mean(use_gsac_Ikerns,:)),std(all_EI_mean(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','r'});
+h2=plot(slags*dt,1+mean(all_postgains(use_gsac_Ikerns,:)),'r');
+h2=plot(slags*dt,mean(all_gsac_Nsmodinfo(use_gsac_Ikerns,:)),'k');
+% h2=shadedErrorBar(slags*dt,1+mean(all_postgains(use_gsac_Ikerns,:)),std(all_postgains(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','r'});
+% h2=shadedErrorBar(slags*dt,1+mean(all_postoffs(use_gsac_Ikerns,:)),std(all_postoffs(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','k'});
+ylim([0.6 1.4]);
+set(gca,'YAxisLocation','right');
 line(xl,[1 1],'color','k');
+xlim(xl);
+
+
+% f4 = figure();
+% plot3(slags*dt,mean(all_gsac_Egain(use_gsac_Ikerns,:))+1,mean(all_gsac_Igain(use_gsac_Ikerns,:))+1);
+% 
+% f5 = figure();
+% h1=shadedErrorBar(EI_lags*dt,-mean(all_EI_xc(use_gsac_Ikerns,:)),std(all_EI_xc(use_gsac_Ikerns,:))/sqrt(length(use_gsac_Ikerns)),{'color','b'});
+
+% sz_rate = 0;
+% sz_offset =50;
+% avg_Egains = 1 + all_gsac_Egain(use_gsac_Ikerns,:);
+% avg_Igains = 1 + all_gsac_Igain(use_gsac_Ikerns,:);
+% net_gain = sqrt(avg_Egains.^2 + avg_Igains.^2);
+% % avg_Egains = avg_Egains./net_gain;
+% % avg_Igains = avg_Igains./net_gain;
+% 
+% ulags = find(slags*dt >= -0.1 & slags*dt <= 0.3);
+% cmap = jet(length(ulags));
+% f6 = figure();hold on
+% % plot3(slags*dt,mean(all_gsac_Egain(use_gsac_Ikerns,:))+1,mean(all_gsac_Igain(use_gsac_Ikerns,:))+1,'k','linewidth',1);
+% % scatter3(slags(ulags)*dt,avg_Egains(ulags),avg_Igains(ulags),sz_rate*(1:length(ulags))+sz_offset,cmap,'linewidth',2);
+% plot3(slags*dt,avg_Igains,avg_Egains,'k','linewidth',1);
+% scatter3(slags(ulags)*dt,avg_Igains(ulags),avg_Egains(ulags),sz_rate*(1:length(ulags))+sz_offset,cmap,'linewidth',2);
+% grid
+% % ylim([0.6 1.1]); zlim([0.6 1.1]);
+% 
+% cur_Egains = 1 + all_gsac_Egain(use_gsac_Ikerns,:);
+% cur_Igains = 1 + all_gsac_Igain(use_gsac_Ikerns,:);
+% cur_EIangle = atan2(cur_Egains,cur_Igains);
+
+
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
@@ -894,10 +962,11 @@ line(xl,[1 1],'color','k');
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
-% figufy(f3);
-% fname = [fig_dir 'Gsac_EI_ratio.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
+fig_width = 3.5; rel_height = 1.6;
+figufy(f3);
+fname = [fig_dir 'Gsac_EI_ratio_new.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
 
 %% ANALYZE LAMINAR DEPENDENCIES
 load('/home/james/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')
@@ -1042,14 +1111,17 @@ RF_dirsel = arrayfun(@(x) x.ModData.tune_props.RF_dirsel,all_SU_data);
 RF_gSF = arrayfun(@(x) x.ModData.tune_props.RF_gSF,all_SU_data);
 
 
-%%
+%% INFORMATION TIMING ANALYSIS
 info_tax = all_SU_timedata(1).lag_axis;
-all_info_before = reshape([all_SU_timedata(use_gsac_SUs).info_before],[],length(use_gsac_SUs))';
-all_info_after = reshape([all_SU_timedata(use_gsac_SUs).info_after],[],length(use_gsac_SUs))';
-all_info_during = reshape([all_SU_timedata(use_gsac_SUs).info_during],[],length(use_gsac_SUs))';
-all_Binfo_before = reshape([all_SU_timedata(use_gsac_SUs).base_info_before],[],length(use_gsac_SUs))';
-all_Binfo_after = reshape([all_SU_timedata(use_gsac_SUs).base_info_after],[],length(use_gsac_SUs))';
-all_Binfo_during = reshape([all_SU_timedata(use_gsac_SUs).base_info_during],[],length(use_gsac_SUs))';
+uu = use_gsac_SUs;
+uu = use_jbe_SUs;
+% uu = use_lem_SUs;
+all_info_before = reshape([all_SU_timedata(uu).info_before],[],length(uu))';
+all_info_after = reshape([all_SU_timedata(uu).info_after],[],length(uu))';
+all_info_during = reshape([all_SU_timedata(uu).info_during],[],length(uu))';
+all_Binfo_before = reshape([all_SU_timedata(uu).base_info_before],[],length(uu))';
+all_Binfo_after = reshape([all_SU_timedata(uu).base_info_after],[],length(uu))';
+all_Binfo_during = reshape([all_SU_timedata(uu).base_info_during],[],length(uu))';
 
 baseline_info = mean(all_Binfo_before(:,1:20),2);
 
@@ -1062,17 +1134,17 @@ norm_Binfo_after = bsxfun(@rdivide,all_Binfo_after,baseline_info);
 norm_Binfo_during = bsxfun(@rdivide,all_Binfo_during,baseline_info);
 
 f1 = figure(); hold on
-shadedErrorBar(info_tax,mean(norm_info_before),std(norm_info_before)/sqrt(length(use_gsac_SUs)),{'color','r'});
-shadedErrorBar(info_tax,mean(norm_info_after),std(norm_info_after)/sqrt(length(use_gsac_SUs)),{'color','b'});
-shadedErrorBar(info_tax,mean(norm_info_during),std(norm_info_during)/sqrt(length(use_gsac_SUs)),{'color','k'});
+shadedErrorBar(info_tax,mean(norm_info_before),std(norm_info_before)/sqrt(length(uu)),{'color','r'});
+shadedErrorBar(info_tax,mean(norm_info_after),std(norm_info_after)/sqrt(length(uu)),{'color','b'});
+shadedErrorBar(info_tax,mean(norm_info_during),std(norm_info_during)/sqrt(length(uu)),{'color','k'});
 
 % f2 = figure(); hold on
-% shadedErrorBar(info_tax,mean(norm_Binfo_before(use_gsac_SUs,:)),std(norm_Binfo_before(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','r'});
-% shadedErrorBar(info_tax,mean(norm_Binfo_after(use_gsac_SUs,:)),std(norm_Binfo_after(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','b'});
-% shadedErrorBar(info_tax,mean(norm_Binfo_during(use_gsac_SUs,:)),std(norm_Binfo_during(use_gsac_SUs,:))/sqrt(length(use_gsac_SUs)),{'color','k'});
-plot(info_tax,mean(norm_Binfo_before(use_gsac_SUs,:)),'r--','linewidth',1);
-plot(info_tax,mean(norm_Binfo_after(use_gsac_SUs,:)),'b--','linewidth',1);
-plot(info_tax,mean(norm_Binfo_during(use_gsac_SUs,:)),'k--','linewidth',1);
+% shadedErrorBar(info_tax,mean(norm_Binfo_before(uu,:)),std(norm_Binfo_before(uu,:))/sqrt(length(uu)),{'color','r'});
+% shadedErrorBar(info_tax,mean(norm_Binfo_after(uu,:)),std(norm_Binfo_after(uu,:))/sqrt(length(uu)),{'color','b'});
+% shadedErrorBar(info_tax,mean(norm_Binfo_during(uu,:)),std(norm_Binfo_during(uu,:))/sqrt(length(uu)),{'color','k'});
+plot(info_tax,mean(norm_Binfo_before),'r--','linewidth',1);
+plot(info_tax,mean(norm_Binfo_after),'b--','linewidth',1);
+plot(info_tax,mean(norm_Binfo_during),'k--','linewidth',1);
 xlim([-0.2 0.2]);
 ylim([0 1.2])
 line([0 0],[0 1.2],'color','k')

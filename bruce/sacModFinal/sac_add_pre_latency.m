@@ -1,6 +1,6 @@
 
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,10 +9,10 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M297';
-Expt_name = 'G093';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% % Expt_name = 'M297';
+% Expt_name = 'G093';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -808,14 +808,16 @@ for cc = targs
     %%
     if ~isempty(cc_uinds)
         
-        if fit_unCor
-            cur_rGQM = ModData(cc).rectGQM_unCor;
-            cur_GQM = ModData(cc).bestGQM_unCor;
-        else
-            cur_rGQM = ModData(cc).rectGQM;
-            cur_GQM = ModData(cc).bestGQM;
-        end
-        
+%         if fit_unCor
+%             cur_rGQM = ModData(cc).rectGQM_unCor;
+%             cur_GQM = ModData(cc).bestGQM_unCor;
+%         else
+%             cur_rGQM = ModData(cc).rectGQM;
+%             cur_GQM = ModData(cc).bestGQM;
+%         end
+
+cur_rGQM = sacStimProc(cc).ModData.rectGQM;
+%         
         fprintf('Reconstructing retinal stim for unit %d\n',cc);
         if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
             cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
@@ -969,12 +971,13 @@ for cc = targs
             %%
             if length(any_sac_inds) > 1e4
                 %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
-                if fit_unCor
-                    cur_rGQM = ModData(cc).rectGQM_unCor;
-                else
-                    cur_rGQM = ModData(cc).rectGQM;
-                end
-                
+%                 if fit_unCor
+%                     cur_rGQM = ModData(cc).rectGQM_unCor;
+%                 else
+%                     cur_rGQM = ModData(cc).rectGQM;
+%                 end
+            cur_rGQM = sacStimProc(cc).ModData.rectGQM;
+
                 cur_rGQM = NMMfit_logexp_spkNL(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
                 cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
                 
