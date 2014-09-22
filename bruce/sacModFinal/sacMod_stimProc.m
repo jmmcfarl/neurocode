@@ -1005,40 +1005,7 @@ for cc = targs
                 sacStimProc(cc).gsac_pre_ov_modinfo = mean(pre_pred_rate/mean(pre_pred_rate).*log2(pre_pred_rate/mean(pre_pred_rate)));
                 [~,pre_pred_rate] = eval_pre_gainmodel( preGainMod, cur_Robs, all_Xmat_shift, cur_Xsac);
              
-                [Xinds_up,Tinds_up] = meshgrid(1:use_nPix_us,1:flen);
-Tinds_up = Tinds_up(:);
-[~,gain_pred_rate,G,fgint] = eval_pre_gainmodel( sacStimProc(cc).gsacPreGainMod, cur_Robs, all_Xmat_shift, cur_Xsac);
-cur_rGQM = sacStimProc(cc).ModData.rectGQM;
-mod_signs = [cur_rGQM.mods(:).sign];
-excG = sum(fgint(:,mod_signs==1),2);
-inhG = sum(fgint(:,mod_signs==-1),2);
-
-tinds = find(cur_Xsac(:,slags==0) == 1);
- [ov_tE,templags] = get_event_trig_avg_v3(excG,tinds,10,30);
-[ov_tI,templags] = get_event_trig_avg_v3(inhG,tinds,10,30);
-
-eps = 1e-4;
-
-for cur_lag = 1:15
-    cur_lag
-    curset = find(Tinds_up == cur_lag);
-    newStim = all_Xmat_shift;
-    newStim(:,curset) = newStim(:,curset)*(1+eps);
-
-[~,eps_pred_rate,eps_G,eps_fgint] = eval_pre_gainmodel(  sacStimProc(cc).gsacPreGainMod, cur_Robs, newStim, cur_Xsac);
-eps_excG = sum(eps_fgint(:,mod_signs==1),2);
-eps_inhG = sum(eps_fgint(:,mod_signs==-1),2);
-
-[trig_avg_diff(:,cur_lag),templags] = get_event_trig_avg_v3((eps_pred_rate - gain_pred_rate),tinds,10,30);
-[trig_avg_Ed(:,cur_lag),templags] = get_event_trig_avg_v3(eps_excG - excG,tinds,10,30);
-[trig_avg_Id(:,cur_lag),templags] = get_event_trig_avg_v3(eps_inhG - inhG,tinds,10,30);
-
-end
-
-trig_avg_diff = trig_avg_diff/eps;
-trig_avg_Ed = trig_avg_Ed/eps;
-trig_avg_Id = trig_avg_Id/eps;
-%                 [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
+                %                 [sacGainMod,sacGainOnlyMod] = fit_prepost_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_d2T,opt_L2,[],maxIter);
 %                 sacStimProc(cc).gsacGainMod = sacGainMod;
 %                 sacStimProc(cc).gsacGainOnlyMod = sacGainOnlyMod;
 %                 [gainLL,gain_pred_rate] = eval_prepost_gainmodel( sacGainOnlyMod, cur_Robs(any_sac_inds), all_Xmat_shift(any_sac_inds,:), cur_Xsac(any_sac_inds,:));
