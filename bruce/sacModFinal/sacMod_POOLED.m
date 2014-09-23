@@ -118,10 +118,11 @@ end
 
 clear ori_*
 %% LOAD LEM
-% Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
+% Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'}
 n_probes = 24;
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
+% ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 160 nan; 40 nan; 45 nan; 0 90];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -698,8 +699,8 @@ hold on
 % h1=shadedErrorBar(slags*dt,1+mean(all_gsac_gaink(uu,:)),std(all_gsac_gaink(uu,:))/sqrt(length(uu)),{'color','b'});
 h2=shadedErrorBar(slags*dt,1+mean(all_gsac_stimk(uu,:)),std(all_gsac_stimk(uu,:))/sqrt(length(uu)),{'color','k'});
 h2=shadedErrorBar(slags*dt,1+mean(all_msac_stimk(uu,:)),std(all_msac_stimk(uu,:))/sqrt(length(uu)),{'color','b'});
-h3=plot(slags*dt,1+mean(all_gsac_postgains(uu,:)),'m','linewidth',2);
-h3=plot(slags*dt,1+mean(all_msac_postgains(uu,:)),'r','linewidth',2);
+% h3=plot(slags*dt,1+mean(all_gsac_postgains(uu,:)),'m','linewidth',2);
+% h3=plot(slags*dt,1+mean(all_msac_postgains(uu,:)),'r','linewidth',2);
 % h3=plot(slags*dt,1+mean(all_gsac_postoffs(uuuub','linewidth',2);
 % h4=plot(slags*dt,1+mean(all_gsac_offk(use_gsac_SUs,:)),'r','linewidth',2);
 xlabel('Time (s)');

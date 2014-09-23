@@ -1,13 +1,18 @@
-clear all
+% clear all
 % close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'G093';
-bar_ori = 0;
+% Expt_name = 'G093';
+% bar_ori = 0;
 
 include_bursts = 0;
+
+sname = 'gen_trig_avg_data';
+if include_bursts
+    sname = [sname '_withburst'];
+end
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -543,22 +548,44 @@ binned_gsacs = hist(sac_start_inds(gsac_set),1:length(all_t_axis));
 binned_msac_sm = jmm_smooth_1d_cor(binned_msacs,sac_sm);
 binned_gsac_sm = jmm_smooth_1d_cor(binned_gsacs,sac_sm);
 
+%compute auto- and cross-correlation between microsaccade and guided saccade timing
+%(smoothed)
 maxlag = round(0.5/dt);
 [gen_data.msac_acorr,acorr_lags] = xcov(binned_msac_sm,maxlag,'coeff');
 [gen_data.gsac_acorr,acorr_lags] = xcov(binned_gsac_sm,maxlag,'coeff');
 [gen_data.msac_gsac_xcorr,acorr_lags] = xcov(binned_gsac_sm,binned_msac_sm,maxlag,'coeff');
 gen_data.acorr_lags = acorr_lags*dt;
 
+%compute sac-trig avg eye speeds (using ET Fs)
 raw_sac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).start_time]));
 [gen_data.gsac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_sac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
 raw_sac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).start_time]));
 [gen_data.msac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_sac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
 gen_data.raw_eye_lags = eye_tavg_lags/et_params.eye_fs;
 
+%compute sac-trig-avgs at dt resolution
 [gen_data.gsac_tavg_eyespeed,tavg_lags] = get_event_trig_avg_v3(interp_eye_speed,sac_start_inds(gsac_set),round(0.15/dt),round(0.15/dt));
 [gen_data.msac_tavg_eyespeed,tavg_lags] = get_event_trig_avg_v3(interp_eye_speed,sac_start_inds(micro_set),round(0.15/dt),round(0.15/dt));
 gen_data.eye_lags = tavg_lags*dt;
 
+%% COMPUTE SACCADE DURATION DISTRIBUTIONS AND STATS
+
+% n_durBins = 40;
+% dur_bin_edges = linspace(0,0.1,n_durBins+1);
+dur_bin_edges = 0:1/et_params.eye_fs:0.1;
+gen_data.dur_bin_cents = 0.5*dur_bin_edges(1:end-1) + 0.5*dur_bin_edges(2:end);
+
+gsac_dur_dist = histc(sac_durs(gsac_set),dur_bin_edges);
+gen_data.gsac_dur_dist = gsac_dur_dist(1:end-1)/sum(gsac_dur_dist);
+
+msac_dur_dist = histc(sac_durs(micro_set),dur_bin_edges);
+gen_data.msac_dur_dist = msac_dur_dist(1:end-1)/sum(msac_dur_dist);
+
+gen_data.gsac_dur_prc = prctile(sac_durs(gsac_set),[25 50 75]);
+gen_data.msac_dur_prc = prctile(sac_durs(micro_set),[25 50 75]);
+
+
+%%
 gen_data.N_blinks = sum(used_is_blink);
 gen_data.N_msacs = length(micro_set);
 gen_data.N_gsacs = length(gsac_set);
@@ -569,8 +596,6 @@ gen_data.N_msacs_gray = length(intersect(micro_set,gback_sacs));
 gen_data.N_gsacs_gray = length(intersect(gsac_set,gback_sacs));
 gen_data.N_msacs_im = length(intersect(micro_set,iback_sacs));
 gen_data.N_gsacs_im = length(intersect(gsac_set,iback_sacs));
-gen_data.N_msacs_Par = length(msac_Par);
-gen_data.N_msacs_Orth = length(msac_Orth);
 
 gen_data.Tot_time = length(used_inds);
 gen_data.Gback_time = Ngback_inds;
@@ -578,12 +603,8 @@ gen_data.Iback_time = Niback_inds;
 
 %%
 trig_avg_params = struct('dt',dt,'min_trial_dur',min_trial_dur,'beg_buffer',beg_buffer,...
-    'end_buffer',end_buffer,'good_coils',good_coils,'bar_ori',bar_ori,'nboot',nboot,'micro_thresh',micro_thresh);
+    'end_buffer',end_buffer,'good_coils',good_coils,'bar_ori',bar_ori,'micro_thresh',micro_thresh);
 
 cd(save_dir)
-sname = 'gen_trig_avg_data';
-if include_bursts
-    sname = [sname '_withburst'];
-end
 sname = [sname sprintf('_ori%d',bar_ori)];
 save(sname,'gen_data','trig_avg_params');

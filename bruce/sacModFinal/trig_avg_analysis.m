@@ -97,6 +97,8 @@ end_buffer = 0.05;
 backlag = round(0.25/dt);
 forwardlag = round(0.55/dt);
 
+peark_search_range = [0 0.35];
+
 sua_sm_sig = (0.01/dt);
 % mua_sm_sig = (0.005/dt);
 mua_sm_sig = 0;
@@ -748,6 +750,7 @@ for ss = 1:length(SU_numbers)
     sua_data(ss).N_used_samps = nansum(~isnan(all_binned_sua(used_inds,ss)));
     
     cur_Ublocks = find(~isnan(block_SU_rates(:,ss)));
+    cc_uinds = used_inds(~isnan(all_binned_sua(used_inds,ss)));
     
     sua_data(ss).rate_stability_cv = nanstd(block_SU_rates(cur_Ublocks,ss))./nanmean(block_SU_rates(cur_Ublocks,ss));
     sua_data(ss).dprime_stability_cv = nanstd(Clust_data.SU_dprimes(ss,cur_Ublocks))/nanmean(Clust_data.SU_dprimes(ss,cur_Ublocks));
@@ -769,22 +772,46 @@ for ss = 1:length(SU_numbers)
     sua_data(ss).N_msacs_vert = sum(~isnan(all_binned_sua(sac_start_inds(msac_vert),ss)));
     
     %general averages
-    [sua_data(ss).msac_avg,lags,sua_data(ss).msac_std,~,~,sua_data(ss).msac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_avg,lags,sua_data(ss).gsac_std,~,~,sua_data(ss).gsac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(gsac_set),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).simsac_avg,lags,sua_data(ss).simsac_std,~,~,sua_data(ss).simsac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_sacs,backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).simmsac_avg,lags,sua_data(ss).simmsac_std,~,~,sua_data(ss).simmsac_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_msacs,backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).blank_avg,lags,sua_data(ss).blank_std,~,~,sua_data(ss).blank_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_blanks,backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).msac_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).gsac_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(gsac_set),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).simsac_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_sacs,backlag,forwardlag,[],used_trialvec,0);
     
     %background dependent
-    [sua_data(ss).msac_gray_avg,lags,sua_data(ss).msac_gray_std,~,~,sua_data(ss).msac_gray_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_gray_avg,lags,sua_data(ss).gsac_gray_std,~,~,sua_data(ss).gsac_gray_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,gback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).msac_im_avg,lags,sua_data(ss).msac_im_std,~,~,sua_data(ss).msac_im_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
-    [sua_data(ss).gsac_im_avg,lags,sua_data(ss).gsac_im_std,~,~,sua_data(ss).gsac_im_CI] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,iback_sacs)),backlag,forwardlag,nboot,used_trialvec,0);
+    [sua_data(ss).msac_gray_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,gback_sacs)),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).gsac_gray_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,gback_sacs)),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).msac_im_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(micro_set,iback_sacs)),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).gsac_im_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(intersect(gsac_set,iback_sacs)),backlag,forwardlag,[],used_trialvec,0);
     
+    %use bootstrap resampling of random saccade times to generate null
+    %distributions of peak and valley amplitudes
+    if nboot > 0
+        if sua_data(ss).N_gsacs > 50
+            [sua_data(ss).gsac_nullP,sua_data(ss).gsac_nullV] = get_null_peaks(sua_data(ss).N_gsacs,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        end
+        if sua_data(ss).N_msacs > 50
+            [sua_data(ss).msac_nullP,sua_data(ss).msac_nullV] = get_null_peaks(sua_data(ss).N_msacs,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        end
+        if sua_data(ss).N_simsacs > 50
+            [sua_data(ss).simsac_nullP,sua_data(ss).simsac_nullV] = get_null_peaks(sua_data(ss).N_simsacs,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        end
+        if sua_data(ss).N_msacs_gray > 50
+            [sua_data(ss).msac_gray_nullP,sua_data(ss).msac_gray_nullV] = get_null_peaks(sua_data(ss).N_msacs_gray,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        end
+        if sua_data(ss).N_gsacs_gray > 50
+            [sua_data(ss).gsac_gray_nullP,sua_data(ss).gsac_gray_nullV] = get_null_peaks(sua_data(ss).N_gsacs_gray,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        end
+    end
     
     %dont compute error bars for these...
     
-    %timing dependent
+    %simulated microsaccades
+    [sua_data(ss).simmsac_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_msacs,backlag,forwardlag,[],used_trialvec,0);
+
+    %blank trig avg
+    [sua_data(ss).blank_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),all_sim_blanks,backlag,forwardlag,[],used_trialvec,0);
+
+    
+     %timing dependent
     [sua_data(ss).msac_burst_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_bursts),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).msac_end_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_stop_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).gsac_end_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_stop_inds(gsac_set),backlag,forwardlag,[],used_trialvec,0);

@@ -84,18 +84,37 @@ end
 %%
 all_gsac_tavg = [all_data(:).gsac_rawtavg_eyespeed]';
 all_msac_tavg = [all_data(:).msac_rawtavg_eyespeed]';
+
+dur_bin_cents = all_data(1).dur_bin_cents;
+dur_dx = median(diff(dur_bin_cents));
+dur_sm = 0.005/dur_dx;
+all_gsac_durdist = reshape([all_data(:).gsac_dur_dist],length(dur_bin_cents),[])';
+all_msac_durdist = reshape([all_data(:).msac_dur_dist],length(dur_bin_cents),[])';
+
 eye_ax = all_data(1).raw_eye_lags;
 expt_gsac_eyespeed = nan(length(unique_expts),length(eye_ax));
 expt_msac_eyespeed = nan(length(unique_expts),length(eye_ax));
+expt_gsac_durdist = nan(length(unique_expts),length(dur_bin_cents));
+expt_msac_durdist = nan(length(unique_expts),length(dur_bin_cents));
 for ii = 1:length(unique_expts)
     eset = find(expt_nums == unique_expts(ii));
     expt_gsac_eyespeed(ii,:) = mean(all_gsac_tavg(eset,:),1);
     expt_msac_eyespeed(ii,:) = mean(all_msac_tavg(eset,:),1);
+    expt_gsac_durdist(ii,:) = mean(all_gsac_durdist(eset,:),1);
+    expt_msac_durdist(ii,:) = mean(all_msac_durdist(eset,:),1);
+    if dur_sm > 0
+       expt_gsac_durdist(ii,:) = jmm_smooth_1d_cor(expt_gsac_durdist(ii,:),dur_sm); 
+       expt_msac_durdist(ii,:) = jmm_smooth_1d_cor(expt_msac_durdist(ii,:),dur_sm); 
+    end
 end
 
 figure; hold on
 h1 = shadedErrorBar(eye_ax,mean(expt_gsac_eyespeed),std(expt_gsac_eyespeed)/sqrt(length(unique_expts)));
 h2 = shadedErrorBar(eye_ax,mean(expt_msac_eyespeed),std(expt_msac_eyespeed)/sqrt(length(unique_expts)),{'color','r'});
+
+figure; hold on
+h1 = shadedErrorBar(dur_bin_cents,mean(expt_gsac_durdist),std(expt_gsac_durdist)/sqrt(length(unique_expts)));
+h2 = shadedErrorBar(dur_bin_cents,mean(expt_msac_durdist),std(expt_msac_durdist)/sqrt(length(unique_expts)),{'color','r'});
 
 %%
 all_gsac_tavg = [all_data(:).gsac_tavg_eyespeed]';

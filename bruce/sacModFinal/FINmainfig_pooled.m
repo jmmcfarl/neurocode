@@ -8,10 +8,12 @@ include_bursts = 0;
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
 base_sname = 'sacStimProcFin';
+base_yname = 'sacTypeDep';
 
 if include_bursts
     base_tname = strcat(base_tname,'_withbursts');
     base_sname = strcat(base_sname,'_withbursts');
+    base_yname = strcat(base_yname,'_withbursts');
 end
 
 all_SU_data = [];
@@ -41,6 +43,12 @@ for ee = 1:length(Expt_list)
                 sname = strcat(sname,'_unCor');
             end
             load(sname);            
+%             %load type-dep data (STILL NEED TO ADD THIS)
+%             yname = strcat(sac_dir,base_yname,sprintf('_ori%d',ori_list(ee,ii)));
+%             if fit_unCor
+%                 yname = strcat(yname,'_unCor');
+%             end
+%             load(yname);            
                        
             %SU numbers for trig avg data
             tavg_SU_numbers = [temp.sua_data(:).SU_numbers];
@@ -227,18 +235,23 @@ all_gsac_gray = reshape([all_SU_tdata(:).gsac_gray_avg],[],tot_Nunits)';
 xl = [-0.15 0.4];
 
 close all
-f1 = figure(); hold on
-curset = intersect(jbe_SUs,cur_SUs);
-h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(curset,:)),nanstd(all_gsac_gray(curset,:))/sqrt(length(curset)),{'color','r'});
-curset = intersect(lem_SUs,cur_SUs);
-h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(curset,:)),nanstd(all_gsac_gray(curset,:))/sqrt(length(curset)),{'color','b'});
 
+%FOR SEPARATE MONKEYS
+% f1 = figure(); hold on
+% curset = intersect(jbe_SUs,cur_SUs);
+% h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(curset,:)),nanstd(all_gsac_gray(curset,:))/sqrt(length(curset)),{'color','r'});
+% curset = intersect(lem_SUs,cur_SUs);
+% h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(curset,:)),nanstd(all_gsac_gray(curset,:))/sqrt(length(curset)),{'color','b'});
+
+%COMBINED MONKEYS WITH SEPARATE TRACE FOR SUB_POP
+f1 = figure(); hold on
+h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(cur_SUs,:)),nanstd(all_gsac_gray(cur_SUs,:))/sqrt(length(cur_SUs)),{'color','b'});
 curset = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
-plot(tlags,nanmean(all_gsac_gray(curset,:)),'k','linewidth',2);
+% h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(curset,:)),nanstd(all_gsac_gray(curset,:))/sqrt(length(curset)),{'color','r'});
+plot(tlags,nanmean(all_gsac_gray(curset,:)),'r','linewidth',2);
 
 xlim(xl);
 ylim([0.7 1.3]);
-legend([h1.mainLine h2.mainLine],{'JBE','LEM'});
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
@@ -249,16 +262,22 @@ title('Gsac TA Grayback');
 cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= min_TA_Nsacs);
 
 all_gsac_gray = reshape([all_SU_tdata(:).gsac_gray_avg],[],tot_Nunits)';
-%compute z-score of trig-avgs using bootstrap SE estimates
-all_gsac_gray_SE = reshape([all_SU_tdata(:).gsac_gray_std],[],tot_Nunits)';
-all_gsac_gray_Z = (all_gsac_gray - 1)./all_gsac_gray_SE;
 
 search_range = [0 0.35];
+[gsac_Efact,gsac_exctime,gsac_excloc] = get_tavg_peaks((all_gsac_gray-1),tlags,search_range);
+[gsac_Ifact,gsac_inhtime,gsac_inhloc] = get_tavg_peaks(-(all_gsac_gray-1),tlags,search_range);
 
-[gsac_Efact,gsac_exctime] = get_tavg_peaks((all_gsac_gray-1),tlags,search_range);
-[gsac_Sfact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_gray-1),tlags,search_range);
-[gsac_exc_Z] = get_tavg_peaks(all_gsac_gray_Z,tlags,search_range);
-[gsac_inh_Z] = get_tavg_peaks(-all_gsac_gray_Z,tlags,search_range);
+Epeak_lowCI = nan(tot_Nunits,1);
+Ipeak_highCI = nan(tot_Nunits,1);
+for ii = 1:tot_Nunits
+    cur_CIs = all_SU_tdata(ii).gsac_gray_CI;
+    if ~isnan(gsac_excloc(ii))
+        Epeak_lowCI(ii) = cur_CIs(1,gsac_excloc(ii));
+    end
+    if ~isnan(gsac_inhloc(ii))
+        Ipeak_highCI(ii) = cur_CIs(2,gsac_inhloc(ii));
+    end
+end
 
 %USE CIS HERE RATHER THAN ZCORES
 % Zthresh = 3; %minimum z-score value for peak to be counted as 'significant'
