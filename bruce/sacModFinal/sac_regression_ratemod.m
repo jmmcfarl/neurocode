@@ -1,11 +1,11 @@
-clear all
-close all
+% clear all
+% close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'M277';
-bar_ori = 0;
+% Expt_name = 'M277';
+% bar_ori = 0;
 
 savename = 'sac_glm_data';
 include_bursts = 0;
@@ -729,8 +729,9 @@ for ss = 1:length(SU_numbers)
             sua_data(ss).glm_gsac_rate = nansum(bsxfun(@times,cur_norm_rate,block_reldurs)); %compute weighted avg across blocks
             
 %             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+%             sua_data(ss).tavg_gsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
             trig_avg = get_event_trig_avg_v3(all_sua_rate_norm(cc_uinds,ss),find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
-            sua_data(ss).tavg_gsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
+            sua_data(ss).tavg_gsac_rate = trig_avg;
         else
             sua_data(ss).glm_gsac_rate = nan;
             sua_data(ss).tavg_gsac_rate = nan;
@@ -758,8 +759,9 @@ for ss = 1:length(SU_numbers)
             sua_data(ss).glm_msac_rate = nansum(bsxfun(@times,cur_norm_rate,block_reldurs)); %compute weighted avg across blocks
             
 %             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+%             sua_data(ss).tavg_msac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
             trig_avg = get_event_trig_avg_v3(all_sua_rate_norm(cc_uinds,ss),find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
-            sua_data(ss).tavg_msac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
+            sua_data(ss).tavg_msac_rate = trig_avg;
         else
             sua_data(ss).glm_msac_rate = nan;
             sua_data(ss).tavg_msac_rate = nan;
@@ -788,8 +790,9 @@ for ss = 1:length(SU_numbers)
             sua_data(ss).glm_simsac_rate = nansum(bsxfun(@times,cur_norm_rate,block_reldurs)); %compute weighted avg across blocks
             
 %             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+%             sua_data(ss).tavg_simsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
             trig_avg = get_event_trig_avg_v3(all_sua_rate_norm(cc_uinds,ss),find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
-            sua_data(ss).tavg_simsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
+            sua_data(ss).tavg_simsac_rate = trig_avg;
         else
             sua_data(ss).glm_simsac_rate = nan;
             sua_data(ss).tavg_simsac_rate = nan;
