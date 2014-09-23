@@ -58,7 +58,7 @@ else
     opt_d2T = poss_d2T; opt_L2 = poss_L2; L2_xvLL = nan;
 end
 
-initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
+initial_params = [zeros(n_lags,1); zeros(n_lags,1); 1; stim_mod.spk_NL_params(1)];
 %fit upstream filter and offset filter, given post-gain filter
 [params,mval] = minFunc( @(K) LLinternal_alphas_full(stim_mod, K, Robs, rXmat, Xsac_mat, ...
     sac_filt_outs, L2_mats, opt_d2T,opt_L2), initial_params, optim_params);
@@ -66,6 +66,7 @@ initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
 preGainMod.stim_kernel = params(1:n_lags);
 preGainMod.off_kernel = params((n_lags+1):2*n_lags);
 preGainMod.theta = params(end);
+preGainMod.beta = params(end-1);
 preGainMod.stim_mod = stim_mod;
 preGainMod.opt_d2T = opt_d2T;
 preGainMod.opt_L2 = opt_L2;
@@ -100,6 +101,7 @@ Nmods = length(mod.mods);
 all_Filts = [mod.mods(1:end).filtK];
 
 theta = params(end); % offset
+beta = params(end-1); %overall gain scaling
 Gstim = 0;
 gint = nan(length(Robs),Nmods);
 
@@ -126,7 +128,7 @@ for ii = 1:Nmods
 end
 
 %add in sac offset term
-G = theta + Gstim + Xsac_mat*params((n_lags+1):(2*n_lags));
+G = theta + Gstim*beta + Xsac_mat*params((n_lags+1):(2*n_lags));
 %% Compute predicted firing rate
 if strcmp(mod.spk_NL_type,'logexp')
     max_gbeta = 50; %to prevent numerical overflow
@@ -178,9 +180,10 @@ LLgrad = zeros(length(params),1);
 
 % Calculate derivatives with respect to constant term (theta)
 LLgrad(end) = sum(residual);
-
+LLgrad(end-1) = sum(residual.*Gstim);
 %%
 
+gint = gint*beta; %gain scaling
 for pp = 1:n_lags
     
     for ii = 1:Nmods
