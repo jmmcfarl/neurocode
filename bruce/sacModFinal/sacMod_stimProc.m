@@ -44,10 +44,6 @@ poss_TB_lambdas = logspace(log10(0.1),log10(500),8); %range of d2T reg values fo
 % poss_sub_d2T = 100;
 % poss_TB_lambdas = 5;
 
-%reg parameters for full model (separate gain kernels for each subunit)
-fullMod_d2T = 5;
-fullMod_L2 = 5;
-
 dt = 0.01;
 backlag = round(0.1/dt);
 forlag = round(0.3/dt);

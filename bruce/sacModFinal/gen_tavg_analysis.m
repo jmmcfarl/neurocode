@@ -1,11 +1,11 @@
-% clear all
+clear all
 % close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G093';
-% bar_ori = 0;
+Expt_name = 'G093';
+bar_ori = 0;
 
 include_bursts = 0;
 
@@ -112,8 +112,6 @@ max_sac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
 max_gsac_dur = 0.1;
 
-nboot = 500; %number of bootstrap samples for computing trig-avg SD
-
 %% LOAD EXPTS STRUCT
 cd(data_dir)
 if Expt_name(1) == 'G'
@@ -172,6 +170,11 @@ if strcmp(Expt_name,'G081')
 end
 expt_has_ds(isnan(expt_has_ds)) = 0;
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dd(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dd(cur_block_set));
+    cur_block_set(expt_dd(cur_block_set) ~= main_dds) = [];
+end
 
 %identify sim-sac imback and grayback blocks
 sim_sac_expts = find(expt_has_ds(cur_block_set) ~= 1);
@@ -247,13 +250,13 @@ for ee = 1:length(cur_block_set);
         fprintf('Expt %s Block %d of %d;  UNMATCHED EXPT TYPE\n',Expt_name,ee,length(cur_block_set));
     end
     
-%     fname = [cluster_dir sprintf('/Block%d_Clusters.mat',cur_block)];
-%     load(fname,'Clusters');
-%     for cc = 1:n_probes
-%         all_spk_times{cc} = cat(1,all_spk_times{cc},Clusters{cc}.times + cur_toffset);
-%         all_spk_inds{cc} = cat(1,all_spk_inds{cc},Clusters{cc}.spk_inds + cur_spkind_offset);
-%         all_clust_ids{cc} = cat(1,all_clust_ids{cc},Clusters{cc}.spike_clusts);
-%     end
+    %     fname = [cluster_dir sprintf('/Block%d_Clusters.mat',cur_block)];
+    %     load(fname,'Clusters');
+    %     for cc = 1:n_probes
+    %         all_spk_times{cc} = cat(1,all_spk_times{cc},Clusters{cc}.times + cur_toffset);
+    %         all_spk_inds{cc} = cat(1,all_spk_inds{cc},Clusters{cc}.spk_inds + cur_spkind_offset);
+    %         all_clust_ids{cc} = cat(1,all_clust_ids{cc},Clusters{cc}.spike_clusts);
+    %     end
     
     trial_start_times = [Expts{cur_block}.Trials(:).TrialStart]/1e4;
     trial_end_times = [Expts{cur_block}.Trials(:).TrueEnd]/1e4;
@@ -458,16 +461,6 @@ sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
 sac_durs = [saccades(:).duration];
 gsac_set = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & sac_durs <= max_gsac_dur);
 
-%classify guided saccades as 'in' vs 'out' and 'pos' vs 'neg'
-outsacs = gsac_set(abs(sac_prepos(1,gsac_set)) < abs(sac_postpos(1,gsac_set)));
-insacs = gsac_set(abs(sac_prepos(1,gsac_set)) > abs(sac_postpos(1,gsac_set)));
-negsacs = gsac_set(sac_postpos(1,gsac_set) < sac_prepos(1,gsac_set));
-possacs = gsac_set(sac_postpos(1,gsac_set) > sac_prepos(1,gsac_set));
-out_pos_sacs = intersect(outsacs,possacs);
-out_neg_sacs = intersect(outsacs,negsacs);
-in_pos_sacs = intersect(insacs,possacs);
-in_neg_sacs = intersect(insacs,negsacs);
-
 %compile indices of simulated saccades
 all_sim_sacs = [];
 all_sim_msacs = [];
@@ -542,50 +535,6 @@ end
 
 gray_msac_set = intersect(gback_sacs,micro_set);
 im_msac_set = intersect(iback_sacs,micro_set);
-
-%sort microsacs into big/small
-micro_halfthresh = nanmedian([saccades(micro_set).amplitude]);
-large_msacs = micro_set([saccades(micro_set).amplitude] > micro_halfthresh);
-small_msacs = micro_set([saccades(micro_set).amplitude] < micro_halfthresh);
-
-%separate micros into towards vs away from RFs
-msac_dirs = [saccades(micro_set).direction];
-rf_angle = atan2(Expts{cur_block_set(1)}.Stimvals.rf(2),Expts{cur_block_set(1)}.Stimvals.rf(1));
-msac_dirs_relrf = abs(circ_dist(msac_dirs,rf_angle));
-msac_towards = micro_set(msac_dirs_relrf <= pi/4);
-msac_aways = micro_set(msac_dirs_relrf >= 3*pi/4);
-
-%separate micros into vertical vs horizontal
-msac_dirs_relvert = min([abs(circ_dist(msac_dirs,-pi/2)); abs(circ_dist(msac_dirs,pi/2))]);
-msac_dirs_relhor = min([abs(circ_dist(msac_dirs,0)); abs(circ_dist(msac_dirs,pi))]);
-msac_vert = micro_set(msac_dirs_relvert <= pi/4);
-msac_hor = micro_set(msac_dirs_relhor <= pi/4);
-
-msac_gray_hor = intersect(gray_msac_set,msac_hor);
-msac_gray_vert = intersect(gray_msac_set,msac_vert);
-
-%separate micros into vertical vs horizontal
-bar_ori_rad = deg2rad(bar_ori);
-msac_dirs_relPar = min([abs(circ_dist(msac_dirs,bar_ori_rad)); abs(circ_dist(msac_dirs,bar_ori_rad+pi))]);
-msac_dirs_relOrth = min([abs(circ_dist(msac_dirs,bar_ori_rad+pi/2)); abs(circ_dist(msac_dirs,bar_ori_rad-pi/2))]);
-msac_Par = micro_set(msac_dirs_relPar <= pi/4);
-msac_Orth = micro_set(msac_dirs_relOrth <= pi/4);
-
-msac_gray_Par = intersect(gray_msac_set,msac_Par);
-msac_gray_Orth = intersect(gray_msac_set,msac_Orth);
-
-if length(msac_Orth) < length(msac_Par)
-    subset = randperm(length(msac_Orth));
-    msac_Par_sub = msac_Par(subset);
-else
-    msac_Par_sub = msac_Par;
-end
-if length(msac_Par) < length(msac_Orth)
-    subset = randperm(length(msac_Par));
-    msac_Orth_sub = msac_Orth(subset);
-else
-    msac_Orth_sub = msac_Orth;
-end
 
 %% SACCADE TIMING ANALYSIS
 sac_sm = round(0.025/dt);
