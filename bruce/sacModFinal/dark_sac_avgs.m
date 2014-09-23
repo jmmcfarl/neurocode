@@ -79,7 +79,7 @@ EP_bounds = 1;%eye position boundary
 micro_thresh = 1; %microsaccade amplitude threshold (deg)
 max_gsac_dur = 0.1; %maximum saccade duration (otherwise likely a blink)
 sac_burst_isi = 0.15; %minimum inter-saccade interval before classifying sac as part of a 'burst'
-gsac_thresh = 1;
+gsac_thresh = 1; 
 
 %% LOAD EXPTS STRUCT
 cd(data_dir)
@@ -224,10 +224,9 @@ lcf = 0.1;
 for ii = 1:n_probes
     all_mua_rate_norm(:,ii) = filtfilt(b,a,all_mua_rate_norm(:,ii));
 end
-% all_sua_rate_norm = filtfilt(b,a,all_sua_rate_norm);
 %% DEFINE DATA USED FOR ANALYSIS
 % used_inds = find(all_tsince_start >= beg_buffer & all_ttill_end >= end_buffer);
-used_inds = (1:length(all_t_axis))';
+used_inds = (1:length(all_t_axis))'; %no meaningful trials here
 
 %% PROCESS EYE TRACKING DATA
 if isfield(Expts{cur_block_set(1)}.Header,'exptno')

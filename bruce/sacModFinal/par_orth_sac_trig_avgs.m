@@ -150,13 +150,18 @@ expt_ijump(has_data) = cellfun(@(x) x.Stimvals.ijump,Expts(has_data),'UniformOut
 
 included_type(has_data) = ismember(expt_names(has_data),include_expts);
 
-    cur_block_set = find(included_type & expt_ntrials' >= 10);
+cur_block_set = find(included_type & expt_ntrials' >= 10);
 if strcmp(Expt_name,'G081')
     expt_has_ds = (expt_ijump==0)';
 end
 expt_has_ds(isnan(expt_has_ds)) = 0;
 
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dds(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dds(cur_block_set));
+    cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
+end
 
 %identify sim-sac imback and grayback blocks
 sim_sac_expts = find(expt_has_ds(cur_block_set) ~= 1);
@@ -293,11 +298,7 @@ all_sac_dir = mod(all_sac_dir,180);
 
 %% BIN SPIKES FOR MU AND SU
 clust_params.n_probes = n_probes;
-% if strcmp(rec_type,'LP')
-%     clust_params.exclude_adjacent = true;
-% else
 clust_params.exclude_adjacent = false;
-% end
 [all_binned_mua,all_binned_sua,Clust_data] = ...
     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
     all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);

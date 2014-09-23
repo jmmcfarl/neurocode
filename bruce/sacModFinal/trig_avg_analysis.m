@@ -172,6 +172,11 @@ if strcmp(Expt_name,'G081')
 end
 expt_has_ds(isnan(expt_has_ds)) = 0;
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dd(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dd(cur_block_set));
+    cur_block_set(expt_dd(cur_block_set) ~= main_dds) = [];
+end
 
 %identify sim-sac imback and grayback blocks
 sim_sac_expts = find(expt_has_ds(cur_block_set) ~= 1);

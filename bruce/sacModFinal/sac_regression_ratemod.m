@@ -1,11 +1,11 @@
-% clear all
-% close all
+clear all
+close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'M277';
-% bar_ori = 0;
+Expt_name = 'M277';
+bar_ori = 0;
 
 savename = 'sac_glm_data';
 include_bursts = 0;
@@ -100,6 +100,9 @@ end_buffer = 0.05;
 backlag = round(0.2/dt);
 forlag = round(0.4/dt);
 
+sua_sm_sig = (0.01/dt);
+
+
 if strcmp(Expt_name,'G081') || ismember(Expt_num,[232 235 239])
     trial_dur = 2;
 else
@@ -171,6 +174,11 @@ if strcmp(Expt_name,'G081')
 end
 expt_has_ds(isnan(expt_has_ds)) = 0;
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
+if length(unique(expt_dd(cur_block_set))) > 1
+    fprintf('Warning, multiple dds detected!\n');
+    main_dds = mode(expt_dd(cur_block_set));
+    cur_block_set(expt_dd(cur_block_set) ~= main_dds) = [];
+end
 
 %identify sim-sac imback and grayback blocks
 sim_sac_expts = find(expt_has_ds(cur_block_set) ~= 1);
@@ -370,11 +378,11 @@ trial_start_inds = [1; find(diff(all_trialvec) > 0)+1];
 
 %% BIN SPIKES FOR MU AND SU
 clust_params.n_probes = n_probes;
-% if strcmp(rec_type,'LP')
-%     clust_params.exclude_adjacent = true;
-% else
+if strcmp(rec_type,'LP')
+    clust_params.exclude_adjacent = true;
+else
 clust_params.exclude_adjacent = false;
-% end
+end
 [all_binned_mua,all_binned_sua,Clust_data] = ...
     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
     all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);
@@ -471,16 +479,6 @@ sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
 sac_durs = [saccades(:).duration];
 gsac_set = find(abs(sac_deltaX) > gsac_thresh & ~used_is_blink' & ~out_bounds & sac_durs <= max_gsac_dur);
 
-%classify guided saccades as 'in' vs 'out' and 'pos' vs 'neg'
-outsacs = gsac_set(abs(sac_prepos(1,gsac_set)) < abs(sac_postpos(1,gsac_set)));
-insacs = gsac_set(abs(sac_prepos(1,gsac_set)) > abs(sac_postpos(1,gsac_set)));
-negsacs = gsac_set(sac_postpos(1,gsac_set) < sac_prepos(1,gsac_set));
-possacs = gsac_set(sac_postpos(1,gsac_set) > sac_prepos(1,gsac_set));
-out_pos_sacs = intersect(outsacs,possacs);
-out_neg_sacs = intersect(outsacs,negsacs);
-in_pos_sacs = intersect(insacs,possacs);
-in_neg_sacs = intersect(insacs,negsacs);
-
 %compile indices of simulated saccades
 all_sim_sacs = [];
 all_sim_msacs = [];
@@ -518,19 +516,6 @@ end
 all_sim_sacs = sort(all_sim_sacs(ismember(all_sim_sacs,used_inds)));
 all_sim_msacs = sort(all_sim_msacs(ismember(all_sim_msacs,used_inds)));
 
-%if there are simulated blanks in this dataset, find their start indices
-all_sim_blanks = [];
-if expt_has_simBlanks
-    blank_trials = find(all_trial_imi == 1);
-    blank_trial_inds = find(ismember(all_trialvec,blank_trials));
-    sim_blanks = cell(length(sim_sac_times),1);
-    for ii = 1:length(sim_sac_times)
-        sim_blanks{ii} = blank_trial_inds(all_tsince_start(blank_trial_inds(1:end-1)) < sim_sac_times(ii) & ...
-            all_tsince_start(blank_trial_inds(2:end)) >= sim_sac_times(ii));
-        all_sim_blanks = [all_sim_blanks; sim_blanks{ii}];
-    end
-end
-
 %for TBT expts, determine which saccades were part of image-back trials vs
 %gray-back trials
 sac_trial_inds = all_trialvec(sac_start_inds);
@@ -552,48 +537,44 @@ end
 gray_msac_set = intersect(gback_sacs,micro_set);
 im_msac_set = intersect(iback_sacs,micro_set);
 
-%sort microsacs into big/small
-micro_halfthresh = nanmedian([saccades(micro_set).amplitude]);
-large_msacs = micro_set([saccades(micro_set).amplitude] > micro_halfthresh);
-small_msacs = micro_set([saccades(micro_set).amplitude] < micro_halfthresh);
-
-%separate micros into towards vs away from RFs
-msac_dirs = [saccades(micro_set).direction];
-rf_angle = atan2(Expts{cur_block_set(1)}.Stimvals.rf(2),Expts{cur_block_set(1)}.Stimvals.rf(1));
-msac_dirs_relrf = abs(circ_dist(msac_dirs,rf_angle));
-msac_towards = micro_set(msac_dirs_relrf <= pi/4);
-msac_aways = micro_set(msac_dirs_relrf >= 3*pi/4);
-
-%separate micros into vertical vs horizontal
-msac_dirs_relvert = min([abs(circ_dist(msac_dirs,-pi/2)); abs(circ_dist(msac_dirs,pi/2))]);
-msac_dirs_relhor = min([abs(circ_dist(msac_dirs,0)); abs(circ_dist(msac_dirs,pi))]);
-msac_vert = micro_set(msac_dirs_relvert <= pi/4);
-msac_hor = micro_set(msac_dirs_relhor <= pi/4);
-
-msac_gray_hor = intersect(gray_msac_set,msac_hor);
-msac_gray_vert = intersect(gray_msac_set,msac_vert);
-
-%separate micros into vertical vs horizontal
-bar_ori_rad = deg2rad(bar_ori);
-msac_dirs_relPar = min([abs(circ_dist(msac_dirs,bar_ori_rad)); abs(circ_dist(msac_dirs,bar_ori_rad+pi))]);
-msac_dirs_relOrth = min([abs(circ_dist(msac_dirs,bar_ori_rad+pi/2)); abs(circ_dist(msac_dirs,bar_ori_rad-pi/2))]);
-msac_Par = micro_set(msac_dirs_relPar <= pi/4);
-msac_Orth = micro_set(msac_dirs_relOrth <= pi/4);
-
-msac_gray_Par = intersect(gray_msac_set,msac_Par);
-msac_gray_Orth = intersect(gray_msac_set,msac_Orth);
-
-if length(msac_Orth) < length(msac_Par)
-    subset = randperm(length(msac_Orth));
-    msac_Par_sub = msac_Par(subset);
-else
-    msac_Par_sub = msac_Par;
+%% SMOOTH AND NORMALIZE SPIKING DATA
+all_sua_rate = nan(size(all_binned_sua));
+sua_block_mean_rates = nan(length(cur_block_set),length(SU_numbers));
+sua_block_n_spikes = nan(length(cur_block_set),length(SU_numbers));
+for ee = 1:length(cur_block_set)
+    cur_block_inds = find(all_blockvec==ee);
+    if ~isempty(cur_block_inds)
+        for ss = 1:length(SU_numbers)
+            if sua_sm_sig > 0
+                all_sua_rate(cur_block_inds,ss) = jmm_smooth_1d_cor(all_binned_sua(cur_block_inds,ss),sua_sm_sig);
+            else
+                all_sua_rate(cur_block_inds,ss) = all_binned_sua(cur_block_inds,ss);
+            end
+        end
+        sua_block_mean_rates(ee,:) = mean(all_sua_rate(cur_block_inds,:));
+        sua_block_n_spikes(ee,:) = sum(all_binned_sua(cur_block_inds,:));
+    end
 end
-if length(msac_Par) < length(msac_Orth)
-    subset = randperm(length(msac_Par));
-    msac_Orth_sub = msac_Orth(subset);
-else
-    msac_Orth_sub = msac_Orth;
+
+%normalized firing rates within each block
+all_sua_rate_norm = nan(size(all_sua_rate));
+for ee = 1:length(cur_block_set)
+    cur_block_inds = find(all_blockvec==ee);
+    if ~isempty(cur_block_inds)
+        all_sua_rate_norm(cur_block_inds,:) = bsxfun(@rdivide,all_sua_rate(cur_block_inds,:),...
+            sua_block_mean_rates(ee,:));
+    end
+end
+
+if is_TBT_expt
+    grayback_trial_inds = find(ismember(all_trialvec,grayback_gs_trials));
+    all_sua_rate_norm(grayback_trial_inds,:) = bsxfun(@rdivide,all_sua_rate_norm(grayback_trial_inds,:),nanmean(all_sua_rate_norm(grayback_trial_inds,:)));
+    
+    imback_trial_inds = find(ismember(all_trialvec,imback_gs_trials));
+    all_sua_rate_norm(imback_trial_inds,:) = bsxfun(@rdivide,all_sua_rate_norm(imback_trial_inds,:),nanmean(all_sua_rate_norm(imback_trial_inds,:)));
+    
+    simsac_trial_inds = find(ismember(all_trialvec,sim_sac_trials));
+    all_sua_rate_norm(simsac_trial_inds,:) = bsxfun(@rdivide,all_sua_rate_norm(simsac_trial_inds,:),nanmean(all_sua_rate_norm(simsac_trial_inds,:)));
 end
 
 
@@ -675,14 +656,14 @@ xcorr_data.ov_msac_rate = sum(Xmsac(:,slags==0))/size(Xmsac,1)/dt;
 %%
 lambda_d2T = 50;
 lambda_L2 = 5;
-min_sacs = 100;
+min_Nsacs = 100;
 silent = 1;
 
 stim_params(1) = NMMcreate_stim_params(n_blocks);
 stim_params(2:4) = NMMcreate_stim_params(length(slags));
 reg_params = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'lambda_L2',lambda_L2,'boundary_conds',[0 0 0]);
 
-X{1} = Xblock;
+X{1} = Xblock; %block ID predictor
 X{2} = Xsac;
 X{3} = Xmsac;
 X{4} = Xsimsac;
@@ -693,17 +674,20 @@ for ss = 1:length(SU_numbers)
     cc_uinds = used_inds(~isnan(all_binned_sua(used_inds,ss)));
     cur_Robs = all_binned_sua(cc_uinds,ss);
     if ~isempty(cc_uinds)
+        
+        %construct model structure based on what kinds of saccades we have
+        %sufficient data for
         mod_signs = [1];
         mod_Xtargs = [1];
-        if sua_data(ss).N_gsacs >= min_sacs
+        if sua_data(ss).N_gsacs >= min_Nsacs %if enough guided sacs
             mod_signs = [mod_signs 1];
             mod_Xtargs = [mod_Xtargs 2];
         end
-        if sua_data(ss).N_msacs >= min_sacs
+        if sua_data(ss).N_msacs >= min_Nsacs %if enough microsacs
             mod_signs = [mod_signs 1];
             mod_Xtargs = [mod_Xtargs 3];
-        end
-        if sua_data(ss).N_simsacs >= min_sacs
+        end 
+        if sua_data(ss).N_simsacs >= min_Nsacs %if enough sim sacs
             mod_signs = [mod_signs 1];
             mod_Xtargs = [mod_Xtargs 4];
         end
@@ -715,37 +699,37 @@ for ss = 1:length(SU_numbers)
         glm = NMMfit_logexp_spkNL( glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
         
         [LL, penLL, pred_rate, G, gint, fgint] = NMMmodel_eval(glm, cur_Robs, get_Xcell_tInds(X,cc_uinds));
-        avg_mod_outs = nanmean(fgint);
-        temp_kerns = [glm.mods(2:end).filtK];
+        avg_mod_outs = nanmean(fgint); %avg output of each subunit
+        temp_kerns = [glm.mods(2:end).filtK]; %these are the saccade kernels
         
         sua_data(ss).glm_ovavg_rate = mean(cur_Robs);
         sua_data(ss).glm_lags = slags;
         sua_data(ss).glm_dt = dt;
-        
+                
         gsac_kern = find(mod_Xtargs(2:end) == 2);
         if ~isempty(gsac_kern)
-%             other_kerns = find(mod_Xtargs ~= 2);
-%             g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns));
-%             exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-%             rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-%             sua_data(ss).glm_gsac_rate = rate_out;
-            
             block_arate = nan(n_blocks,1); 
+            block_reldurs = nan(n_blocks,1);
             block_rate_out = nan(n_blocks,length(slags));
             for bb = 1:n_blocks
                 cur_set = find(all_blockvec(cc_uinds) == bb);
                 cur_set(~ismember(all_trialvec(cc_uinds(cur_set)),non_simsac_trials)) = []; %exclude sim sac trials (important for TBT recs)
                 block_arate(bb) = nanmean(cur_Robs(cur_set));
+                block_reldurs(bb) = length(cur_set);
                 
+                %compute dependence of rate on gsac while holding other
+                %predictors at their avg values
                 other_kerns = find(mod_Xtargs ~= 2 & mod_Xtargs ~= 1);
                 g_out = temp_kerns(:,gsac_kern) + sum(avg_mod_outs(other_kerns)) + glm.mods(1).filtK(bb);
                 exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
                 block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
             end
+            block_reldurs = block_reldurs/nansum(block_reldurs);
+            cur_norm_rate = bsxfun(@rdivide,block_rate_out,block_arate); %normalize within each block
+            sua_data(ss).glm_gsac_rate = nansum(bsxfun(@times,cur_norm_rate,block_reldurs)); %compute weighted avg across blocks
             
-            sua_data(ss).glm_gsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate));
-            
-            trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+%             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+            trig_avg = get_event_trig_avg_v3(all_sua_rate_norm(cc_uinds,ss),find(Xsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_gsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
         else
             sua_data(ss).glm_gsac_rate = nan;
@@ -755,27 +739,26 @@ for ss = 1:length(SU_numbers)
         sua_data(ss).glm_gsac_avgrate = mean(cur_Robs(any_gsac));
         
         msac_kern = find(mod_Xtargs(2:end) == 3);
-        if ~isempty(msac_kern)
-            %             other_kerns = find(mod_Xtargs ~= 3);
-            %             g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns));
-            %             exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-            %             rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-            %             sua_data(ss).glm_msac_rate = rate_out;
-            
+        if ~isempty(msac_kern)            
             block_arate = nan(n_blocks,1);
+            block_reldurs = nan(n_blocks,1);
             block_rate_out = nan(n_blocks,length(slags));
             for bb = 1:n_blocks
                 cur_set = find(all_blockvec(cc_uinds) == bb);
                 block_arate(bb) = nanmean(cur_Robs(cur_set));
+                block_reldurs(bb) = length(cur_set);
                 
                 other_kerns = find(mod_Xtargs ~= 3 & mod_Xtargs ~= 1);
                 g_out = temp_kerns(:,msac_kern) + sum(avg_mod_outs(other_kerns)) + glm.mods(1).filtK(bb);
                 exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
                 block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
             end
-            sua_data(ss).glm_msac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate));
+            block_reldurs = block_reldurs/nansum(block_reldurs);
+            cur_norm_rate = bsxfun(@rdivide,block_rate_out,block_arate); %normalize within each block
+            sua_data(ss).glm_msac_rate = nansum(bsxfun(@times,cur_norm_rate,block_reldurs)); %compute weighted avg across blocks
             
-            trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+%             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+            trig_avg = get_event_trig_avg_v3(all_sua_rate_norm(cc_uinds,ss),find(Xmsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_msac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
         else
             sua_data(ss).glm_msac_rate = nan;
@@ -786,27 +769,26 @@ for ss = 1:length(SU_numbers)
         
         simsac_kern = find(mod_Xtargs(2:end) == 4);
         if ~isempty(simsac_kern)
-            %             other_kerns = find(mod_Xtargs ~= 4);
-            %             g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns));
-            %             exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
-            %             rate_out = glm.spk_NL_params(3)*log(1+exp(exp_g));
-            %             sua_data(ss).glm_simsac_rate = rate_out;
-            
             block_arate = nan(n_blocks,1);
+            block_reldurs = nan(n_blocks,1);
             block_rate_out = nan(n_blocks,length(slags));
             for bb = 1:n_blocks
                 cur_set = find(all_blockvec(cc_uinds) == bb);
                 cur_set(~ismember(all_trialvec(cc_uinds(cur_set)),sim_sac_trials)) = []; %exclude guided sac trials (important for TBT recs)
                 block_arate(bb) = nanmean(cur_Robs(cur_set));
+                block_reldurs(bb) = length(cur_set);
                 
                 other_kerns = find(mod_Xtargs ~= 4 & mod_Xtargs ~= 1);
                 g_out = temp_kerns(:,simsac_kern) + sum(avg_mod_outs(other_kerns)) + glm.mods(1).filtK(bb);
                 exp_g = (g_out + glm.spk_NL_params(1))*glm.spk_NL_params(2);
                 block_rate_out(bb,:) = glm.spk_NL_params(3)*log(1+exp(exp_g));
             end
-            sua_data(ss).glm_simsac_rate = nanmean(bsxfun(@rdivide,block_rate_out,block_arate));
+            block_reldurs = block_reldurs/nansum(block_reldurs);
+            cur_norm_rate = bsxfun(@rdivide,block_rate_out,block_arate); %normalize within each block
+            sua_data(ss).glm_simsac_rate = nansum(bsxfun(@times,cur_norm_rate,block_reldurs)); %compute weighted avg across blocks
             
-            trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+%             trig_avg = get_event_trig_avg_v3(cur_Robs,find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
+            trig_avg = get_event_trig_avg_v3(all_sua_rate_norm(cc_uinds,ss),find(Xsimsac(cc_uinds,slags==0)==1),backlag,forlag,[],all_trialvec(cc_uinds));
             sua_data(ss).tavg_simsac_rate = jmm_smooth_1d_cor(trig_avg,0.01/dt);
         else
             sua_data(ss).glm_simsac_rate = nan;

@@ -32,7 +32,7 @@ silent = 1;
 optim_params.optTol = 1e-5;
 optim_params.progTol = 1e-8;
 optim_params.Method = 'lbfgs';
-optim_params.Display = 'off';
+optim_params.Display = 'iter';
 
 %initialize regularization params
 rp = NMMcreate_reg_params('lambda_d2T',lambda_d2T,'boundary_conds',[0 0 0]);

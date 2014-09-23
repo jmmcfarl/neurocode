@@ -33,19 +33,21 @@ L2_mats = create_L2_matrices_NMM( nim );
 
 if length(poss_d2T) > 1 || length(poss_L2) > 1
     L2_xvLL = nan(length(poss_d2T),length(poss_L2));
+    null_prate = mean(Robs(tr_inds));
+    null_xvLL = sum(Robs(xv_inds).*log(ones(size(xv_inds))*null_prate) - ones(size(xv_inds))*null_prate);
     for ii = 1:length(poss_d2T)
         cur_lambda_d2T = poss_d2T(ii);
         for jj = 1:length(poss_L2)
             cur_lambda_L2 = poss_L2(jj);
             
             fprintf('Fitting pre-model d2T %d/%d, L2 %d/%d\n',ii,length(poss_d2T),jj,length(poss_L2));
-            initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
+%             initial_params = [zeros(n_lags,1); zeros(n_lags,1); stim_mod.spk_NL_params(1)];
+            initial_params = [zeros(n_lags,1); zeros(n_lags,1); 1; stim_mod.spk_NL_params(1)];
             %fit upstream filter and offset filter, given post-gain filter
             [params,mval] = minFunc( @(K) LLinternal_alphas_full(stim_mod, K, Robs(tr_inds), rXmat(tr_inds,:,:), Xsac_mat(tr_inds,:) ...
-                , sac_filt_outs(:,:,tr_inds), L2_mats, cur_lambda_d2T,cur_lambda_L2), initial_params, optim_params);
+                ,sac_filt_outs(:,:,tr_inds), L2_mats, cur_lambda_d2T,cur_lambda_L2), initial_params, optim_params);
             [~,~,L2_xvLL(ii,jj)] = LLinternal_alphas_full(stim_mod, params, Robs(xv_inds), rXmat(xv_inds,:,:),...
                 Xsac_mat(xv_inds,:) , sac_filt_outs(:,:,xv_inds), L2_mats, cur_lambda_d2T,cur_lambda_L2);
-            
         end
     end
     
@@ -53,9 +55,8 @@ if length(poss_d2T) > 1 || length(poss_L2) > 1
     [optloc_x,optloc_y] = ind2sub([length(poss_d2T) length(poss_L2)],optloc);
     opt_d2T = poss_d2T(optloc_x);
     opt_L2 = poss_L2(optloc_y);
-    
 else
-    opt_d2T = poss_d2T; opt_L2 = poss_L2; L2_xvLL = nan;
+    opt_d2T = poss_d2T; opt_L2 = poss_L2; L2_xvLL = nan; null_xvLL = nan;
 end
 
 initial_params = [zeros(n_lags,1); zeros(n_lags,1); 1; stim_mod.spk_NL_params(1)];
@@ -70,18 +71,20 @@ preGainMod.beta = params(end-1);
 preGainMod.stim_mod = stim_mod;
 preGainMod.opt_d2T = opt_d2T;
 preGainMod.opt_L2 = opt_L2;
-preGainMod.fullxvLL = L2_xvLL;
+preGainMod.fullxvLLimp = (L2_xvLL - null_xvLL)/log(2);
 
-[~,~,LL] = LLinternal_alphas_full(stim_mod, params, Robs, rXmat,...
-    Xsac_mat , sac_filt_outs, L2_mats, opt_d2T,opt_L2);
-
-preGainMod.LL = -LL;
+null_prate = mean(Robs);
+nullLL = sum(Robs.*log(ones(size(Robs))*null_prate) - ones(size(Robs))*null_prate);
+[LL,pred_rate] = eval_pre_gainmodel( preGainMod, Robs, Xmat, Xsac_mat);
+preGainMod.ovInfo = mean(pred_rate/mean(pred_rate).*log2(pred_rate/mean(pred_rate)));
+preGainMod.ovLLimp = (LL-nullLL)/log(2);
+preGainMod.nullLL = nullLL;
 
 end
 %%
 function [LL,LLgrad,LLraw] = LLinternal_alphas_full( mod, params, Robs, Xmat, Xsac_mat, sac_filt_outs, L2_mats,lambda,lambda_L2)
 
-%F[ kX{I + gamma(tau)J(tau)} g(tau) + c(tau)]
+%F[ kX{I + gamma(tau)J(tau)} + c(tau)]
 
 NT = length(Robs);
 n_lags = size(Xsac_mat,2);
@@ -129,6 +132,7 @@ end
 
 %add in sac offset term
 G = theta + Gstim*beta + Xsac_mat*params((n_lags+1):(2*n_lags));
+% G = theta + Gstim + Xsac_mat*params((n_lags+1):(2*n_lags));
 %% Compute predicted firing rate
 if strcmp(mod.spk_NL_type,'logexp')
     max_gbeta = 50; %to prevent numerical overflow
@@ -183,13 +187,15 @@ LLgrad(end) = sum(residual);
 LLgrad(end-1) = sum(residual.*Gstim);
 %%
 
-gint = gint*beta; %gain scaling
 for pp = 1:n_lags
     
     for ii = 1:Nmods
         
         if strcmp(mod.mods(ii).NLtype,'lin')
-            LLgrad(pp) = LLgrad(pp) + (residual.*gint(:,ii)* mod.mods(ii).sign)' *squeeze(sac_filt_outs(pp,ii,:));
+%             LLgrad(pp) = LLgrad(pp) + beta*(residual.*gint(:,ii)* mod.mods(ii).sign)' *squeeze(sac_filt_outs(pp,ii,:));
+%             LLgrad(pp) = LLgrad(pp) + (residual.*gint(:,ii)* mod.mods(ii).sign)' *squeeze(sac_filt_outs(pp,ii,:));
+%             LLgrad(pp) = LLgrad(pp) + (residual * mod.mods(ii).sign)' *squeeze(sac_filt_outs(pp,ii,:));
+            LLgrad(pp) = LLgrad(pp) + beta*(residual * mod.mods(ii).sign)' *squeeze(sac_filt_outs(pp,ii,:));
         else
             if strcmp(mod.mods(ii).NLtype,'nonpar')
                 fpg = piececonst_process(gint(:,ii),fprimes{ii}, mod.mods(ii).NLx);
@@ -201,7 +207,9 @@ for pp = 1:n_lags
             else
                 error('Unsupported NL type')
             end
-            LLgrad(pp) = LLgrad(pp) + (fpg.*residual*mod.mods(ii).sign)' * squeeze(sac_filt_outs(pp,ii,:));
+%             LLgrad(pp) = LLgrad(pp) + beta*(fpg.*residual*mod.mods(ii).sign)' * squeeze(sac_filt_outs(pp,ii,:));
+%             LLgrad(pp) = LLgrad(pp) + (fpg.*residual*mod.mods(ii).sign)' * squeeze(sac_filt_outs(pp,ii,:));
+            LLgrad(pp) = LLgrad(pp) + beta*(fpg.*residual*mod.mods(ii).sign)' * squeeze(sac_filt_outs(pp,ii,:));
         end
     end
     
