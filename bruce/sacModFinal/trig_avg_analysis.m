@@ -787,19 +787,29 @@ for ss = 1:length(SU_numbers)
     if nboot > 0
         if sua_data(ss).N_gsacs > 50
             [sua_data(ss).gsac_nullP,sua_data(ss).gsac_nullV] = get_null_peaks(sua_data(ss).N_gsacs,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        else
+            sua_data(ss).gsac_nullP = []; sua_data(ss).gsac_nullV = [];
         end
         if sua_data(ss).N_msacs > 50
             [sua_data(ss).msac_nullP,sua_data(ss).msac_nullV] = get_null_peaks(sua_data(ss).N_msacs,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        else
+            sua_data(ss).msac_nullP = []; sua_data(ss).msac_nullV = [];
         end
         if sua_data(ss).N_simsacs > 50
             [sua_data(ss).simsac_nullP,sua_data(ss).simsac_nullV] = get_null_peaks(sua_data(ss).N_simsacs,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        else
+            sua_data(ss).simsac_nullP = []; sua_data(ss).simsac_nullV = [];
         end
         if sua_data(ss).N_msacs_gray > 50
             [sua_data(ss).msac_gray_nullP,sua_data(ss).msac_gray_nullV] = get_null_peaks(sua_data(ss).N_msacs_gray,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
+        else
+            sua_data(ss).msac_gray_nullP = []; sua_data(ss).msac_gray_nullV = [];
         end
         if sua_data(ss).N_gsacs_gray > 50
             [sua_data(ss).gsac_gray_nullP,sua_data(ss).gsac_gray_nullV] = get_null_peaks(sua_data(ss).N_gsacs_gray,nboot,all_sua_rate_norm(cc_uinds,ss),backlag,forwardlag,peark_search_range,dt);
-        end
+         else
+            sua_data(ss).gsac_gray_nullP = []; sua_data(ss).gsac_gray_nullV = [];
+       end
     end
     
     %dont compute error bars for these...

@@ -1,4 +1,4 @@
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -6,10 +6,10 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% % Expt_name = 'M297';
-% Expt_name = 'G086';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'M297';
+Expt_name = 'M297';
+use_MUA = false;
+bar_ori = 90; %bar orientation to use (only for UA recs)
 
 fit_unCor = false;
 include_bursts = 0;
