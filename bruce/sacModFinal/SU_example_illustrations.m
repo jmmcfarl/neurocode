@@ -11,7 +11,7 @@ include_bursts = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
-base_sname = 'sacStimProcFin';
+base_sname = 'sacStimProcFinR';
 base_yname = 'sacTypeDep';
 
 if include_bursts
@@ -153,7 +153,7 @@ caxis([-cam cam]);
 cid = sprintf('E%d_C%d_',Expt_num,cc);
 set(gca,'ydir','normal');
 xlim(xl);
-line(xl,t_ax([sta_peakloc sta_peakloc]),'color','k');
+line(xl,lag_ax([sta_peakloc sta_peakloc]),'color','k');
 
 
 %% MAIN TB FIGURES
@@ -161,15 +161,15 @@ close all
 sac_xr = [-0.1 0.3];
 gr = [-2 3];
 
-Gtick = sacStimProc.gsac_TB_gX;
-Xtick = sacStimProc.gsac_TB_lagX*dt;
-[mmm,TBmmmloc] = minmax(sacStimProc.gsac_TB_avg_rate);
+Gtick = sacStimProc.gsac_TBmod.Gtick;
+Xtick = sacStimProc.gsac_TBmod.lagX*dt;
+[mmm,TBmmmloc] = minmax(sacStimProc.gsac_TBmod.sac_rate);
 
 %PLOT TB RATE MAP
 f1 = figure();
-imagesc(Xtick,Gtick,sacStimProc.gsac_TB_rate); 
+imagesc(Xtick,Gtick,sacStimProc.gsac_TBmod.TB_rate); 
 set(gca,'ydir','normal'); 
-caxis([0 max(sacStimProc.gsac_TB_rate(:))]*0.4);
+caxis([0 max(sacStimProc.gsac_TBmod.TB_rate(:))]*0.4);
 yl = ylim();
 ylim(gr); yl = gr;
 line(Xtick(TBmmmloc([1 1])),yl,'color','w');
@@ -180,9 +180,8 @@ ylabel('Generating signal');
 
 %PLOT TB MARGINAL FIRING RATE
 f2 = figure();
-plot(Xtick,sacStimProc.gsac_TB_avg_rate/dt);
+plot(Xtick,sacStimProc.gsac_TBmod.sac_rate/dt);
 hold on; axis tight
-% plot(tlags,trig_avg.gsac_avg*trig_avg.avg_rates/trig_avg_params.dt,'r');
 yl = ylim();
 line(Xtick(TBmmmloc([1 1])),yl,'color','k','linestyle','--');
 line(Xtick(TBmmmloc([2 2])),yl,'color','k','linestyle','--');
@@ -192,12 +191,12 @@ xlabel('Time (s)');
 ylabel('Firing rate (Hz)');
 
 %PLOT TB RATEFUN SLICES
-base_out = sacStimProc.gsac_TB_grate;
-cur_gdistY = sacStimProc.gsac_equi_space_gdist;
-cur_gdistX = sacStimProc.gsac_equi_space_gX;
+base_out = sacStimProc.gsac_TBmod.marg_grate;
+cur_gdistY = sacStimProc.gsac_TBmod.equi_gdist;
+cur_gdistX = sacStimProc.gsac_TBmod.equi_gX;
 f3 = figure(); hold on
-plot(Gtick,sacStimProc.gsac_TB_rate(:,TBmmmloc(1))/dt,'g');
-plot(Gtick,sacStimProc.gsac_TB_rate(:,TBmmmloc(2))/dt,'r');
+plot(Gtick,sacStimProc.gsac_TBmod.TB_rate(:,TBmmmloc(1))/dt,'g');
+plot(Gtick,sacStimProc.gsac_TBmod.TB_rate(:,TBmmmloc(2))/dt,'r');
 plot(Gtick,base_out/dt,'k','linewidth',2);
 xlim(gr);
 yl = ylim();
@@ -213,7 +212,7 @@ ylabel('Firing rate (Hz)');
 
 %TB RESPONSE OFFSETs
 f4 = figure();
-plot(Xtick,sacStimProc.gsac_TB_offset/dt);
+plot(Xtick,sacStimProc.gsac_TBmod.sac_offset/dt);
 xlim(sac_xr)
 yl = ylim();
 line(Xtick(TBmmmloc([1 1])),yl,'color','g');
@@ -223,7 +222,7 @@ ylabel('Offset (Hz)');
 
 %TB RESPONSE GAINS
 f5 = figure();
-plot(Xtick,sacStimProc.gsac_TB_gain,'r');
+plot(Xtick,sacStimProc.gsac_TBmod.sac_gain,'r');
 xlim(sac_xr)
 yl = ylim();
 line(Xtick(TBmmmloc([1 1])),yl,'color','g');
@@ -232,10 +231,10 @@ xlabel('Time (s)');
 ylabel('Gain');
 
 %% PLOT TB INFO AND INFO RATE
-TB_info_rate = sacStimProc.gsac_TB_modinfo.*sacStimProc.gsac_avg_rate/dt;
-avg_info = sacStimProc.gsac_ov_TB_info;
+TB_info_rate = sacStimProc.gsac_TBmod.sac_modinfo.*sacStimProc.gsac_avg_rate/dt;
+avg_info = sacStimProc.gsac_TBmod.ovInfo;
 f1 = figure();
-plot(slags*dt,sacStimProc.gsac_TB_modinfo);
+plot(slags*dt,sacStimProc.gsac_TBmod.sac_modinfo);
 xlim(sac_xr)
 line(sac_xr,[0 0] + avg_info,'color','k');
 xlabel('Time (s)');
@@ -245,13 +244,14 @@ f2 = figure();
 plot(slags*dt,TB_info_rate,'k');
 xlim(sac_xr)
 set(gca,'YaxisLocation','right');
+line(sac_xr,[0 0] + avg_info*sacStimProc.gsac_ovavg_rate/dt,'color','k');
 xlabel('Time (s)');
 ylabel('SSI (bits/sec)');
 
 %% GO MODEL
 % INTERNAL OFFSET
 f1 = figure();
-plot(slags*dt,sacStimProc.gsac_post_singmod.mods(2).filtK)
+plot(slags*dt,sacStimProc.gsac_post_mod.mods(2).filtK)
 xlim(sac_xr)
 yl = ylim(); ya = max(abs(yl)); ylim([-ya ya]);
 xlabel('Time (s)');
@@ -259,7 +259,7 @@ ylabel('Offset');
 
 %GO MODEL INTERNAL GAIN
 f2 = figure();
-plot(slags*dt,sacStimProc.gsac_post_singmod.mods(3).filtK,'r');
+plot(slags*dt,sacStimProc.gsac_post_mod.mods(3).filtK,'r');
 xlim(sac_xr)
 yl = ylim(); ya = max(abs(yl)); ylim([-ya ya]);
 xlabel('Time (s)');
@@ -268,16 +268,16 @@ set(gca,'YaxisLocation','right');
 
 %GO MODEL RESPONSE OFFSET
 f3 = figure(); hold on
-plot(slags*dt,sacStimProc.gsac_spost_offset/dt)
-plot(Xtick,sacStimProc.gsac_TB_offset/dt,'r')
+plot(slags*dt,sacStimProc.gsac_post_mod.sac_offset/dt)
+plot(Xtick,sacStimProc.gsac_TBmod.sac_offset/dt,'r')
 xlim(sac_xr)
 xlabel('Time (s)');
 ylabel('Offset');
 
 %GO MODEL RESPONSE GAIN
 f4 = figure(); hold on
-plot(slags*dt,sacStimProc.gsac_spost_gain)
-plot(Xtick,sacStimProc.gsac_TB_gain,'r')
+plot(slags*dt,sacStimProc.gsac_post_mod.sac_gain)
+plot(Xtick,sacStimProc.gsac_TBmod.sac_gain,'r')
 xlim(sac_xr)
 xlabel('Time (s)');
 ylabel('Gain');

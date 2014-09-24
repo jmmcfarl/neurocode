@@ -41,7 +41,7 @@ udata_xv = find(ismember(TB_used_data,xv_inds));
 
 TB_xvLL = nan(1,length(poss_d2T));
 null_prate = mean(Robs(udata_tr));
-null_xvLL = sum(Robs(udata_xv).*log(ones(size(udata_xv))*null_prate) - ones(size(udata_xv))*null_prate);
+null_xvLL = sum(Robs(udata_xv).*log(ones(size(udata_xv))*null_prate) - ones(size(udata_xv))*null_prate)/sum(Robs(udata_xv));
 for ll = 1:length(poss_d2T)
     fprintf('Fitting TB gsac model lambda %d/%d\n',ll,length(poss_d2T));
     cur_sac_lambda = poss_d2T(ll);

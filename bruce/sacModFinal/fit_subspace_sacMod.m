@@ -22,7 +22,7 @@ offset_L2 = post_sacMod.opt_L2;
 %cycle over a range of possible d2T reg lambdas
 subspace_xvLL = nan(length(poss_d2T),1);
 null_prate = mean(Robs(tr_inds));
-null_xvLL = sum(Robs(xv_inds).*log(ones(size(xv_inds))*null_prate) - ones(size(xv_inds))*null_prate);
+null_xvLL = sum(Robs(xv_inds).*log(ones(size(xv_inds))*null_prate) - ones(size(xv_inds))*null_prate)/sum(Robs(xv_inds));
 
 clear all_sub_mods
 for jj = 1:length(poss_d2T)

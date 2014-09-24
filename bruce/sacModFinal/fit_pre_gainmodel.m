@@ -34,7 +34,7 @@ L2_mats = create_L2_matrices_NMM( nim );
 if length(poss_d2T) > 1 || length(poss_L2) > 1
     L2_xvLL = nan(length(poss_d2T),length(poss_L2));
     null_prate = mean(Robs(tr_inds));
-    null_xvLL = sum(Robs(xv_inds).*log(ones(size(xv_inds))*null_prate) - ones(size(xv_inds))*null_prate);
+    null_xvLL = sum(Robs(xv_inds).*log(ones(size(xv_inds))*null_prate) - ones(size(xv_inds))*null_prate)/sum(Robs(xv_inds));
     for ii = 1:length(poss_d2T)
         cur_lambda_d2T = poss_d2T(ii);
         for jj = 1:length(poss_L2)
