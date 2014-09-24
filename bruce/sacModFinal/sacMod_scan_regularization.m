@@ -34,7 +34,7 @@ if length(poss_d2T) > 1 || length(poss_L2) > 1
             cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
             cur_mod.spk_NL_params = base_mod.spk_NL_params;
             cur_mod = NMMadjust_regularization(cur_mod,[2 3],'lambda_d2T',[0 0] + poss_d2T(jj),'lambda_L2',[0 0] + poss_L2(ii));
-            cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],tr_inds,1,[],[],[]);
+            cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],tr_inds,1,[],[],[2 3]);
             xvLLs(jj,ii) = NMMmodel_eval(cur_mod,Robs(xv_inds),get_Xcell_tInds(tr_stim,xv_inds));
         end
     end
@@ -54,7 +54,7 @@ sacMod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,X
 sacMod.mods(1).filtK(:) = 1; %set base gains to 1
 sacMod.spk_NL_params = base_mod.spk_NL_params;
 sacMod = NMMadjust_regularization(sacMod,[2 3],'lambda_d2T',[0 0] + opt_d2T,'lambda_L2',[0 0] + opt_L2);
-sacMod = NMMfit_filters(sacMod,Robs,tr_stim,[],all_inds,1,[],[],[]);
+sacMod = NMMfit_filters(sacMod,Robs,tr_stim,[],all_inds,1,[],[],[2 3]);
 sacMod = NMMfit_logexp_spkNL(sacMod,Robs,tr_stim,[],all_inds);
 
 %%
