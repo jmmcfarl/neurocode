@@ -9,14 +9,14 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% % Expt_name = 'M297';
-% Expt_name = 'G087';
+% % % Expt_name = 'M297';
+% Expt_name = 'M296';
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
-% 
+
 
 fit_unCor = false;
-fit_subMod = true;
+fit_subMod = false;
 fitUpstream = true;
 fitSTA = true;
 fitMsacs = true;
@@ -1053,26 +1053,47 @@ for cc = targs
             
             %% COMPUTE SAC-CONDITIONAL STAS
             if fitSTA
+                n_sta_boots = 100;
                 fprintf('Estimating sac-dep STAs\n');
+                sta_nspks = nan(length(slags),1);
                 lag_dep_sta = nan(length(slags),use_nPix_us*flen);
                 lag_dep_asta = nan(length(slags),use_nPix_us*flen);
+                rand_stas = nan(n_sta_boots,length(slags),use_nPix_us*flen);
+                rand_astas = nan(n_sta_boots,length(slags),use_nPix_us*flen);
                 for ii = 1:length(slags)
-                    temp = find(cur_Xsac(:,ii) == 1);
-                    cur_sta = sum(bsxfun(@times,all_Xmat_shift(temp,:),cur_Robs(temp)))/sum(cur_Robs(temp));
-                    base_a = mean(all_Xmat_shift(temp,:));
-                    lag_dep_sta(ii,:) = cur_sta-base_a;
                     
-                    cur_sta = sum(bsxfun(@times,abs(all_Xmat_shift(temp,:)),cur_Robs(temp)))/sum(cur_Robs(temp));
-                    base_a = mean(abs(all_Xmat_shift(temp,:)));
+                    temp = find(cur_Xsac(:,ii) == 1);
+                    cur_spks = cur_Robs(temp);
+                    cur_spkbns = convert_to_spikebins(cur_Robs(temp));
+                    sta_nspks(ii) = sum(cur_spks);
+                    cur_stim = all_Xmat_shift(temp,:);
+                    cur_sta = mean(cur_stim(cur_spkbns,:));
+                    base = mean(cur_stim);
+                    lag_dep_sta(ii,:) = cur_sta-base;
+                    
+                    cur_astim = abs(all_Xmat_shift(temp,:));
+                    cur_sta = mean(cur_stim(cur_spkbns,:));
+                    base_a = mean(cur_stim);
                     lag_dep_asta(ii,:) = cur_sta-base_a;
+                    
+                    for jj = 1:n_sta_boots
+                        rand_spks = convert_to_spikebins(cur_spks(randperm(length(temp))));
+                        rand_stas(jj,ii,:) = mean(cur_stim(rand_spks,:))-base;
+                        rand_astas(jj,ii,:) = mean(cur_astim(rand_spks,:))-base_a;
+                    end
+                    
                 end
+                sacStimProc(cc).gsac_phaseDep_sta_nullMean = reshape(squeeze(mean(rand_stas)),length(slags),flen,use_nPix_us);
+                sacStimProc(cc).gsac_phaseDep_sta_nullStd = reshape(squeeze(std(rand_stas)),length(slags),flen,use_nPix_us);
+                sacStimProc(cc).gsac_phaseInd_sta_nullMean = reshape(squeeze(mean(rand_astas)),length(slags),flen,use_nPix_us);
+                sacStimProc(cc).gsac_phaseInd_sta_nullStd = reshape(squeeze(std(rand_astas)),length(slags),flen,use_nPix_us);
                 sacStimProc(cc).gsac_phaseDep_sta = reshape(lag_dep_sta,length(slags),flen, use_nPix_us);
                 sacStimProc(cc).gsac_phaseInd_sta = reshape(lag_dep_asta,length(slags),flen,use_nPix_us);
                 
                 sacStimProc(cc).ov_phaseDep_sta = reshape(sum(bsxfun(@times,all_Xmat_shift,cur_Robs))/sum(cur_Robs)-mean(all_Xmat_shift),flen,[]);
                 sacStimProc(cc).ov_phaseInd_sta = reshape(sum(bsxfun(@times,abs(all_Xmat_shift),cur_Robs))/sum(cur_Robs)-mean(abs(all_Xmat_shift)),flen,[]);
+                sacStimProc(cc).gsac_nspks = sta_nspks;
             end
-            
             
         end
         %% FOR MSACS
@@ -1174,26 +1195,26 @@ for cc = targs
                 end
                 
                 %% COMPUTE SAC-CONDITIONAL STAS
-                if fitSTA
-                    fprintf('Estimating sac-dep STAs\n');
-                    lag_dep_sta = nan(length(slags),use_nPix_us*flen);
-                    lag_dep_asta = nan(length(slags),use_nPix_us*flen);
-                    for ii = 1:length(slags)
-                        temp = find(cur_Xsac(:,ii) == 1);
-                        cur_sta = sum(bsxfun(@times,all_Xmat_shift(temp,:),cur_Robs(temp)))/sum(cur_Robs(temp));
-                        base_a = mean(all_Xmat_shift(temp,:));
-                        lag_dep_sta(ii,:) = cur_sta-base_a;
-                        
-                        cur_sta = sum(bsxfun(@times,abs(all_Xmat_shift(temp,:)),cur_Robs(temp)))/sum(cur_Robs(temp));
-                        base_a = mean(abs(all_Xmat_shift(temp,:)));
-                        lag_dep_asta(ii,:) = cur_sta-base_a;
-                    end
-                    sacStimProc(cc).msac_phaseDep_sta = reshape(lag_dep_sta,length(slags),flen, use_nPix_us);
-                    sacStimProc(cc).msac_phaseInd_sta = reshape(lag_dep_asta,length(slags),flen,use_nPix_us);
-                    
-                    sacStimProc(cc).ov_phaseDep_sta = reshape(sum(bsxfun(@times,all_Xmat_shift,cur_Robs))/sum(cur_Robs)-mean(all_Xmat_shift),flen,[]);
-                    sacStimProc(cc).ov_phaseInd_sta = reshape(sum(bsxfun(@times,abs(all_Xmat_shift),cur_Robs))/sum(cur_Robs)-mean(abs(all_Xmat_shift)),flen,[]);
-                end
+%                 if fitSTA
+%                     fprintf('Estimating sac-dep STAs\n');
+%                     lag_dep_sta = nan(length(slags),use_nPix_us*flen);
+%                     lag_dep_asta = nan(length(slags),use_nPix_us*flen);
+%                     for ii = 1:length(slags)
+%                         temp = find(cur_Xsac(:,ii) == 1);
+%                         cur_sta = sum(bsxfun(@times,all_Xmat_shift(temp,:),cur_Robs(temp)))/sum(cur_Robs(temp));
+%                         base_a = mean(all_Xmat_shift(temp,:));
+%                         lag_dep_sta(ii,:) = cur_sta-base_a;
+%                         
+%                         cur_sta = sum(bsxfun(@times,abs(all_Xmat_shift(temp,:)),cur_Robs(temp)))/sum(cur_Robs(temp));
+%                         base_a = mean(abs(all_Xmat_shift(temp,:)));
+%                         lag_dep_asta(ii,:) = cur_sta-base_a;
+%                     end
+%                     sacStimProc(cc).msac_phaseDep_sta = reshape(lag_dep_sta,length(slags),flen, use_nPix_us);
+%                     sacStimProc(cc).msac_phaseInd_sta = reshape(lag_dep_asta,length(slags),flen,use_nPix_us);
+%                     
+%                     sacStimProc(cc).ov_phaseDep_sta = reshape(sum(bsxfun(@times,all_Xmat_shift,cur_Robs))/sum(cur_Robs)-mean(all_Xmat_shift),flen,[]);
+%                     sacStimProc(cc).ov_phaseInd_sta = reshape(sum(bsxfun(@times,abs(all_Xmat_shift),cur_Robs))/sum(cur_Robs)-mean(abs(all_Xmat_shift)),flen,[]);
+%                 end
                 
             end
         end

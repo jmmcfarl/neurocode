@@ -285,7 +285,7 @@ ylabel('Gain');
 %% PRE POST GAIN COMPARISON
 cur_xr = [-0.05 0.2];
 f1 = figure();
-plot(slags*dt,sacStimProc.gsac_post_singmod.mods(3).filtK);
+plot(slags*dt,sacStimProc.gsac_post_mod.mods(3).filtK);
 hold on
 plot(slags*dt,sacStimProc.gsacPreGainMod.stim_kernel,'k');
 xlim(cur_xr)
@@ -297,7 +297,12 @@ stim_mod = sacStimProc.ModData.rectGQM;
 rel_weights = stim_mod.rel_filt_weights;
 [all_tkerns,avg_Ekern,avg_Ikern] = get_hilbert_tempkerns(stim_mod);
 nmods = size(all_tkerns,2);
-fpost_gains = reshape([sacStimProc.gsac_post_Fmod.mods(3).filtK],length(slags),nmods);
+fpost_gains = reshape([sacStimProc.gsac_post_Fullmod.mods(3).filtK],length(slags),nmods);
 fpost_gains(:,rel_weights == 0) = [];
+
+%%
+subMod = sacStimProc.gsac_subMod;
+modFilts = [subMod.mods(2:end).filtK];
+
 
 
