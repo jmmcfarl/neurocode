@@ -569,6 +569,9 @@ GO_gain = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod.sac_gain',all_SU_da
 GO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_post_mod.ovInfo,all_SU_data(cur_SUs));
 GO_NSSI = bsxfun(@rdivide,GO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
+GO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
+GO_ovLL = arrayfun(@(x) x.sacStimProc.gsac_post_mod.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
+GO_NLL = bsxfun(@rdivide,GO_LL,GO_ovLL); %normalize TB SSI by overall model info
 
 all_msac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.msac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 msac_ov_rates = arrayfun(@(x) x.sacStimProc.msac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
@@ -578,6 +581,9 @@ mGO_gain = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod.sac_gain',all_SU_d
 mGO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 mGO_ovinfos = arrayfun(@(x) x.sacStimProc.msac_post_mod.ovInfo,all_SU_data(cur_SUs));
 mGO_NSSI = bsxfun(@rdivide,mGO_SSI,mGO_ovinfos); %normalize GO SSI by overall model info
+mGO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
+mGO_ovLL = arrayfun(@(x) x.sacStimProc.msac_post_mod.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
+mGO_NLL = bsxfun(@rdivide,mGO_LL,mGO_ovLL); %normalize TB SSI by overall model info
 
 search_range = [0 0.35];
 [gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
@@ -603,6 +609,17 @@ xl = [-0.1 0.3];
 f3 = figure();hold on
 h1=shadedErrorBar(slags*dt,nanmean(GO_NSSI),nanstd(GO_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
 h2=shadedErrorBar(slags*dt,nanmean(mGO_NSSI),nanstd(mGO_NSSI)/sqrt(length(cur_SUs)),{'color','r'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Relative SSI');
+
+%COMPARE LL
+xl = [-0.1 0.3];
+f3 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(GO_NLL),nanstd(GO_NLL)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(slags*dt,nanmean(mGO_NLL),nanstd(mGO_NLL)/sqrt(length(cur_SUs)),{'color','r'});
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
