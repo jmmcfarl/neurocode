@@ -1134,6 +1134,7 @@ for cc = targs
 %                     (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
                  [sacStimProc(cc).msac_post_mod,msac_post_pred_rate] = sacMod_scan_doubleregularization...
                     (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+                opt_offset_d2T = sacStimProc(cc).msac_post_mod.opt_d2T_off;
                
                 %% FIT UPSTREAM STIM-MODULATION
                 if fitUpstream
@@ -1141,7 +1142,8 @@ for cc = targs
                     Xsac_mat = cur_Xsac(any_sac_inds,:);
                     cur_tr_inds = find(ismember(any_sac_inds,tr_sac_inds));
                     cur_xv_inds = find(ismember(any_sac_inds,xv_sac_inds));
-                    [sacStimProc(cc).msacPreGainMod] = fit_pre_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,poss_pre_d2T,opt_L2,cur_tr_inds,cur_xv_inds);
+%                     [sacStimProc(cc).msacPreGainMod] = fit_pre_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,poss_pre_d2T,opt_L2,cur_tr_inds,cur_xv_inds);
+                    [sacStimProc(cc).msacPreGainMod] = fit_pre_gainmodel_doublereg(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_offset_d2T,poss_pre_d2T,cur_tr_inds,cur_xv_inds);
                     
                     [~,pre_pred_rate] = eval_pre_gainmodel(sacStimProc(cc).msacPreGainMod, cur_Robs, all_Xmat_shift, cur_Xsac);
                 end
