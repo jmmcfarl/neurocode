@@ -8,7 +8,7 @@ include_bursts = 0;
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
 base_sname = 'sacStimProcFinR';
-base_yname = 'sacTypeDep';
+base_yname = 'sacTypeDepR';
 
 if include_bursts
     base_tname = strcat(base_tname,'_withbursts');
@@ -184,6 +184,9 @@ N_gsacs = arrayfun(@(x) x.trig_avg.N_gsacs,all_SU_data);
 N_msacs = arrayfun(@(x) x.trig_avg.N_msacs,all_SU_data);
 N_gsacs_gray = arrayfun(@(x) x.trig_avg.N_gsacs_gray,all_SU_data);
 N_msacs_gray = arrayfun(@(x) x.trig_avg.N_msacs_gray,all_SU_data);
+N_gsacs_im = arrayfun(@(x) x.trig_avg.N_gsacs_im,all_SU_data);
+N_msacs_im = arrayfun(@(x) x.trig_avg.N_msacs_im,all_SU_data);
+N_simsacs = arrayfun(@(x) x.trig_avg.N_simsacs,all_SU_data);
 
 %% GRAY-BACKGROUND SACCADE TRIGGERED AVERAGES
 cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= min_TA_Nsacs);
@@ -648,48 +651,42 @@ ylabel('Relative SSI');
 % xlabel('Time (s)');
 % ylabel('Gain');
 
-%%
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs);
+%% COMPARE GRAY AND IMAGE BACKGROUNDS
+cur_min_Nsacs = 500;
+cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= cur_min_Nsacs & N_gsacs_im >= cur_min_Nsacs);
+% cur_SUs = cur_SUs(ismember(cur_SUs,jbe_SUs));
 
-all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
-gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
-GO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
-GO_ovinfos = arrayfun(@(x) x.sacStimProc.gsacPreGainMod.ovInfo,all_SU_data(cur_SUs));
-GO_NSSI = bsxfun(@rdivide,GO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
+all_gsac_gr_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_gr_ov_rates = arrayfun(@(x) x.type_dep.gsac_GR_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
+GO_gr_SSI = cell2mat(arrayfun(@(x) x.type_dep.gsacGR_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
+GO_gr_ovinfos = arrayfun(@(x) x.type_dep.gsacGR_mod.ovInfo,all_SU_data(cur_SUs));
+GO_gr_NSSI = bsxfun(@rdivide,GO_gr_SSI,GO_gr_ovinfos); %normalize GO SSI by overall model info
 
-all_msac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.msac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
-msac_ov_rates = arrayfun(@(x) x.sacStimProc.msac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
-mGO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.msacPreGainMod.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
-mGO_ovinfos = arrayfun(@(x) x.sacStimProc.msacPreGainMod.ovInfo,all_SU_data(cur_SUs));
-mGO_NSSI = bsxfun(@rdivide,mGO_SSI,mGO_ovinfos); %normalize GO SSI by overall model info
+all_gsac_im_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_im_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_im_ov_rates = arrayfun(@(x) x.type_dep.gsac_IM_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
+GO_im_SSI = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
+GO_im_ovinfos = arrayfun(@(x) x.type_dep.gsacIM_mod.ovInfo,all_SU_data(cur_SUs));
+GO_im_NSSI = bsxfun(@rdivide,GO_im_SSI,GO_im_ovinfos); %normalize GO SSI by overall model info
 
-search_range = [0 0.35];
-[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
-[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
-[msac_Ifact,msac_inhtime] = get_tavg_peaks(-(all_msac_tavg-1),tlags,search_range);
-[msac_Efact,msac_exctime] = get_tavg_peaks(all_msac_tavg-1,tlags,search_range);
-
-close all
-%COMPARE RATES
+%COMPARE LL
 xl = [-0.1 0.3];
 f3 = figure();hold on
-h1=shadedErrorBar(tlags,nanmean(all_gsac_tavg),nanstd(all_gsac_tavg)/sqrt(length(cur_SUs)),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(all_msac_tavg),nanstd(all_msac_tavg)/sqrt(length(cur_SUs)),{'color','r'});
+h1=shadedErrorBar(tlags,nanmean(all_gsac_gr_tavg),nanstd(all_gsac_gr_tavg)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(tlags,nanmean(all_gsac_im_tavg),nanstd(all_gsac_im_tavg)/sqrt(length(cur_SUs)),{'color','r'});
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
-ylim([0.7 1.25])
 
-%COMPARE SSI
+%COMPARE LL
 xl = [-0.1 0.3];
 f3 = figure();hold on
-h1=shadedErrorBar(slags*dt,nanmean(GO_NSSI),nanstd(GO_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
-h2=shadedErrorBar(slags*dt,nanmean(mGO_NSSI),nanstd(mGO_NSSI)/sqrt(length(cur_SUs)),{'color','r'});
+h1=shadedErrorBar(slags*dt,nanmean(GO_gr_NSSI),nanstd(GO_gr_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(slags*dt,nanmean(GO_im_NSSI),nanstd(GO_im_NSSI)/sqrt(length(cur_SUs)),{'color','r'});
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
-ylabel('Relative SSI');
+ylabel('Relative rate');
 

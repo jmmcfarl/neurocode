@@ -1,4 +1,4 @@
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -6,15 +6,15 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M297';
-Expt_name = 'M297';
-use_MUA = false;
-bar_ori = 90; %bar orientation to use (only for UA recs)
+% % Expt_name = 'M297';
+% Expt_name = 'G086';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 fit_unCor = false;
 include_bursts = 0;
 
-sname = 'sacTypeDep';
+sname = 'sacTypeDepR';
 if include_bursts
     sname = [sname '_withbursts'];
 end
@@ -23,7 +23,8 @@ mod_data_name = 'corrected_models2';
 
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for post-gain models
-poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
+% poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
+poss_gain_L2 = [0]; %range of L2 reg values 
 poss_TB_lambdas = logspace(log10(0.1),log10(500),8); %range of d2T reg values for TB models
 
 dt = 0.01;
@@ -933,8 +934,10 @@ for cc = targs
             norm_stimG = zscore(stimG);
 
             %single post-gain filter with offset
-            [sacTypeDep(cc).gsacIM_mod,gsacIM_pred_rate] = sacMod_scan_regularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+%             [sacTypeDep(cc).gsacIM_mod,gsacIM_pred_rate] = sacMod_scan_regularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+            [sacTypeDep(cc).gsacIM_mod,gsacIM_pred_rate] = sacMod_scan_doubleregularization...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
             gsacIM_pred_rate = gsacIM_pred_rate(any_sac_inds);
             
             [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
@@ -985,8 +988,10 @@ for cc = targs
 
             %% FIT POST-INTEGRATION GAIN
             %single post-gain filter with offset
-            [sacTypeDep(cc).gsacGR_mod,gsacGR_pred_rate] = sacMod_scan_regularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+%             [sacTypeDep(cc).gsacGR_mod,gsacGR_pred_rate] = sacMod_scan_regularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+            [sacTypeDep(cc).gsacGR_mod2,gsacGR_pred_rate] = sacMod_scan_doubleregularization...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
             gsacGR_pred_rate = gsacGR_pred_rate(any_sac_inds);
             
             [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
@@ -1035,7 +1040,9 @@ for cc = targs
             
             %% FIT POST-INTEGRATION GAIN
             %single post-gain filter with offset
-            [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_regularization...
+%             [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_regularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+            [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_doubleregularization...
                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
             simsac_pred_rate = simsac_pred_rate(any_sac_inds);
             

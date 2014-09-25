@@ -9,8 +9,7 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% % % % % Expt_name = 'M297';
-% Expt_name = 'G093';
+% Expt_name = 'G087';
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -851,8 +850,11 @@ for cc = targs
             %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
             
             %single post-gain filter with offset
-            [sacStimProc(cc).gsac_post_mod,gsac_post_pred_rate] = sacMod_scan_regularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+%             [sacStimProc(cc).gsac_post_mod,gsac_post_pred_rate] = sacMod_scan_regularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+            [sacStimProc(cc).gsac_post_mod,gsac_post_pred_rate] = sacMod_scan_doubleregularization...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
+            opt_offset_d2T = sacStimProc(cc).gsac_post_mod.opt_d2T_off;
             
             %separate E and I post-gain filters
             g_exc = sum(fgint(:,stim_mod_signs==1),2);
@@ -860,23 +862,29 @@ for cc = targs
             [EI_xc,xc_lags] = xcov(g_exc,g_inh,flen,'coeff');
             sacStimProc(cc).EI_xc = EI_xc;
             sacStimProc(cc).EI_xc_lags = xc_lags;
-            [sacStimProc(cc).gsac_post_EImod,gsac_EI_pred_rate] = sacMod_scan_regularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,[g_exc g_inh],tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+%             [sacStimProc(cc).gsac_post_EImod,gsac_EI_pred_rate] = sacMod_scan_regularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,[g_exc g_inh],tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+            [sacStimProc(cc).gsac_post_EImod,gsac_EI_pred_rate] = sacMod_scan_doubleregularization...
+                (cur_rGQM,cur_Robs,cur_Xsac,[g_exc g_inh],tr_sac_inds,xv_sac_inds,opt_offset_d2T,poss_gain_L2);
             sacStimProc(cc).gsac_post_Egain = sacStimProc(cc).gsac_post_EImod.mods(3).filtK(1:length(slags));
             sacStimProc(cc).gsac_post_Igain = sacStimProc(cc).gsac_post_EImod.mods(3).filtK((length(slags)+1):end);
             
             %separate post-gain filters for all subunits
-            [sacStimProc(cc).gsac_post_Fullmod,gsac_Full_pred_rate] = sacMod_scan_regularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,fgint,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+%             [sacStimProc(cc).gsac_post_Fullmod,gsac_Full_pred_rate] = sacMod_scan_regularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,fgint,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+            [sacStimProc(cc).gsac_post_Fullmod,gsac_Full_pred_rate] = sacMod_scan_doubleregularization...
+                (cur_rGQM,cur_Robs,cur_Xsac,fgint,tr_sac_inds,xv_sac_inds,opt_offset_d2T,poss_gain_L2);
             
             %% FIT UPSTREAM STIM-MODULATION
             if fitUpstream
                 fprintf('Fitting upstream saccade kernel\n');
-                opt_L2 = sacStimProc(cc).gsac_post_mod.opt_L2;
+%                 opt_L2 = sacStimProc(cc).gsac_post_mod.opt_L2;
                 Xsac_mat = cur_Xsac(any_sac_inds,:);
                 cur_tr_inds = find(ismember(any_sac_inds,tr_sac_inds));
                 cur_xv_inds = find(ismember(any_sac_inds,xv_sac_inds));
-                [sacStimProc(cc).gsacPreGainMod] = fit_pre_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,poss_pre_d2T,opt_L2,cur_tr_inds,cur_xv_inds);
+%                 [sacStimProc(cc).gsacPreGainMod] = fit_pre_gainmodel(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,poss_pre_d2T,opt_L2,cur_tr_inds,cur_xv_inds);
+                [sacStimProc(cc).gsacPreGainMod] = fit_pre_gainmodel_doublereg...
+                    (cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:),Xsac_mat,opt_offset_d2T,poss_pre_d2T,cur_tr_inds,cur_xv_inds);
                 
                 [~,pre_pred_rate] = eval_pre_gainmodel(sacStimProc(cc).gsacPreGainMod, cur_Robs, all_Xmat_shift, cur_Xsac);
             end
@@ -1122,9 +1130,11 @@ for cc = targs
                 
                 %% FIT POST-INTEGRATION GAIN
                 %single post-gain filter with offset
-                [sacStimProc(cc).msac_post_mod,msac_post_pred_rate] = sacMod_scan_regularization...
+%                 [sacStimProc(cc).msac_post_mod,msac_post_pred_rate] = sacMod_scan_regularization...
+%                     (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+                 [sacStimProc(cc).msac_post_mod,msac_post_pred_rate] = sacMod_scan_doubleregularization...
                     (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
-                
+               
                 %% FIT UPSTREAM STIM-MODULATION
                 if fitUpstream
                     fprintf('Fitting upstream saccade kernel\n');
