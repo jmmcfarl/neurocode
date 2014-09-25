@@ -9,8 +9,8 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% % % Expt_name = 'M297';
-% Expt_name = 'M296';
+% % % % % Expt_name = 'M297';
+% Expt_name = 'G093';
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -25,7 +25,7 @@ fitFullPostMod = true;
 
 include_bursts = 0;
 
-sname = 'sacStimProcFinR';
+sname = 'sacStimProcFinR2';
 if include_bursts
     sname = [sname '_withbursts'];
 end
@@ -34,7 +34,8 @@ mod_data_name = 'corrected_models2';
 
 %%
 poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for post-gain models
-poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
+% poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
+poss_gain_L2 = [0]; %range of L2 reg values 
 poss_pre_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for pre-gain models
 poss_sub_d2T = logspace(log10(10),log10(5e4),8); %range of d2T reg values for subspace models
 poss_TB_lambdas = logspace(log10(0.1),log10(500),8); %range of d2T reg values for TB models
@@ -1059,9 +1060,7 @@ for cc = targs
                 lag_dep_sta = nan(length(slags),use_nPix_us*flen);
                 lag_dep_asta = nan(length(slags),use_nPix_us*flen);
                 rand_stas = nan(n_sta_boots,length(slags),use_nPix_us*flen);
-                rand_astas = nan(n_sta_boots,length(slags),use_nPix_us*flen);
                 for ii = 1:length(slags)
-                    
                     temp = find(cur_Xsac(:,ii) == 1);
                     cur_spks = cur_Robs(temp);
                     cur_spkbns = convert_to_spikebins(cur_Robs(temp));
@@ -1079,14 +1078,10 @@ for cc = targs
                     for jj = 1:n_sta_boots
                         rand_spks = convert_to_spikebins(cur_spks(randperm(length(temp))));
                         rand_stas(jj,ii,:) = mean(cur_stim(rand_spks,:))-base;
-                        rand_astas(jj,ii,:) = mean(cur_astim(rand_spks,:))-base_a;
-                    end
-                    
+                    end                    
                 end
                 sacStimProc(cc).gsac_phaseDep_sta_nullMean = reshape(squeeze(mean(rand_stas)),length(slags),flen,use_nPix_us);
                 sacStimProc(cc).gsac_phaseDep_sta_nullStd = reshape(squeeze(std(rand_stas)),length(slags),flen,use_nPix_us);
-                sacStimProc(cc).gsac_phaseInd_sta_nullMean = reshape(squeeze(mean(rand_astas)),length(slags),flen,use_nPix_us);
-                sacStimProc(cc).gsac_phaseInd_sta_nullStd = reshape(squeeze(std(rand_astas)),length(slags),flen,use_nPix_us);
                 sacStimProc(cc).gsac_phaseDep_sta = reshape(lag_dep_sta,length(slags),flen, use_nPix_us);
                 sacStimProc(cc).gsac_phaseInd_sta = reshape(lag_dep_asta,length(slags),flen,use_nPix_us);
                 
@@ -1160,7 +1155,7 @@ for cc = targs
                 end
                 sacStimProc(cc).msac_post_mod.sac_modinfo = sac_post_info;
                 sacStimProc(cc).msac_post_mod.sac_offset = sac_post_offset;
-                sacStimProc(cc).msac_post_mod.sac_gain = sac_post_offset;
+                sacStimProc(cc).msac_post_mod.sac_gain = sac_post_gain;
                 
                 if fit_msacUpstream
                     sacStimProc(cc).msacPreGainMod.sac_modinfo = sac_pre_info;

@@ -40,8 +40,8 @@ udata_xv = find(ismember(TB_used_data,xv_inds));
 [TB_Xmat,TB_counts] = TB.InputNL2D(TB_stim(TB_used_data,:));
 
 TB_xvLL = nan(1,length(poss_d2T));
-null_prate = mean(Robs(udata_tr));
-null_xvLL = sum(Robs(udata_xv).*log(ones(size(udata_xv))*null_prate) - ones(size(udata_xv))*null_prate)/sum(Robs(udata_xv));
+null_prate = mean(Robs(TB_used_data(udata_tr)));
+null_xvLL = sum(Robs(TB_used_data(udata_xv)).*log(ones(size(udata_xv))*null_prate) - ones(size(udata_xv))*null_prate)/sum(Robs(TB_used_data(udata_xv)));
 for ll = 1:length(poss_d2T)
     fprintf('Fitting TB gsac model lambda %d/%d\n',ll,length(poss_d2T));
     cur_sac_lambda = poss_d2T(ll);
@@ -66,7 +66,7 @@ TB_sacmod = regGLM_fit(TB_Xmat,Robs(TB_used_data),L2_params,TB_optL2,[],[],silen
 null_rate = mean(Robs(TB_used_data));
 nullLL = nansum(Robs(TB_used_data).*log2(null_rate) - null_rate)/sum(Robs(TB_used_data));
 LL = nansum(Robs(TB_used_data).*log2(TB_pred_rate) - TB_pred_rate)/sum(Robs(TB_used_data));
-TB_sacmod.LLimp = (LL - nullLL)/log(2);
+TB_sacmod.LLimp = (LL - nullLL);
 TB_sacmod.nullLL = nullLL;
 TB_sacmod.LL = LL;
 

@@ -2,9 +2,9 @@ clear all
 close all
 clc
 
-Expt_name = 'G087';
+Expt_name = 'G093';
 bar_ori = 0;
-cc = 101;
+cc = 103;
 
 fit_unCor = 0;
 include_bursts = 0;
@@ -113,7 +113,7 @@ lag_ax = ((1:stim_dims(1))*dt - dt/2)*1e3;
 
 ov_sta = sacStimProc.ov_phaseDep_sta;
 [~,sta_peakloc] = max(sum(ov_sta.^2,2));
-% sta_peakloc = 6;
+% sta_peakloc = 7;
 cond_STA = sacStimProc.gsac_phaseDep_sta;
 cond_STA = squeeze(cond_STA(:,sta_peakloc,:));
 
@@ -271,6 +271,7 @@ f3 = figure(); hold on
 plot(slags*dt,sacStimProc.gsac_post_mod.sac_offset/dt)
 plot(Xtick,sacStimProc.gsac_TBmod.sac_offset/dt,'r')
 xlim(sac_xr)
+yl = ylim(); ya = max(abs(yl)); ylim([-ya ya]);
 xlabel('Time (s)');
 ylabel('Offset');
 
@@ -279,8 +280,10 @@ f4 = figure(); hold on
 plot(slags*dt,sacStimProc.gsac_post_mod.sac_gain)
 plot(Xtick,sacStimProc.gsac_TBmod.sac_gain,'r')
 xlim(sac_xr)
+yl = ylim(); ya = max(abs(yl-1)); ylim([-ya ya]+1);
 xlabel('Time (s)');
 ylabel('Gain');
+set(gca,'YaxisLocation','right');
 
 %% PRE POST GAIN COMPARISON
 cur_xr = [-0.05 0.2];
@@ -293,16 +296,26 @@ xlabel('Time (s)');
 ylabel('Gain');
 
 %%
+stim_dims = sacStimProc.ModData.rectGQM.stim_params(1).stim_dims;
+lag_ax = ((1:stim_dims(1))*dt - dt/2)*1e3;
+
 stim_mod = sacStimProc.ModData.rectGQM;
 rel_weights = stim_mod.rel_filt_weights;
 [all_tkerns,avg_Ekern,avg_Ikern] = get_hilbert_tempkerns(stim_mod);
 nmods = size(all_tkerns,2);
+all_Ntkerns = bsxfun(@rdivide,all_tkerns,rel_weights);
 fpost_gains = reshape([sacStimProc.gsac_post_Fullmod.mods(3).filtK],length(slags),nmods);
 fpost_gains(:,rel_weights == 0) = [];
 
+f1 = figure();
+subplot(2,1,1);
+imagesc(lag_ax,1:nmods,all_Ntkerns');
+ca = caxis();
+subplot(2,1,2);
+imagesc(slags*dt,1:nmods,fpost_gains');
+ca = caxis(); cam = max(abs(ca)); caxis([-cam cam]);
+xlim([0 0.15]);
 %%
-subMod = sacStimProc.gsac_subMod;
-modFilts = [subMod.mods(2:end).filtK];
 
 
 
