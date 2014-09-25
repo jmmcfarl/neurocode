@@ -8,7 +8,7 @@ include_bursts = 0;
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_tname = 'sac_trig_avg_data';
 base_sname = 'sacStimProcFinR';
-base_yname = 'sacTypeDepR';
+base_yname = 'sacTypeDep';
 
 if include_bursts
     base_tname = strcat(base_tname,'_withbursts');
