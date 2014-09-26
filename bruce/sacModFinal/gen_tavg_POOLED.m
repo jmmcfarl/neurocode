@@ -91,6 +91,9 @@ dur_sm = 0.005/dur_dx;
 all_gsac_durdist = reshape([all_data(:).gsac_dur_dist],length(dur_bin_cents),[])';
 all_msac_durdist = reshape([all_data(:).msac_dur_dist],length(dur_bin_cents),[])';
 
+all_gsac_durdist = bsxfun(@rdivide,all_gsac_durdist,sum(all_gsac_durdist,2));
+all_msac_durdist = bsxfun(@rdivide,all_msac_durdist,sum(all_msac_durdist,2));
+
 eye_ax = all_data(1).raw_eye_lags;
 expt_gsac_eyespeed = nan(length(unique_expts),length(eye_ax));
 expt_msac_eyespeed = nan(length(unique_expts),length(eye_ax));
@@ -108,13 +111,23 @@ for ii = 1:length(unique_expts)
     end
 end
 
-figure; hold on
-h1 = shadedErrorBar(eye_ax,mean(expt_gsac_eyespeed),std(expt_gsac_eyespeed)/sqrt(length(unique_expts)));
-h2 = shadedErrorBar(eye_ax,mean(expt_msac_eyespeed),std(expt_msac_eyespeed)/sqrt(length(unique_expts)),{'color','r'});
+% f1= figure; hold on
+% h1 = shadedErrorBar(eye_ax,mean(expt_gsac_eyespeed),std(expt_gsac_eyespeed)/sqrt(length(unique_expts)));
+% h2 = shadedErrorBar(eye_ax,mean(expt_msac_eyespeed),std(expt_msac_eyespeed)/sqrt(length(unique_expts)),{'color','r'});
 
-figure; hold on
+f2 = figure; hold on
 h1 = shadedErrorBar(dur_bin_cents,mean(expt_gsac_durdist),std(expt_gsac_durdist)/sqrt(length(unique_expts)));
 h2 = shadedErrorBar(dur_bin_cents,mean(expt_msac_durdist),std(expt_msac_durdist)/sqrt(length(unique_expts)),{'color','r'});
+xlabel('Duration (s)');
+ylabel('Relative frequency');
+
+%PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir 'Gsac_msac_dur_dists.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
 
 %%
 all_gsac_tavg = [all_data(:).gsac_tavg_eyespeed]';

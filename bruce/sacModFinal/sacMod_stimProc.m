@@ -11,7 +11,7 @@ global Expt_name bar_ori use_MUA
 
 % Expt_name = 'G087';
 % use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% bar_ori = 90; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -1133,7 +1133,7 @@ for cc = targs
 %                 [sacStimProc(cc).msac_post_mod,msac_post_pred_rate] = sacMod_scan_regularization...
 %                     (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
                  [sacStimProc(cc).msac_post_mod,msac_post_pred_rate] = sacMod_scan_doubleregularization...
-                    (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+                    (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
                 opt_offset_d2T = sacStimProc(cc).msac_post_mod.opt_d2T_off;
                
                 %% FIT UPSTREAM STIM-MODULATION

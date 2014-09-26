@@ -70,10 +70,10 @@ preGainMod.beta = params(end-1);
 preGainMod.stim_mod = stim_mod;
 preGainMod.opt_d2T_off = opt_d2T_off;
 preGainMod.opt_d2T_gain = opt_d2T_gain;
-preGainMod.fullxvLLimp = (L2_xvLL - null_xvLL)/log(2);
+preGainMod.fullxvLLimp = (-L2_xvLL - null_xvLL)/log(2);
 
 null_prate = mean(Robs);
-nullLL = sum(Robs.*log(ones(size(Robs))*null_prate) - ones(size(Robs))*null_prate);
+nullLL = sum(Robs.*log(ones(size(Robs))*null_prate) - ones(size(Robs))*null_prate)/sum(Robs);
 [LL,pred_rate] = eval_pre_gainmodel( preGainMod, Robs, Xmat, Xsac_mat);
 preGainMod.ovInfo = mean(pred_rate/mean(pred_rate).*log2(pred_rate/mean(pred_rate)));
 preGainMod.ovLLimp = (LL-nullLL)/log(2);
