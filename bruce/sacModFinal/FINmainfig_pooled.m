@@ -495,7 +495,7 @@ TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod.sac_modinfo',all_SU_dat
 TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
 TB_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
-TB_ovLL = arrayfun(@(x) x.sacStimProc.gsac_TBmod.LLimp,all_SU_data(cur_SUs))*log(2); %overall TB model infos
+TB_ovLL = arrayfun(@(x) x.sacStimProc.gsac_TBmod.LLimp,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NLL = bsxfun(@rdivide,TB_LL,TB_ovLL); %normalize TB SSI by overall model info
 
 TB_xvLL = arrayfun(@(x) max(x.sacStimProc.gsac_TBmod.xvLLs),all_SU_data(cur_SUs));
@@ -531,16 +531,16 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-% xl = [-0.1 0.3];
-% f1 = figure();hold on
-% h1=shadedErrorBar(slags*dt,nanmean(TB_NLL),nanstd(TB_NLL)/sqrt(length(cur_SUs)),{'color','b'});
-% h2=shadedErrorBar(slags*dt,nanmean(GO_NLL),nanstd(GO_NLL)/sqrt(length(cur_SUs)),{'color','r'});
-% % plot(tlags,all_gsac_gray(set2,:),'k')
-% line(xl,[1 1],'color','k');
-% line([0 0],ylim(),'color','k');
-% xlim(xl);
-% xlabel('Time (s)');
-% ylabel('Relative rate');
+xl = [-0.1 0.3];
+f1 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(TB_NLL),nanstd(TB_NLL)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(slags*dt,nanmean(GO_NLL),nanstd(GO_NLL)/sqrt(length(cur_SUs)),{'color','r'});
+% plot(tlags,all_gsac_gray(set2,:),'k')
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Relative rate');
 
 %COMPARE OFFSETS
 xl = [-0.1 0.3];
@@ -654,7 +654,7 @@ cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= cur_min_Nsacs & N_gsacs_i
 all_gsac_gr_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_gr_ov_rates = arrayfun(@(x) x.type_dep.gsac_GR_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 GO_gr_SSI = cell2mat(arrayfun(@(x) x.type_dep.gsacGR_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
-GO_gr_ovinfos = arrayfun(@(x) x.type_dep.gsacGR_mod.ovInfo,all_SU_data(cur_SUs));
+GO_gr_ovinfos = arrayfun(@(x) x.type_dep.gsacGR_mod2.ovInfo,all_SU_data(cur_SUs));
 GO_gr_NSSI = bsxfun(@rdivide,GO_gr_SSI,GO_gr_ovinfos); %normalize GO SSI by overall model info
 
 all_gsac_im_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_im_avg', all_SU_data(cur_SUs),'uniformoutput',0));
@@ -685,6 +685,45 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
 
+%% COMPARE REAL AND SIMULATED SACCADES
+cur_min_Nsacs = 500;
+cur_SUs = find(avg_rates >= min_rate & N_gsacs_im >= cur_min_Nsacs & N_simsacs >= cur_min_Nsacs);
+% cur_SUs = cur_SUs(ismember(cur_SUs,jbe_SUs));
+
+all_gsac_im_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_im_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_im_ov_rates = arrayfun(@(x) x.type_dep.gsac_IM_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
+GO_im_SSI = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
+GO_im_ovinfos = arrayfun(@(x) x.type_dep.gsacIM_mod.ovInfo,all_SU_data(cur_SUs));
+GO_im_NSSI = bsxfun(@rdivide,GO_im_SSI,GO_im_ovinfos); %normalize GO SSI by overall model info
+
+all_simsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.simsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+simsac_ov_rates = arrayfun(@(x) x.type_dep.simsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
+GO_sim_SSI = cell2mat(arrayfun(@(x) x.type_dep.simsac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
+GO_sim_ovinfos = arrayfun(@(x) x.type_dep.simsac_mod.ovInfo,all_SU_data(cur_SUs));
+GO_sim_NSSI = bsxfun(@rdivide,GO_sim_SSI,GO_sim_ovinfos); %normalize GO SSI by overall model info
+
+%COMPARE LL
+xl = [-0.1 0.3];
+f3 = figure();hold on
+h1=shadedErrorBar(tlags,nanmean(all_simsac_tavg),nanstd(all_simsac_tavg)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(tlags,nanmean(all_gsac_im_tavg),nanstd(all_gsac_im_tavg)/sqrt(length(cur_SUs)),{'color','r'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Relative rate');
+
+%COMPARE LL
+xl = [-0.1 0.3];
+f3 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(GO_sim_NSSI),nanstd(GO_sim_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(slags*dt,nanmean(GO_im_NSSI),nanstd(GO_im_NSSI)/sqrt(length(cur_SUs)),{'color','r'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Relative rate');
+
 %% COMPARE PRE AND POST MODELS
 
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
@@ -696,8 +735,8 @@ earl_lags = find(slags <= 0);
 avg_earl_lags = mean(gsac_post_gain(:,earl_lags),2);
 gsac_post_gain = bsxfun(@minus,gsac_post_gain,avg_earl_lags)+1;
 
-% pre_LLs = arrayfun(@(x) x.sacStimProc.gsacPreGainMod.ovLLimp,all_SU_data(cur_SUs));
-% post_LLs = arrayfun(@(x) x.sacStimProc.gsac_post_mod.ovLLimp,all_SU_data(cur_SUs));
+pre_LLs = arrayfun(@(x) x.sacStimProc.gsacPreGainMod.ovLLimp,all_SU_data(cur_SUs));
+post_LLs = arrayfun(@(x) x.sacStimProc.gsac_post_mod.ovLLimp,all_SU_data(cur_SUs));
 pre_xvLLs = arrayfun(@(x) max(x.sacStimProc.gsacPreGainMod.fullxvLLimp(:)),all_SU_data(cur_SUs));
 post_xvLLs = arrayfun(@(x) max(x.sacStimProc.gsac_post_mod.lambda_xvLLImp(:)),all_SU_data(cur_SUs));
 
@@ -720,7 +759,7 @@ ylim([0.55 1.05])
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
-%% COMPARE GSAC AND MSAC PRE AMODELS
+%% COMPARE GSAC AND MSAC PRE MODELS
 
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs);
 
@@ -738,10 +777,10 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_msac_pre_gaincompare.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_msac_pre_gaincompare.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
