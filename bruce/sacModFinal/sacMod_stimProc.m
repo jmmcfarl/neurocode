@@ -9,9 +9,9 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M297';
+% Expt_name = 'G087';
 % use_MUA = false;
-% bar_ori = 90; %bar orientation to use (only for UA recs)
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 
 fit_unCor = false;
@@ -36,7 +36,7 @@ poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for po
 % poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
 poss_gain_L2 = [0]; %range of L2 reg values 
 poss_pre_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for pre-gain models
-poss_sub_d2T = logspace(log10(10),log10(5e4),8); %range of d2T reg values for subspace models
+poss_sub_d2T = logspace(log10(10),log10(1e4),8); %range of d2T reg values for subspace models
 poss_TB_lambdas = logspace(log10(0.1),log10(500),8); %range of d2T reg values for TB models
 % poss_gain_d2T = 50;
 % poss_pre_d2T = logspace(log10(1),log10(500),5);
@@ -868,7 +868,7 @@ for cc = targs
 %             [sacStimProc(cc).gsac_post_EImod,gsac_EI_pred_rate] = sacMod_scan_regularization...
 %                 (cur_rGQM,cur_Robs,cur_Xsac,[g_exc g_inh],tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
             [sacStimProc(cc).gsac_post_EImod,gsac_EI_pred_rate] = sacMod_scan_doubleregularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,[g_exc g_inh],tr_sac_inds,xv_sac_inds,opt_offset_d2T,poss_gain_L2);
+                (cur_rGQM,cur_Robs,cur_Xsac,[g_exc g_inh],tr_sac_inds,xv_sac_inds,opt_offset_d2T,poss_gain_d2T);
             sacStimProc(cc).gsac_post_Egain = sacStimProc(cc).gsac_post_EImod.mods(3).filtK(1:length(slags));
             sacStimProc(cc).gsac_post_Igain = sacStimProc(cc).gsac_post_EImod.mods(3).filtK((length(slags)+1):end);
             
@@ -876,7 +876,7 @@ for cc = targs
 %             [sacStimProc(cc).gsac_post_Fullmod,gsac_Full_pred_rate] = sacMod_scan_regularization...
 %                 (cur_rGQM,cur_Robs,cur_Xsac,fgint,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
             [sacStimProc(cc).gsac_post_Fullmod,gsac_Full_pred_rate] = sacMod_scan_doubleregularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,fgint,tr_sac_inds,xv_sac_inds,opt_offset_d2T,poss_gain_L2);
+                (cur_rGQM,cur_Robs,cur_Xsac,fgint,tr_sac_inds,xv_sac_inds,opt_offset_d2T,poss_gain_d2T);
             
             %% FIT UPSTREAM STIM-MODULATION
             if fitUpstream
