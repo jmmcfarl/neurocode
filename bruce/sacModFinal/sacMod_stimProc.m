@@ -9,7 +9,7 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'G087';
+% Expt_name = 'M297';
 % use_MUA = false;
 % bar_ori = 90; %bar orientation to use (only for UA recs)
 
@@ -19,7 +19,7 @@ fit_subMod = false;
 fitUpstream = true;
 fitSTA = true;
 fitMsacs = true;
-fit_msacUpstream = true;
+% fit_msacUpstream = true;
 fitFullPostMod = true;
 
 include_bursts = 0;
@@ -783,8 +783,11 @@ for cc = targs
     tr_trials = setdiff(use_trials,xv_trials);
     n_tr_trials = length(tr_trials);
     
-    cur_tr_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
-    cur_xv_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
+    sacStimProc(cc).xv_trials = xv_trials;
+    sacStimProc(cc).tr_trials = tr_trials;
+    
+    base_tr_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
+    base_xv_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
     
     cur_Robs = Robs_mat(cc_uinds,cc);
     
@@ -830,8 +833,8 @@ for cc = targs
                         
         %only use indices within lagrange of a saccade
         any_sac_inds = find(any(cur_Xsac > 0,2));
-        tr_sac_inds = cur_tr_inds(ismember(cur_tr_inds,any_sac_inds));
-        xv_sac_inds = cur_xv_inds(ismember(cur_xv_inds,any_sac_inds));
+        tr_sac_inds = base_tr_inds(ismember(base_tr_inds,any_sac_inds));
+        xv_sac_inds = base_xv_inds(ismember(base_xv_inds,any_sac_inds));
         
         %%
         if length(any_sac_inds) > 1e4
@@ -1105,8 +1108,8 @@ for cc = targs
             
             %only use indices during guided saccade expts here
             any_sac_inds = find(any(cur_Xsac > 0,2));
-            tr_sac_inds = cur_tr_inds(ismember(cur_tr_inds,any_sac_inds));
-            xv_sac_inds = cur_xv_inds(ismember(cur_xv_inds,any_sac_inds));
+            tr_sac_inds = base_tr_inds(ismember(base_tr_inds,any_sac_inds));
+            xv_sac_inds = base_xv_inds(ismember(base_xv_inds,any_sac_inds));
             
             %%
             if length(any_sac_inds) > 1e4
@@ -1158,7 +1161,7 @@ for cc = targs
                     sac_post_gain(ii) = rr(2);
                     
                     %compute LL and info for upstream model
-                    if fit_msacUpstream
+                    if fitUpstream
                         sac_pre_info(ii) = nanmean(pre_pred_rate(temp).*log2(pre_pred_rate(temp)/mean(pre_pred_rate(temp))))/mean(pre_pred_rate(temp));
                     end
                     
@@ -1169,7 +1172,7 @@ for cc = targs
                 sacStimProc(cc).msac_post_mod.sac_offset = sac_post_offset;
                 sacStimProc(cc).msac_post_mod.sac_gain = sac_post_gain;
                 
-                if fit_msacUpstream
+                if fitUpstream
                     sacStimProc(cc).msacPreGainMod.sac_modinfo = sac_pre_info;
                 end
                 
@@ -1184,7 +1187,7 @@ for cc = targs
                     sac_Nspks(ii) = sum(cur_Robs(temp));
                     
                     %compute LL and info for upstream model
-                    if fit_msacUpstream
+                    if fitUpstream
                         sac_pre_LL(ii) = nansum(cur_Robs(temp).*log2(pre_pred_rate(temp)) - pre_pred_rate(temp));
                     end
                     
@@ -1197,7 +1200,7 @@ for cc = targs
                 sacStimProc(cc).msac_post_mod.sac_LLimp = (sac_post_LL - sac_nullLL)./sac_Nspks;
                 
                 %store upstream model info calcs
-                if fit_msacUpstream
+                if fitUpstream
                     sacStimProc(cc).msacPreGainMod.sac_LLimp = (sac_pre_LL - sac_nullLL)./sac_Nspks;
                 end
                 

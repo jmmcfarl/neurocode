@@ -1043,7 +1043,7 @@ for cc = targs
 %             [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_regularization...
 %                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
             [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_doubleregularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
             simsac_pred_rate = simsac_pred_rate(any_sac_inds);
             
             [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
