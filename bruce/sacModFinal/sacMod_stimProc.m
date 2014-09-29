@@ -15,7 +15,7 @@ global Expt_name bar_ori use_MUA
 
 
 fit_unCor = false;
-fit_subMod = false;
+fit_subMod = true;
 fitUpstream = true;
 fitSTA = true;
 fitMsacs = true;
