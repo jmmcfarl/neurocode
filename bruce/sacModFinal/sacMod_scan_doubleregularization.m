@@ -1,9 +1,13 @@
-function [sacMod,pred_rate] = sacMod_scan_doubleregularization(base_mod,Robs,Xsac,gain_sigs,tr_inds,xv_inds,poss_d2T_off,poss_d2T_gain)
+function [sacMod,pred_rate,all_xvmods] = sacMod_scan_doubleregularization(base_mod,Robs,Xsac,gain_sigs,tr_inds,xv_inds,poss_d2T_off,poss_d2T_gain,poss_L2_gain)
 %[sacMod,xvLLs,opt_d2T,opt_L2] = sacMod_scan_regularization(base_mod,Robs,Xsac,gain_sigs,tr_inds,xv_inds,poss_d2T,poss_L2)
 %Fits a (post-filtering) saccade gain/offset model. Can use a number of
 %independent gain filters specified by the number of gain signals in
 %"gain_sigs". Also uses xvalLL to scan a range of d2T and L2 reg
 %parameters.
+
+if nargin < 9
+    poss_L2_gain = 0;
+end
 
 n_slags = size(Xsac,2);
 n_gains = size(gain_sigs,2);
@@ -23,30 +27,36 @@ sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([0 0 0],length(mod
 
 %%
 
-xvLLs = nan(length(poss_d2T_off),length(poss_d2T_gain));
+xvLLs = nan(length(poss_d2T_off),length(poss_d2T_gain),length(poss_L2_gain));
+all_xvmods = cell(length(poss_d2T_off),length(poss_d2T_gain),length(poss_L2_gain));
 null_prate = mean(Robs(tr_inds));
 null_xvLL = sum(Robs(xv_inds).*log(ones(size(xv_inds))*null_prate) - ones(size(xv_inds))*null_prate)/sum(Robs(xv_inds));
-if length(poss_d2T_gain) > 1 || length(poss_d2T_off) > 1
+if length(poss_d2T_gain) > 1 || length(poss_d2T_off) > 1 || length(poss_L2_gain) > 1
     
     for jj = 1:length(poss_d2T_off)
         for ii = 1:length(poss_d2T_gain)
+            for kk = 1:length(poss_L2_gain)
             cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
             cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
             cur_mod.spk_NL_params = base_mod.spk_NL_params;
             cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',poss_d2T_off(jj));
-            cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',poss_d2T_gain(ii));
+            cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',poss_d2T_gain(ii),'lambda_L2',poss_L2_gain(kk));
             cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],tr_inds,1,[],[],[2 3]);
-            xvLLs(jj,ii) = NMMmodel_eval(cur_mod,Robs(xv_inds),get_Xcell_tInds(tr_stim,xv_inds));
+            xvLLs(jj,ii,kk) = NMMmodel_eval(cur_mod,Robs(xv_inds),get_Xcell_tInds(tr_stim,xv_inds));
+            all_xvmods{jj,ii,kk} = cur_mod;
+        end
         end
     end
     
     [~,optloc] = max(xvLLs(:));
-    [optloc_x,optloc_y] = ind2sub([length(poss_d2T_off) length(poss_d2T_gain)],optloc);
+    [optloc_x,optloc_y,optloc_z] = ind2sub([length(poss_d2T_off) length(poss_d2T_gain) length(poss_L2_gain)],optloc);
     opt_d2T_off = poss_d2T_off(optloc_x);
     opt_d2T_gain = poss_d2T_gain(optloc_y);
+    opt_L2_gain = poss_L2_gain(optloc_z);
 else
     opt_d2T_off = poss_d2T_off;
     opt_d2T_gain = poss_d2T_gain;
+    opt_L2_gain = poss_L2_gain;
 end
 
 %%
@@ -55,7 +65,7 @@ sacMod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,X
 sacMod.mods(1).filtK(:) = 1; %set base gains to 1
 sacMod.spk_NL_params = base_mod.spk_NL_params;
 sacMod = NMMadjust_regularization(sacMod,[2],'lambda_d2T',opt_d2T_off);
-sacMod = NMMadjust_regularization(sacMod,[3],'lambda_d2T',opt_d2T_gain);
+sacMod = NMMadjust_regularization(sacMod,[3],'lambda_d2T',opt_d2T_gain,'lambda_L2',opt_L2_gain);
 sacMod = NMMfit_filters(sacMod,Robs,tr_stim,[],all_inds,1,[],[],[2 3]);
 sacMod = NMMfit_logexp_spkNL(sacMod,Robs,tr_stim,[],all_inds);
 
@@ -70,6 +80,8 @@ sacMod.nullLL = nullLL;
 %%
 sacMod.opt_d2T_off = opt_d2T_off;
 sacMod.opt_d2T_gain = opt_d2T_gain;
+sacMod.opt_L2_gain = opt_L2_gain;
 sacMod.poss_d2T_off = poss_d2T_off;
 sacMod.poss_d2T_gain = poss_d2T_gain;
+sacMod.poss_L2_gain = poss_L2_gain;
 sacMod.lambda_xvLLImp = (xvLLs - null_xvLL)/log(2);

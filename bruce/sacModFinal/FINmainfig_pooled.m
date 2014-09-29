@@ -784,3 +784,217 @@ ylabel('Relative rate');
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
+%% COMPARE TEMPKERNS ADN MODEL GAIN LATENCIES
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+
+all_tempkerns = [];
+all_gainkerns = [];
+all_relweights = [];
+all_modsigns = [];
+for ii = 1:length(cur_SUs)
+    cur_tkerns = get_hilbert_tempkerns(all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM);
+    cur_gainkerns = reshape([all_SU_data(cur_SUs(ii)).sacStimProc.gsac_post_Fullmod.mods(3).filtK],length(slags),[]);
+    cur_relweights = all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.rel_filt_weights;
+    cur_modsigns = [all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.mods(:).sign];
+    
+    all_tempkerns = cat(1,all_tempkerns,cur_tkerns');
+    all_gainkerns = cat(1,all_gainkerns,cur_gainkerns');
+    all_relweights = cat(1,all_relweights,cur_relweights');
+    all_modsigns = cat(1,all_modsigns,cur_modsigns');
+end
+
+flen = 15;
+lag_ax = ((1:flen)*dt - dt/2)*1e3;
+up_lagax = linspace(lag_ax(1),lag_ax(end),100);
+all_tkerns_up = nan(length(all_relweights),length(up_lagax));
+nzero_filts = find(all_relweights > 0);
+all_tkerns_up(nzero_filts,:) = spline(lag_ax,all_tempkerns(nzero_filts,:),up_lagax);
+search_range = [0 max(up_lagax)];
+[tkern_max,tkern_time] = get_tavg_peaks(all_tkerns_up,up_lagax,search_range);
+
+slags_up = linspace(slags(1)*dt,slags(end)*dt,100);
+all_gkerns_up = spline(slags*dt,all_gainkerns,slags_up);
+search_range = [0 0.15];
+[gkern_max,gkern_time] = get_tavg_peaks(-all_gkerns_up,slags_up,search_range);
+
+ukerns = find(all_relweights > 0.1 & gkern_max > 0.5);
+
+jit_amp = 0.00;
+f1 = figure();
+plot(gkern_time + randn(size(gkern_time))*jit_amp , tkern_time + randn(size(tkern_time))*jit_amp,'.')
+
+%% COMPARE E-I Tempkerns and Gain kerns
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+
+gsac_Egain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_Egain',all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_Igain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_Igain',all_SU_data(cur_SUs),'uniformoutput',0));
+
+
+flen = 15;
+all_Ekerns = nan(length(cur_SUs),flen);
+all_Ikerns = nan(length(cur_SUs),flen);
+all_NIfilts = nan(length(cur_SUs),1);
+all_NEfilts = nan(length(cur_SUs),1);
+for ii = 1:length(cur_SUs)
+    [cur_tkerns,cur_ekern,cur_ikern] = get_hilbert_tempkerns(all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM);
+    all_Ekerns(ii,:) = cur_ekern;
+    all_Ikerns(ii,:) = cur_ikern;
+    cur_modsigns = [all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.mods(:).sign];
+    all_NIfilts(ii) = sum(cur_modsigns==-1);
+    all_NEfilts(ii) = sum(cur_modsigns==1);
+end
+
+flen = 15;
+lag_ax = ((1:flen)*dt - dt/2)*1e3;
+up_lagax = linspace(lag_ax(1),lag_ax(end),50);
+all_Ekerns_up = spline(lag_ax,all_Ekerns,up_lagax);
+all_Ikerns_up = spline(lag_ax,all_Ikerns,up_lagax);
+
+
+%COMPARE PRE AND POST GAINS
+xl = [-0.1 0.3];
+f1 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(gsac_Egain),nanstd(gsac_Egain)/sqrt(length(cur_SUs)),{'color','k'});
+h2=shadedErrorBar(slags*dt,nanmean(gsac_Igain),nanstd(gsac_Igain)/sqrt(length(cur_SUs)),{'color','r'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Relative rate');
+
+%COMPARE PRE AND POST GAINS
+f1 = figure();hold on
+h1=shadedErrorBar(up_lagax,nanmean(all_Ekerns_up),nanstd(all_Ekerns_up)/sqrt(length(cur_SUs)),{'color','k'});
+h2=shadedErrorBar(up_lagax,nanmean(all_Ikerns_up),nanstd(all_Ikerns_up)/sqrt(length(cur_SUs)),{'color','r'});
+xlabel('Time (s)');
+
+%% ANALYZE LAMINAR DEPENDENCIES WITH MUA
+load('/home/james/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')
+boundary_enums = [boundary_class(:).Expt_num];
+
+all_lbs = [boundary_class(:).lb];
+all_ubs = [boundary_class(:).ub];
+mean_lb = mean(all_lbs);
+mean_ub = mean(all_ubs);
+mean_diff = mean_lb-mean_ub;
+
+base_mname = 'corrected_models2';
+flen = 15;n_probes = 24;
+Elist = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};
+Olist = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
+n_lem_expts = length(Elist);
+expt_MUA_Ekerns = nan(2,n_lem_expts,n_probes,flen);
+expt_MUA_stas = nan(2,n_lem_expts,n_probes,length(tlags));
+for ii = 1:n_lem_expts
+    Expt_name = Elist{ii};
+    mod_dir = ['~/Analysis/bruce/' Expt_name '/models/'];
+    sac_dir = ['~/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+    for kk = 1:2
+        cur_ori = Olist(ii,kk);
+        if ~isnan(cur_ori)
+            sname = strcat(mod_dir,base_mname,sprintf('_ori%d',cur_ori));
+            load(sname);
+            tname = strcat(sac_dir,base_tname,sprintf('_ori%d',cur_ori));
+            load(tname);
+            expt_MUA_stas(kk,ii,:,:) = mua_data.gsac_avg';
+            for jj = 1:n_probes
+                cur_mod = ModData(jj).rectGQM;
+                [avg_tkerns,avg_Ekerns] = get_hilbert_tempkerns(cur_mod);
+                expt_MUA_Ekerns(kk,ii,jj,:) = avg_Ekerns;
+            end
+        end
+    end
+end
+expt_MUA_Ekerns = squeeze(nanmean(expt_MUA_Ekerns));
+expt_MUA_stas = squeeze(nanmean(expt_MUA_stas));
+expt_MUA_Ekerns = reshape(expt_MUA_Ekerns,[],flen);
+expt_MUA_stas = reshape(expt_MUA_stas,[],length(tlags));
+
+mod_dt = 0.01;
+tax = (0:(flen-1))*mod_dt + mod_dt/2;
+up_tax = linspace(tax(1),tax(end),100);
+expt_MUA_Ekerns = spline(tax,expt_MUA_Ekerns,up_tax);
+
+SU_probenums = arrayfun(@(x) x.sacStimProc.ModData.unit_data.probe_number,all_SU_data);
+SU_exptnums = [all_SU_data(:).expt_num];
+
+all_SU_lclass = nan(length(all_SU_data),1);
+all_MU_lclass = nan(n_lem_expts,n_probes);
+all_mua_Ekerns = [];
+for ee = 1:n_lem_expts
+    cur_enum = str2num(Elist{ee}(2:end));
+    cur_bound_info = find(boundary_enums == cur_enum,1);
+    cur_ub = boundary_class(cur_bound_info).ub;
+    cur_lb = boundary_class(cur_bound_info).lb;
+    
+    gran_probes = (cur_ub+1):(cur_lb-1);
+    supra_probes = 1:(cur_ub-1);
+    infra_probes = (cur_lb+1):24;
+    
+    cur_pclass = nan(24,1);
+    cur_pclass(supra_probes) = 1; cur_pclass(gran_probes) = 2; cur_pclass(infra_probes) = 3;
+    all_MU_lclass(ee,:) = cur_pclass;
+    
+    
+    cur_SU_set = find(SU_exptnums == cur_enum);
+    cur_SU_probenums = SU_probenums(cur_SU_set);
+    cur_SU_lclass = nan(length(cur_SU_set),1);
+    
+    cur_SU_lclass(ismember(cur_SU_probenums,supra_probes)) = 1;
+    cur_SU_lclass(ismember(cur_SU_probenums,gran_probes)) = 2;
+    cur_SU_lclass(ismember(cur_SU_probenums,infra_probes)) = 3;
+    all_SU_lclass(cur_SU_set) = cur_SU_lclass;
+end
+all_MU_lclass = reshape(all_MU_lclass,[],1);
+
+supra = find(all_MU_lclass == 1);
+gran = find(all_MU_lclass == 2);
+infra = find(all_MU_lclass == 3);
+f1 = figure();hold on
+h1 = shadedErrorBar(up_tax,mean(expt_MUA_Ekerns(supra,:)),std(expt_MUA_Ekerns(supra,:))/sqrt(length(supra)),{'color','b'});
+h2 = shadedErrorBar(up_tax,mean(expt_MUA_Ekerns(gran,:)),std(expt_MUA_Ekerns(gran,:))/sqrt(length(gran)),{'color','r'});
+h3 = shadedErrorBar(up_tax,mean(expt_MUA_Ekerns(infra,:)),std(expt_MUA_Ekerns(infra,:))/sqrt(length(infra)),{'color','k'});
+
+mua_sm = 0.005/trig_avg_params.dt;
+for ii = 1:size(expt_MUA_stas,1)
+    expt_MUA_stas(ii,:) = jmm_smooth_1d_cor(expt_MUA_stas(ii,:),mua_sm);
+end
+
+search_range = [0 0.3];
+[MUA_Efact,MUA_Etime] = get_tavg_peaks((expt_MUA_stas-1),tlags,search_range);
+[MUA_Ifact,MUA_Itime] = get_tavg_peaks(-(expt_MUA_stas-1),tlags,search_range);
+
+f2 = figure();hold on
+h1 = shadedErrorBar(tlags,mean(expt_MUA_stas(supra,:)),std(expt_MUA_stas(supra,:))/sqrt(length(supra)),{'color','b'});
+h2 = shadedErrorBar(tlags,mean(expt_MUA_stas(gran,:)),std(expt_MUA_stas(gran,:))/sqrt(length(gran)),{'color','r'});
+h3 = shadedErrorBar(tlags,mean(expt_MUA_stas(infra,:)),std(expt_MUA_stas(infra,:))/sqrt(length(infra)),{'color','k'});
+
+
+all_Ekerns = nan(length(all_SU_data),flen);
+for ii = 1:length(all_SU_data)
+    [cur_tkerns,cur_ekern,cur_ikern] = get_hilbert_tempkerns(all_SU_data(ii).sacStimProc.ModData.rectGQM);
+    all_Ekerns(ii,:) = cur_ekern;
+end
+all_Ekerns_up = spline(tax,all_Ekerns,up_tax);
+
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs);
+supra_SUs = cur_SUs(all_SU_lclass(cur_SUs) == 1);
+gran_SUs = cur_SUs(all_SU_lclass(cur_SUs) == 2);
+infra_SUs = cur_SUs(all_SU_lclass(cur_SUs) == 3);
+
+f3 = figure();hold on
+h1 = shadedErrorBar(up_tax,mean(all_Ekerns_up(supra_SUs,:)),std(all_Ekerns_up(supra_SUs,:))/sqrt(length(supra_SUs)),{'color','b'});
+h2 = shadedErrorBar(up_tax,mean(all_Ekerns_up(gran_SUs,:)),std(all_Ekerns_up(gran_SUs,:))/sqrt(length(gran_SUs)),{'color','r'});
+h3 = shadedErrorBar(up_tax,mean(all_Ekerns_up(infra_SUs,:)),std(all_Ekerns_up(infra_SUs,:))/sqrt(length(infra_SUs)),{'color','k'});
+
+SU_stas = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
+search_range = [0 0.3];
+[SU_Efact,SU_Etime] = get_tavg_peaks((SU_stas-1),tlags,search_range);
+[SU_Ifact,SU_Itime] = get_tavg_peaks(-(SU_stas-1),tlags,search_range);
+
+f4 = figure();hold on
+h1 = shadedErrorBar(tlags,mean(SU_stas(supra_SUs,:)),std(SU_stas(supra_SUs,:))/sqrt(length(supra_SUs)),{'color','b'});
+h2 = shadedErrorBar(tlags,mean(SU_stas(gran_SUs,:)),std(SU_stas(gran_SUs,:))/sqrt(length(gran_SUs)),{'color','r'});
+h3 = shadedErrorBar(tlags,mean(SU_stas(infra_SUs,:)),std(SU_stas(infra_SUs,:))/sqrt(length(infra_SUs)),{'color','k'});
+
+
