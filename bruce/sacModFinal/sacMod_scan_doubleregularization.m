@@ -23,7 +23,7 @@ sac_stim_params(3) = NMMcreate_stim_params([n_slags n_gains]);
 mod_signs = [1 1 1];
 Xtargets = [1 2 3];
 NL_types = {'lin','lin','lin'};
-sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([0 0 0],length(mod_signs),1));
+sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(mod_signs),1));
 
 %%
 
@@ -32,19 +32,18 @@ all_xvmods = cell(length(poss_d2T_off),length(poss_d2T_gain),length(poss_L2_gain
 null_prate = mean(Robs(tr_inds));
 null_xvLL = sum(Robs(xv_inds).*log(ones(size(xv_inds))*null_prate) - ones(size(xv_inds))*null_prate)/sum(Robs(xv_inds));
 if length(poss_d2T_gain) > 1 || length(poss_d2T_off) > 1 || length(poss_L2_gain) > 1
-    
     for jj = 1:length(poss_d2T_off)
         for ii = 1:length(poss_d2T_gain)
             for kk = 1:length(poss_L2_gain)
-            cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
-            cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
-            cur_mod.spk_NL_params = base_mod.spk_NL_params;
-            cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',poss_d2T_off(jj));
-            cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',poss_d2T_gain(ii),'lambda_L2',poss_L2_gain(kk));
-            cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],tr_inds,1,[],[],[2 3]);
-            xvLLs(jj,ii,kk) = NMMmodel_eval(cur_mod,Robs(xv_inds),get_Xcell_tInds(tr_stim,xv_inds));
-            all_xvmods{jj,ii,kk} = cur_mod;
-        end
+                cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+                cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
+                cur_mod.spk_NL_params = base_mod.spk_NL_params;
+                cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',poss_d2T_off(jj));
+                cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',poss_d2T_gain(ii),'lambda_L2',poss_L2_gain(kk));
+                cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],tr_inds,1,[],[],[2 3]);
+                xvLLs(jj,ii,kk) = NMMmodel_eval(cur_mod,Robs(xv_inds),get_Xcell_tInds(tr_stim,xv_inds));
+                all_xvmods{jj,ii,kk} = cur_mod;
+            end
         end
     end
     

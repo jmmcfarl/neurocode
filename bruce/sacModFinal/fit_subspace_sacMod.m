@@ -1,9 +1,19 @@
-function [subspace_mod,predrate] = fit_subspace_sacMod(stim_mod,Robs,Xmat,sac_Xmat,tr_inds,xv_inds,poss_d2T,post_sacMod)
+function [subspace_mod,predrate,all_sub_mods] = fit_subspace_sacMod(stim_mod,Robs,Xmat,sac_Xmat,tr_inds,xv_inds,poss_d2T,post_sacMod)
 
 NT = length(Robs);
 silent = 1;
 n_slags = size(sac_Xmat,2);
 [~,~,~,~,filt_outs] = NMMmodel_eval(stim_mod,Robs,Xmat);
+
+%%
+cur_stim_params(1) = NMMcreate_stim_params(length(stim_mod.mods));
+mod_signs = [1 1 1];
+NL_types = {'lin','quad','quad'};
+base_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types);
+base_mod = NMMfit_filters(base_mod,Robs,filt_outs);
+
+%%
+
 X{1} = sac_Xmat;
 X{2} = reshape(bsxfun(@times,sac_Xmat,reshape(filt_outs,NT,1,[])),NT,[]);
 
@@ -36,12 +46,13 @@ for jj = 1:length(poss_d2T)
     init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
     init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf]; %0 boundary on offset term
     
-%     %set initial filters to have no mixing 
-%     for ii = 1:length(stim_mod.mods)
+    %set initial filters to have no mixing 
+    for ii = 1:length(base_mod.mods)
 %         init_filt = zeros(n_slags,length(stim_mod.mods));
 %         init_filt(:,ii) = 1;
-%         init_mod.mods(ii+1).filtK = init_filt(:);
-%     end
+        init_filt = repmat(base_mod.mods(ii).filtK',n_slags,1);
+        init_mod.mods(ii+1).filtK = init_filt(:);
+    end
     init_mod.spk_NL_params = stim_mod.spk_NL_params;
     init_mod.mods(1).filtK = post_sacMod.mods(2).filtK; %set initial offset filter
     subspace_mod = NMMfit_filters(init_mod,Robs,X,[],tr_inds,silent);
@@ -61,11 +72,13 @@ reg_params = NMMcreate_reg_params('lambda_d2T',[offset_d2T repmat(subspace_optd2
 init_mod = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,reg_params,Xtargs);
 init_mod.spk_NL_params = stim_mod.spk_NL_params;
 init_mod.mods(1).reg_params.boundary_conds = [0 Inf Inf];
-% for ii = 1:length(init_mod.mods)-1
-%     init_filt = zeros(n_slags,length(stim_mod.mods));
-%     init_filt(:,ii) = 1;
-%     init_mod.mods(ii+1).filtK = init_filt(:);
-% end
+    %set initial filters to have no mixing 
+    for ii = 1:length(base_mod.mods)
+%         init_filt = zeros(n_slags,length(stim_mod.mods));
+%         init_filt(:,ii) = 1;
+        init_filt = repmat(base_mod.mods(ii).filtK',n_slags,1);
+        init_mod.mods(ii+1).filtK = init_filt(:);
+    end
 init_mod.mods(1).filtK = post_sacMod.mods(2).filtK;
 init_mod.spk_NL_params(1) = stim_mod.spk_NL_params(1);
 subspace_mod = NMMfit_filters(init_mod,Robs,X,[],all_inds,silent);
@@ -75,7 +88,7 @@ subspace_mod = NMMfit_filters(init_mod,Robs,X,[],all_inds,silent);
 subspace_mod.ovInfo = mean(predrate/mean(predrate).*log2(predrate/mean(predrate)));
 subspace_mod.ovLLimp = (LL-nullLL)/log(2);
 
-subspace_mod.opt_L2 = subspace_optd2T;
+subspace_mod.opt_d2T = subspace_optd2T;
 subspace_mod.xvLLimp = (subspace_xvLL - null_xvLL)/log(2);
 
 [~,~,predrate] = NMMmodel_eval(subspace_mod,Robs,X);

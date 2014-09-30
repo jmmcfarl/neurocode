@@ -2,9 +2,9 @@ clear all
 close all
 clc
 
-Expt_name = 'G093';
-bar_ori = 0;
-cc = 103;
+Expt_name = 'M296';
+bar_ori = 45;
+cc = 27;
 
 fit_unCor = 0;
 include_bursts = 0;
@@ -117,7 +117,7 @@ ov_sta = sacStimProc.ov_phaseDep_sta;
 cond_STA = sacStimProc.gsac_phaseDep_sta;
 cond_STA = squeeze(cond_STA(:,sta_peakloc,:));
 
-space_sm = 0.75;
+space_sm = 0;
 time_sm = 0;
 
 %smooth conditional STA in space

@@ -14,7 +14,7 @@ global Expt_name bar_ori use_MUA
 fit_unCor = false;
 include_bursts = 0;
 
-sname = 'sacTypeDepR';
+sname = 'sacTypeDep_noXV';
 if include_bursts
     sname = [sname '_withbursts'];
 end
@@ -22,10 +22,13 @@ end
 mod_data_name = 'corrected_models2';
 
 %%
-poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for post-gain models
-% poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
-poss_gain_L2 = [0]; %range of L2 reg values 
-poss_TB_lambdas = logspace(log10(0.1),log10(500),8); %range of d2T reg values for TB models
+% poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for post-gain models
+% % poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
+% poss_gain_L2 = [0]; %range of L2 reg values 
+
+poss_off_d2T = [10 100 1000];
+cent_off_d2T = 100;
+poss_gain_d2T = [10 100 1000]; %range of d2T reg values for post-gain models
 
 dt = 0.01;
 backlag = round(0.1/dt);
@@ -932,34 +935,34 @@ for cc = targs
             fgint = bsxfun(@times,fgint,stim_mod_signs);
             stimG = sum(fgint,2);
             norm_stimG = zscore(stimG);
-
-            %single post-gain filter with offset
-%             [sacTypeDep(cc).gsacIM_mod,gsacIM_pred_rate] = sacMod_scan_regularization...
-%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
-            [sacTypeDep(cc).gsacIM_mod,gsacIM_pred_rate] = sacMod_scan_doubleregularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
-            gsacIM_pred_rate = gsacIM_pred_rate(any_sac_inds);
             
-            [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
-            for ii = 1:length(slags)
-                temp = find(cur_Xsac(any_sac_inds,ii) == 1);
-                sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
-                
-                sac_nullLL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(sac_avgrate(ii)) - sac_avgrate(ii));
-                sac_Nspks(ii) = sum(cur_Robs(any_sac_inds(temp)));
-                
-                sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(gsacIM_pred_rate(temp)) - gsacIM_pred_rate(temp));
-                sac_info(ii) = nanmean(gsacIM_pred_rate(temp).*log2(gsacIM_pred_rate(temp)/mean(gsacIM_pred_rate(temp))))/mean(gsacIM_pred_rate(temp));
-           
-                rr = regress(gsacIM_pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
-                sac_offset(ii) = rr(1);
-                sac_gain(ii) = rr(2);
-            end
-            sacTypeDep(cc).gsacIM_avg_rate = sac_avgrate;
-            sacTypeDep(cc).gsacIM_modinfo = sac_info;
-            sacTypeDep(cc).gsacIM_LLimp = (sac_LL - sac_nullLL)./sac_Nspks;
-            sacTypeDep(cc).gsacIM_offset = sac_offset;
-            sacTypeDep(cc).gsacIM_gain = sac_gain;
+            %single post-gain filter with offset
+            %             [sacTypeDep(cc).gsacIM_mod,gsacIM_pred_rate] = sacMod_scan_doubleregularization...
+            %                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
+            %             gsacIM_pred_rate = gsacIM_pred_rate(any_sac_inds);
+            [sacTypeDep(cc).gsacIM_mod] = sacMod_scan_doubleregularization_noXV...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,any_sac_inds,basemod_pred_rate(any_sac_inds),poss_off_d2T,poss_gain_d2T);
+            
+%             [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+%             for ii = 1:length(slags)
+%                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
+%                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
+%                 
+%                 sac_nullLL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(sac_avgrate(ii)) - sac_avgrate(ii));
+%                 sac_Nspks(ii) = sum(cur_Robs(any_sac_inds(temp)));
+%                 
+%                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(gsacIM_pred_rate(temp)) - gsacIM_pred_rate(temp));
+%                 sac_info(ii) = nanmean(gsacIM_pred_rate(temp).*log2(gsacIM_pred_rate(temp)/mean(gsacIM_pred_rate(temp))))/mean(gsacIM_pred_rate(temp));
+%            
+%                 rr = regress(gsacIM_pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+%                 sac_offset(ii) = rr(1);
+%                 sac_gain(ii) = rr(2);
+%             end
+%             sacTypeDep(cc).gsacIM_avg_rate = sac_avgrate;
+%             sacTypeDep(cc).gsacIM_modinfo = sac_info;
+%             sacTypeDep(cc).gsacIM_LLimp = (sac_LL - sac_nullLL)./sac_Nspks;
+%             sacTypeDep(cc).gsacIM_offset = sac_offset;
+%             sacTypeDep(cc).gsacIM_gain = sac_gain;
                         
         end
         
@@ -988,32 +991,32 @@ for cc = targs
 
             %% FIT POST-INTEGRATION GAIN
             %single post-gain filter with offset
-%             [sacTypeDep(cc).gsacGR_mod,gsacGR_pred_rate] = sacMod_scan_regularization...
-%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
-            [sacTypeDep(cc).gsacGR_mod2,gsacGR_pred_rate] = sacMod_scan_doubleregularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
-            gsacGR_pred_rate = gsacGR_pred_rate(any_sac_inds);
+%             [sacTypeDep(cc).gsacGR_mod,gsacGR_pred_rate] = sacMod_scan_doubleregularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
+%             gsacGR_pred_rate = gsacGR_pred_rate(any_sac_inds);
+            [sacTypeDep(cc).gsacGR_mod] = sacMod_scan_doubleregularization_noXV...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,any_sac_inds,basemod_pred_rate(any_sac_inds),poss_off_d2T,poss_gain_d2T);
             
-            [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
-            for ii = 1:length(slags)
-                temp = find(cur_Xsac(any_sac_inds,ii) == 1);
-                sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
-                
-                sac_nullLL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(sac_avgrate(ii)) - sac_avgrate(ii));
-                sac_Nspks(ii) = sum(cur_Robs(any_sac_inds(temp)));
-                
-                sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(gsacGR_pred_rate(temp)) - gsacGR_pred_rate(temp));
-                sac_info(ii) = nanmean(gsacGR_pred_rate(temp).*log2(gsacGR_pred_rate(temp)/mean(gsacGR_pred_rate(temp))))/mean(gsacGR_pred_rate(temp));
-           
-                rr = regress(gsacGR_pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
-                sac_offset(ii) = rr(1);
-                sac_gain(ii) = rr(2);
-            end
-            sacTypeDep(cc).gsacGR_avg_rate = sac_avgrate;
-            sacTypeDep(cc).gsacGR_modinfo = sac_info;
-            sacTypeDep(cc).gsacGR_LLimp = (sac_LL - sac_nullLL)./sac_Nspks;
-            sacTypeDep(cc).gsacGR_offset = sac_offset;
-            sacTypeDep(cc).gsacGR_gain = sac_gain;
+%             [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+%             for ii = 1:length(slags)
+%                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
+%                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
+%                 
+%                 sac_nullLL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(sac_avgrate(ii)) - sac_avgrate(ii));
+%                 sac_Nspks(ii) = sum(cur_Robs(any_sac_inds(temp)));
+%                 
+%                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(gsacGR_pred_rate(temp)) - gsacGR_pred_rate(temp));
+%                 sac_info(ii) = nanmean(gsacGR_pred_rate(temp).*log2(gsacGR_pred_rate(temp)/mean(gsacGR_pred_rate(temp))))/mean(gsacGR_pred_rate(temp));
+%            
+%                 rr = regress(gsacGR_pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+%                 sac_offset(ii) = rr(1);
+%                 sac_gain(ii) = rr(2);
+%             end
+%             sacTypeDep(cc).gsacGR_avg_rate = sac_avgrate;
+%             sacTypeDep(cc).gsacGR_modinfo = sac_info;
+%             sacTypeDep(cc).gsacGR_LLimp = (sac_LL - sac_nullLL)./sac_Nspks;
+%             sacTypeDep(cc).gsacGR_offset = sac_offset;
+%             sacTypeDep(cc).gsacGR_gain = sac_gain;
         end
         
         %% FOR SIM SACS
@@ -1040,32 +1043,32 @@ for cc = targs
             
             %% FIT POST-INTEGRATION GAIN
             %single post-gain filter with offset
-%             [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_regularization...
-%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_L2);
-            [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_doubleregularization...
-                (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
-            simsac_pred_rate = simsac_pred_rate(any_sac_inds);
+%             [sacTypeDep(cc).simsac_mod,simsac_pred_rate] = sacMod_scan_doubleregularization...
+%                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
+%             simsac_pred_rate = simsac_pred_rate(any_sac_inds);
+            [sacTypeDep(cc).simsac_mod] = sacMod_scan_doubleregularization_noXV...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,any_sac_inds,basemod_pred_rate(any_sac_inds),poss_off_d2T,poss_gain_d2T);
             
-            [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
-            for ii = 1:length(slags)
-                temp = find(cur_Xsac(any_sac_inds,ii) == 1);
-                sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
-                
-                sac_nullLL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(sac_avgrate(ii)) - sac_avgrate(ii));
-                sac_Nspks(ii) = sum(cur_Robs(any_sac_inds(temp)));
-                
-                sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(simsac_pred_rate(temp)) - simsac_pred_rate(temp));
-                sac_info(ii) = nanmean(simsac_pred_rate(temp).*log2(simsac_pred_rate(temp)/mean(simsac_pred_rate(temp))))/mean(simsac_pred_rate(temp));
-           
-                rr = regress(simsac_pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
-                sac_offset(ii) = rr(1);
-                sac_gain(ii) = rr(2);
-            end
-            sacTypeDep(cc).simsac_avg_rate = sac_avgrate;
-            sacTypeDep(cc).simsac_modinfo = sac_info;
-            sacTypeDep(cc).simsac_LLimp = (sac_LL - sac_nullLL)./sac_Nspks;
-            sacTypeDep(cc).simsac_offset = sac_offset;
-            sacTypeDep(cc).simsac_gain = sac_gain;
+%             [sac_avgrate,sac_LL,sac_info,sac_offset,sac_gain,sac_nullLL,sac_Nspks] = deal(nan(length(slags),1));
+%             for ii = 1:length(slags)
+%                 temp = find(cur_Xsac(any_sac_inds,ii) == 1);
+%                 sac_avgrate(ii) = mean(cur_Robs(any_sac_inds(temp)));
+%                 
+%                 sac_nullLL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(sac_avgrate(ii)) - sac_avgrate(ii));
+%                 sac_Nspks(ii) = sum(cur_Robs(any_sac_inds(temp)));
+%                 
+%                 sac_LL(ii) = nansum(cur_Robs(any_sac_inds(temp)).*log2(simsac_pred_rate(temp)) - simsac_pred_rate(temp));
+%                 sac_info(ii) = nanmean(simsac_pred_rate(temp).*log2(simsac_pred_rate(temp)/mean(simsac_pred_rate(temp))))/mean(simsac_pred_rate(temp));
+%            
+%                 rr = regress(simsac_pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(any_sac_inds(temp))]);
+%                 sac_offset(ii) = rr(1);
+%                 sac_gain(ii) = rr(2);
+%             end
+%             sacTypeDep(cc).simsac_avg_rate = sac_avgrate;
+%             sacTypeDep(cc).simsac_modinfo = sac_info;
+%             sacTypeDep(cc).simsac_LLimp = (sac_LL - sac_nullLL)./sac_Nspks;
+%             sacTypeDep(cc).simsac_offset = sac_offset;
+%             sacTypeDep(cc).simsac_gain = sac_gain;
         end
         
     else
@@ -1081,4 +1084,4 @@ if fit_unCor
     sname = [sname '_unCor'];
 end
 cd(anal_dir)
-save(sname,'targs','slags','dt','sacTypeDep');
+save(sname,'targs','slags','dt','sacTypeDep','poss*');
