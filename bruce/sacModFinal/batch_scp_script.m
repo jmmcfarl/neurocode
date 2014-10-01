@@ -1,6 +1,6 @@
 clear all
 
-base_fname = 'sacStimProcFinR2';
+base_fname = 'sacStimProcFin_noXV';
 % base_fname = 'sac_info_timing';
 % base_fname = 'sac_info_timing';
 % base_fname = 'corrected_models2';

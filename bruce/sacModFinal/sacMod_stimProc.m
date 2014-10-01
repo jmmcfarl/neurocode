@@ -13,7 +13,6 @@ global Expt_name bar_ori use_MUA
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 
-
 fit_unCor = false;
 fit_subMod = true;
 fitUpstream = true;
@@ -39,16 +38,14 @@ mod_data_name = 'corrected_models2';
 % poss_sub_d2T = logspace(log10(10),log10(1e3),4); %range of d2T reg values for subspace models
 % poss_TB_lambdas = logspace(log10(0.1),log10(500),8); %range of d2T reg values for TB models
 
-poss_off_d2T = [10 100 1000];
+poss_off_d2T = [1 10 100 1000];
 cent_off_d2T = 100;
-poss_gain_d2T = [10 100 1000]; %range of d2T reg values for post-gain models
-poss_full_gain_d2T = [10 100 1000];
-poss_gain_L2 = [0 10]; %range of L2 reg values 
-poss_pre_d2T = [10 100 1000]; %range of d2T reg values for pre-gain models
-poss_sub_d2T = [10 100 1000]; %range of d2T reg values for subspace models
-poss_TB_lambdas = [1 10 100]; %range of d2T reg values for TB models
-
-% poss_sub_d2T = logspace(log10(10),log10(1e4),8); %range of d2T reg values for subspace models
+poss_gain_d2T = [1 10 100 1000]; %range of d2T reg values for post-gain models
+poss_full_gain_d2T = [1 10 100 1000];
+poss_gain_L2 = [0 1 5]; %range of L2 reg values 
+poss_pre_d2T = [1 10 100 1000]; %range of d2T reg values for pre-gain models
+poss_sub_d2T = [1 10 100 1000]; %range of d2T reg values for subspace models
+poss_TB_lambdas = [0.1 1 10 100]; %range of d2T reg values for TB models
 
 dt = 0.01;
 backlag = round(0.1/dt);

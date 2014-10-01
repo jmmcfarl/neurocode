@@ -26,9 +26,9 @@ mod_data_name = 'corrected_models2';
 % % poss_gain_L2 = [0 logspace(log10(1),log10(50),4)]; %range of L2 reg values 
 % poss_gain_L2 = [0]; %range of L2 reg values 
 
-poss_off_d2T = [10 100 1000];
+poss_off_d2T = [1 10 100 1000];
 cent_off_d2T = 100;
-poss_gain_d2T = [10 100 1000]; %range of d2T reg values for post-gain models
+poss_gain_d2T = [1 10 100 1000]; %range of d2T reg values for post-gain models
 
 dt = 0.01;
 backlag = round(0.1/dt);

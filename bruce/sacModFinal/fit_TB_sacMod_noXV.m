@@ -14,8 +14,6 @@ n_slags = size(Xsac,2);
 TB_stim = [t_since_sac stimG];
 
 %set G-bins based on prctiles
-%         Ytick =
-%         linspace(my_prctile(TB_stim(any_sac_inds,2),1),my_prctile(TB_stim(any_sac_inds,2),99),n_Gbins);
 %         %equispaced binning
 Ytick = my_prctile(TB_stim(fit_inds,2),linspace(0.5,99.5,n_Gbins)); %equipopulated binning
 
@@ -31,7 +29,7 @@ TB = TentBasis2D(Xtick, Ytick);
 %this is data within range of the TB centers
 TB_used_data = find(TB_stim(:,1) >= Xtick(1) & TB_stim(:,1) <= Xtick(end) & ...
     TB_stim(:,2) >= Ytick(1) & TB_stim(:,2) <= Ytick(end));
-TB_used_data = TB_used_data(ismember(TB_used_data,fit_inds));
+% TB_used_data = TB_used_data(ismember(TB_used_data,fit_inds));
 
 null_rate = mean(Robs(TB_used_data));
 nullLL = nansum(Robs(TB_used_data).*log2(null_rate) - null_rate)/sum(Robs(TB_used_data));
@@ -100,14 +98,10 @@ for ll = 1:length(poss_d2T)
     TB_sacmod.sac_offset = sac_offset;
     
     
-    [sac_offset,sac_gain,sac_info,sac_LLimp] = deal(nan(n_slags,1));
+    [sac_info,sac_LLimp] = deal(nan(n_slags,1));
     for ss = 1:n_slags
         temp = find(Xsac(TB_used_data,ss) == 1);
         cur_Robs = Robs(TB_used_data(temp));
-        
-        rr = regress(TB_pred_rate(temp),[ones(length(temp),1) basemod_predrate(TB_used_data(temp))]);
-        sac_offset(ss) = rr(1);
-        sac_gain(ss) = rr(2);
         
         sac_info(ss) = nanmean(TB_pred_rate(temp).*log2(TB_pred_rate(temp)/mean(TB_pred_rate(temp))))/mean(TB_pred_rate(temp));
         
@@ -118,8 +112,6 @@ for ll = 1:length(poss_d2T)
         sac_LLimp(ss) = (nansum(cur_Robs.*log2(TB_pred_rate(temp)) - TB_pred_rate(temp)) - cur_nullLL)/cur_Nspks;
     end
     
-    TB_sacmod.sac_offset = sac_offset;
-    TB_sacmod.sac_gain = sac_gain;
     TB_sacmod.sac_modinfo = sac_info;
     TB_sacmod.sac_LLimp = sac_LLimp;
     
