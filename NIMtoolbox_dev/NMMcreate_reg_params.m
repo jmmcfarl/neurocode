@@ -49,7 +49,7 @@ end
 n_inputs = length(varargin)/2;
 
 if n_inputs > 0
-    nmods = length(varargin{2});
+    nmods = size(varargin{2},1);
     reg_params = repmat(reg_params,nmods,1);
 end
 

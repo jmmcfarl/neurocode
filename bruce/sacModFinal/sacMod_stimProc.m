@@ -38,14 +38,14 @@ mod_data_name = 'corrected_models2';
 % poss_sub_d2T = logspace(log10(10),log10(1e3),4); %range of d2T reg values for subspace models
 % poss_TB_lambdas = logspace(log10(0.1),log10(500),8); %range of d2T reg values for TB models
 
-poss_off_d2T = [1 10 100 1000];
+poss_off_d2T = [1 10 50 100 1000];
 cent_off_d2T = 100;
-poss_gain_d2T = [1 10 100 1000]; %range of d2T reg values for post-gain models
-poss_full_gain_d2T = [1 10 100 1000];
-poss_gain_L2 = [0 1 5]; %range of L2 reg values 
-poss_pre_d2T = [1 10 100 1000]; %range of d2T reg values for pre-gain models
-poss_sub_d2T = [1 10 100 1000]; %range of d2T reg values for subspace models
-poss_TB_lambdas = [0.1 1 10 100]; %range of d2T reg values for TB models
+poss_gain_d2T = [1 10 50 100 1000]; %range of d2T reg values for post-gain models
+poss_full_gain_d2T = [1 10 50 100 1000];
+poss_gain_L2 = [0 1 5 10]; %range of L2 reg values 
+poss_pre_d2T = [1 10 50 100 1000]; %range of d2T reg values for pre-gain models
+poss_sub_d2T = [1 10 50 100 1000]; %range of d2T reg values for subspace models
+poss_TB_lambdas = [0.1 1 5 10 100]; %range of d2T reg values for TB models
 
 dt = 0.01;
 backlag = round(0.1/dt);
@@ -841,6 +841,7 @@ for cc = targs
         
         %%
         if length(any_sac_inds) > 1e4
+            
             %% Fit spk NL params and refit scale of each filter using target data (within trange of sacs)
             cur_rGQM = NMMfit_logexp_spkNL(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             cur_rGQM = NMMfit_scale(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
@@ -852,9 +853,14 @@ for cc = targs
             norm_stimG = zscore(stimG);
             
             sacStimProc(cc).gsac_ovavg_rate = mean(cur_Robs(any_sac_inds));
+            [baseLL,~,~,~,~,~,base_nullLL] = NMMmodel_eval(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+            sacStimProc(cc).gsac_base_LLimp = (baseLL-base_nullLL)/log(2);
             
             %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
-            
+            %fit offset-only model
+            [sacStimProc(cc).gsac_off_mod] = sacMod_scan_doubleregularization_noXV...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,any_sac_inds,basemod_pred_rate(any_sac_inds),poss_off_d2T,[],[],true);
+
             %single post-gain filter with offset
 %             [sacStimProc(cc).gsac_post_mod,gsac_post_pred_rate] = sacMod_scan_doubleregularization...
 %                 (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
@@ -1139,10 +1145,15 @@ for cc = targs
                 stimG = sum(fgint,2);
                 norm_stimG = zscore(stimG);
                 
-                sacStimProc(cc).msac_ovavg_rate = mean(cur_Robs(any_sac_inds));                
-                
+                sacStimProc(cc).msac_ovavg_rate = mean(cur_Robs(any_sac_inds));
+                [baseLL,~,~,~,~,~,base_nullLL] = NMMmodel_eval(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
+                sacStimProc(cc).msac_base_LLimp = (baseLL-base_nullLL)/log(2);
                 %% FIT POST-INTEGRATION GAIN
-                %single post-gain filter with offset
+            %fit offset only model
+                [sacStimProc(cc).msac_off_mod] = sacMod_scan_doubleregularization_noXV...
+                (cur_rGQM,cur_Robs,cur_Xsac,stimG,any_sac_inds,basemod_pred_rate(any_sac_inds),poss_off_d2T,[],[],true);
+
+            %single post-gain filter with offset
 %                  [sacStimProc(cc).msac_post_mod,msac_post_pred_rate] = sacMod_scan_doubleregularization...
 %                     (cur_rGQM,cur_Robs,cur_Xsac,stimG,tr_sac_inds,xv_sac_inds,poss_gain_d2T,poss_gain_d2T);
 %                 opt_offset_d2T = sacStimProc(cc).msac_post_mod.opt_d2T_off;

@@ -22,8 +22,8 @@ all_SU_NPdata = [];
 %% LOAD JBE
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
-% ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
-ori_list = [0 90; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
+ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+% ori_list = [0 90; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -85,7 +85,7 @@ end
 %% LOAD LEM
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
-Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
+Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
 n_probes = 24;
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
 rmfield_list = {};
@@ -399,7 +399,7 @@ xlim([-0.1 0.3]);
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 base_lags = find(slags <= 0);
 
-lambda_ii = 3;
+lambda_ii = 2;
 
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
@@ -857,7 +857,7 @@ cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 base_lags = find(slags <= 0);
 
 lambda_L2_ii = 1;
-lambda_d2T_ii = 1;
+lambda_d2T_ii = 2;
 GO_lambda_ii = 1;
 GO_lambda_jj = 1;
 
@@ -893,19 +893,37 @@ search_range = [0 max(up_lagax)];
 
 slags_up = linspace(slags(1)*dt,slags(end)*dt,100);
 all_gkerns_up = spline(slags*dt,all_gainkerns,slags_up);
-search_range = [0 0.15];
-[gkern_max,gkern_time] = get_tavg_peaks(-all_gkerns_up,slags_up,search_range);
+search_range = [0 0.2];
+[gkern_max,gkern_time] = get_tavg_peaks(-(all_gkerns_up-1),slags_up,search_range);
 
-ukerns = find(all_relweights > 0.1 & gkern_max > 0.5);
+noise_level = mean(std(all_gainkerns(:,base_lags),[],2));
+ukerns = find(all_relweights > 0 & gkern_max > 2*noise_level & ~isnan(tkern_max));
+[a,b] = corr(gkern_time(ukerns),tkern_time(ukerns),'type','spearman')
 
+esubs = ukerns(all_modsigns(ukerns)==1);
+isubs = ukerns(all_modsigns(ukerns)==-1);
 jit_amp = 0.005;
-f1 = figure();
-plot(gkern_time + randn(size(gkern_time))*jit_amp , tkern_time + randn(size(tkern_time))*jit_amp,'.')
+gkern_time = gkern_time + randn(size(gkern_time))*jit_amp;
+tkern_time = tkern_time + randn(size(tkern_time))*jit_amp;
+f1 = figure(); hold on
+% plot(gkern_time(ukerns), tkern_time(ukerns),'.')
+plot(gkern_time(esubs), tkern_time(esubs) ,'r.')
+plot(gkern_time(isubs) , tkern_time(isubs),'k.')
+
+[a,b] = corr(gkern_time(esubs),tkern_time(esubs),'type','spearman')
+[a,b] = corr(gkern_time(isubs),tkern_time(isubs),'type','spearman')
+
 
 f2 = figure();hold on
 shadedErrorBar(slags*dt,mean(gsac_post_gain),std(gsac_post_gain)/sqrt(length(cur_SUs)),{'color','k'});
-shadedErrorBar(slags*dt,mean(all_gainkerns),std(all_gainkerns)/sqrt(size(all_gainkerns,1)),{'color','r'});
+% shadedErrorBar(slags*dt,mean(all_gainkerns(ukerns,:)),std(all_gainkerns(ukerns,:))/sqrt(length(ukerns)),{'color','r'});
+shadedErrorBar(slags*dt,mean(all_gainkerns),std(all_gainkerns)/sqrt(size(all_gainkerns,1)),{'color','b'});
 
+
+% f2 = figure();hold on
+% shadedErrorBar(slags*dt,mean(all_gainkerns(ukerns,:)),std(all_gainkerns(ukerns,:)),{'color','r'});
+% shadedErrorBar(slags*dt,mean(all_gainkerns),std(all_gainkerns),{'color','b'});
+% shadedErrorBar(slags*dt,mean(gsac_post_gain),std(gsac_post_gain),{'color','k'});
 
 % GO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_ii,GO_lambda_jj}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 % GO_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_ii,GO_lambda_jj}.ovInfo,all_SU_data(cur_SUs));
