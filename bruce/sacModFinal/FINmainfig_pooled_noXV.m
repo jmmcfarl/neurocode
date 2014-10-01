@@ -20,10 +20,11 @@ all_SU_data = [];
 all_SU_NPdata = [];
 
 %% LOAD JBE
-Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
+% Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
+Expt_list = {'G085','G086','G087','G088','G089','G091'};
 n_probes = 96;
-ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
-% ori_list = [0 90; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
+% ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -85,7 +86,7 @@ end
 %% LOAD LEM
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
-Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
+Expt_list = {'M266','M270','M275','M277','M281'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
 n_probes = 24;
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
 rmfield_list = {};
@@ -324,12 +325,12 @@ ylabel('Enhancement time (s)');
 xl = [-0.1 0.35];
 
 %PLOT SAC TRIG AVGS FOR TWO SETS OF UNITS (NORMAL AND REVERSE-POLARITY)
-set1 = sigB(gsac_exctime(sigB) > gsac_inhtime(sigB));
-set2 = sigB(gsac_exctime(sigB) < gsac_inhtime(sigB));
+normal_polarity_units = sigB(gsac_exctime(sigB) > gsac_inhtime(sigB));
+reverse_polarity_units = sigB(gsac_exctime(sigB) < gsac_inhtime(sigB));
 f2 = figure();
 hold on
-h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(set1,:)),nanstd(all_gsac_gray(set1,:))/sqrt(length(set1)),{'color','b'});
-h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(set2,:)),nanstd(all_gsac_gray(set2,:))/sqrt(length(set2)),{'color','r'});
+h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(normal_polarity_units,:)),nanstd(all_gsac_gray(normal_polarity_units,:))/sqrt(length(normal_polarity_units)),{'color','b'});
+h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(reverse_polarity_units,:)),nanstd(all_gsac_gray(reverse_polarity_units,:))/sqrt(length(reverse_polarity_units)),{'color','r'});
 % plot(tlags,all_gsac_gray(set2,:),'k')
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
@@ -790,18 +791,20 @@ ylabel('Relative rate');
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 base_lags = find(slags <= -0.025);
 
-pre_lambda_ii = 1;
-post_lambda_ii = 2;
-post_lambda_jj = 1;
+pre_lambda = 2;
+post_lambda_gain = 2;
+post_lambda_off = 4;
 
-gsac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda_ii}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
-gsac_post_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_ii,post_lambda_jj}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_post_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
 
 gsac_post_gain = bsxfun(@rdivide,gsac_post_gain,mean(gsac_post_gain(:,base_lags),2));
 gsac_pre_gain = bsxfun(@rdivide,gsac_pre_gain,mean(gsac_pre_gain(:,base_lags),2));
 
-pre_LLs = arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda_ii}.ovLLimp,all_SU_data(cur_SUs));
-post_LLs = arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_ii,post_lambda_jj}.ovLLimp,all_SU_data(cur_SUs));
+base_LLs = arrayfun(@(x) x.sacStimProc.gsac_base_LLimp,all_SU_data(cur_SUs));
+off_LLs = arrayfun(@(x) x.sacStimProc.gsac_off_mod{post_lambda_off}.ovLLimp,all_SU_data(cur_SUs));
+post_LLs = arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.ovLLimp,all_SU_data(cur_SUs));
+pre_LLs = arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda}.ovLLimp,all_SU_data(cur_SUs));
 
 %COMPARE PRE AND POST GAINS
 xl = [-0.1 0.2];
@@ -826,10 +829,10 @@ ylim([0.55 1.05])
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs);
 base_lags = find(slags <= -0.025);
 
-pre_lambda_ii = 1;
+pre_lambda = 1;
 
-gsac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda_ii}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
-msac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.msacPreGainMod{pre_lambda_ii}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
+msac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.msacPreGainMod{pre_lambda}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
 
 msac_pre_gain = bsxfun(@rdivide,msac_pre_gain,mean(msac_pre_gain(:,base_lags),2));
 gsac_pre_gain = bsxfun(@rdivide,gsac_pre_gain,mean(gsac_pre_gain(:,base_lags),2));
@@ -852,6 +855,48 @@ ylabel('Gain');
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
+%% COMPARE STIM TIMING AND SAC-MOD TIMING
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs);
+
+all_Ekerns = [];
+all_Ikerns = [];
+for ii = 1:length(cur_SUs)
+    [~,cur_Ekern,cur_Ikern] = get_hilbert_tempkerns(all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM);
+    all_Ekerns = cat(1,all_Ekerns,cur_Ekern');
+    all_Ikerns = cat(1,all_Ikerns,cur_Ikern');
+end
+
+all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+search_range = [0 0.2];
+[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
+search_range = [0 0.3];
+[gsac_Efact,gsac_exctime] = get_tavg_peaks((all_gsac_tavg-1),tlags,search_range);
+
+flen = 15;
+lag_ax = ((1:flen)*dt - dt/2);
+up_lagax = linspace(lag_ax(1),lag_ax(end),100);
+all_Ekerns_up = spline(lag_ax,all_Ekerns,up_lagax);
+all_Ikerns_up = spline(lag_ax,all_Ikerns,up_lagax);
+search_range = [0 max(up_lagax)];
+[Ekern_max,Ekern_time] = get_tavg_peaks(all_Ekerns_up,up_lagax,search_range);
+[Ikern_max,Ikern_time] = get_tavg_peaks(all_Ikerns_up,up_lagax,search_range);
+
+cur_sigI = find(ismember(cur_SUs,sigI));
+cur_sigE = find(ismember(cur_SUs,sigE));
+cur_rP = find(ismember(cur_SUs,reverse_polarity_units));
+f1 = figure(); hold on
+plot(Ekern_time,gsac_inhtime,'.')
+plot(Ekern_time(cur_sigI),gsac_inhtime(cur_sigI),'r.');
+plot(Ekern_time(cur_rP),gsac_inhtime(cur_rP),'ko');
+
+f2 = figure(); hold on
+plot(Ekern_time,gsac_exctime,'.')
+plot(Ekern_time(cur_sigE),gsac_exctime(cur_sigE),'r.');
+
+f3 = figure(); hold on
+plot(Ikern_time,gsac_exctime,'.')
+plot(Ikern_time(cur_sigE),gsac_exctime(cur_sigE),'r.');
+
 %% COMPARE TEMPKERNS ADN MODEL GAIN LATENCIES
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 base_lags = find(slags <= 0);
@@ -864,16 +909,32 @@ GO_lambda_jj = 1;
 gsac_post_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_ii,GO_lambda_jj}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_post_gain = bsxfun(@rdivide,gsac_post_gain,mean(gsac_post_gain(:,base_lags),2));
 
+flen = 15;
+lag_ax = ((1:flen)*dt - dt/2);
+up_lagax = linspace(lag_ax(1),lag_ax(end),100);
+slags_up = linspace(slags(1)*dt,slags(end)*dt,100);
+
 all_tempkerns = [];
 all_gainkerns = [];
 all_relweights = [];
 all_modsigns = [];
+cell_tg_slope = nan(length(cur_SUs),1);
 for ii = 1:length(cur_SUs)
     cur_tkerns = get_hilbert_tempkerns(all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM);
     cur_gainkerns = reshape([all_SU_data(cur_SUs(ii)).sacStimProc.gsac_post_Fullmod{1,lambda_d2T_ii,lambda_L2_ii}.mods(3).filtK],length(slags),[]);
     cur_relweights = all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.rel_filt_weights;
     cur_modsigns = [all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.mods(:).sign];
     
+    uset = find(cur_relweights > 0);
+    cur_tkerns_up(uset,:) = spline(lag_ax,cur_tkerns(:,uset)',up_lagax);
+    search_range = [0 max(up_lagax)];
+    [~,cur_tk_time] = get_tavg_peaks(cur_tkerns_up,up_lagax,search_range);
+    search_range = [0 0.2];
+    if length(uset) >= 5
+    [cur_gkern_max,cur_gk_time] = get_tavg_peaks(-(cur_gainkerns'-1),slags*dt,search_range);
+    r = robustfit(cur_tk_time(uset),cur_gk_time(uset));
+    cell_tg_slope(ii) = r(2);
+    end
     all_tempkerns = cat(1,all_tempkerns,cur_tkerns');
     all_gainkerns = cat(1,all_gainkerns,1+cur_gainkerns');
     all_relweights = cat(1,all_relweights,cur_relweights');
@@ -882,16 +943,12 @@ end
 
 all_gainkerns = bsxfun(@rdivide,all_gainkerns,mean(all_gainkerns(:,base_lags),2));
 
-flen = 15;
-lag_ax = ((1:flen)*dt - dt/2);
-up_lagax = linspace(lag_ax(1),lag_ax(end),100);
 all_tkerns_up = nan(length(all_relweights),length(up_lagax));
 nzero_filts = find(all_relweights > 0);
 all_tkerns_up(nzero_filts,:) = spline(lag_ax,all_tempkerns(nzero_filts,:),up_lagax);
 search_range = [0 max(up_lagax)];
 [tkern_max,tkern_time] = get_tavg_peaks(all_tkerns_up,up_lagax,search_range);
 
-slags_up = linspace(slags(1)*dt,slags(end)*dt,100);
 all_gkerns_up = spline(slags*dt,all_gainkerns,slags_up);
 search_range = [0 0.2];
 [gkern_max,gkern_time] = get_tavg_peaks(-(all_gkerns_up-1),slags_up,search_range);
@@ -1066,7 +1123,7 @@ for ee = 1:n_lem_expts
     gran_probes = (cur_ub+1):(cur_lb-1);
     supra_probes = 1:(cur_ub-1);
     infra_probes = (cur_lb+1):24;
-    
+        
     cur_pclass = nan(24,1);
     cur_pclass(supra_probes) = 1; cur_pclass(gran_probes) = 2; cur_pclass(infra_probes) = 3;
     all_MU_lclass(ee,:) = cur_pclass;
