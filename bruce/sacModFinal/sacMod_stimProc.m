@@ -11,7 +11,7 @@ global Expt_name bar_ori use_MUA
 
 % Expt_name = 'G087';
 % use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% bar_ori = 90; %bar orientation to use (only for UA recs)
 
 fit_unCor = false;
 fit_subMod = true;
@@ -580,7 +580,7 @@ if length(saccades) ~= length(et_saccades)
     fprintf('Using old blink detection algo!\n');
     [saccades,et_params] = detect_saccades_v2(corrected_eye_vals,all_eye_vals,all_eye_speed,all_eye_ts,et_params);
     is_blink = detect_blinks_old(all_eye_ts,all_eye_vals,saccades,et_params);
-    [saccades,is_blink] = merge_blinks(saccades,is_blink);
+        [saccades,is_blink] = merge_blinks(saccades,is_blink);
     sac_start_times = [saccades(:).start_time];
     sac_stop_times = [saccades(:).stop_time];
     interp_sac_start_inds = round(interp1(all_t_axis,1:length(all_t_axis),sac_start_times));

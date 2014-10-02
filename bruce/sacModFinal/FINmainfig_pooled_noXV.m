@@ -20,11 +20,10 @@ all_SU_data = [];
 all_SU_NPdata = [];
 
 %% LOAD JBE
-% Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
-Expt_list = {'G085','G086','G087','G088','G089','G091'};
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
-% ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
-ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
+ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+% ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -85,8 +84,8 @@ end
 
 %% LOAD LEM
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
-% Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
-Expt_list = {'M266','M270','M275','M277','M281'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
+Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
+% Expt_list = {'M266','M270','M275','M277','M281'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
 n_probes = 24;
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
 rmfield_list = {};
@@ -356,7 +355,8 @@ cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{1}.lagX*dt;
 base_lags = find(TB_Xtick <= 0);
 
-lambda_ii = 2;
+lambda_ii = 4;
+xl = [-0.1 0.35];
 
 TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
@@ -400,7 +400,7 @@ xlim([-0.1 0.3]);
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 base_lags = find(slags <= 0);
 
-lambda_ii = 2;
+lambda_ii = 4;
 
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
@@ -427,10 +427,12 @@ xlim([-0.1 0.3]);
 
 %% PLOTS COMPARING STRONGLY ENHANCED VS STRONGLY SUPPRESSED UNITS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
-TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod.lagX*dt;
+TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{lambda_ii}.lagX*dt;
 
 base_lags = find(slags <= 0);
 TBbase_lags = find(TB_Xtick <= 0);
+
+lambda_ii = 4;
 
 all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 search_range = [0 0.35];
@@ -445,17 +447,17 @@ sup_units = find(EIrat <= EIprc(1));
 % enh_units = find(EIrat >= EIprc(2));
 % sup_units = find(EIrat <= EIprc(2));
 
-TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
-TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
+TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
+TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
 TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
 
-TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
+TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
 TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,TBbase_lags),2));
 
-TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,TBbase_lags),2));
 
 
@@ -512,9 +514,9 @@ TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{1}.lagX*dt;
 base_lags = find(slags <= 0);
 TBbase_lags = find(TB_Xtick <= 0);
 
-TB_lambda_ii = 2;
-GO_lambda_off = 2;
-GO_lambda_gain = 1;
+TB_lambda_ii = 4;
+GO_lambda_off = 4;
+GO_lambda_gain = 3;
 
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
@@ -568,7 +570,7 @@ line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
-ylabel('Relative rate');
+ylabel('Relative SSI');
 
 xl = [-0.1 0.3];
 f1 = figure();hold on
@@ -579,24 +581,24 @@ line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
-ylabel('Relative rate');
+ylabel('Log-likelihood');
 
 %COMPARE OFFSETS
 xl = [-0.1 0.3];
 f2 = figure();hold on
-h1=shadedErrorBar(slags*dt,nanmean(TB_Noffset),nanstd(TB_Noffset)/sqrt(length(cur_SUs)),{'color','b'});
+h1=shadedErrorBar(TB_Xtick,nanmean(TB_Noffset),nanstd(TB_Noffset)/sqrt(length(cur_SUs)),{'color','b'});
 h2=shadedErrorBar(slags*dt,nanmean(GO_Noffset),nanstd(GO_Noffset)/sqrt(length(cur_SUs)),{'color','r'});
 % plot(tlags,all_gsac_gray(set2,:),'k')
 line(xl,[0 0],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
-ylabel('Relative rate');
+ylabel('Offset');
 
 %COMPARE GAINS
 xl = [-0.1 0.3];
 f3 = figure();hold on
-h1=shadedErrorBar(slags*dt,nanmean(TB_gains),nanstd(TB_gains)/sqrt(length(cur_SUs)),{'color','b'});
+h1=shadedErrorBar(TB_Xtick,nanmean(TB_gains),nanstd(TB_gains)/sqrt(length(cur_SUs)),{'color','b'});
 h2=shadedErrorBar(slags*dt,nanmean(GO_gain),nanstd(GO_gain)/sqrt(length(cur_SUs)),{'color','r'});
 % plot(tlags,all_gsac_gray(set2,:),'k')
 line(xl,[1 1],'color','k');

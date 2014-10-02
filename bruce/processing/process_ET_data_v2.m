@@ -49,16 +49,18 @@ for ee = 1:length(cur_block_set);
         rEyeXY = eye_vals_interp(:,3:4);
         
         eye_vel = lEyeXY; %initialization
-        %slight smoothing before computing speed
-        if use_coils(1) && ~use_coils(2)
-            sm_avg_eyepos = lEyeXY; 
-        elseif use_coils(2) && ~use_coils(1)
-            sm_avg_eyepos = rEyeXY; 
-        elseif use_coils(1) && use_coils(2)
-            sm_avg_eyepos = 0.5*lEyeXY + 0.5*rEyeXY;
-        else
-           error('Invalid setting for use_coils!'); 
-        end
+%         %slight smoothing before computing speed
+%         if use_coils(1) && ~use_coils(2)
+%             sm_avg_eyepos = lEyeXY; 
+%         elseif use_coils(2) && ~use_coils(1)
+%             sm_avg_eyepos = rEyeXY; 
+%         elseif use_coils(1) && use_coils(2)
+%             sm_avg_eyepos = 0.5*lEyeXY + 0.5*rEyeXY;
+%         else
+%            error('Invalid setting for use_coils!'); 
+%         end
+%uses smoothed left eye coil signal to define instantaneous speed
+sm_avg_eyepos = lEyeXY;
         sm_avg_eyepos(:,1) = smooth(lEyeXY(:,1),eye_smooth);
         sm_avg_eyepos(:,2) = smooth(lEyeXY(:,2),eye_smooth);
         eye_vel(:,1) = [0; diff(sm_avg_eyepos(:,1))]/eye_dt;

@@ -42,7 +42,6 @@ sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(m
 
 %%
 
-if length(poss_d2T_gain) > 1 || length(poss_d2T_off) > 1 || length(poss_L2_gain) > 1
     for jj = 1:length(poss_d2T_off)
         for ii = 1:length(poss_d2T_gain)
             for kk = 1:length(poss_L2_gain)
@@ -69,8 +68,22 @@ if length(poss_d2T_gain) > 1 || length(poss_d2T_off) > 1 || length(poss_L2_gain)
                     temp = find(Xsac(fit_inds,ss) == 1);
                     cur_Robs = Robs(fit_inds(temp));
                     
+                    %this code uses just the models for calculations. It
+                    %takes longer but factors out any autocorrelation in
+                    %saccade timing
+%                     poss_Xsac = zeros(length(fit_inds),size(Xsac,2));
+%                     poss_Xsac(:,ss) = 1;
+%                     cur_tr_stim{1} = gain_sigs(fit_inds,:);
+%                     cur_tr_stim{2} = poss_Xsac; %saccade timing indicator matrix
+%                     if ~off_only
+%                         cur_tr_stim{3} = reshape(bsxfun(@times,poss_Xsac,reshape(gain_sigs(fit_inds,:),[],1,n_gains)), length(fit_inds),[]);
+%                     end
+%                     [~,~,pred_rate] = NMMmodel_eval(cur_mod,[],cur_tr_stim);
+%                      rr = regress(pred_rate,[ones(length(pred_rate),1) basemod_pred_rate]);
+%                     sac_info(ss) = nanmean(pred_rate.*log2(pred_rate/mean(pred_rate)))/mean(pred_rate);
+ 
                     rr = regress(pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(temp)]);
-                    sac_offset(ss) = rr(1);
+                   sac_offset(ss) = rr(1);
                     sac_gain(ss) = rr(2);
                     
                     sac_info(ss) = nanmean(pred_rate(temp).*log2(pred_rate(temp)/mean(pred_rate(temp))))/mean(pred_rate(temp));
@@ -91,6 +104,5 @@ if length(poss_d2T_gain) > 1 || length(poss_d2T_off) > 1 || length(poss_L2_gain)
             end
         end
     end
-end
 
 
