@@ -13,13 +13,12 @@ global Expt_name bar_ori use_MUA
 % use_MUA = false;
 % bar_ori = 90; %bar orientation to use (only for UA recs)
 
-fit_unCor = false;
-fit_subMod = true;
+fit_unCor = true;
+fit_subMod = false;
 fitUpstream = true;
 fitSTA = true;
 fitMsacs = true;
-% fit_msacUpstream = true;
-fitFullPostMod = true;
+fitFullPostMod = false;
 
 include_bursts = 0;
 
