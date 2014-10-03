@@ -1,5 +1,7 @@
 clear all
 
+fit_unCor = true;
+
 base_fname = 'sacStimProcFin_noXV';
 % base_fname = 'sac_info_timing';
 % base_fname = 'sac_info_timing';
@@ -7,6 +9,7 @@ base_fname = 'sacStimProcFin_noXV';
 
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+% ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 
 copy_to = 'local';
 
@@ -32,7 +35,11 @@ for ee = 1:length(Expt_list)
     for oo = 1:2
         cur_ori = ori_list(ee,oo);
         if ~isnan(cur_ori)
-            cur_fname = strcat(source_dir,base_fname,sprintf('_ori%d.mat',cur_ori));
+            cur_fname = strcat(source_dir,base_fname,sprintf('_ori%d',cur_ori));
+            if fit_unCor
+                cur_fname = strcat(cur_fname,'_unCor');
+            end
+            cur_fname = strcat(cur_fname,'.mat');
             if strcmp(copy_to,'local')
                 fprintf('Copying %s from remote to %s\n',cur_fname,dest_dir);
                 results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));
@@ -78,7 +85,11 @@ for ee = 1:length(Expt_list)
     for oo = 1:2
         cur_ori = ori_list(ee,oo);
         if ~isnan(cur_ori)
-            cur_fname = strcat(source_dir,base_fname,sprintf('_ori%d.mat',cur_ori));
+            cur_fname = strcat(source_dir,base_fname,sprintf('_ori%d',cur_ori));
+            if fit_unCor
+                cur_fname = strcat(cur_fname,'_unCor');
+            end
+            cur_fname = strcat(cur_fname,'.mat');
             if strcmp(copy_to,'local')
                 fprintf('Copying %s to remote %s\n',cur_fname,dest_dir);
                 results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));

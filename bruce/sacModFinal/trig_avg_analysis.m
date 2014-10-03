@@ -10,6 +10,8 @@ global Expt_name bar_ori
 include_bursts = 0;
 nboot = 500; %number of bootstrap samples for computing trig-avg SD
 
+sname = 'sac_trig_avg_data3';
+
 %%
 Expt_num = str2num(Expt_name(2:end));
 
@@ -99,7 +101,7 @@ forwardlag = round(0.55/dt);
 
 peark_search_range = [0 0.35];
 
-sua_sm_sig = (0.01/dt);
+sua_sm_sig = (0.0075/dt);
 % mua_sm_sig = (0.005/dt);
 mua_sm_sig = 0;
 
@@ -865,7 +867,6 @@ trig_avg_params = struct('mua_sm_sig',mua_sm_sig,'sua_sm_sig',sua_sm_sig,'dt',dt
     'beg_buffer',beg_buffer,'end_buffer',end_buffer,'good_coils',good_coils,'bar_ori',bar_ori,'nboot',nboot,'micro_thresh',micro_thresh);
 
 cd(save_dir)
-sname = 'sac_trig_avg_data';
 if include_bursts
     sname = [sname '_withburst'];
 end
