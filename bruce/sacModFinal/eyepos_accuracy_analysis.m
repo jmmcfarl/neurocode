@@ -761,9 +761,6 @@ fix_disp_data.msac_fix_disp = msac_fix_disp;
 anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
 
 sname = [sname sprintf('_ori%d',bar_ori)];
-if fit_unCor
-    sname = [sname '_unCor'];
-end
 cd(anal_dir)
 save(sname,'slags','dt','fix_disp_data');
 
