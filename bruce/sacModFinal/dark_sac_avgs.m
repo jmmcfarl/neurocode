@@ -62,12 +62,12 @@ min_trial_dur = 0.75;
 beg_buffer = 0.2;
 end_buffer = 0.05;
 
-backlag = round(0.3/dt);
-forwardlag = round(0.6/dt);
+backlag = round(0.4/dt);
+forwardlag = round(0.7/dt);
 
 sua_sm_sig = (0.01/dt);
 mua_sm_sig = (0.01/dt);
-% mua_sm_sig = 0;
+mua_sm_sig = 0;
 
 if strcmp(Expt_name,'G081') || ismember(Expt_num,[232 235 239])
     trial_dur = 2;
@@ -266,7 +266,7 @@ interp_sac_stop_inds(bad_sacs) = [];
 % out_of_range = (abs(corrected_eye_vals_interp(used_inds,1)) > 8 | abs(corrected_eye_vals_interp(used_inds,2) > 8));
 % fract_out = sum(out_of_range)/length(used_inds);
 % fprintf('Eliminating %.4f of data out of window\n',fract_out);
-
+% 
 % used_inds(out_of_range) = [];
 %% PROCESS SACCADE STATS
 
@@ -289,9 +289,12 @@ sac_peak_inds = round(interp1(all_t_axis,1:length(all_t_axis),[saccades(:).peak_
 sac_prepos = reshape([saccades(:).pre_pos],[],length(saccades));
 sac_postpos = reshape([saccades(:).post_pos],[],length(saccades));
 sac_amp = [saccades(:).amplitude];
-
+sac_dur = [saccades(:).duration];
 % %find saccades that start or end out of window
 % out_bounds = abs(sac_prepos(2,:)) > EP_bounds | abs(sac_postpos(2,:)) > EP_bounds;
+
+%don't use sacs where the eyes start out with both coordinates saturated
+out_bounds = all(sac_prepos > 9.5);
 
 sacburst_set = find([saccades(:).isi] < sac_burst_isi | [saccades(:).next_isi] < sac_burst_isi);
 micro_set = find([saccades(:).amplitude] < micro_thresh & ~used_is_blink');
@@ -300,12 +303,14 @@ micro_set(ismember(micro_set,sacburst_set)) = []; %eliminate microsacs that are 
 
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks
-gsac_set = find(sac_amp > gsac_thresh & ~used_is_blink' & sac_dur <= max_gsac_dur);
+% gsac_set = find(sac_amp > gsac_thresh & ~used_is_blink' & sac_dur <= max_gsac_dur);
+gsac_set = find(sac_amp > gsac_thresh & ~used_is_blink' & ~out_bounds);
 
 
 %%
 dark_blocks = [3 4 6 7];
 light_blocks = setdiff(cur_block_set,dark_blocks);
+all_dark_inds = used_inds(ismember(all_blockvec(used_inds),dark_blocks));
 
 light_sacs = find(ismember(all_blockvec(sac_start_inds),light_blocks));
 dark_sacs = find(ismember(all_blockvec(sac_start_inds),dark_blocks));
@@ -344,14 +349,22 @@ nboot = [];
 [dark_gsac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(dark_gsacs),backlag,forwardlag,nboot);
 
 %%
+dark_avg_rates = mean(all_mua_rate(all_dark_inds,:));
+
+mua_sm_sig = 0.0075/dt;
+dark_gsac_avg_sm = dark_msac_avg;
+for ii = 1:n_probes
+    dark_gsac_avg_sm(:,ii) = jmm_smooth_1d_cor(dark_gsac_avg(:,ii),mua_sm_sig);
+end
+
+%%
 bad_units = [];
 uset = setdiff(1:96,bad_units);
-xl = [-0.3 0.6];
-
+% uset = find(dark_avg_rates/dt <= 10);
+xl = [-0.25 0.55];
 f1 = figure();
-h1=shadedErrorBar(lags*dt,1+mean(dark_gsac_avg(:,uset),2),std(dark_gsac_avg(:,uset),[],2)/sqrt(length(uset)));
-hold on
-% h2=shadedErrorBar(lags*dt,mean(light_gsac_avg(:,uset)'),std(light_gsac_avg(:,uset)')/sqrt(length(uset)),{'color','r'});
+h1=shadedErrorBar(lags*dt,1+mean(dark_gsac_avg_sm(:,uset),2),std(dark_gsac_avg_sm(:,uset),[],2)/sqrt(length(uset)));
+% h1=shadedErrorBar(lags*dt,1+mean(dark_gsac_avg(:,uset),2),std(dark_gsac_avg(:,uset),[],2)/sqrt(length(uset)));
 ylim([0.9 1.1])
 yl = ylim();
 line(xl,[1 1],'color','k')
@@ -359,8 +372,14 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-fig_width = 3.5; rel_height = 0.8;
+% fig_width = 3.5; rel_height = 0.8;
 figufy(f1);
-fname = [fig_dir 'DarkSacMUA.pdf'];
+% fname = [fig_dir 'DarkSacMUA.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+yl = [0.75 1.25];
+ylim(yl);
+fname = [fig_dir 'DarkSacMUA_zoomout.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+
+% close(f1);
