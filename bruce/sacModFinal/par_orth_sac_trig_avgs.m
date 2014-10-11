@@ -99,7 +99,7 @@ backlag = round(0.25/dt);
 forwardlag = round(0.55/dt);
 
 sua_sm_sig = (0.01/dt);
-mua_sm_sig = (0.005/dt);
+mua_sm_sig = (0.0075/dt);
 
 if strcmp(Expt_name,'G081') || ismember(Expt_num,[232 235 239])
     trial_dur = 2;
@@ -157,9 +157,9 @@ end
 expt_has_ds(isnan(expt_has_ds)) = 0;
 
 cur_block_set(ismember(cur_block_set,ignore_blocks)) = [];
-if length(unique(expt_dds(cur_block_set))) > 1
+if length(unique(expt_dd(cur_block_set))) > 1
     fprintf('Warning, multiple dds detected!\n');
-    main_dds = mode(expt_dds(cur_block_set));
+    main_dds = mode(expt_dd(cur_block_set));
     cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
 end
 
@@ -493,10 +493,10 @@ cd(save_dir)
 save(sname,'mua_data','lags','dt','mu_avg_rates');
 %%
 
-min_MUA_rate = 25;
+min_MUA_rate = 0;
 use_MUs = find(mu_avg_rates >= min_MUA_rate);
 
-xl = [-0.15 0.4];
+xl = [-0.1 0.4];
 yl = [0.7 1.4];
 
 f = figure(); hold on

@@ -4,11 +4,12 @@ clear all
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 
 all_data = [];
-
 base_name = 'gen_trig_avg_data';
+base_ename = 'eye_accuracy';
 include_bursts = 0;
 if include_bursts
     base_name = [base_name '_withburst'];
+    base_ename = [base_ename '_withburst'];
 end
 
 %% LOAD JBE
@@ -27,7 +28,10 @@ for ee = 1:length(Expt_list)
         if ~isnan(ori_list(ee,ii))
             tname = strcat(sac_dir,base_name,sprintf('_ori%d',ori_list(ee,ii)));
             load(tname);
-            
+             tname = strcat(sac_dir,base_ename,sprintf('_ori%d',ori_list(ee,ii)));
+            load(tname);
+           
+            gen_data.fix_data = fix_disp_data;
             gen_data.animal = 'jbe';
             gen_data.ori = ori_list(ee,ii);
             gen_data.exptnum = Expt_num;
@@ -54,7 +58,10 @@ for ee = 1:length(Expt_list)
         if ~isnan(ori_list(ee,ii))
             name = strcat(sac_dir,base_name,sprintf('_ori%d',ori_list(ee,ii)));
             load(name);
+             tname = strcat(sac_dir,base_ename,sprintf('_ori%d',ori_list(ee,ii)));
+            load(tname);
             
+            gen_data.fix_data = fix_disp_data;
             gen_data.animal = 'lem';
             gen_data.ori = ori_list(ee,ii);
             gen_data.exptnum = Expt_num;
@@ -144,4 +151,30 @@ end
 figure; hold on
 h1 = shadedErrorBar(eye_ax,mean(expt_gsac_eyespeed),std(expt_gsac_eyespeed)/sqrt(length(unique_expts)));
 h2 = shadedErrorBar(eye_ax,mean(expt_msac_eyespeed),std(expt_msac_eyespeed)/sqrt(length(unique_expts)),{'color','r'});
+
+%%
+et_dt = 0.01;
+all_gsac_fixdisp = cell2mat(arrayfun(@(x) x.fix_data.gsac_fix_disp(:,1)',all_data,'uniformoutput',0));
+all_msac_fixdisp = cell2mat(arrayfun(@(x) x.fix_data.msac_fix_disp(:,1)',all_data,'uniformoutput',0));
+
+expt_gsac_fixdisp = nan(length(unique_expts),length(slags));
+expt_msac_fixdisp = nan(length(unique_expts),length(slags));
+for ii = 1:length(unique_expts)
+    eset = find(expt_nums == unique_expts(ii));
+    expt_gsac_fixdisp(ii,:) = mean(all_gsac_fixdisp(eset,:),1);
+    expt_msac_fixdisp(ii,:) = mean(all_msac_fixdisp(eset,:),1);
+end
+
+f1 = figure();hold on
+h1 = shadedErrorBar(slags*et_dt,mean(expt_gsac_fixdisp),std(expt_gsac_fixdisp)/sqrt(length(unique_expts)),{'color','k'});
+h2 = shadedErrorBar(slags*et_dt,mean(expt_msac_fixdisp),std(expt_msac_fixdisp)/sqrt(length(unique_expts)),{'color','r'});
+xlabel('Time (s)');
+ylabel('Fixation disparity (deg)');
+
+%PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Gsac_msac_fix_disp.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
