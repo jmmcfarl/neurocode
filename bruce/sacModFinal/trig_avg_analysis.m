@@ -622,14 +622,14 @@ small_msacs = micro_set([saccades(micro_set).amplitude] < micro_halfthresh);
 msac_dirs = [saccades(micro_set).direction];
 rf_angle = atan2(Expts{cur_block_set(1)}.Stimvals.rf(2),Expts{cur_block_set(1)}.Stimvals.rf(1));
 msac_dirs_relrf = abs(circ_dist(msac_dirs,rf_angle));
-msac_towards = micro_set(msac_dirs_relrf <= pi/4);
-msac_aways = micro_set(msac_dirs_relrf >= 3*pi/4);
+msac_towards = micro_set(msac_dirs_relrf < pi/4);
+msac_aways = micro_set(msac_dirs_relrf > 3*pi/4);
 
 %separate micros into vertical vs horizontal
 msac_dirs_relvert = min([abs(circ_dist(msac_dirs,-pi/2)); abs(circ_dist(msac_dirs,pi/2))]);
 msac_dirs_relhor = min([abs(circ_dist(msac_dirs,0)); abs(circ_dist(msac_dirs,pi))]);
-msac_vert = micro_set(msac_dirs_relvert <= pi/4);
-msac_hor = micro_set(msac_dirs_relhor <= pi/4);
+msac_vert = micro_set(msac_dirs_relvert < pi/4);
+msac_hor = micro_set(msac_dirs_relhor < pi/4);
 
 msac_gray_hor = intersect(gray_msac_set,msac_hor);
 msac_gray_vert = intersect(gray_msac_set,msac_vert);
@@ -638,8 +638,8 @@ msac_gray_vert = intersect(gray_msac_set,msac_vert);
 bar_ori_rad = deg2rad(bar_ori);
 msac_dirs_relPar = min([abs(circ_dist(msac_dirs,bar_ori_rad)); abs(circ_dist(msac_dirs,bar_ori_rad+pi))]);
 msac_dirs_relOrth = min([abs(circ_dist(msac_dirs,bar_ori_rad+pi/2)); abs(circ_dist(msac_dirs,bar_ori_rad-pi/2))]);
-msac_Par = micro_set(msac_dirs_relPar <= pi/4);
-msac_Orth = micro_set(msac_dirs_relOrth <= pi/4);
+msac_Par = micro_set(msac_dirs_relPar < pi/4);
+msac_Orth = micro_set(msac_dirs_relOrth < pi/4);
 
 msac_gray_Par = intersect(gray_msac_set,msac_Par);
 msac_gray_Orth = intersect(gray_msac_set,msac_Orth);
