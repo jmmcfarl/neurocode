@@ -2,15 +2,37 @@ clear all
 close all
 clc
 
-Expt_name = 'G093';
+Expt_name = 'G087';
 bar_ori = 0;
-cc = 103;
+cc = 101;
+Expt_num = str2num(Expt_name(2:end));
+
+switch Expt_num
+    case 266
+        bar_ori = 80;
+    case 270
+        bar_ori = 60;
+    case 275
+        bar_ori = 135;
+    case 277
+        bar_ori = 70;
+    case 281
+        bar_ori = 140;
+    case 287
+        bar_ori = 90;
+    case 289
+        bar_ori = 160;
+    case 294
+        bar_ori = 40;
+    case 296
+        bar_ori = 45;
+end
 
 fit_unCor = 0;
 include_bursts = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
-base_tname = 'sac_trig_avg_data';
+base_tname = 'sac_trig_avg_data3';
 base_sname = 'sacStimProcFin_noXV';
 base_yname = 'sacTypeDep_noXV';
 
@@ -56,19 +78,19 @@ if fit_unCor
     sname = strcat(sname,'_unCor');
 end
 load(sname);
-%load type-dep data (STILL NEED TO ADD THIS)
-yname = strcat(sac_dir,base_yname,sprintf('_ori%d',bar_ori));
-if fit_unCor
-    yname = strcat(yname,'_unCor');
-end
-load(yname);
+% %load type-dep data (STILL NEED TO ADD THIS)
+% yname = strcat(sac_dir,base_yname,sprintf('_ori%d',bar_ori));
+% if fit_unCor
+%     yname = strcat(yname,'_unCor');
+% end
+% load(yname);
 
 su_range = (n_probes+1):length(sacStimProc);
 su_ind = find(su_range == cc);
 clear SU_data
 sacStimProc = sacStimProc(su_range(su_ind));
 trig_avg = sua_data(su_ind);
-type_dep = sacTypeDep(su_range(su_ind));
+% type_dep = sacTypeDep(su_range(su_ind));
 
 
 cur_GQM = sacStimProc.ModData.rectGQM;
@@ -81,13 +103,13 @@ tlags = trig_avg_params.lags*trig_avg_params.dt;
 cid = sprintf('E%d_C%d_ori%d_',Expt_num,cc,bar_ori);
 
 %% PLOT MODEL FILTERS
-close all
+% close all
 stim_dims = sacStimProc.ModData.rectGQM.stim_params(1).stim_dims;
 pix_ax = (1:stim_dims(2))*sp_dx;
 pix_ax = pix_ax - mean(pix_ax);
 lag_ax = ((1:stim_dims(1))*dt - dt/2)*1e3;
 pix_lim = [-0.3 0.3];
-lag_lim = [0 140];
+lag_lim = [0 150];
 [fig_props] = plot_NMM_filters_1d(sacStimProc.ModData.rectGQM,pix_ax,lag_ax);
 
 for ii = 1:fig_props.nmods
@@ -105,7 +127,7 @@ end
 %% STA figs
 sac_xr = [-0.1 0.3];
 
-close all
+% close all
 stim_dims = sacStimProc.ModData.rectGQM.stim_params(1).stim_dims;
 pix_ax = (1:stim_dims(2))*sp_dx;
 pix_ax = pix_ax - mean(pix_ax);
@@ -113,7 +135,7 @@ lag_ax = ((1:stim_dims(1))*dt - dt/2)*1e3;
 
 ov_sta = sacStimProc.ov_phaseDep_sta;
 [~,sta_peakloc] = max(sum(ov_sta.^2,2));
-% sta_peakloc = 7;
+% sta_peakloc = 5;
 cond_STA = sacStimProc.gsac_phaseDep_sta;
 cond_STA = squeeze(cond_STA(:,sta_peakloc,:));
 
@@ -134,27 +156,63 @@ if time_sm > 0
     end
 end
 
-xl = [-0.3 0.3];
+% xl = [-0.35 0.35];
+
+% %G086, C99, O90
+% xl = [-0.3 0.35];
+% caf = 0.9;
+
+% %G087, C100, O0
+% xl = [-0.35 0.2];
+% caf = 0.9;
+
+% %G087, C101, O0
+% xl = [-0.3 0.3];
+% caf = 0.9;
+
+% %G088, C97, O0
+% xl = [-0.2 0.2];
+% caf = 0.9;
+
+% %G093, C103, O0
+% xl = [-0.25 0.25];
+% caf = 0.9;
+
+% %M266, C26, O0
+% xl = [0.55 0.9];
+% caf = 0.9;
+
+% % M270, C26, O0
+% xl = [-0.2 0.15];
+% caf = 0.9;
+
+%M296, C28, O0
+xl = [-0.15 0.4];
+caf = 1;
+
+xlavg = mean(xl);
 
 f1 = figure();
-imagesc(slags*dt,pix_ax,cond_STA');
+imagesc(slags*dt,pix_ax-xlavg,cond_STA');
 cam = max(abs(cond_STA(:)));
-caxis([-cam cam]*0.8);
+caxis([-cam cam]*caf);
 yl = ylim();
 xlim(sac_xr)
 xlabel('Time (s)');
 ylabel('Rel Position (deg)');
-ylim(xl);
+ylim(xl-xlavg);
+set(gca,'YaxisLocation','right');
 
 f2 = figure();
-imagesc(pix_ax,lag_ax,ov_sta);
+imagesc(pix_ax-xlavg,lag_ax,ov_sta);
 cam = max(abs(ov_sta(:)));
-caxis([-cam cam]);
+caxis([-cam cam]*caf);
 set(gca,'ydir','normal');
-xlim(xl);
+xlim(xl-xlavg);
+ylim([0 120]);
 line(xl,lag_ax([sta_peakloc sta_peakloc]),'color','k');
 
-% %PRINT PLOTS
+%PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir cid 'sac_cond_STA.pdf'];
@@ -179,18 +237,22 @@ Gprc = linspace(0.5,99.5,length(Gtick));
 Xtick = sacStimProc.gsac_TBmod{TB_lambda}.lagX*dt;
 
 TB_ratemap = sacStimProc.gsac_TBmod{TB_lambda}.TB_rate/dt;
-sqrt_ratemap = sqrt(TB_ratemap);
+interp_ratemap = interp1(Xtick,TB_ratemap',tlags)';
+sqrt_ratemap = sqrt(interp_ratemap);
 
 base_slags = find(Xtick <= 0);
-
-[mmm,TBmmmloc] = minmax(sacStimProc.gsac_TBmod{TB_lambda}.an_sac_rate);
+tavg_sacrate = trig_avg.gsac_avg*sacStimProc.gsac_ovavg_rate/dt;
+interp_tavg_sacrate = interp1(tlags,tavg_sacrate,Xtick);
+% [mmm,TBmmmloc] = minmax(sacStimProc.gsac_TBmod{TB_lambda}.an_sac_rate);
+[mmm,TBmmmloc] = minmax(tavg_sacrate);
 
 cax_pts = sqrt([0 20 40 60 80]);
 cax_labels = {'0','20','40','60','80'};
 %PLOT TB RATE MAP
 f1 = figure();
 % imagesc(Xtick,Gprc,TB_ratemap); 
-imagesc(Xtick,Gprc,sqrt_ratemap); 
+% imagesc(Xtick,Gprc,sqrt_ratemap); 
+imagesc(tlags,Gprc,sqrt_ratemap); 
 set(gca,'ydir','normal'); 
 cb = colorbar('vert');
 set(gca,'clim',[0 max(cax_pts)]);
@@ -200,19 +262,24 @@ set(cb,'YTickLabel',cax_labels);
 % caxis([0 max(TB_ratemap(:))]*0.6);
 yl = ylim();
 % ylim(gr); yl = gr;
-line(Xtick(TBmmmloc([1 1])),yl,'color','w');
-line(Xtick(TBmmmloc([2 2])),yl,'color','w');
+% line(Xtick(TBmmmloc([1 1])),yl,'color','w');
+% line(Xtick(TBmmmloc([2 2])),yl,'color','w');
+line(tlags(TBmmmloc([1 1])),yl,'color','w');
+line(tlags(TBmmmloc([2 2])),yl,'color','w');
 xlim(sac_xr)
 xlabel('Time (s)');
 ylabel('Generating signal');
 
 %PLOT TB MARGINAL FIRING RATE
 f2 = figure();
-plot(Xtick,sacStimProc.gsac_TBmod{TB_lambda}.an_sac_rate/dt);
+% plot(Xtick,sacStimProc.gsac_TBmod{TB_lambda}.an_sac_rate/dt);
+plot(tlags,tavg_sacrate,'r')
 hold on; axis tight
 yl = ylim();
-line(Xtick(TBmmmloc([1 1])),yl,'color','k','linestyle','--');
-line(Xtick(TBmmmloc([2 2])),yl,'color','k','linestyle','--');
+% line(Xtick(TBmmmloc([1 1])),yl,'color','k','linestyle','--');
+% line(Xtick(TBmmmloc([2 2])),yl,'color','k','linestyle','--');
+line(tlags(TBmmmloc([1 1])),yl,'color','k','linestyle','--');
+line(tlags(TBmmmloc([2 2])),yl,'color','k','linestyle','--');
 xlim(sac_xr);
 line(sac_xr,[0 0]+sacStimProc.ModData.unit_data.avg_rate,'color','k');
 xlabel('Time (s)');
@@ -224,8 +291,10 @@ cur_gdistY = sacStimProc.gsac_TBmod{TB_lambda}.equi_gdist;
 cur_gdistX = sacStimProc.gsac_TBmod{TB_lambda}.equi_gX;
 % cmap = jet(diff(TBmmmloc)+1);
 f3 = figure(); hold on
-plot(Gtick,TB_ratemap(:,TBmmmloc(1)),'g');
-plot(Gtick,TB_ratemap(:,TBmmmloc(2)),'r');
+% plot(Gtick,TB_ratemap(:,TBmmmloc(1)),'g');
+% plot(Gtick,TB_ratemap(:,TBmmmloc(2)),'r');
+plot(Gtick,interp_ratemap(:,TBmmmloc(1)),'g');
+plot(Gtick,interp_ratemap(:,TBmmmloc(2)),'r');
 % for jj = TBmmmloc(1):TBmmmloc(2)
 %     plot(Gtick,sacStimProc.gsac_TBmod{TB_lambda}.TB_rate(:,jj)/dt,'color',cmap(jj-TBmmmloc(1)+1,:));
 % end
@@ -243,26 +312,34 @@ ylabel('Firing rate (Hz)');
 
 cur_sac_offset = sacStimProc.gsac_TBmod{TB_lambda}.sac_offset/dt;
 cur_sac_offset = bsxfun(@minus,cur_sac_offset,mean(cur_sac_offset(base_slags))); %normalize by pre-saccade values
+cur_sac_offset_interp = interp1(Xtick,cur_sac_offset,tlags);
 %TB RESPONSE OFFSETs
 f4 = figure();
-plot(Xtick,cur_sac_offset);
+% plot(Xtick,cur_sac_offset);
+plot(tlags,cur_sac_offset_interp);
 xlim(sac_xr)
 yl = ylim();
-line(Xtick(TBmmmloc([1 1])),yl,'color','g');
-line(Xtick(TBmmmloc([2 2])),yl,'color','r');
+% line(Xtick(TBmmmloc([1 1])),yl,'color','g');
+% line(Xtick(TBmmmloc([2 2])),yl,'color','r');
+line(tlags(TBmmmloc([1 1])),yl,'color','g');
+line(tlags(TBmmmloc([2 2])),yl,'color','r');
 xlabel('Time (s)');
 ylabel('Offset (Hz)');
 ylim([-2 12]);
 
 cur_sac_gain = sacStimProc.gsac_TBmod{TB_lambda}.sac_gain;
 cur_sac_gain = bsxfun(@rdivide,cur_sac_gain,mean(cur_sac_gain(base_slags)));
+cur_sac_gain_interp = interp1(Xtick,cur_sac_gain,tlags);
 %TB RESPONSE GAINS
 f5 = figure();
-plot(Xtick,cur_sac_gain,'r');
+% plot(Xtick,cur_sac_gain,'r');
+plot(tlags,cur_sac_gain_interp,'r');
 xlim(sac_xr)
 yl = ylim();
-line(Xtick(TBmmmloc([1 1])),yl,'color','g');
-line(Xtick(TBmmmloc([2 2])),yl,'color','r');
+% line(Xtick(TBmmmloc([1 1])),yl,'color','g');
+% line(Xtick(TBmmmloc([2 2])),yl,'color','r');
+line(tlags(TBmmmloc([1 1])),yl,'color','g');
+line(tlags(TBmmmloc([2 2])),yl,'color','r');
 xlabel('Time (s)');
 ylabel('Gain');
 ylim([0.4 1.1]);
@@ -273,36 +350,43 @@ ylim([0.4 1.1]);
 % fname = [fig_dir cid 'TB_ratemap.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-
+% 
 % figufy(f2);
 % fname = [fig_dir cid 'TB_sacmargrate.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
-
+% 
 % figufy(f3);
 % fname = [fig_dir cid 'TB_ratefunslices.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
 % 
-figufy(f4);
-fname = [fig_dir cid 'TB_offset.pdf'];
-exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f4);
-
-figufy(f5);
-fname = [fig_dir cid 'TB_gain.pdf'];
-exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f5);
+% figufy(f4);
+% fname = [fig_dir cid 'TB_offset.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
+% 
+% figufy(f5);
+% fname = [fig_dir cid 'TB_gain.pdf'];
+% exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f5);
 
 %% PLOT TB INFO AND INFO RATE
 TB_lambda = 4;
 base_slags = find(Xtick <= 0);
 
 TB_SSI = sacStimProc.gsac_TBmod{TB_lambda}.sac_modinfo;
-TB_info_rate = sacStimProc.gsac_TBmod{TB_lambda}.sac_modinfo.*sacStimProc.gsac_avg_rate/dt;
+
+rel_rates = trig_avg.gsac_avg';
+gsac_rel_rates_interp = interp1(tlags,rel_rates',slags*dt)'*sacStimProc.gsac_ovavg_rate/dt;
+TB_info_rate = TB_SSI.*gsac_rel_rates_interp;
+
+% TB_info_rate = sacStimProc.gsac_TBmod{TB_lambda}.sac_modinfo.*sacStimProc.gsac_avg_rate/dt;
 % avg_info = sacStimProc.gsac_TBmod{TB_lambda}.ovInfo;
 base_info = mean(TB_SSI(base_slags));
 base_info_rate = mean(TB_info_rate(base_slags));
+
+
 
 f1 = figure();
 plot(slags*dt,TB_SSI);
@@ -310,6 +394,8 @@ xlim(sac_xr)
 line(sac_xr,[0 0] + base_info,'color','k');
 xlabel('Time (s)');
 ylabel('SSI (bits/spk)');
+ylim([0.2 0.6]);
+yl = ylim();
 
 f2 = figure();
 plot(slags*dt,TB_info_rate,'k');
@@ -318,19 +404,20 @@ set(gca,'YaxisLocation','right');
 line(sac_xr,[0 0] + base_info_rate,'color','k');
 xlabel('Time (s)');
 ylabel('SSI (bits/sec)');
+ylim(yl*base_info_rate/base_info);
 
-% %PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir cid 'TB_SSI.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% figufy(f2);
-% fname = [fig_dir cid 'TB_SSIrate.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-% 
+%PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir cid 'TB_SSI.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+figufy(f2);
+fname = [fig_dir cid 'TB_SSIrate.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
 
 %% GO MODEL
 lambda_off = 4;
@@ -506,13 +593,115 @@ imagesc(slags*dt,1:nmods,fpost_gains');
 ca = caxis(); cam = max(abs(ca-1)); caxis([-cam cam]+1);
 xlim([0 0.15]);
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir cid 'Full_tempkerns.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir cid 'Full_tempkerns.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
 %%
+sub_lambda = 3;
+lambda_off = 4;
+lambda_gain = 3;
+
+stim_dims = sacStimProc.ModData.rectGQM.stim_params(1).stim_dims;
+pix_ax = (1:stim_dims(2))*sp_dx;
+pix_ax = pix_ax - mean(pix_ax);
+lag_ax = ((1:stim_dims(1))*dt - dt/2)*1e3;
+xl = [-0.35 0.35];
+sac_xr = [-0.1 0.3];
+
+ov_sta = sacStimProc.ov_phaseDep_sta;
+[~,sta_peakloc] = max(sum(ov_sta.^2,2));
+
+base_filts = [sacStimProc.ModData.rectGQM.mods(:).filtK];
+sub_filts = reshape([sacStimProc.gsac_subMod{sub_lambda}.mods(2:end).filtK],length(slags),[],3);
+
+clear sub_filts_pix
+for ii = 1:3
+sub_filts_pix(ii,:,:,:) = reshape(squeeze(sub_filts(:,:,ii))*base_filts',length(slags),stim_dims(1),stim_dims(2));
+space_prof(ii,:,:) = squeeze(sub_filts_pix(ii,:,sta_peakloc,:));
+end
+lin_prof = squeeze(space_prof(1,:,:));
+quad_prof = squeeze(sqrt(space_prof(2,:,:).^2 + space_prof(3,:,:).^2));
 
 
+f1 = figure();
+imagesc(slags*dt,pix_ax,lin_prof');
+cam = max(abs(lin_prof(:)));
+caxis([-cam cam]*0.99);
+yl = ylim();
+xlim(sac_xr)
+xlabel('Time (s)');
+ylabel('Rel Position (deg)');
+ylim(xl);
 
+f2 = figure();
+imagesc(slags*dt,pix_ax,quad_prof');
+cam = max(abs(quad_prof(:)));
+caxis([0 cam]*0.99);
+yl = ylim();
+xlim(sac_xr)
+xlabel('Time (s)');
+ylabel('Rel Position (deg)');
+ylim(xl);
+
+f3 = figure();hold on
+plot(slags*dt,sacStimProc.gsac_subMod{sub_lambda}.sac_modinfo);
+plot(slags*dt,sacStimProc.gsac_post_mod{lambda_off,lambda_gain}.sac_modinfo,'r');
+xlim(sac_xr)
+xlabel('Time (s)');
+ylabel('SSI (bits/spk)');
+
+f4 = figure(); 
+imagesc(pix_ax,lag_ax,squeeze(sub_filts_pix(1,5,:,:)));
+ca = caxis(); cam = max(abs(ca)); caxis([-cam cam]);
+set(gca,'ydir','normal');
+xlim(xl);
+ylim([0 120])
+line(xl,lag_ax([sta_peakloc sta_peakloc]),'color','k');
+
+f5 = figure(); 
+subplot(2,1,1);
+imagesc(pix_ax,lag_ax,squeeze(sub_filts_pix(2,5,:,:)));
+set(gca,'ydir','normal');
+xlim(xl);
+ca = caxis(); cam = max(abs(ca)); caxis([-cam cam]);
+line(xl,lag_ax([sta_peakloc sta_peakloc]),'color','k');
+ylim([0 120])
+
+subplot(2,1,2);
+imagesc(pix_ax,lag_ax,squeeze(sub_filts_pix(3,5,:,:)));
+set(gca,'ydir','normal');
+xlim(xl);
+ca = caxis(); cam = max(abs(ca)); caxis([-cam cam]);
+line(xl,lag_ax([sta_peakloc sta_peakloc]),'color','k');
+ylim([0 120])
+
+
+fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir cid 'Submod_lin.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir cid 'Submod_quad.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
+% figufy(f3);
+% fname = [fig_dir cid 'Submod_SSI_compare.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+figufy(f4);
+fname = [fig_dir cid 'Submod_Linfilt_examp.pdf'];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f4);
+
+fig_width = 3.5; rel_height = 1.6;
+figufy(f5);
+fname = [fig_dir cid 'Submod_Qfilt_examp.pdf'];
+exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f5);

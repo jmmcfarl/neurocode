@@ -4,13 +4,14 @@
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G093';
-% bar_ori = 0;
+% Expt_name = 'G085';
+% bar_ori = 90;
 
 include_bursts = 0;
-nboot = 500; %number of bootstrap samples for computing trig-avg SD
+% nboot = 500; %number of bootstrap samples for computing trig-avg SD
+nboot = 2; %number of bootstrap samples for computing trig-avg SD
 
-sname = 'sac_trig_avg_data3';
+sname = 'sac_trig_avg_data3test';
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -645,14 +646,14 @@ msac_gray_Par = intersect(gray_msac_set,msac_Par);
 msac_gray_Orth = intersect(gray_msac_set,msac_Orth);
 
 if length(msac_Orth) < length(msac_Par)
-    subset = randperm(length(msac_Orth));
-    msac_Par_sub = msac_Par(subset);
+    subset = randperm(length(msac_Par));
+    msac_Par_sub = msac_Par(subset(1:length(msac_Orth)));
 else
     msac_Par_sub = msac_Par;
 end
 if length(msac_Par) < length(msac_Orth)
-    subset = randperm(length(msac_Par));
-    msac_Orth_sub = msac_Orth(subset);
+    subset = randperm(length(msac_Orth));
+    msac_Orth_sub = msac_Orth(subset(1:length(msac_Par)));
 else
     msac_Orth_sub = msac_Orth;
 end
@@ -772,6 +773,10 @@ for ss = 1:length(SU_numbers)
     sua_data(ss).N_gsacs_im = sum(~isnan(all_binned_sua(sac_start_inds(intersect(gsac_set,iback_sacs)),ss)));
     sua_data(ss).N_msacs_hor = sum(~isnan(all_binned_sua(sac_start_inds(msac_hor),ss)));
     sua_data(ss).N_msacs_vert = sum(~isnan(all_binned_sua(sac_start_inds(msac_vert),ss)));
+    sua_data(ss).N_msacs_Par = sum(~isnan(all_binned_sua(sac_start_inds(msac_Par),ss)));
+    sua_data(ss).N_msacs_Orth = sum(~isnan(all_binned_sua(sac_start_inds(msac_Orth),ss)));
+    sua_data(ss).N_msacs_Par_sub = sum(~isnan(all_binned_sua(sac_start_inds(msac_Par_sub),ss)));
+    sua_data(ss).N_msacs_Orth_sub = sum(~isnan(all_binned_sua(sac_start_inds(msac_Orth_sub),ss)));
     
     %general averages
     [sua_data(ss).msac_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);

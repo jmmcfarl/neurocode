@@ -76,15 +76,22 @@ N_msacs = [all_data(:).N_msacs];
 Tot_time = [all_data(:).Tot_time];
 dt = trig_avg_params.dt;
 
+msac_durs = [all_data(:).msac_dur_avg];
+gsac_durs = [all_data(:).gsac_dur_avg];
+
 msac_rates = N_msacs./Tot_time/dt;
 expt_nums = [all_data(:).exptnum];
 unique_expts = unique(expt_nums);
 
 expt_msac_rates = nan(length(unique_expts),1);
+expt_gsac_durs = nan(length(unique_expts),1);
+expt_msac_durs = nan(length(unique_expts),1);
 expt_animal = cell(length(unique_expts),1);
 for ii = 1:length(unique_expts)
     eset = find(expt_nums == unique_expts(ii));
     expt_msac_rates(ii) = mean(msac_rates(eset));
+    expt_msac_durs(ii) = mean(msac_durs(eset));
+    expt_gsac_durs(ii) = mean(gsac_durs(eset));
     expt_animal{ii} = all_data(eset(1)).animal;
 end
 
@@ -128,12 +135,12 @@ h2 = shadedErrorBar(dur_bin_cents,mean(expt_msac_durdist),std(expt_msac_durdist)
 xlabel('Duration (s)');
 ylabel('Relative frequency');
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f2);
-fname = [fig_dir 'Gsac_msac_dur_dists.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f2);
+% fname = [fig_dir 'Gsac_msac_dur_dists.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 
 %%

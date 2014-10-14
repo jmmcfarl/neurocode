@@ -584,6 +584,8 @@ gen_data.msac_dur_dist = msac_dur_dist(1:end-1)/sum(msac_dur_dist);
 gen_data.gsac_dur_prc = prctile(sac_durs(gsac_set),[25 50 75]);
 gen_data.msac_dur_prc = prctile(sac_durs(micro_set),[25 50 75]);
 
+gen_data.gsac_dur_avg = mean(sac_durs(gsac_set));
+gen_data.msac_dur_avg = mean(sac_durs(micro_set));
 
 %%
 gen_data.N_blinks = sum(used_is_blink);

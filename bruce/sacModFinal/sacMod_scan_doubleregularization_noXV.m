@@ -85,6 +85,11 @@ sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(m
                     rr = regress(pred_rate(temp),[ones(length(temp),1) basemod_pred_rate(temp)]);
                    sac_offset(ss) = rr(1);
                     sac_gain(ss) = rr(2);
+%                     rr = polyfit(basemod_pred_rate(temp),pred_rate(temp),3);
+%                    sac_offset(ss) = rr(4);
+%                     sac_gain(ss) = rr(3);
+%                     sac_2(ss) = rr(2);
+%                     sac_3(ss) = rr(1);
                     
                     sac_info(ss) = nanmean(pred_rate(temp).*log2(pred_rate(temp)/mean(pred_rate(temp))))/mean(pred_rate(temp));
                     

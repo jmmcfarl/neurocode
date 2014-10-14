@@ -7,7 +7,8 @@ include_bursts = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
-base_tname = 'sac_trig_avg_data3';
+% base_tname = 'sac_trig_avg_data3';
+base_tname = 'sac_trig_avg_data3test';
 base_yname = 'sacTypeDep_noXV';
 
 if include_bursts
@@ -277,7 +278,7 @@ reverse_polarity_units = sigB(gsac_exctime(sigB) < gsac_inhtime(sigB));
 
 xl = [0 1]; %mod strength axis
 yl = [0 0.3]; %mod timing axis
-mS = 4; %marker size
+mS = 5; %marker size
 mS2 = 8; %marker size
 
 % tjitter = Tdt/4; %jitter time peaks when plotting to prevent dot occlusion
@@ -288,8 +289,8 @@ f1 = figure();
 hold on
 % plot(gsac_Efact(sigE),gsac_exctime(sigE) + randn(size(sigE))*tjitter,'b.','markersize',mS);
 % plot(gsac_Ifact(sigI),gsac_inhtime(sigI) + randn(size(sigI))*tjitter,'r.','markersize',mS);
-plot(gsac_Efact_up(sigE),gsac_exctime_up(sigE) + randn(size(sigE))*tjitter,'bo','markersize',mS,'linewidth',0.5);
-plot(gsac_Ifact_up(sigI),gsac_inhtime_up(sigI) + randn(size(sigI))*tjitter,'ro','markersize',mS,'linewidth',0.5);
+plot(gsac_Efact_up(sigE),gsac_exctime_up(sigE) + randn(size(sigE))*tjitter,'bo','markersize',mS,'linewidth',0.25);
+plot(gsac_Ifact_up(sigI),gsac_inhtime_up(sigI) + randn(size(sigI))*tjitter,'ro','markersize',mS,'linewidth',0.25);
 plot(gsac_Efact_up,gsac_exctime_up ,'b.','markersize',mS2);
 plot(gsac_Ifact_up,gsac_inhtime_up,'r.','markersize',mS2);
 set(gca,'xtick',0:0.2:1);
@@ -329,11 +330,11 @@ stairs(time_binedges,gsac_Itime_dist,'r');
 xlim(yl);
 
 % %PRINT PLOTS
-% fig_width = 3.5; rel_height = 1;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+fig_width = 3.5; rel_height = 1;
+figufy(f1);
+fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
@@ -414,19 +415,21 @@ base_lags = find(TB_Xtick <= 0);
 lambda_ii = 4;
 xl = [-0.1 0.3];
 
+TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+
 TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
-TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,base_lags),2));
+TB_Noffset = bsxfun(@rdivide,TB_Noffset,TB_gains); %normalize by gains
 
-TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,base_lags),2));
+TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,base_lags),2));
 
 %plot relative TB offsets
 f1 = figure();
 h1 = shadedErrorBar(TB_Xtick,nanmean(TB_Noffset),nanstd(TB_Noffset)/sqrt(length(cur_SUs)),{'color','b'});
 xlabel('Time (s)');
-ylabel('Normalized fffset');
+ylabel('Normalized offset');
 line(xl,[0 0],'color','k');
 line([0 0],ylim(),'color','k');
 xlim([-0.1 0.3]);
@@ -442,23 +445,23 @@ line([0 0],ylim(),'color','k');
 xlim([-0.1 0.3]);
 ylim([0.5 1.15]);
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_TB_offset.pdf'];
-if fit_unCor
-fname = [fig_dir 'Gsac_TB_offset_unCor.pdf'];
-end    
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'Gsac_TB_gain.pdf'];
-if fit_unCor
-fname = [fig_dir 'Gsac_TB_gain_unCor.pdf'];    
-end
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_TB_offset.pdf'];
+% if fit_unCor
+% fname = [fig_dir 'Gsac_TB_offset_unCor.pdf'];
+% end    
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'Gsac_TB_gain.pdf'];
+% if fit_unCor
+% fname = [fig_dir 'Gsac_TB_gain_unCor.pdf'];    
+% end
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 %% TB INFO AND INFO RATE
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
@@ -543,29 +546,52 @@ search_range = [0 0.3];
 [gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
 [gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
 
-EIrat = gsac_Efact./gsac_Ifact;
-EIprc = prctile(EIrat,[25 50 75]);
-
-enh_units = find(EIrat >= EIprc(3));
-sup_units = find(EIrat <= EIprc(1));
-% enh_units = find(EIrat >= EIprc(2));
-% sup_units = find(EIrat <= EIprc(2));
-
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
 TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
 
+TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+
 TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
-TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,TBbase_lags),2));
+% TB_Noffset = bsxfun(@rdivide,TB_Noffset,TB_gains); %normalize by gain
 
-TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,TBbase_lags),2));
 TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,TBbase_lags),2));
 
-search_range = [0 0.2];
+search_range = [0 0.15];
 [SSI_Ifact,SSI_inhtime] = get_tavg_peaks(-(TB_NSSI-1),slags*dt,search_range);
+[Gain_Ifact,GAIN_inhtime] = get_tavg_peaks(-(TB_gains-1),TB_Xtick,search_range);
+[Off_Efact,OFF_exctime] = get_tavg_peaks((TB_Noffset),TB_Xtick,search_range);
+
+interp_TB_gains = interp1(TB_Xtick,TB_gains',slags*dt)';
+interp_TB_offset = interp1(TB_Xtick,TB_Noffset',slags*dt)';
+clear gain_SSI_corr offset_SSI_corr
+for ii = 1:length(cur_SUs)
+    gain_SSI_corr(ii) = partialcorr(interp_TB_gains(ii,:)',TB_NSSI(ii,:)',interp_TB_offset(ii,:)','type','spearman');
+    offset_SSI_corr(ii) = partialcorr(interp_TB_offset(ii,:)',TB_NSSI(ii,:)',interp_TB_gains(ii,:)','type','spearman');
+end
+
+% EIrat = gsac_Efact./gsac_Ifact;
+% EIrat = Off_Efact;
+EIrat = SSI_Ifact;
+% EIrat = gsac_Ifact;
+% EIrat = Gain_Ifact;
+% EIrat = gsac_Efact;
+% EIrat = gsac_Ifact;
+% EIprc = prctile(EIrat,[25 50 75]);
+EIprc = prctile(EIrat,[33 50 67]);
+
+% enh_units = find(gsac_Efact > prctile(gsac_Efact,67));
+% sup_units = find(gsac_Ifact > prctile(gsac_Ifact,67));
+
+% enh_units = find(EIrat >= EIprc(3));
+% sup_units = find(EIrat <= EIprc(1));
+enh_units = find(EIrat >= EIprc(2));
+sup_units = find(EIrat <= EIprc(2));
+
 
 close all
 
@@ -579,6 +605,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
+ylim([0.7 1.25]);
 
 %COMPARE SSIs
 f2 = figure();hold on
@@ -590,6 +617,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative SSI');
+ylim([0.35 1.1]);
 
 %COMPARE OFFSETS
 f3 = figure();hold on
@@ -601,6 +629,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative Offset');
+ylim([-0.1 0.4]);
 
 %COMPARE GAINS
 f4 = figure();hold on
@@ -612,28 +641,29 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Gain');
+ylim([0.4 1.2]);
 
 % %PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_SW_rates.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% figufy(f2);
-% fname = [fig_dir 'Gsac_SW_SSI.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-% 
-% figufy(f3);
-% fname = [fig_dir 'Gsac_SW_OFFSET.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
-% 
-% figufy(f4);
-% fname = [fig_dir 'Gsac_SW_GAIN.pdf'];
-% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f4);
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Gsac_SW_rates2.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+figufy(f2);
+fname = [fig_dir 'Gsac_SW_SSI2.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+figufy(f3);
+fname = [fig_dir 'Gsac_SW_OFFSET2.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
+
+figufy(f4);
+fname = [fig_dir 'Gsac_SW_GAIN2.pdf'];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f4);
 
 %% COMPARE SSI, OFFSET AND GAINS FOR GO AND TB MODELS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
@@ -898,7 +928,7 @@ GO_im_ovinfos = arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain
 GO_im_NSSI = bsxfun(@rdivide,GO_im_SSI,GO_im_ovinfos); %normalize GO SSI by overall model info
 GO_im_NSSI = bsxfun(@rdivide,GO_im_NSSI,mean(GO_im_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
-search_range = [0 0.3];
+search_range = [0 0.15];
 [GR_Ifact,GR_inhtime] = get_tavg_peaks(-(all_gsac_gr_tavg-1),tlags,search_range);
 [IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg-1),tlags,search_range);
 [GR_SSI_Ifact,GR_SSI_inhtime] = get_tavg_peaks(-(GO_gr_NSSI-1),slags*dt,search_range);
@@ -964,7 +994,7 @@ GO_sim_ovinfos = arrayfun(@(x) x.type_dep.simsac_mod{GO_lambda_off,GO_lambda_gai
 GO_sim_NSSI = bsxfun(@rdivide,GO_sim_SSI,GO_sim_ovinfos); %normalize GO SSI by overall model info
 GO_sim_NSSI = bsxfun(@rdivide,GO_sim_NSSI,mean(GO_sim_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
-search_range = [0 0.3];
+search_range = [0 0.15];
 [IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg-1),tlags,search_range);
 [SIM_Ifact,SIM_inhtime] = get_tavg_peaks(-(all_simsac_tavg-1),tlags,search_range);
 [IM_SSI_Ifact,IM_SSI_inhtime] = get_tavg_peaks(-(GO_im_NSSI-1),slags*dt,search_range);
@@ -1808,9 +1838,15 @@ exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','s
 close(f1);
 
 %% PARALLEL VS ORTHOGANOL MSACS
-cur_SUs = find(avg_rates >= min_rate & N_msacs >= min_TA_Nsacs);
-all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_avg', all_SU_data(cur_SUs),'uniformoutput',0));
-all_msac_orth = cell2mat(arrayfun(@(x) x.trig_avg.msac_Orth_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+N_msacs_Par_sub = arrayfun(@(x) x.trig_avg.N_msacs_Par_sub,all_SU_data);
+N_msacs_Orth_sub = arrayfun(@(x) x.trig_avg.N_msacs_Orth_sub,all_SU_data);
+
+% cur_SUs = find(avg_rates >= min_rate & N_msacs >= min_TA_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_msacs_Par_sub >= min_TA_Nsacs & N_msacs_Orth_sub >= min_TA_Nsacs);
+% all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+% all_msac_orth = cell2mat(arrayfun(@(x) x.trig_avg.msac_Orth_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_sub_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+all_msac_orth = cell2mat(arrayfun(@(x) x.trig_avg.msac_Orth_sub_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_msac_par_up = spline(tlags,all_msac_par,tlags_up);
@@ -1838,10 +1874,10 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-%PRINT PLOTS
+% %PRINT PLOTS
 fig_width = 3.5; rel_height = 0.8;
 figufy(f1);
-fname = [fig_dir 'MUA_par_orth.pdf'];
+fname = [fig_dir 'MUA_par_orth2.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
 
