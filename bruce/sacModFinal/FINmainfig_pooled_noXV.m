@@ -5,7 +5,7 @@ clc
 fit_unCor = 0;
 include_bursts = 0;
 
-fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
 % base_tname = 'sac_trig_avg_data3';
 base_tname = 'sac_trig_avg_data3test';
@@ -160,15 +160,16 @@ tlags = tlags*Tdt;
 %% SELECT USABLE CELLS
 %selection criteria
 min_rate = 5; % min avg rate in Hz (5)
-min_Nsacs = 1e3; % min number of saccades for full analysis (1e3)
-min_TA_Nsacs = 250; %min number of saccades for trig avg analysis
-% min_xvLLimp = 0.05; %(0.05);
+min_Nsacs = 500; % min number of saccades for full analysis (1e3)
+min_TA_Nsacs = 500; %min number of saccades for trig avg analysis
+min_xvLLimp = 0.0; %(0.05);
 
 tot_Nunits = length(all_SU_data);
 avg_rates = arrayfun(@(x) x.sacStimProc.ModData.unit_data.avg_rate,all_SU_data);
 tot_spikes = arrayfun(@(x) x.sacStimProc.ModData.unit_data.tot_spikes,all_SU_data);
 rec_dur = arrayfun(@(x) x.sacStimProc.ModData.unit_data.N_used_samps,all_SU_data)*dt/60;
 mod_xvLLimps = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.xvLLimp,all_SU_data);
+mod_xvLLimps_unCor = arrayfun(@(x) x.sacStimProc.ModData.rectGQM_unCor.xvLLimp,all_SU_data);
 expt_nums = [all_SU_data(:).expt_num];
 expt_oris = [all_SU_data(:).bar_ori];
 
@@ -198,8 +199,10 @@ N_msacs_im = arrayfun(@(x) x.trig_avg.N_msacs_im,all_SU_data);
 N_simsacs = arrayfun(@(x) x.trig_avg.N_simsacs,all_SU_data);
 
 %% GRAY-BACKGROUND SACCADE TRIGGERED AVERAGES
-cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= min_TA_Nsacs);
-all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(:),'uniformoutput',0));
+% cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
+% all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(:),'uniformoutput',0));
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
+all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
 
 
 xl = [-0.1 0.4];
@@ -218,9 +221,9 @@ f1 = figure(); hold on
 h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(cur_SUs,:)),nanstd(all_gsac_gray(cur_SUs,:))/sqrt(length(cur_SUs)),{'color','k'});
 curset = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 % h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(curset,:)),nanstd(all_gsac_gray(curset,:))/sqrt(length(curset)),{'color','r'});
-plot(tlags,nanmean(all_gsac_gray(curset,:)),'r','linewidth',2);
+% plot(tlags,nanmean(all_gsac_gray(curset,:)),'r','linewidth',2);
 xlim(xl);
-ylim([0.75 1.25]);
+ylim([0.7 1.25]);
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
@@ -246,9 +249,12 @@ ylabel('Relative rate');
 % close(f2);
 
 %% GSAC GRAYBACK STRENGTH VS TIMING SCATTERPLOT
-cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= min_TA_Nsacs);
-all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(:),'uniformoutput',0));
-all_msac_gray = cell2mat(arrayfun(@(x) x.trig_avg.msac_gray_avg', all_SU_data(:),'uniformoutput',0));
+% cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
+% all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(:),'uniformoutput',0));
+% all_msac_gray = cell2mat(arrayfun(@(x) x.trig_avg.msac_gray_avg', all_SU_data(:),'uniformoutput',0));
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
+all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
+all_msac_gray = cell2mat(arrayfun(@(x) x.trig_avg.msac_avg', all_SU_data(:),'uniformoutput',0));
 
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_gsac_up = nan(size(all_gsac_gray,1),length(tlags_up));
@@ -328,13 +334,13 @@ hold on
 stairs(time_binedges,gsac_Etime_dist);
 stairs(time_binedges,gsac_Itime_dist,'r');
 xlim(yl);
-
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% 
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
@@ -374,32 +380,32 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
-ylim([0.4 1.8]);
+ylim([0.6 1.6]);
 
-f3 = figure();
-hold on
-h2=shadedErrorBar(tlags,nanmean(all_msac_gray(reverse_polarity_units,:)),nanstd(all_msac_gray(reverse_polarity_units,:))/sqrt(length(reverse_polarity_units)),{'color','r'});
-h1=shadedErrorBar(tlags,nanmean(all_msac_gray(normal_polarity_units,:)),nanstd(all_msac_gray(normal_polarity_units,:))/sqrt(length(normal_polarity_units)),{'color','b'});
-% plot(tlags,all_gsac_gray(reverse_polarity_units,:),'k')
-line(xl,[1 1],'color','k');
-line([0 0],ylim(),'color','k');
-xlim(xl);
-xlabel('Time (s)');
-ylabel('Relative rate');
-ylim([0.6 1.4]);
+% f3 = figure();
+% hold on
+% h2=shadedErrorBar(tlags,nanmean(all_msac_gray(reverse_polarity_units,:)),nanstd(all_msac_gray(reverse_polarity_units,:))/sqrt(length(reverse_polarity_units)),{'color','r'});
+% h1=shadedErrorBar(tlags,nanmean(all_msac_gray(normal_polarity_units,:)),nanstd(all_msac_gray(normal_polarity_units,:))/sqrt(length(normal_polarity_units)),{'color','b'});
+% % plot(tlags,all_gsac_gray(reverse_polarity_units,:),'k')
+% line(xl,[1 1],'color','k');
+% line([0 0],ylim(),'color','k');
+% xlim(xl);
+% xlabel('Time (s)');
+% ylabel('Relative rate');
+% ylim([0.6 1.4]);
 
-% % %PRINT PLOTS
-% fig_width = 3.5; rel_height = 1;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_timing_scatter.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f2);
-% fname = [fig_dir 'Gsac_reverse_polarity_avgs.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
+% %PRINT PLOTS
+fig_width = 3.5; rel_height = 1;
+figufy(f1);
+fname = [fig_dir 'Gsac_timing_scatter.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir 'Gsac_reverse_polarity_avgs.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
@@ -408,7 +414,7 @@ ylim([0.6 1.4]);
 % close(f2);
 
 %% TB GAIN AND OFFSET 
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{1}.lagX*dt;
 base_lags = find(TB_Xtick <= 0);
 
@@ -420,7 +426,7 @@ TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',
 TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
-TB_Noffset = bsxfun(@rdivide,TB_Noffset,TB_gains); %normalize by gains
+% TB_Noffset = bsxfun(@rdivide,TB_Noffset,TB_gains); %normalize by gains
 
 TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,base_lags),2));
 TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,base_lags),2));
@@ -445,26 +451,26 @@ line([0 0],ylim(),'color','k');
 xlim([-0.1 0.3]);
 ylim([0.5 1.15]);
 
-% %PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_TB_offset.pdf'];
-% if fit_unCor
-% fname = [fig_dir 'Gsac_TB_offset_unCor.pdf'];
-% end    
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% figufy(f2);
-% fname = [fig_dir 'Gsac_TB_gain.pdf'];
-% if fit_unCor
-% fname = [fig_dir 'Gsac_TB_gain_unCor.pdf'];    
-% end
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
+%PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'Gsac_TB_offset.pdf'];
+if fit_unCor
+fname = [fig_dir 'Gsac_TB_offset_unCor.pdf'];
+end    
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+figufy(f2);
+fname = [fig_dir 'Gsac_TB_gain.pdf'];
+if fit_unCor
+fname = [fig_dir 'Gsac_TB_gain_unCor.pdf'];    
+end
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
 
 %% TB INFO AND INFO RATE
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
@@ -474,7 +480,7 @@ xl = [-0.1 0.3];
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
-% TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
+TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
 
 % gsac_avg_rates = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_avg_rate',all_SU_data(cur_SUs),'uniformoutput',0));
 % gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
@@ -494,13 +500,14 @@ TB_NSSI_rate = bsxfun(@rdivide,TB_NSSI_rate,mean(TB_NSSI_rate(:,base_lags),2));
 %plot TB SSI and SSI rate
 f1 = figure(); hold on
 h1 = shadedErrorBar(slags*dt,nanmean(TB_NSSI),nanstd(TB_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
-% h2 = shadedErrorBar(slags*dt,nanmean(TB_NSSI_rate),nanstd(TB_NSSI_rate)/sqrt(length(cur_SUs)),{'color','r'});
+h2 = shadedErrorBar(slags*dt,nanmean(TB_NSSI_rate),nanstd(TB_NSSI_rate)/sqrt(length(cur_SUs)),{'color','r'});
 xlabel('Time (s)');
 ylabel('Normalized fffset');
 line(xl,[1 1],'color','k');
 % line([0 0],ylim(),'color','k');
 xlim([-0.1 0.3]);
 ylim([0.4 1.1])
+% ylim([0.5 1.1])
 
 %plot TB SSI and SSI rate
 f2 = figure(); hold on
@@ -513,7 +520,7 @@ line(xl,[1 1],'color','k');
 xlim([-0.1 0.3]);
 ylim([0.7 1.25]);
 
-% % %PRINT PLOTS
+% % % %PRINT PLOTS
 fig_width = 3.5; rel_height = 0.8;
 figufy(f1);
 % fname = [fig_dir 'Gsac_TB_SSI.pdf'];
@@ -523,14 +530,14 @@ fname = [fig_dir 'Gsac_TB_SSI_unCor2.pdf'];
 end
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
-% 
+% % 
 % figufy(f2);
 % fname = [fig_dir 'Gsac_TBset_relrates.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
 %% PLOTS COMPARING STRONGLY ENHANCED VS STRONGLY SUPPRESSED UNITS
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 
 base_lags = find(slags <= 0);
 
@@ -666,7 +673,7 @@ exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','s
 close(f4);
 
 %% COMPARE SSI, OFFSET AND GAINS FOR GO AND TB MODELS
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{1}.lagX*dt;
 base_lags = find(slags <= 0);
 TBbase_lags = find(TB_Xtick <= 0);
@@ -730,6 +737,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative SSI');
+ylim([0.5 1.1])
 
 % xl = [-0.1 0.3];
 % f1 = figure();hold on
@@ -753,6 +761,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Offset');
+ylim([-0.05 0.3])
 
 %COMPARE GAINS
 xl = [-0.1 0.3];
@@ -765,26 +774,27 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Gain');
+ylim([0.5 1.15])
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_TB_GO_SSI.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'Gsac_TB_GO_OFFSET.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
-
-figufy(f3);
-fname = [fig_dir 'Gsac_TB_GO_GAIN.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_TB_GO_SSI.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'Gsac_TB_GO_OFFSET.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
+% figufy(f3);
+% fname = [fig_dir 'Gsac_TB_GO_GAIN.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
 
 %% COMPARE GSACS AND MSACS
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 
 GO_lambda_off = 4;
@@ -829,11 +839,19 @@ mGO_ovLL = arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gai
 mGO_NLL = bsxfun(@rdivide,mGO_LL,mGO_ovLL); %normalize TB SSI by overall model info
 mGO_NLL = bsxfun(@rdivide,mGO_NLL,mean(mGO_NLL(:,base_lags),2));
 
+tlags_up = linspace(tlags(1),tlags(end),500);
+all_gsac_tavg_up = spline(tlags,all_gsac_tavg,tlags_up);
+all_msac_tavg_up = spline(tlags,all_msac_tavg,tlags_up);
+
 search_range = [0 0.3];
-[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
-[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
-[msac_Ifact,msac_inhtime] = get_tavg_peaks(-(all_msac_tavg-1),tlags,search_range);
-[msac_Efact,msac_exctime] = get_tavg_peaks(all_msac_tavg-1,tlags,search_range);
+[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg_up-1),tlags_up,search_range);
+[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg_up-1,tlags_up,search_range);
+[msac_Ifact,msac_inhtime] = get_tavg_peaks(-(all_msac_tavg_up-1),tlags_up,search_range);
+[msac_Efact,msac_exctime] = get_tavg_peaks(all_msac_tavg_up-1,tlags_up,search_range);
+
+search_range = [0 0.15];
+[gsac_SSI_Ifact] = get_tavg_peaks(-(GO_NSSI-1),slags*dt,search_range);
+[msac_SSI_Ifact] = get_tavg_peaks(-(mGO_NSSI-1),slags*dt,search_range);
 
 close all
 %COMPARE RATES
@@ -909,8 +927,8 @@ close(f2);
 % close(f4);
 
 %% COMPARE GRAY AND IMAGE BACKGROUNDS
-cur_min_Nsacs = 500;
-cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= cur_min_Nsacs & N_gsacs_im >= cur_min_Nsacs);
+cur_min_Nsacs = 250;
+cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= cur_min_Nsacs & N_gsacs_im >= cur_min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 
 GO_lambda_off = 4;
@@ -929,17 +947,35 @@ GO_im_NSSI = bsxfun(@rdivide,GO_im_SSI,GO_im_ovinfos); %normalize GO SSI by over
 GO_im_NSSI = bsxfun(@rdivide,GO_im_NSSI,mean(GO_im_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
 search_range = [0 0.15];
-[GR_Ifact,GR_inhtime] = get_tavg_peaks(-(all_gsac_gr_tavg-1),tlags,search_range);
-[IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg-1),tlags,search_range);
 [GR_SSI_Ifact,GR_SSI_inhtime] = get_tavg_peaks(-(GO_gr_NSSI-1),slags*dt,search_range);
 [IM_SSI_Ifact,IM_SSI_inhtime] = get_tavg_peaks(-(GO_im_NSSI-1),slags*dt,search_range);
 
+tlags_up = linspace(tlags(1),tlags(end),500);
+all_gsac_gr_tavg_up = spline(tlags,all_gsac_gr_tavg,tlags_up);
+all_gsac_im_tavg_up = spline(tlags,all_gsac_im_tavg,tlags_up);
 search_range = [0 0.3];
-[GR_Efact,GR_exctime] = get_tavg_peaks((all_gsac_gr_tavg-1),tlags,search_range);
-[IM_Efact,IM_exctime] = get_tavg_peaks((all_gsac_im_tavg-1),tlags,search_range);
+[GR_Efact,GR_exctime] = get_tavg_peaks((all_gsac_gr_tavg_up-1),tlags_up,search_range);
+[IM_Efact,IM_exctime] = get_tavg_peaks((all_gsac_im_tavg_up-1),tlags_up,search_range);
+[GR_Ifact,GR_inhtime] = get_tavg_peaks(-(all_gsac_gr_tavg_up-1),tlags_up,search_range);
+[IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg_up-1),tlags_up,search_range);
 
+IM_ov_rates = arrayfun(@(x) x.type_dep.gsac_IM_ovavg_rate,all_SU_data(cur_SUs));
+IM_offset = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
+IM_Noffset = bsxfun(@rdivide,IM_offset,IM_ov_rates);
+IM_Noffset = bsxfun(@minus,IM_Noffset,mean(IM_Noffset(:,base_lags),2));
 
-%COMPARE LL
+GR_ov_rates = arrayfun(@(x) x.type_dep.gsac_GR_ovavg_rate,all_SU_data(cur_SUs));
+GR_offset = cell2mat(arrayfun(@(x) x.type_dep.gsacGR_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
+GR_Noffset = bsxfun(@rdivide,GR_offset,GR_ov_rates);
+GR_Noffset = bsxfun(@minus,GR_Noffset,mean(GR_Noffset(:,base_lags),2));
+
+IM_gain = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+IM_gain = bsxfun(@rdivide,IM_gain,mean(IM_gain(:,base_lags),2));
+
+GR_gain = cell2mat(arrayfun(@(x) x.type_dep.gsacGR_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+GR_gain = bsxfun(@rdivide,GR_gain,mean(GR_gain(:,base_lags),2));
+
+%COMPARE TRIG AVG RATES
 xl = [-0.1 0.3];
 f1 = figure();hold on
 h1=shadedErrorBar(tlags,nanmean(all_gsac_gr_tavg),nanstd(all_gsac_gr_tavg)/sqrt(length(cur_SUs)),{'color','b'});
@@ -949,8 +985,9 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
+ylim([0.6 1.3])
 
-%COMPARE LL
+%COMPARE SSI
 xl = [-0.1 0.3];
 f2 = figure();hold on
 h1=shadedErrorBar(slags*dt,nanmean(GO_gr_NSSI),nanstd(GO_gr_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
@@ -959,7 +996,32 @@ line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
-ylabel('Relative rate');
+ylabel('Relative SSI');
+ylim([0.5 1.1])
+
+%COMPARE OFFSET
+xl = [-0.1 0.3];
+f3 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(GR_Noffset),nanstd(GR_Noffset)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(slags*dt,nanmean(IM_Noffset),nanstd(IM_Noffset)/sqrt(length(cur_SUs)),{'color','r'});
+line(xl,[0 0],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Relative offset');
+ylim([-0.05 0.3])
+
+%COMPARE GAIN
+xl = [-0.1 0.3];
+f4 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(GR_gain),nanstd(GR_gain)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(slags*dt,nanmean(IM_gain),nanstd(IM_gain)/sqrt(length(cur_SUs)),{'color','r'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Gain');
+ylim([0.5 1.15])
 
 % %PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
@@ -973,10 +1035,19 @@ ylabel('Relative rate');
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 % 
+% figufy(f3);
+% fname = [fig_dir 'Gsac_GRIM_OFFSET.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+% figufy(f4);
+% fname = [fig_dir 'Gsac_GRIM_GAIN.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
 
 %% COMPARE REAL AND SIMULATED SACCADES
-cur_min_Nsacs = 500;
-cur_SUs = find(avg_rates >= min_rate & N_gsacs_im >= cur_min_Nsacs & N_simsacs >= cur_min_Nsacs);
+cur_min_Nsacs = 250;
+cur_SUs = find(avg_rates >= min_rate & N_gsacs_im >= cur_min_Nsacs & N_simsacs >= cur_min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 
 GO_lambda_off = 4;
@@ -995,16 +1066,35 @@ GO_sim_NSSI = bsxfun(@rdivide,GO_sim_SSI,GO_sim_ovinfos); %normalize GO SSI by o
 GO_sim_NSSI = bsxfun(@rdivide,GO_sim_NSSI,mean(GO_sim_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
 search_range = [0 0.15];
-[IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg-1),tlags,search_range);
-[SIM_Ifact,SIM_inhtime] = get_tavg_peaks(-(all_simsac_tavg-1),tlags,search_range);
 [IM_SSI_Ifact,IM_SSI_inhtime] = get_tavg_peaks(-(GO_im_NSSI-1),slags*dt,search_range);
 [SIM_SSI_Ifact,SIM_SSI_inhtime] = get_tavg_peaks(-(GO_sim_NSSI-1),slags*dt,search_range);
 
+tlags_up = linspace(tlags(1),tlags(end),500);
+all_simsac_tavg_up = spline(tlags,all_simsac_tavg,tlags_up);
+all_gsac_im_tavg_up = spline(tlags,all_gsac_im_tavg,tlags_up);
 search_range = [0 0.3];
-[IM_Efact,IM_exctime] = get_tavg_peaks((all_gsac_im_tavg-1),tlags,search_range);
-[SIM_Efact,SIM_exctime] = get_tavg_peaks((all_simsac_tavg-1),tlags,search_range);
+[IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg_up-1),tlags_up,search_range);
+[SIM_Ifact,SIM_inhtime] = get_tavg_peaks(-(all_simsac_tavg_up-1),tlags_up,search_range);
+[IM_Efact,IM_exctime] = get_tavg_peaks((all_gsac_im_tavg_up-1),tlags_up,search_range);
+[SIM_Efact,SIM_exctime] = get_tavg_peaks((all_simsac_tavg_up-1),tlags_up,search_range);
 
-%COMPARE LL
+IM_ov_rates = arrayfun(@(x) x.type_dep.gsac_IM_ovavg_rate,all_SU_data(cur_SUs));
+IM_offset = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
+IM_Noffset = bsxfun(@rdivide,IM_offset,IM_ov_rates);
+IM_Noffset = bsxfun(@minus,IM_Noffset,mean(IM_Noffset(:,base_lags),2));
+
+SIM_ov_rates = arrayfun(@(x) x.type_dep.simsac_ovavg_rate,all_SU_data(cur_SUs));
+SIM_offset = cell2mat(arrayfun(@(x) x.type_dep.simsac_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
+SIM_Noffset = bsxfun(@rdivide,SIM_offset,SIM_ov_rates);
+SIM_Noffset = bsxfun(@minus,SIM_Noffset,mean(SIM_Noffset(:,base_lags),2));
+
+IM_gain = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+IM_gain = bsxfun(@rdivide,IM_gain,mean(IM_gain(:,base_lags),2));
+
+SIM_gain = cell2mat(arrayfun(@(x) x.type_dep.simsac_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+SIM_gain = bsxfun(@rdivide,SIM_gain,mean(SIM_gain(:,base_lags),2));
+
+%COMPARE trig avg rates
 xl = [-0.1 0.3];
 f1 = figure();hold on
 h1=shadedErrorBar(tlags,nanmean(all_simsac_tavg),nanstd(all_simsac_tavg)/sqrt(length(cur_SUs)),{'color','b'});
@@ -1014,8 +1104,9 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
+ylim([0.6 1.3])
 
-%COMPARE LL
+%COMPARE SSI
 xl = [-0.1 0.3];
 f2 = figure();hold on
 h1=shadedErrorBar(slags*dt,nanmean(GO_sim_NSSI),nanstd(GO_sim_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
@@ -1025,8 +1116,31 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative SSI');
+ylim([0.5 1.25])
 
-% %PRINT PLOTS
+%compare offsets
+f3 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(IM_Noffset),nanstd(IM_Noffset)/sqrt(length(cur_SUs)),{'color','r'});
+h2=shadedErrorBar(slags*dt,nanmean(SIM_Noffset),nanstd(SIM_Noffset)/sqrt(length(cur_SUs)),{'color','b'});
+line(xl,[0 0],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Relative Offset');
+ylim([-0.1 0.25]);
+
+%compare gains
+f4 = figure();hold on
+h1=shadedErrorBar(slags*dt,nanmean(IM_gain),nanstd(IM_gain)/sqrt(length(cur_SUs)),{'color','r'});
+h2=shadedErrorBar(slags*dt,nanmean(SIM_gain),nanstd(SIM_gain)/sqrt(length(cur_SUs)),{'color','b'});
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlim(xl);
+xlabel('Time (s)');
+ylabel('Gain');
+ylim([0.5 1.2]);
+
+% % PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'Gsac_SIM_rates.pdf'];
@@ -1038,8 +1152,18 @@ ylabel('Relative SSI');
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 % 
+% figufy(f3);
+% fname = [fig_dir 'Gsac_SIM_OFFSET.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+% figufy(f4);
+% fname = [fig_dir 'Gsac_SIM_GAIN.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
+
 %% COMPARE PRE AND POST MODELS
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= -0.025);
 close all
 
@@ -1097,28 +1221,28 @@ xlim([-0.9 0.9]);
 % hold on
 
 % %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
+% fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'Gsac_pre_post_GAIN.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % figure(f1);
-% xlim(zxl);
+% % xlim(zxl);
 % % fname = [fig_dir 'Gsac_pre_post_GAIN_zoom.pdf'];
 % % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
-% figufy(f2);
-% fname = [fig_dir 'Gsac_pre_post_OFFSET.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-% 
+% % figufy(f2);
+% % fname = [fig_dir 'Gsac_pre_post_OFFSET.pdf'];
+% % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f2);
+% % 
 % figufy(f3);
 % fname = [fig_dir 'Gsac_pre_post_LLhist.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
 
 %% COMPARE GSAC AND MSAC PRE MODELS
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= -0.025);
 
 post_lambda_off = 4;
@@ -1156,19 +1280,19 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Gain');
 
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_msac_pre_GAIN.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-figure(f1);
-xlim(xlz);
-fname = [fig_dir 'Gsac_msac_pre_GAIN_zoom.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_msac_pre_GAIN.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% figure(f1);
+% xlim(xlz);
+% fname = [fig_dir 'Gsac_msac_pre_GAIN_zoom.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% COMPARE STIM TIMING AND SAC-MOD TIMING
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
 
 all_Ekerns = [];
 all_Ikerns = [];
@@ -1244,7 +1368,7 @@ ylabel('Suppression timing (s)');
 % close(f1);
 
 %% COMPARE TEMPKERNS ADN MODEL GAIN LATENCIES
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 noise_lags = find(slags <= 0 | slags*dt > 0.15);
 close all
@@ -1262,7 +1386,7 @@ jit_amp = 0.000;%jitter data points with gaussian RV to avoid point occlusion
 
 search_range = [0 0.15];
 tsearch_range = [0 max(up_lagax)];
-noise_SD_thresh = 2;
+noise_SD_thresh = 0;
 
 all_tempkerns = [];
 all_gainkerns = [];
@@ -1288,8 +1412,9 @@ for ii = 1:length(cur_SUs)
     %fit within-cell robust linear reg between temporal kernel and gain
     %kernel peak timing
     if length(uset) >= 5
-        r = robustfit(cur_tk_time(uset),cur_gk_time(uset));
-        cell_tg_slope(ii) = r(2);
+%         r = robustfit(cur_tk_time(uset),cur_gk_time(uset));
+%         cell_tg_slope(ii) = r(2);
+cell_tg_slope(ii) = corr(cur_tk_time(uset),cur_gk_time(uset),'type','spearman');
     end
     all_tempkerns = cat(1,all_tempkerns,cur_tkerns');
     all_gainkerns = cat(1,all_gainkerns,1+cur_gainkerns);
@@ -1388,10 +1513,10 @@ line(xl,[1 1],'color','k');
 % fname = [fig_dir 'Full_mod_avg_gkern.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
-
+% 
 
 %% COMPARE E-I Tempkerns and Gain kerns
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 flen = 15;
 lag_ax = ((1:flen)*dt - dt/2)*1e3;
 up_lagax = linspace(lag_ax(1),lag_ax(end),500);
@@ -1485,8 +1610,8 @@ stairs(xx,gain_diff_hist,'b');
 stairs(xx,kern_diff_hist,'r');
 xlim([-75 75]);
 
-% % %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
+% % % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'EI_gainkerns.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -1505,7 +1630,7 @@ fig_width = 3.5; rel_height = 0.8;
 % fname = [fig_dir 'EI_timing_scatter.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
-
+% 
 % figufy(f5);
 % fname = [fig_dir 'EI_timing_dists.pdf'];
 % exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -1523,7 +1648,7 @@ xl = [-0 0.25];
 mua_sm = 0.005/trig_avg_params.dt; %smoothing sigma for MUA rates
 
 %load info about layer boundaries
-load('/home/james/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')
+load('~/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')
 boundary_enums = [boundary_class(:).Expt_num];
 all_lbs = [boundary_class(:).lb];
 all_ubs = [boundary_class(:).ub];
@@ -1644,29 +1769,29 @@ expt_MUA_stas_up = spline(tlags,expt_MUA_stas,tlags_up);
 [MUA_Efact,MUA_Etime] = get_tavg_peaks((expt_MUA_stas_up-1),tlags_up,search_range);
 [MUA_Ifact,MUA_Itime] = get_tavg_peaks(-(expt_MUA_stas_up-1),tlags_up,search_range);
 
-f2 = figure();hold on
-h1 = shadedErrorBar(tlags,mean(expt_MUA_stas(supra,:)),std(expt_MUA_stas(supra,:))/sqrt(length(supra)),{'color','b'});
-h2 = shadedErrorBar(tlags,mean(expt_MUA_stas(gran,:)),std(expt_MUA_stas(gran,:))/sqrt(length(gran)),{'color','r'});
-h3 = shadedErrorBar(tlags,mean(expt_MUA_stas(infra,:)),std(expt_MUA_stas(infra,:))/sqrt(length(infra)),{'color','k'});
-xlim(xl);
-ylim([0.7 1.3]);
-line(xl,[1 1],'color','k');
-
-f3 = figure();
-subplot(1,3,1);
-bounds = prctile(tempdata,[10 90]);
-tempdata(tempdata < bounds(1)) = bounds(1); tempdata(tempdata > bounds(2)) = bounds(2);
-boxplot_capped(MUA_Itime*1e3,all_MU_lclass,[10 90]);
-% ylim([40 95])
-subplot(1,3,2);
-boxplot_capped(MUA_Etime*1e3,all_MU_lclass,[10 90]);
-subplot(1,3,3);
-boxplot_capped(MUA_Ttime*1e3,all_MU_lclass,[10 90]);
-
+% f2 = figure();hold on
+% h1 = shadedErrorBar(tlags,mean(expt_MUA_stas(supra,:)),std(expt_MUA_stas(supra,:))/sqrt(length(supra)),{'color','b'});
+% h2 = shadedErrorBar(tlags,mean(expt_MUA_stas(gran,:)),std(expt_MUA_stas(gran,:))/sqrt(length(gran)),{'color','r'});
+% h3 = shadedErrorBar(tlags,mean(expt_MUA_stas(infra,:)),std(expt_MUA_stas(infra,:))/sqrt(length(infra)),{'color','k'});
+% xlim(xl);
+% ylim([0.7 1.3]);
+% line(xl,[1 1],'color','k');
+% 
+% f3 = figure();
+% subplot(1,3,1);
+% bounds = prctile(tempdata,[10 90]);
+% tempdata(tempdata < bounds(1)) = bounds(1); tempdata(tempdata > bounds(2)) = bounds(2);
+% boxplot_capped(MUA_Itime*1e3,all_MU_lclass,[10 90]);
+% % ylim([40 95])
+% subplot(1,3,2);
+% boxplot_capped(MUA_Etime*1e3,all_MU_lclass,[10 90]);
+% subplot(1,3,3);
+% boxplot_capped(MUA_Ttime*1e3,all_MU_lclass,[10 90]);
+% 
 %test whether there are layer dependent differences in suppression timing.
 %Use a two-way anova with random effects on recording ID.
 group = {all_MU_lclass all_MU_recID};
-% [p,table,stats] = anovan(MUA_Itime,group,'random',2);
+[p,table,stats] = anovan(MUA_Itime,group,'random',2);
 % [p,table,stats] = anovan(MUA_Ttime,group,'random',2);
 % [p,table,stats] = anovan(MUA_Ifact,group,'random',2);
 % [p,table,stats] = anovan(MUA_Etime,group,'random',2);
@@ -1717,7 +1842,7 @@ group = {all_MU_lclass all_MU_recID};
 % close(f3);
 
 %% COMPARE GO MOD AND SUBSPACE MOD
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 
 GO_lambda_gain = 3;
 GO_lambda_off = 4;
@@ -1745,19 +1870,19 @@ xl = [-0.1 0.3];
 f1 = figure();hold on
 h1 = shadedErrorBar(slags*dt,mean(GO_NSSI),std(GO_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
 h2 = shadedErrorBar(slags*dt,mean(sub_NSSI),std(sub_NSSI)/sqrt(length(cur_SUs)),{'color','r'});
-ylim([0.5 1.2]);
+ylim([0.5 1.15]);
 line(xl,[1 1],'color','k');
 
 % f4 = figure();hold on
 % h1 = shadedErrorBar(slags*dt,mean(GO_NLL),std(GO_NLL)/sqrt(length(cur_SUs)),{'color','b'});
 % h2 = shadedErrorBar(slags*dt,mean(sub_NLL),std(sub_NLL)/sqrt(length(cur_SUs)),{'color','r'});
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'GO_SUB_SSI.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'GO_SUB_SSI.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% MUA GSAC GRAY TRIG AVG
 mua_sm = 0.0075/trig_avg_params.dt; %smoothing sigma for MUA rates
@@ -1841,8 +1966,8 @@ close(f1);
 N_msacs_Par_sub = arrayfun(@(x) x.trig_avg.N_msacs_Par_sub,all_SU_data);
 N_msacs_Orth_sub = arrayfun(@(x) x.trig_avg.N_msacs_Orth_sub,all_SU_data);
 
-% cur_SUs = find(avg_rates >= min_rate & N_msacs >= min_TA_Nsacs);
-cur_SUs = find(avg_rates >= min_rate & N_msacs_Par_sub >= min_TA_Nsacs & N_msacs_Orth_sub >= min_TA_Nsacs);
+cur_SUs = find(avg_rates >= min_rate & N_msacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
+% cur_SUs = find(avg_rates >= min_rate & N_msacs_Par_sub >= min_TA_Nsacs & N_msacs_Orth_sub >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
 % all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 % all_msac_orth = cell2mat(arrayfun(@(x) x.trig_avg.msac_Orth_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_sub_avg', all_SU_data(cur_SUs),'uniformoutput',0));
@@ -1868,18 +1993,18 @@ f1 = figure(); hold on
 h1=shadedErrorBar(tlags,nanmean(all_msac_par),nanstd(all_msac_par)/sqrt(length(cur_SUs)),{'color','b'});
 h2=shadedErrorBar(tlags,nanmean(all_msac_orth),nanstd(all_msac_orth)/sqrt(length(cur_SUs)),{'color','k'});
 xlim(xl);
-ylim([0.75 1.2]);
+ylim([0.7 1.25]);
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'MUA_par_orth2.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'MUA_par_orth2.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% STA ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);

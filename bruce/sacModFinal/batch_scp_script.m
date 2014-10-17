@@ -6,6 +6,10 @@ base_fname = 'sacStimProcFin_noXV';
 % base_fname = 'sac_info_timing';
 % base_fname = 'sac_info_timing';
 % base_fname = 'corrected_models2';
+% base_fname = 'sac_trig_avg_data3';
+% base_fname = 'gen_trig_avg_data';
+% base_fname = 'eye_accuracy';
+% base_fname = 'sac_trig_avg_data3test';
 
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
@@ -13,14 +17,15 @@ ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
 
 copy_to = 'local';
 
+%%
 results = zeros(length(Expt_list),2);
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
 %     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
-%     dest_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
+%     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/models/'];
     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-    dest_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+    dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
     
     if strcmp(copy_to,'local')
         if ~exist(dest_dir,'dir')
@@ -42,7 +47,8 @@ for ee = 1:length(Expt_list)
             cur_fname = strcat(cur_fname,'.mat');
             if strcmp(copy_to,'local')
                 fprintf('Copying %s from remote to %s\n',cur_fname,dest_dir);
-                results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));
+%                 results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));
+                results(ee,oo) = system(sprintf('scp james@CA1:%s %s',cur_fname,dest_dir));
             elseif strcmp(copy_to,'remote')
                 fprintf('Copying %s to remote %s\n',cur_fname,dest_dir);
                 results(ee,oo) = system(sprintf('scp %s james@Retina:%s',cur_fname,dest_dir));
@@ -61,7 +67,7 @@ end
 
 
 %%
-Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 160 nan; 40 nan; 45 nan; 0 90];
 
 results = zeros(length(Expt_list),2);
@@ -69,9 +75,11 @@ for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
    
-    source_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
-    dest_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
-   
+%     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
+%     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/models/'];
+     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+    dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+  
     if strcmp(copy_to,'local')
         if ~exist(dest_dir,'dir')
             r = system(sprintf('mkdir -p %s',dest_dir));
@@ -92,7 +100,8 @@ for ee = 1:length(Expt_list)
             cur_fname = strcat(cur_fname,'.mat');
             if strcmp(copy_to,'local')
                 fprintf('Copying %s to remote %s\n',cur_fname,dest_dir);
-                results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));
+%                 results(ee,oo) = system(sprintf('scp james@Retina:%s %s',cur_fname,dest_dir));
+                results(ee,oo) = system(sprintf('scp james@CA1:%s %s',cur_fname,dest_dir));
             elseif strcmp(copy_to,'remote')
                 fprintf('Copying %s from remote to %s\n',cur_fname,dest_dir);
                 results(ee,oo) = system(sprintf('scp %s james@Retina:%s',cur_fname,dest_dir));
