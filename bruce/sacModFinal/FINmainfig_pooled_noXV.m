@@ -279,12 +279,13 @@ sigI = cur_SUs(gsac_Ifact(cur_SUs) > Ipeak_CI(cur_SUs));
 sigB = intersect(sigE,sigI);
 normal_polarity_units = sigB(gsac_exctime(sigB) > gsac_inhtime(sigB));
 reverse_polarity_units = sigB(gsac_exctime(sigB) < gsac_inhtime(sigB));
-% normal_polarity_units = find(gsac_exctime > gsac_inhtime);
-% reverse_polarity_units = find(gsac_exctime < gsac_inhtime);
+nsigE = setdiff(cur_SUs,sigE);
+nsigI = setdiff(cur_SUs,sigI);
+nsigB = setdiff(cur_SUs,sigB);
 
 xl = [0 1]; %mod strength axis
 yl = [0 0.3]; %mod timing axis
-mS = 5; %marker size
+mS = 4; %marker size
 mS2 = 8; %marker size
 
 % tjitter = Tdt/4; %jitter time peaks when plotting to prevent dot occlusion
@@ -295,10 +296,10 @@ f1 = figure();
 hold on
 % plot(gsac_Efact(sigE),gsac_exctime(sigE) + randn(size(sigE))*tjitter,'b.','markersize',mS);
 % plot(gsac_Ifact(sigI),gsac_inhtime(sigI) + randn(size(sigI))*tjitter,'r.','markersize',mS);
-plot(gsac_Efact_up(sigE),gsac_exctime_up(sigE) + randn(size(sigE))*tjitter,'bo','markersize',mS,'linewidth',0.25);
-plot(gsac_Ifact_up(sigI),gsac_inhtime_up(sigI) + randn(size(sigI))*tjitter,'ro','markersize',mS,'linewidth',0.25);
-plot(gsac_Efact_up,gsac_exctime_up ,'b.','markersize',mS2);
-plot(gsac_Ifact_up,gsac_inhtime_up,'r.','markersize',mS2);
+plot(gsac_Efact_up(sigE),gsac_exctime_up(sigE) + randn(size(sigE))*tjitter,'bo','markersize',mS,'linewidth',0.5);
+plot(gsac_Ifact_up(sigI),gsac_inhtime_up(sigI) + randn(size(sigI))*tjitter,'ro','markersize',mS,'linewidth',0.5);
+plot(gsac_Efact_up(nsigE),gsac_exctime_up(nsigE) ,'b.','markersize',mS2);
+plot(gsac_Ifact_up(nsigI),gsac_inhtime_up(nsigI),'r.','markersize',mS2);
 set(gca,'xtick',0:0.2:1);
 xlabel('Modulation strength');
 ylabel('Modulation timing (s)');
@@ -335,12 +336,12 @@ stairs(time_binedges,gsac_Etime_dist);
 stairs(time_binedges,gsac_Itime_dist,'r');
 xlim(yl);
 % 
-% % %PRINT PLOTS
-% fig_width = 3.5; rel_height = 1;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% %PRINT PLOTS
+fig_width = 3.5; rel_height = 1;
+figufy(f1);
+fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
@@ -357,12 +358,12 @@ xlim(yl);
 %SCATTERPLOT OF MODULATION TIMING
 yl = [0 0.3]; %mod timing axis
 
-mS = 5;
+mS = 3;
 %PLOT SAC TRIG AVGS FOR TWO SETS OF UNITS (NORMAL AND REVERSE-POLARITY)
 f1 = figure(); hold on
-plot(gsac_inhtime,gsac_exctime,'k.','markersize',8);
-plot(gsac_inhtime(normal_polarity_units) + randn(size(normal_polarity_units))*tjitter,gsac_exctime(normal_polarity_units) + randn(size(normal_polarity_units))*tjitter,'bo','markersize',mS);
-plot(gsac_inhtime(reverse_polarity_units) + randn(size(reverse_polarity_units))*tjitter,gsac_exctime(reverse_polarity_units) + randn(size(reverse_polarity_units))*tjitter,'ro','markersize',mS);
+plot(gsac_inhtime(normal_polarity_units),gsac_exctime(normal_polarity_units),'bo','markersize',mS,'linewidth',0.7);
+plot(gsac_inhtime(reverse_polarity_units),gsac_exctime(reverse_polarity_units),'ro','markersize',mS,'linewidth',0.7);
+plot(gsac_inhtime(nsigB),gsac_exctime(nsigB),'k.','markersize',8);
 line(yl,yl,'color','k');
 xlim(yl); ylim(yl);
 xlabel('Suppression time (s)');
@@ -437,9 +438,10 @@ h1 = shadedErrorBar(TB_Xtick,nanmean(TB_Noffset),nanstd(TB_Noffset)/sqrt(length(
 xlabel('Time (s)');
 ylabel('Normalized offset');
 line(xl,[0 0],'color','k');
-line([0 0],ylim(),'color','k');
+% line([0 0],ylim(),'color','k');
 xlim([-0.1 0.3]);
-ylim([-0.05 0.3]);
+% ylim([-0.05 0.3]);
+ylim([-0.3 0.3]);
 
 %plot relative TB gains
 f2 = figure();
@@ -447,27 +449,29 @@ h1 = shadedErrorBar(TB_Xtick,nanmean(TB_gains),nanstd(TB_gains)/sqrt(length(cur_
 xlabel('Time (s)');
 ylabel('Gain');
 line(xl,[1 1],'color','k');
-line([0 0],ylim(),'color','k');
+% line([0 0],ylim(),'color','k');
 xlim([-0.1 0.3]);
-ylim([0.5 1.15]);
+% ylim([0.5 1.15]);
+ylim([0.5 1.5]);
+set(gca,'YaxisLocation','right');
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_TB_offset.pdf'];
-if fit_unCor
-fname = [fig_dir 'Gsac_TB_offset_unCor.pdf'];
-end    
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'Gsac_TB_gain.pdf'];
-if fit_unCor
-fname = [fig_dir 'Gsac_TB_gain_unCor.pdf'];    
-end
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% % PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_TB_offset2.pdf'];
+% if fit_unCor
+% fname = [fig_dir 'Gsac_TB_offset_unCor.pdf'];
+% end    
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'Gsac_TB_gain2.pdf'];
+% if fit_unCor
+% fname = [fig_dir 'Gsac_TB_gain_unCor.pdf'];    
+% end
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 %% TB INFO AND INFO RATE
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
@@ -1571,8 +1575,8 @@ use_B = intersect(use_E,use_I);
 xl = [-0.1 0.3];
 xlz = [0 0.15];
 f1 = figure();hold on
-h1=shadedErrorBar(slags*dt,nanmean(gsac_Egain),nanstd(gsac_Egain)/sqrt(length(cur_SUs)),{'color','k'});
-h2=shadedErrorBar(slags*dt,nanmean(gsac_Igain),nanstd(gsac_Igain)/sqrt(length(cur_SUs)),{'color','r'});
+h1=shadedErrorBar(slags*dt,nanmean(gsac_Egain),nanstd(gsac_Egain)/sqrt(length(cur_SUs)),{'color',[0.2 0.8 0.2]});
+h2=shadedErrorBar(slags*dt,nanmean(gsac_Igain),nanstd(gsac_Igain)/sqrt(length(cur_SUs)),{'color',[0.8 0.1 0.8]});
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
@@ -1581,13 +1585,13 @@ ylabel('Relative rate');
 
 %COMPARE PRE AND POST GAINS
 f2 = figure();hold on
-h1=shadedErrorBar(up_lagax,nanmean(all_Ekerns_up),nanstd(all_Ekerns_up)/sqrt(length(cur_SUs)),{'color','k'});
-h2=shadedErrorBar(up_lagax,nanmean(all_Ikerns_up),nanstd(all_Ikerns_up)/sqrt(length(cur_SUs)),{'color','r'});
+h1=shadedErrorBar(up_lagax,nanmean(all_Ekerns_up),nanstd(all_Ekerns_up)/sqrt(length(cur_SUs)),{'color',[0.2 0.8 0.2]});
+h2=shadedErrorBar(up_lagax,nanmean(all_Ikerns_up),nanstd(all_Ikerns_up)/sqrt(length(cur_SUs)),{'color',[0.8 0.1 0.8]});
 xlabel('Time (s)');
 
 mS = 12;
 f3 = figure(); hold on
-plot(Ekern_time,Ikern_time,'.','markersize',mS);
+plot(Ekern_time,Ikern_time,'k.','markersize',mS);
 plot(Egain_time*1e3,Igain_time*1e3,'r.','markersize',mS);
 line([0 150],[0 150],'color','k');
 xlabel('Excitatory inputs');
@@ -1606,36 +1610,36 @@ gain_diff_hist = histc(1e3*(Egain_time-Igain_time),xx);
 gain_diff_hist = gain_diff_hist/sum(gain_diff_hist);
 kern_diff_hist = histc((Ekern_time-Ikern_time),xx);
 kern_diff_hist = kern_diff_hist/sum(kern_diff_hist);
-stairs(xx,gain_diff_hist,'b');
+stairs(xx,gain_diff_hist,'k');
 stairs(xx,kern_diff_hist,'r');
 xlim([-75 75]);
 
-% % % %PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'EI_gainkerns.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% figure(f1);
-% xlim(xlz);
-% fname = [fig_dir 'EI_gainkerns_zoom.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% figufy(f2);
-% fname = [fig_dir 'EI_tempkerns.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-% 
-% figufy(f3);
-% fname = [fig_dir 'EI_timing_scatter.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
-% 
-% figufy(f5);
-% fname = [fig_dir 'EI_timing_dists.pdf'];
-% exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f5);
-% 
+% % %PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'EI_gainkerns.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+figure(f1);
+xlim(xlz);
+fname = [fig_dir 'EI_gainkerns_zoom.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+figufy(f2);
+fname = [fig_dir 'EI_tempkerns.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+figufy(f3);
+fname = [fig_dir 'EI_timing_scatter.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
+
+figufy(f5);
+fname = [fig_dir 'EI_timing_dists.pdf'];
+exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f5);
+
 %% ANALYZE LAMINAR DEPENDENCIES WITH MUA
 mod_dt = 0.01;
 flen = 15;
