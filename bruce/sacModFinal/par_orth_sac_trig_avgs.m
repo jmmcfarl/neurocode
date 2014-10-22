@@ -522,11 +522,11 @@ close(f);
 p100_avgs = mua_data.p100_gsac_avgs(:,use_MUs)';
 o100_avgs = mua_data.o100_gsac_avgs(:,use_MUs)';
 
-search_range = [0 0.2];
+search_range = [0 0.15];
 [p_Sfact,p_inhtime] = get_tavg_peaks(-(p100_avgs-1),lags*dt,search_range);
 [o_Sfact,o_inhtime] = get_tavg_peaks(-(o100_avgs-1),lags*dt,search_range);
 
-search_range = [0.1 0.3];
+search_range = [0 0.3];
 [p_Efact,p_exctime] = get_tavg_peaks(p100_avgs-1,lags*dt,search_range);
 [o_Efact,o_exctime] = get_tavg_peaks(o100_avgs-1,lags*dt,search_range);
 
