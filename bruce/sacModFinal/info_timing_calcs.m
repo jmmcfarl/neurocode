@@ -1156,8 +1156,9 @@ fprintf('Computing info timing for preGain Reg %d/%d\n',ll,n_pregain_regs);
             
             %%
             n_pregain_regs = length(sacStimProc(cc).msacPreGainMod);
-            for ll = 1:n_pregain_regs
-                fprintf('Computing info timing for preGain Reg %d/%d\n',ll,n_pregain_regs);
+%             for ll = 1:n_pregain_regs
+  ll = 3;
+  fprintf('Computing info timing for preGain Reg %d/%d\n',ll,n_pregain_regs);
                 sacGainMod = sacStimProc(cc).msacPreGainMod{ll};
                 
                 %initialize simple 1-parameter GLM for gain/offset fitting
@@ -1222,7 +1223,7 @@ fprintf('Computing info timing for preGain Reg %d/%d\n',ll,n_pregain_regs);
                 sacInfoTiming(cc).msac_info_after(ll,:) = LL_imp_after;
                 sacInfoTiming(cc).msac_info_during(ll,:) = LL_imp_during;
                 sacInfoTiming(cc).msac_avg_rate = sac_avg_rate;
-            end
+%             end
             %%            
             [base_LL_imp_before,base_LL_imp_after,base_LL_imp_during] = deal(nan(Nrpts,length(info_slags)));
             for rr = 1:Nrpts

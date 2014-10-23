@@ -7,9 +7,9 @@ include_bursts = 0;
 
 fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
-% base_tname = 'sac_trig_avg_data3';
 base_tname = 'sac_trig_avg_data3test';
 base_yname = 'sacTypeDep_noXV';
+base_iname = 'sac_info_timing_noXV';
 
 if include_bursts
     base_tname = strcat(base_tname,'_withbursts');
@@ -51,12 +51,16 @@ for ee = 1:length(Expt_list)
 %             end
             load(yname);
             
+            iname = strcat(sac_dir,base_iname,sprintf('_ori%d',ori_list(ee,ii)));
+            load(iname);
+            
             su_range = (n_probes+1):length(sacStimProc);
             clear SU_data
             for jj = 1:length(su_range)
                 SU_data(jj).sacStimProc = sacStimProc(su_range(jj));
                 SU_data(jj).trig_avg = sua_data(jj);
                 SU_data(jj).type_dep = sacTypeDep(su_range(jj));
+                SU_data(jj).info_time = sacInfoTiming(su_range(jj));
             end
             [SU_data.expt_num] = deal(Expt_num);
             [SU_data.bar_ori] = deal(ori_list(ee,ii));
@@ -117,16 +121,20 @@ for ee = 1:length(Expt_list)
                 load(yname);
             end
             
+            iname = strcat(sac_dir,base_iname,sprintf('_ori%d',ori_list(ee,ii)));
+            load(iname);
+
             su_range = (n_probes+1):length(sacStimProc);
             clear SU_data
             for jj = 1:length(su_range)
                 SU_data(jj).sacStimProc = sacStimProc(su_range(jj));
                 SU_data(jj).trig_avg = sua_data(jj);
                 if ~ismember(Expt_num,[296 297])
-                SU_data(jj).type_dep = sacTypeDep(su_range(jj));
+                    SU_data(jj).type_dep = sacTypeDep(su_range(jj));
                 else
-                   SU_data(jj).type_dep = nan; 
+                    SU_data(jj).type_dep = nan;
                 end
+                SU_data(jj).info_time = sacInfoTiming(su_range(jj));
             end
             [SU_data.expt_num] = deal(Expt_num);
             [SU_data.bar_ori] = deal(ori_list(ee,ii));
@@ -2079,3 +2087,103 @@ figufy(f1);
 fname = [fig_dir 'examp_ST_stim.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
+
+%% INFO TIMING ANALYSIS
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
+lambda_gain = 3;
+info_lags = sacInfoTiming(end).lag_axis;
+
+gsac_info_before = cell2mat(arrayfun(@(x) x.info_time.gsac_info_before(lambda_gain,:), all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_info_after = cell2mat(arrayfun(@(x) x.info_time.gsac_info_after(lambda_gain,:), all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_info_during = cell2mat(arrayfun(@(x) x.info_time.gsac_info_during(lambda_gain,:), all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_info_Bbefore = cell2mat(arrayfun(@(x) x.info_time.gsac_base_info_before, all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_info_Bafter = cell2mat(arrayfun(@(x) x.info_time.gsac_base_info_after, all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_info_Bduring = cell2mat(arrayfun(@(x) x.info_time.gsac_base_info_during, all_SU_data(cur_SUs),'uniformoutput',0));
+
+% baseline_info = mean(gsac_info_Bbefore(:,1:20),2);
+baseline_info = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.LLimp,all_SU_data(cur_SUs));
+
+norm_info_before = bsxfun(@rdivide,gsac_info_before,baseline_info);
+norm_info_after = bsxfun(@rdivide,gsac_info_after,baseline_info);
+norm_info_during = bsxfun(@rdivide,gsac_info_during,baseline_info);
+
+norm_Binfo_before = bsxfun(@rdivide,gsac_info_Bbefore,baseline_info);
+norm_Binfo_after = bsxfun(@rdivide,gsac_info_Bafter,baseline_info);
+norm_Binfo_during = bsxfun(@rdivide,gsac_info_Bduring,baseline_info);
+
+f1 = figure(); hold on
+shadedErrorBar(info_lags,mean(norm_info_before),std(norm_info_before)/sqrt(length(cur_SUs)),{'color','r'});
+shadedErrorBar(info_lags,mean(norm_info_after),std(norm_info_after)/sqrt(length(cur_SUs)),{'color','b'});
+shadedErrorBar(info_lags,mean(norm_info_during),std(norm_info_during)/sqrt(length(cur_SUs)),{'color','k'});
+plot(info_lags,mean(norm_Binfo_before),'r--','linewidth',1);
+plot(info_lags,mean(norm_Binfo_after),'b--','linewidth',1);
+plot(info_lags,mean(norm_Binfo_during),'k--','linewidth',1);
+% xlim([-0.2 0.2]);
+ylim([0 1.2])
+line([0 0],[0 1.2],'color','k')
+xlabel('Time since fixation onset (s)');
+ylabel('Relative stim info');
+
+exCell = find([all_SU_data(cur_SUs).expt_num] == 93,1,'last');
+f2 = figure(); hold on
+plot(info_lags,norm_info_before(exCell,:),'r','linewidth',2);
+plot(info_lags,norm_info_after(exCell,:),'b','linewidth',2);
+plot(info_lags,norm_info_during(exCell,:),'k','linewidth',2);
+plot(info_lags,norm_Binfo_before(exCell,:),'r--','linewidth',1);
+plot(info_lags,norm_Binfo_after(exCell,:),'b--','linewidth',1);
+plot(info_lags,norm_Binfo_during(exCell,:),'k--','linewidth',1);
+xlim([-0.2 0.2]);
+ylim([0 1.2])
+line([0 0],[0 1.2],'color','k')
+xlabel('Time since fixation onset (s)');
+ylabel('Relative stim info');
+
+%% INFO TIMING ANALYSIS MSACS
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
+lambda_gain = 3;
+info_lags = sacInfoTiming(end).lag_axis;
+
+msac_info_before = cell2mat(arrayfun(@(x) x.info_time.msac_info_before(lambda_gain,:), all_SU_data(cur_SUs),'uniformoutput',0));
+msac_info_after = cell2mat(arrayfun(@(x) x.info_time.msac_info_after(lambda_gain,:), all_SU_data(cur_SUs),'uniformoutput',0));
+msac_info_during = cell2mat(arrayfun(@(x) x.info_time.msac_info_during(lambda_gain,:), all_SU_data(cur_SUs),'uniformoutput',0));
+msac_info_Bbefore = cell2mat(arrayfun(@(x) x.info_time.msac_base_info_before, all_SU_data(cur_SUs),'uniformoutput',0));
+msac_info_Bafter = cell2mat(arrayfun(@(x) x.info_time.msac_base_info_after, all_SU_data(cur_SUs),'uniformoutput',0));
+msac_info_Bduring = cell2mat(arrayfun(@(x) x.info_time.msac_base_info_during, all_SU_data(cur_SUs),'uniformoutput',0));
+
+% baseline_info = mean(msac_info_Bbefore(:,1:20),2);
+baseline_info = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.LLimp,all_SU_data(cur_SUs));
+
+norm_info_before = bsxfun(@rdivide,msac_info_before,baseline_info);
+norm_info_after = bsxfun(@rdivide,msac_info_after,baseline_info);
+norm_info_during = bsxfun(@rdivide,msac_info_during,baseline_info);
+
+norm_Binfo_before = bsxfun(@rdivide,msac_info_Bbefore,baseline_info);
+norm_Binfo_after = bsxfun(@rdivide,msac_info_Bafter,baseline_info);
+norm_Binfo_during = bsxfun(@rdivide,msac_info_Bduring,baseline_info);
+
+f1 = figure(); hold on
+shadedErrorBar(info_lags,mean(norm_info_before),std(norm_info_before)/sqrt(length(cur_SUs)),{'color','r'});
+shadedErrorBar(info_lags,mean(norm_info_after),std(norm_info_after)/sqrt(length(cur_SUs)),{'color','b'});
+shadedErrorBar(info_lags,mean(norm_info_during),std(norm_info_during)/sqrt(length(cur_SUs)),{'color','k'});
+plot(info_lags,mean(norm_Binfo_before),'r--','linewidth',1);
+plot(info_lags,mean(norm_Binfo_after),'b--','linewidth',1);
+plot(info_lags,mean(norm_Binfo_during),'k--','linewidth',1);
+% xlim([-0.2 0.2]);
+ylim([0 1.2])
+line([0 0],[0 1.2],'color','k')
+xlabel('Time since fixation onset (s)');
+ylabel('Relative stim info');
+
+exCell = find([all_SU_data(cur_SUs).expt_num] == 93,1,'last');
+f2 = figure(); hold on
+plot(info_lags,norm_info_before(exCell,:),'r','linewidth',2);
+plot(info_lags,norm_info_after(exCell,:),'b','linewidth',2);
+plot(info_lags,norm_info_during(exCell,:),'k','linewidth',2);
+plot(info_lags,norm_Binfo_before(exCell,:),'r--','linewidth',1);
+plot(info_lags,norm_Binfo_after(exCell,:),'b--','linewidth',1);
+plot(info_lags,norm_Binfo_during(exCell,:),'k--','linewidth',1);
+xlim([-0.2 0.2]);
+ylim([0 1.2])
+line([0 0],[0 1.2],'color','k')
+xlabel('Time since fixation onset (s)');
+ylabel('Relative stim info');
