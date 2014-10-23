@@ -1225,7 +1225,7 @@ fprintf('Computing info timing for preGain Reg %d/%d\n',ll,n_pregain_regs);
                 sacInfoTiming(cc).msac_avg_rate = sac_avg_rate;
 %             end
             %%            
-            [base_LL_imp_before,base_LL_imp_after,base_LL_imp_during] = deal(nan(Nrpts,length(info_slags)));
+            [base_LL_imp_before,base_LL_imp_after,base_LL_imp_during,base_unshuf_LLimp] = deal(nan(Nrpts,length(info_slags)));
             for rr = 1:Nrpts
                 fprintf('Scrambling with rand saclocs, iter %d of %d\n',rr,Nrpts);
                 
@@ -1274,6 +1274,9 @@ fprintf('Computing info timing for preGain Reg %d/%d\n',ll,n_pregain_regs);
                         tempmod = NMMfit_filters(tempmod,rand_Robs(cur_set),G);
                         [~,~,tempprate] = NMMmodel_eval(tempmod,rand_Robs(cur_set),G);
                         base_unshuf_LLseq = rand_Robs(cur_set).*log2(tempprate)-tempprate;
+                       null_pred = mean(rand_Robs(cur_set));
+                        null_LLseq = rand_Robs(cur_set).*log2(null_pred)-null_pred;
+                        base_unshuf_LLimp(rr,ii) = nansum(base_unshuf_LLseq-null_LLseq)/sum(rand_Robs(cur_set));
                         
                         cur_Tinds = bsxfun(@plus,-prev_sac_dur(cur_set),Tinds'-1);
                         scramb_lags = find(cur_Tinds > info_slags(ii));
@@ -1323,6 +1326,7 @@ fprintf('Computing info timing for preGain Reg %d/%d\n',ll,n_pregain_regs);
             sacInfoTiming(cc).msac_base_info_before = nanmean(base_LL_imp_before,1);
             sacInfoTiming(cc).msac_base_info_after = nanmean(base_LL_imp_after,1);
             sacInfoTiming(cc).msac_base_info_during = nanmean(base_LL_imp_during,1);
+            sacInfoTiming(cc).msac_base_info_unshuff = nanmean(base_unshuf_LLimp,1);
         end
     end
     sacInfoTiming(cc).lag_axis = info_slags*dt;
