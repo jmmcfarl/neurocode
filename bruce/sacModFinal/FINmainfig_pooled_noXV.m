@@ -2057,3 +2057,25 @@ shadedErrorBar(slags*dt,mean(z_Dn(cur,:)),std(z_Dn(cur,:))/sqrt(length(cur)),{'c
 
 % line(xl,[1 1],'color','k');
 % line([0 0],ylim(),'color','k');
+
+%% GENERATE ILLUSTRATION OF SPATIOTEMPORAL STIM
+close all
+npix = 12;
+nT = 50;
+probNGray = 1-0.12;
+
+randset = rand(nT,npix) > probNGray;
+randX = zeros(nT,npix);
+randX(randset) = 1;
+randset = rand(nT,npix) > 0.5;
+randX(randset) = -randX(randset);
+
+f1 = figure();
+imagesc(randX); colormap(gray);
+set(gca,'Xtick',[],'Ytick',[]);
+%PRINT PLOTS
+fig_width = 2.5; rel_height = 3.5;
+figufy(f1);
+fname = [fig_dir 'examp_ST_stim.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);

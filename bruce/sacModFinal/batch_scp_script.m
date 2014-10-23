@@ -1,8 +1,8 @@
 clear all
 
-fit_unCor = true;
+fit_unCor = false;
 
-base_fname = 'sacStimProcFin_noXV';
+% base_fname = 'sacStimProcFin_noXV';
 % base_fname = 'sac_info_timing';
 % base_fname = 'sac_info_timing';
 % base_fname = 'corrected_models2';
@@ -10,6 +10,7 @@ base_fname = 'sacStimProcFin_noXV';
 % base_fname = 'gen_trig_avg_data';
 % base_fname = 'eye_accuracy';
 % base_fname = 'sac_trig_avg_data3test';
+base_fname = 'sac_info_timing_noXV';
 
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
