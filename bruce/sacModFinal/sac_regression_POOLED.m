@@ -9,8 +9,8 @@ all_MU_data = [];
 all_XC_data = [];
 
 base_sname = 'corrected_models2';
-base_tname = 'sac_glm_data';
-% base_tname = 'sac_glm_data_withbursts';
+% base_tname = 'sac_glm_data';
+base_tname = 'sac_glm_data_withbursts';
 
 %% LOAD JBE
 
@@ -233,11 +233,11 @@ hold on
 h1=shadedErrorBar(xc_lags,nanmean(msac_gsac_xcorr)/xc_dt,nanstd(msac_gsac_xcorr)/sqrt(length(all_XC_data))/xc_dt,{'color','r'});
 h2=shadedErrorBar(xc_lags,nanmean(msac_simsac_xcorr)/xc_dt,nanstd(msac_simsac_xcorr)/sqrt(length(all_XC_data))/xc_dt,{'color','b'});
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Msac_xcorrs.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Msac_xcorrs.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
 
 
 

@@ -57,11 +57,11 @@ if strcmp(rec_type,'LP')
     end
 end
 
-if Expt_num >= 280
-    data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-else
+% if Expt_num >= 280
+%     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% else
     data_dir = ['~/Data/bruce/' Expt_name];
-end
+% end
 
 cd(data_dir);
 
@@ -724,28 +724,6 @@ for ii = 1:n_sac_bins
     Xmsac(cur_sac_target,ii) = 1;
 end
 
-%%
-sac_buff = round(0.05/dt);
-in_sac_inds = zeros(NT,1);
-for ii = 1:sac_buff+1
-    cur_inds = saccade_stop_inds + (ii-1);
-    cur_inds(cur_inds > NT) = [];
-    in_sac_inds(cur_inds) = 1;
-end
-for ii = 1:length(saccade_start_inds)
-    cur_inds = saccade_start_inds(ii):saccade_stop_inds(ii);
-    in_sac_inds(cur_inds) = 1;
-end
-
-in_sac_inds = logical(in_sac_inds);
-
-blink_inds = find(used_is_blink);
-in_blink_inds = zeros(NT,1);
-for ii = 1:length(blink_inds)
-    cur_inds = saccade_start_inds(blink_inds(ii)):saccade_stop_inds(blink_inds(ii));
-    in_blink_inds(cur_inds) = 1;
-end
-in_blink_inds = logical(in_blink_inds);
 
 %%
 %set of units where we have LOOXV on eye-tracking
@@ -863,12 +841,35 @@ for ss = 1:n_chs
     end
 end
 
+%% DEFINE IN-SAC AND IN-BUFF INDS
+sac_buff = round(0.05/dt);
+in_sac_inds = zeros(NT,1);
+for ii = 1:sac_buff+1
+    cur_inds = saccade_stop_inds + (ii-1);
+    cur_inds(cur_inds > NT) = [];
+    in_sac_inds(cur_inds) = 1;
+end
+for ii = 1:length(saccade_start_inds)
+    cur_inds = saccade_start_inds(ii):saccade_stop_inds(ii);
+    in_sac_inds(cur_inds) = 1;
+end
+
+in_sac_inds = logical(in_sac_inds);
+
+blink_inds = find(used_is_blink);
+in_blink_inds = zeros(NT,1);
+for ii = 1:length(blink_inds)
+    cur_inds = saccade_start_inds(blink_inds(ii)):saccade_stop_inds(blink_inds(ii));
+    in_blink_inds(cur_inds) = 1;
+end
+in_blink_inds = logical(in_blink_inds);
+
 %%
 
 back_look = 7;
-back_kern = zeros(back_look*2+1,1);
-back_kern(1:back_look+1) = 1;
-back_kern = flipud(back_kern/sum(back_kern));
+% back_kern = zeros(back_look*2+1,1);
+% back_kern(1:back_look+1) = 1;
+% back_kern = flipud(back_kern/sum(back_kern));
 
 rpt_EP = best_fin_tot_corr(all_rpt_inds);
 rpt_EPnan = rpt_EP;
@@ -889,66 +890,91 @@ for ii = 1:length(rpt_trials)
     full_EP(ii,1:length(cur_inds)) = rpt_EP(cur_inds);
     full_EP_emb(ii,1:length(cur_inds),:) = rpt_EP_emb(cur_inds,:);
     
-    full_EP_filt(ii,1:length(cur_inds)) = conv(rpt_EP(cur_inds),back_kern,'same');
+%     full_EP_filt(ii,1:length(cur_inds)) = conv(rpt_EP(cur_inds),back_kern,'same');
 end
 full_EP(in_sac) = nan;
-full_EP_filt(in_sac) = nan;
+% full_EP_filt(in_sac) = nan;
 
 
 %%
-rpt_avg_rates = nanmean(reshape(full_psth,[],n_chs));
-rpt_avg_prates = nanmean(reshape(mod_prates,[],n_chs));
-full_psth_ms = bsxfun(@minus,full_psth,reshape(rpt_avg_rates,1,1,[]));
-trial_avg_rates = nanmean(full_psth_ms,2);
-full_psth_ms = bsxfun(@minus,full_psth_ms,trial_avg_rates);
-mod_prates_ms = bsxfun(@minus,mod_prates,reshape(rpt_avg_prates,1,1,[]));
-
-%%
-ep_naninds = isnan(full_EP(:));
+ep_naninds = isnan(full_EP(:)); %find within-sac inds
+%nan out within-sac (or within blink) times in psth and mod prates
+full_psth_ms = full_psth;
 full_psth_ms = reshape(full_psth_ms,[],n_chs);
 full_psth_ms(ep_naninds,:) = nan;
 full_psth_ms = reshape(full_psth_ms,n_rpts,[],n_chs);
-
+mod_prates_ms = mod_prates;
 mod_prates_ms = reshape(mod_prates_ms,[],n_chs);
 mod_prates_ms(ep_naninds,:) = nan;
 mod_prates_ms = reshape(mod_prates_ms,n_rpts,[],n_chs);
 
-all_psths = squeeze(nanmean(full_psth_ms));
-psth_cov = nanvar(all_psths);
+rpt_avg_rates = nanmean(reshape(full_psth_ms,[],n_chs)); %mean rates
+rpt_avg_prates = nanmean(reshape(mod_prates_ms,[],n_chs)); %mean mod-pred rates
+
+full_psth_ms = bsxfun(@minus,full_psth_ms,reshape(rpt_avg_rates,1,1,[])); %subtract off overall mean rate
+mod_prates_ms = bsxfun(@minus,mod_prates_ms,reshape(rpt_avg_prates,1,1,[])); %subtract off overall model means
+
+trial_avg_rates = nanmean(full_psth_ms,2);%compute trial avg rates 
+full_psth_ms = bsxfun(@minus,full_psth_ms,trial_avg_rates); %subtract off trial-mean rates
+
+%% COMPUTE PSTH AND TOTAL VARIANCE
+all_psths = squeeze(nanmean(full_psth_ms)); %empirical psth
+psth_var = nanvar(all_psths); %variance of psths
 unfolded_psth_ms = reshape(permute(full_psth_ms,[2 1 3]),[],n_chs);
-tot_cov = nanvar(unfolded_psth_ms);
+tot_var = nanvar(unfolded_psth_ms); %total variance of binned spike data
 
 %%
-[a,b] = sort(full_EP_filt);
-sorted_mod_prates = nan(size(mod_prates_ms));
-sorted_full_psth = nan(size(full_psth_ms));
-for tt = 1:length(rpt_taxis)
-    sorted_mod_prates(:,tt,:) = mod_prates_ms(b(:,tt),tt,:);
-    sorted_mod_prates(isnan(a(:,tt)),tt,:) = nan;
-    
-    sorted_full_psth(:,tt,:) = full_psth_ms(b(:,tt),tt,:);
-    sorted_full_psth(isnan(a(:,tt)),tt,:) = nan;
-end
+% [a,b] = sort(full_EP_filt);
+% sorted_mod_prates = nan(size(mod_prates_ms));
+% sorted_full_psth = nan(size(full_psth_ms));
+% for tt = 1:length(rpt_taxis)
+%     sorted_mod_prates(:,tt,:) = mod_prates_ms(b(:,tt),tt,:);
+%     sorted_mod_prates(isnan(a(:,tt)),tt,:) = nan;
+%     
+%     sorted_full_psth(:,tt,:) = full_psth_ms(b(:,tt),tt,:);
+%     sorted_full_psth(isnan(a(:,tt)),tt,:) = nan;
+% end
 %%
-maxlag = 10;
+maxlag = 6;
 space = 0.05;
 poss_lags = 0:space:maxlag;
 [II,JJ] = meshgrid(1:n_rpts);
+x_bin_edges = (poss_lags(1:end-1)+poss_lags(2:end))/2;
 
-max_tlag = 10;
+cur_XC = nan(length(rpt_taxis),length(poss_lags)-1,n_chs);
+cur_cnt = zeros(length(poss_lags)-1,n_chs);
+for tt = 1:length(rpt_taxis)
+    Y1 = squeeze(full_psth_ms(:,tt,:));
+    %             cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
+%             cur_Dmat(logical(eye(n_rpts))) = nan;
+    cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
+    cur_Dmat(logical(eye(n_rpts))) = nan;
+    for jj = 1:length(poss_lags)-1
+        curset = find(cur_Dmat > poss_lags(jj) & cur_Dmat <= poss_lags(jj+1));
+        cur_XC(tt,jj,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
+        cur_cnt(jj,:) = cur_cnt(jj,:) + sum(~isnan(Y1(II(curset),:)));
+    end
+end
+
+all_XC = squeeze(nanmean(cur_XC));
+all_relprobs = bsxfun(@rdivide,cur_cnt,sum(cur_cnt));
+
+%%
+
+%create a set of temporally shifted versions of the spiking data
+max_tlag = 10; %max time lag for computing autocorrs
 tlags = [-max_tlag:max_tlag];
 full_psth_shifted = nan(n_rpts,length(rpt_taxis),n_chs,length(tlags));
 for tt = 1:length(tlags)
-    full_psth_shifted(:,:,:,tt) = shift_matrix_Nd(full_psth_ms,-tlags(tt),2);
+    full_psth_shifted(:,:,:,tt) = shift_matrix_Nd(full_psth_ms,-tlags(tt),2); 
 end
 
 all_XC = zeros(length(poss_lags)-1,n_chs,n_chs,length(tlags));
-for cc = 1:n_chs
+for cc = 27
     cc
     cur_XC = nan(length(rpt_taxis),length(poss_lags)-1,n_chs,length(tlags));
     for tt = 1:length(rpt_taxis)
         Y1 = squeeze(full_psth_shifted(:,tt,:,:));
-        
         Y2 = squeeze(full_psth_ms(:,tt,cc));
         
         %         cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));

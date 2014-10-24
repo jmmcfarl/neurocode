@@ -9,7 +9,7 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'G087';
+Expt_name = 'M296';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -101,11 +101,11 @@ if strcmp(rec_type,'LP')
     end
 end
 
-if Expt_num >= 280
-    data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-else
+% if Expt_num >= 280
+%     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% else
     data_dir = ['~/Data/bruce/' Expt_name];
-end
+% end
 
 cd(data_dir);
 

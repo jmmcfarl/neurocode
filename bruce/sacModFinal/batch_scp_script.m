@@ -10,7 +10,8 @@ fit_unCor = false;
 % base_fname = 'gen_trig_avg_data';
 % base_fname = 'eye_accuracy';
 % base_fname = 'sac_trig_avg_data3test';
-base_fname = 'sac_info_timing_noXV';
+base_fname = 'sac_info_timing_noXV2';
+% base_fname = 'sac_glm_data_withbursts';
 
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
