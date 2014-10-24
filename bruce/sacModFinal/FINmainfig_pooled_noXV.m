@@ -5,11 +5,11 @@ clc
 fit_unCor = 0;
 include_bursts = 0;
 
-fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
 base_tname = 'sac_trig_avg_data3test';
 base_yname = 'sacTypeDep_noXV';
-base_iname = 'sac_info_timing_noXV2';
+base_iname = 'sac_info_timing_noXV3';
 
 if include_bursts
     base_tname = strcat(base_tname,'_withbursts');
@@ -93,7 +93,7 @@ Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NO
 % Expt_list = {'M266','M270','M275','M277','M281'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
 n_probes = 24;
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
-rmfield_list = {};
+% rmfield_list = {};
 
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
@@ -824,7 +824,7 @@ GO_gain = bsxfun(@rdivide,GO_gain,mean(GO_gain(:,base_lags),2));
 GO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_NSSI = bsxfun(@rdivide,GO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
-GO_NSSI = bsxfun(@rdivide,GO_NSSI,mean(GO_NSSI(:,base_lags),2));
+% GO_NSSI = bsxfun(@rdivide,GO_NSSI,mean(GO_NSSI(:,base_lags),2));
 
 GO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovLL = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
@@ -843,7 +843,8 @@ mGO_gain = bsxfun(@rdivide,mGO_gain,mean(mGO_gain(:,base_lags),2));
 
 mGO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 mGO_ovinfos = arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
-mGO_NSSI = bsxfun(@rdivide,mGO_SSI,mGO_ovinfos); %normalize GO SSI by overall model info
+% mGO_NSSI = bsxfun(@rdivide,mGO_SSI,mGO_ovinfos); %normalize GO SSI by overall model info
+mGO_NSSI = bsxfun(@rdivide,mGO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
 % mGO_NSSI = bsxfun(@rdivide,mGO_NSSI,mean(mGO_NSSI(:,base_lags),2));
 
 mGO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
@@ -881,15 +882,15 @@ ylim([0.7 1.25])
 %COMPARE SSI
 xl = [-0.1 0.3];
 f2 = figure();hold on
-% h1=shadedErrorBar(slags*dt,nanmean(GO_NSSI),nanstd(GO_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
+h1=shadedErrorBar(slags*dt,nanmean(GO_NSSI),nanstd(GO_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
 h2=shadedErrorBar(slags*dt,nanmean(mGO_NSSI),nanstd(mGO_NSSI)/sqrt(length(cur_SUs)),{'color','r'});
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative SSI');
-% ylim([0.5 1.1]);
-ylim([0.7 1.1]);
+ylim([0.5 1.1]);
+% ylim([0.7 1.1]);
 
 %COMPARE OFFSETS
 xl = [-0.1 0.3];
@@ -922,11 +923,11 @@ fig_width = 3.5; rel_height = 0.8;
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 % 
-figufy(f2);
-% fname = [fig_dir 'Gsac_MSAC_SSI.pdf'];
-fname = [fig_dir 'Gsac_MSAC_SSI_compare2_unCor.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% figufy(f2);
+% % fname = [fig_dir 'Gsac_MSAC_SSI.pdf'];
+% fname = [fig_dir 'Gsac_MSAC_SSI_compare2_unCor.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 % 
 % figufy(f3);
 % fname = [fig_dir 'Gsac_MSAC_OFFSET.pdf'];
@@ -2101,11 +2102,23 @@ gsac_info_Bafter = cell2mat(arrayfun(@(x) x.info_time.gsac_base_info_after, all_
 gsac_info_Bduring = cell2mat(arrayfun(@(x) x.info_time.gsac_base_info_during, all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_info_unshuff = cell2mat(arrayfun(@(x) x.info_time.gsac_base_info_unshuff, all_SU_data(cur_SUs),'uniformoutput',0));
 
+gsac_avg_rate = cell2mat(arrayfun(@(x) x.info_time.gsac_avg_rate', all_SU_data(cur_SUs),'uniformoutput',0));
+
 base_lags = find(info_lags < -0.05 & info_lags > -0.15);
 % baseline_info = mean(gsac_info_Bbefore(:,1:25),2);
-baseline_info = mean(gsac_info_before(:,base_lags),2);
+% baseline_info = mean(gsac_info_before(:,base_lags),2);
 % baseline_info = mean(gsac_info_unshuff,2);
-% baseline_info = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.LLimp,all_SU_data(cur_SUs));
+baseline_info = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.LLimp,all_SU_data(cur_SUs));
+ov_avgrate = arrayfun(@(x) x.sacStimProc.ModData.unit_data.avg_rate,all_SU_data(cur_SUs))*dt;
+baseline_info = baseline_info.*ov_avgrate;
+
+gsac_info_before = bsxfun(@times,gsac_info_before,gsac_avg_rate);
+gsac_info_after = bsxfun(@times,gsac_info_after,gsac_avg_rate);
+gsac_info_during = bsxfun(@times,gsac_info_during,gsac_avg_rate);
+
+gsac_info_Bbefore = bsxfun(@times,gsac_info_Bbefore,ov_avgrate);
+gsac_info_Bafter = bsxfun(@times,gsac_info_Bafter,ov_avgrate);
+gsac_info_Bduring = bsxfun(@times,gsac_info_Bduring,ov_avgrate);
 
 norm_info_before = bsxfun(@rdivide,gsac_info_before,baseline_info);
 norm_info_after = bsxfun(@rdivide,gsac_info_after,baseline_info);
@@ -2114,6 +2127,20 @@ norm_info_during = bsxfun(@rdivide,gsac_info_during,baseline_info);
 norm_Binfo_before = bsxfun(@rdivide,gsac_info_Bbefore,baseline_info);
 norm_Binfo_after = bsxfun(@rdivide,gsac_info_Bafter,baseline_info);
 norm_Binfo_during = bsxfun(@rdivide,gsac_info_Bduring,baseline_info);
+
+
+sm_sig = 0.75;
+if sm_sig > 0
+    for ii = 1:length(cur_SUs)
+        norm_info_before(ii,:) = jmm_smooth_1d_cor(norm_info_before(ii,:),sm_sig);
+        norm_info_after(ii,:) = jmm_smooth_1d_cor(norm_info_after(ii,:),sm_sig);
+        norm_info_during(ii,:) = jmm_smooth_1d_cor(norm_info_during(ii,:),sm_sig);
+        norm_Binfo_before(ii,:) = jmm_smooth_1d_cor(norm_Binfo_before(ii,:),sm_sig);
+        norm_Binfo_after(ii,:) = jmm_smooth_1d_cor(norm_Binfo_after(ii,:),sm_sig);
+        norm_Binfo_during(ii,:) = jmm_smooth_1d_cor(norm_Binfo_during(ii,:),sm_sig);
+    end
+end
+
 
 info_mod_during = norm_info_during - norm_Binfo_during;
 info_mod_before = norm_info_before - norm_Binfo_before;
@@ -2131,7 +2158,7 @@ plot(info_lags,mean(norm_Binfo_before),'r--','linewidth',1);
 plot(info_lags,mean(norm_Binfo_after),'b--','linewidth',1);
 plot(info_lags,mean(norm_Binfo_during),'k--','linewidth',1);
 line([-0.3 0.3],[1 1],'color','k')
-xlim([-0.1 0.2]);
+xlim([-0.15 0.2]);
 ylim([0 1.2])
 line([0 0],[0 1.2],'color','k')
 xlabel('Time since fixation onset (s)');
@@ -2159,12 +2186,12 @@ ylabel('Relative stim info');
 % xlabel('Time since fixation onset (s)');
 % ylabel('Relative stim info');
 
-% PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'gsac_info_timing.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'gsac_info_timing4.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 % 
 % figufy(f2);
 % fname = [fig_dir 'gsac_info_supp.pdf'];
@@ -2184,9 +2211,23 @@ msac_info_Bafter = cell2mat(arrayfun(@(x) x.info_time.msac_base_info_after, all_
 msac_info_Bduring = cell2mat(arrayfun(@(x) x.info_time.msac_base_info_during, all_SU_data(cur_SUs),'uniformoutput',0));
 msac_info_unshuff = cell2mat(arrayfun(@(x) x.info_time.msac_base_info_unshuff, all_SU_data(cur_SUs),'uniformoutput',0));
 
+msac_avg_rate = cell2mat(arrayfun(@(x) x.info_time.msac_avg_rate', all_SU_data(cur_SUs),'uniformoutput',0));
+
 base_lags = find(info_lags < -0.05 & info_lags > -0.15);
 % baseline_info = mean(msac_info_Bbefore(:,1:25),2);
-baseline_info = mean(msac_info_before(:,base_lags),2);
+% baseline_info = mean(msac_info_before(:,base_lags),2);
+baseline_info = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.LLimp,all_SU_data(cur_SUs));
+ov_avgrate = arrayfun(@(x) x.sacStimProc.ModData.unit_data.avg_rate,all_SU_data(cur_SUs))*dt;
+baseline_info = baseline_info.*ov_avgrate;
+
+msac_info_before = bsxfun(@times,msac_info_before,msac_avg_rate);
+msac_info_after = bsxfun(@times,msac_info_after,msac_avg_rate);
+msac_info_during = bsxfun(@times,msac_info_during,msac_avg_rate);
+
+msac_info_Bbefore = bsxfun(@times,msac_info_Bbefore,ov_avgrate);
+msac_info_Bafter = bsxfun(@times,msac_info_Bafter,ov_avgrate);
+msac_info_Bduring = bsxfun(@times,msac_info_Bduring,ov_avgrate);
+
 
 norm_info_before = bsxfun(@rdivide,msac_info_before,baseline_info);
 norm_info_after = bsxfun(@rdivide,msac_info_after,baseline_info);
@@ -2195,6 +2236,19 @@ norm_info_during = bsxfun(@rdivide,msac_info_during,baseline_info);
 norm_Binfo_before = bsxfun(@rdivide,msac_info_Bbefore,baseline_info);
 norm_Binfo_after = bsxfun(@rdivide,msac_info_Bafter,baseline_info);
 norm_Binfo_during = bsxfun(@rdivide,msac_info_Bduring,baseline_info);
+
+sm_sig = 0.75;
+if sm_sig > 0
+    for ii = 1:length(cur_SUs)
+        norm_info_before(ii,:) = jmm_smooth_1d_cor(norm_info_before(ii,:),sm_sig);
+        norm_info_after(ii,:) = jmm_smooth_1d_cor(norm_info_after(ii,:),sm_sig);
+        norm_info_during(ii,:) = jmm_smooth_1d_cor(norm_info_during(ii,:),sm_sig);
+        norm_Binfo_before(ii,:) = jmm_smooth_1d_cor(norm_Binfo_before(ii,:),sm_sig);
+        norm_Binfo_after(ii,:) = jmm_smooth_1d_cor(norm_Binfo_after(ii,:),sm_sig);
+        norm_Binfo_during(ii,:) = jmm_smooth_1d_cor(norm_Binfo_during(ii,:),sm_sig);
+    end
+end
+
 
 info_mod_during = norm_info_during - norm_Binfo_during;
 info_mod_before = norm_info_before - norm_Binfo_before;
@@ -2235,12 +2289,12 @@ ylabel('Relative stim info');
 % xlabel('Time since fixation onset (s)');
 % ylabel('Relative stim info');
 % 
-% PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'msac_info_timing.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'msac_info_timing4.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 % 
 % figufy(f2);
 % fname = [fig_dir 'msac_info_supp.pdf'];
