@@ -5,7 +5,7 @@ clc
 fit_unCor = 0;
 include_bursts = 0;
 
-fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
 base_tname = 'sac_trig_avg_data3test';
 base_yname = 'sacTypeDep_noXV';
@@ -2158,7 +2158,7 @@ plot(info_lags,mean(norm_Binfo_before),'r--','linewidth',1);
 plot(info_lags,mean(norm_Binfo_after),'b--','linewidth',1);
 plot(info_lags,mean(norm_Binfo_during),'k--','linewidth',1);
 line([-0.3 0.3],[1 1],'color','k')
-xlim([-0.15 0.2]);
+xlim([-0.1 0.2]);
 ylim([0 1.2])
 line([0 0],[0 1.2],'color','k')
 xlabel('Time since fixation onset (s)');
@@ -2186,12 +2186,12 @@ ylabel('Relative stim info');
 % xlabel('Time since fixation onset (s)');
 % ylabel('Relative stim info');
 
-% % PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'gsac_info_timing4.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'gsac_info_timing4.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 % 
 % figufy(f2);
 % fname = [fig_dir 'gsac_info_supp.pdf'];

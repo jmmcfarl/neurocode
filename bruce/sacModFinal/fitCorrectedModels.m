@@ -1,17 +1,18 @@
-% clear all
+clear all
 
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-Expt_name = 'G087';
+Expt_name = 'G093';
 bar_ori = 0; %bar orientation to use (only for UA recs)
-use_MUA = false;
+use_MUA = true;
 fit_unCor = false; %fit models to uncorrected stim?
 
 
-save_name = 'corrected_models2';
+% save_name = 'corrected_models2';
+save_name = 'corrected_models2withMUA';
 
 %%
 %load in array RF position data
