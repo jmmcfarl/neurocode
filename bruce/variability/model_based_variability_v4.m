@@ -6,7 +6,6 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M296';
 % Expt_name = 'G093';
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
@@ -775,6 +774,8 @@ end
 fin_shift_cor = round(fin_tot_corr);
 fin_shift_cor(isnan(fin_shift_cor)) = 0;
 
+actual_EP_SD = robust_std_dev(fin_tot_corr)*sp_dx;
+
 %RECOMPUTE XMAT
 best_shift_stimmat_up = all_stimmat_up;
 for i=1:NT
@@ -792,6 +793,13 @@ for ss = 1:length(targs)
     cur_Robs = Robs_mat(:,cc);
     cc_uinds = find(~isnan(cur_Robs));
 
+    EP_Data(ss).unit_num = cc;
+    if cc <= length(ModData)
+    EP_Data(ss).ModData = ModData(cc);
+    else
+        EP_data(ss).ModData = [];
+    end
+    
     if ~isempty(cc_uinds)
         
         cur_mod = ModData(cc).rectGQM;
@@ -824,13 +832,15 @@ for ss = 1:length(targs)
         cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
         
         [~,~,base_prates(:,ss)] = NMMmodel_eval(cur_mod,[],all_Xmat);
-        fit_mods(ss) = cur_mod;
+        EP_data(ss).fit_mod = cur_mod;
+    else
+        EP_data(ss).fit_mod = nan;
     end
 end
 
 base_prates = bsxfun(@minus,base_prates,nanmean(base_prates));
 %%
-% poss_SDs = [0 0.05 0.1 0.15];
+% poss_SDs = [0 0.1];
 poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
 max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
 
@@ -853,6 +863,7 @@ tlags = [-max_tlag:max_tlag];
 ep_rates = nan(NT,length(targs));
 ep_rates2 = nan(NT,length(targs));
 ep_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
+true_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
 for sd = 1:length(poss_SDs)
     fprintf('SD %d of %d\n',sd,length(poss_SDs));
     
@@ -873,7 +884,9 @@ for sd = 1:length(poss_SDs)
     %compute model-predicted rates given this retinal stim
     for ss = 1:length(targs)
        cc = targs(ss);
-       [~,~,ep_rates(:,ss)] = NMMmodel_eval(fit_mods(ss),[],all_Xmat_shift);
+       if isstruct(EP_data(ss).fit_mod)
+       [~,~,ep_rates(:,ss)] = NMMmodel_eval(EP_data(ss).fit_mod,[],all_Xmat_shift);
+       end
     end
     ep_rates = bsxfun(@minus,ep_rates,nanmean(ep_rates));
     
@@ -889,11 +902,14 @@ for sd = 1:length(poss_SDs)
     %compute model-rates for the second version of the retinal stim
     for ss = 1:length(targs)
         cc = targs(ss);
-        [~,~,ep_rates2(:,ss)] = NMMmodel_eval(fit_mods(ss),[],all_Xmat_shift);
+        if isstruct(EP_data(ss).fit_mod)
+        [~,~,ep_rates2(:,ss)] = NMMmodel_eval(EP_data(ss).fit_mod,[],all_Xmat_shift);
+        end
     end
     ep_rates2 = bsxfun(@minus,ep_rates2,nanmean(ep_rates2));
     
     %shiftify the second rate matrix
+    mod_rates_shifted = nan(NT,length(targs),length(tlags));
     for tt = 1:length(tlags)
         mod_rates_shifted(:,:,tt) = shift_matrix_Nd(ep_rates2,-tlags(tt),1);
     end    
@@ -902,8 +918,13 @@ for sd = 1:length(poss_SDs)
     for ll = 1:length(tlags)
         ep_rate_cov(:,:,ll,sd) = squeeze(mod_rates_shifted(:,:,ll))'*ep_rates/NT;
     end
+    %compute covariances
+    for ll = 1:length(tlags)
+        true_rate_cov(:,:,ll,sd) = squeeze(mod_rates_shifted(:,:,ll))'*ep_rates2/NT;
+    end
 end
 
+%%
 %total stim-driven variance, computed across time
 base_vars = var(ep_rates);
 
@@ -913,7 +934,18 @@ for ss = 1:length(targs)
 end
 
 corr_norm = sqrt(base_vars'*base_vars);
-ep_rate_corr = bsxfun(@rdivide,ep_rate_cov,corr_norm);
+ep_noise_cov = true_rate_cov - ep_rate_cov;
+ep_sig_corr = bsxfun(@rdivide,true_rate_cov,corr_norm);
+ep_noise_corr = bsxfun(@rdivide,ep_noise_cov,corr_norm);
+
+%%
+for ss = 1:length(targs)
+   EP_data(ss).actual_EP_SD = actual_EP_SD;
+   EP_data(ss).base_var = base_vars(ss);
+   EP_data(ss).alpha_funs = ep_alpha_funs(ss,:);
+   EP_data(ss).sig_corr_mat = squeeze(ep_sig_corr(ss,:,:,:));
+   EP_data(ss).noise_corr_mat = squeeze(ep_noise_corr(ss,:,:,:));
+end
 
 %%
 anal_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
@@ -925,4 +957,4 @@ cd(anal_dir);
 sname = 'model_variability_analysis';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
-save(sname,'targs','ep_rate*','ep_alpha*','targs','poss_SDs','use_MUA');
+save(sname,'targs','EP_data','poss_SDs','use_MUA');
