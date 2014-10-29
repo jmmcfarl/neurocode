@@ -617,6 +617,7 @@ saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 msac_thresh = prctile(sac_amps(micro_sacs),50);
 big_msacs = micro_sacs(sac_amps(micro_sacs) > msac_thresh);
 small_msacs = micro_sacs(sac_amps(micro_sacs) < msac_thresh);
+
 %% DEFINE FIXATION POINTS
 trial_start_inds = [1; find(diff(all_trialvec(used_inds)) ~= 0) + 1];
 trial_end_inds = [find(diff(all_trialvec(used_inds)) ~= 0); NT];
@@ -935,6 +936,7 @@ mod_tot_var = nanvar(unfolded_mod_psth);
 
 unfolded_psth_raw = reshape(permute(full_psth_raw,[2 1 3]),[],n_chs);
 avg_rpt_rates = nanmean(unfolded_psth_raw);
+
 %%
 [a,b] = sort(full_EP_filt);
 sorted_mod_prates = nan(size(mod_prates_ms));
@@ -1002,20 +1004,21 @@ for ii = 1:n_chs
 end
 psth_var_frac = psth_var'./var_spline_ZPT;
 mod_var_frac = mod_psth_var'./var_spline_mZPT;
-%% VIEW SPLINE FITS
-close all
-for ii = 1:n_chs
-    fprintf('Unit %d\n',ii);
-   plot(x_bin_edges,var_ep_binned(:,ii),'.');
-   hold on
-   plot(spline_eval,var_spline_funs(ii,:),'r')
-   plot(spline_eval,old_spline_funs(ii,:),'k');
-   line(spline_eval([1 end]),psth_var([ii ii]),'color','m');
-   line(spline_eval([1 end]),[0 0],'color','k')
-   pause
-   clf
-end
 
+%% VIEW SPLINE FITS
+% close all
+% for ii = 1:n_chs
+%     fprintf('Unit %d\n',ii);
+%    plot(x_bin_edges,var_ep_binned(:,ii),'.');
+%    hold on
+%    plot(spline_eval,var_spline_funs(ii,:),'r')
+%    plot(spline_eval,old_spline_funs(ii,:),'k');
+%    line(spline_eval([1 end]),psth_var([ii ii]),'color','m');
+%    line(spline_eval([1 end]),[0 0],'color','k')
+%    pause
+%    clf
+% end
+% 
 %% ESTIMATE FULL EP-BINNED XCOVs
 %create a set of temporally shifted versions of the spiking data
     max_tlag = 10; %max time lag for computing autocorrs

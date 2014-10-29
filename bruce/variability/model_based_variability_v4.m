@@ -1,4 +1,4 @@
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -7,9 +7,9 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 % Expt_name = 'M296';
-Expt_name = 'G093';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'G093';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 mod_data_name = 'corrected_models2';
 
@@ -832,7 +832,7 @@ base_prates = bsxfun(@minus,base_prates,nanmean(base_prates));
 %%
 % poss_SDs = [0 0.05 0.1 0.15];
 poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
-max_shift = nPix*spatial_usfac*0.8; %maximum shift size (to avoid going trying to shift more than the n
+max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
 
 cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
 cur_fix_post_std = squeeze(it_fix_post_std(end,:));
