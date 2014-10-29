@@ -923,4 +923,6 @@ end
 cd(anal_dir);
 
 sname = 'model_variability_analysis';
-save(sname,'targs','ep_rate*','ep_alpha*','targs','poss_SDs');
+sname = [sname sprintf('_ori%d',bar_ori)];
+
+save(sname,'targs','ep_rate*','ep_alpha*','targs','poss_SDs','use_MUA');
