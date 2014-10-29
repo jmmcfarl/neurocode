@@ -34,3 +34,24 @@ for Elist_cnt = 1:length(Expt_list)
     model_based_variability_v4;
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori use_LOOXV
 end
+
+%%
+clear all
+addpath('~/James_scripts/bruce/variability/');
+addpath('~/James_scripts/bruce/eye_tracking_improvements/');
+global Expt_name bar_ori use_MUA
+use_MUA = false;
+
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
+bar_ori = nan;
+for Elist_cnt = 1:length(Expt_list)
+    Expt_name = Expt_list{Elist_cnt};
+    variability_anal_v5;
+    clearvars -except Elist_cnt Expt_list Expt_name bar_ori use_LOOXV
+end
+Expt_name = 'M297'; bar_ori = 0;
+variability_anal_v5;
+Expt_name = 'M297'; bar_ori = 90;
+variability_anal_v5;
+
+
