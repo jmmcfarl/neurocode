@@ -830,9 +830,9 @@ end
 
 base_prates = bsxfun(@minus,base_prates,nanmean(base_prates));
 %%
-% poss_SDs = [0.05 0.075 0.09 0.1 0.11 0.125 0.15];
+% poss_SDs = [0 0.05 0.1 0.15];
 poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
-max_shift = 60;
+max_shift = nPix*spatial_usfac*0.8; %maximum shift size (to avoid going trying to shift more than the n
 
 cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
 cur_fix_post_std = squeeze(it_fix_post_std(end,:));
@@ -843,22 +843,19 @@ cur_drift_post_std = squeeze(drift_post_std(end,:));
     cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
 
 %remove overall median offset in EP
-base_tot_corr = fin_tot_corr - nanmedian(fin_tot_corr(used_sf_inds));
+base_tot_corr = fin_tot_corr - nanmedian(fin_tot_corr);
 base_tot_corr = base_tot_corr./robust_std_dev(base_tot_corr);
 
 %create a set of temporally shifted versions of the spiking data
 max_tlag = 10; %max time lag for computing autocorrs
 tlags = [-max_tlag:max_tlag];
-mod_rates_shifted = nan(NT,length(targs),length(tlags));
-for tt = 1:length(tlags)
-    mod_rates_shifted(:,:,tt) = shift_matrix_Nd(base_prates,-tlags(tt),1); 
-end
-
 
 ep_rates = nan(NT,length(targs));
+ep_rates2 = nan(NT,length(targs));
 ep_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
 for sd = 1:length(poss_SDs)
     fprintf('SD %d of %d\n',sd,length(poss_SDs));
+    
     %rescale robust SD
     fin_tot_corr = base_tot_corr*poss_SDs(sd)/sp_dx;
     fin_shift_cor = round(fin_tot_corr);
@@ -870,22 +867,45 @@ for sd = 1:length(poss_SDs)
     for i=1:NT
         cur_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
     end
-    
     all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_us);
-    all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
+    all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);    
     
+    %compute model-predicted rates given this retinal stim
     for ss = 1:length(targs)
        cc = targs(ss);
        [~,~,ep_rates(:,ss)] = NMMmodel_eval(fit_mods(ss),[],all_Xmat_shift);
     end
     ep_rates = bsxfun(@minus,ep_rates,nanmean(ep_rates));
     
+    %sample again from the same ET distribution
+    fin_shift_cor2 = circshift(fin_shift_cor(:),randi(NT,1,1));
+    cur_shift_stimmat_up = all_stimmat_up;
+    for i=1:NT
+        cur_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor2(i),2);
+    end
+    all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_us);
+    all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
+    
+    %compute model-rates for the second version of the retinal stim
+    for ss = 1:length(targs)
+        cc = targs(ss);
+        [~,~,ep_rates2(:,ss)] = NMMmodel_eval(fit_mods(ss),[],all_Xmat_shift);
+    end
+    ep_rates2 = bsxfun(@minus,ep_rates2,nanmean(ep_rates2));
+    
+    %shiftify the second rate matrix
+    for tt = 1:length(tlags)
+        mod_rates_shifted(:,:,tt) = shift_matrix_Nd(ep_rates2,-tlags(tt),1);
+    end    
+    
+    %compute covariances
     for ll = 1:length(tlags)
         ep_rate_cov(:,:,ll,sd) = squeeze(mod_rates_shifted(:,:,ll))'*ep_rates/NT;
     end
 end
 
-base_vars = var(base_prates);
+%total stim-driven variance, computed across time
+base_vars = var(ep_rates);
 
 ep_alpha_funs = nan(length(targs),length(poss_SDs));
 for ss = 1:length(targs)
@@ -894,3 +914,13 @@ end
 
 corr_norm = sqrt(base_vars'*base_vars);
 ep_rate_corr = bsxfun(@rdivide,ep_rate_cov,corr_norm);
+
+%%
+anal_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
+if ~exist(anal_dir)
+    mkdir(anal_dir)
+end
+cd(anal_dir);
+
+sname = 'model_variability_analysis';
+save(sname,'targs','ep_rate*','ep_alpha*','targs','poss_SDs');

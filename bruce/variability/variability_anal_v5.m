@@ -953,6 +953,11 @@ poss_lags = 0:space:maxlag;
 [II,JJ] = meshgrid(1:n_rpts);
 x_bin_edges = (poss_lags(1:end-1)+poss_lags(2:end))/2;
 
+sub_trials = 50;
+rand_utrials = randperm(n_rpts);
+rand_utrials = rand_utrials(1:sub_trials);
+exclude_trials = setdiff(1:n_rpts,rand_utrials);
+
 cur_XC = nan(length(rpt_taxis),length(poss_lags)-1,n_chs);
 cur_mXC = nan(length(rpt_taxis),length(poss_lags)-1,n_chs);
 cur_cnt = zeros(length(poss_lags)-1,n_chs);
@@ -963,6 +968,7 @@ for tt = 1:length(rpt_taxis)
 %             cur_Dmat(logical(eye(n_rpts))) = nan;
     cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
     cur_Dmat(logical(eye(n_rpts))) = nan;
+    cur_Dmat(exclude_trials,:) = nan;
     for jj = 1:length(poss_lags)-1
         curset = find(cur_Dmat > poss_lags(jj) & cur_Dmat <= poss_lags(jj+1));
         cur_XC(tt,jj,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
@@ -982,7 +988,7 @@ spline_eval = 0:0.2:maxlag;
 
 var_spline_ZPT = nan(n_chs,1);
 var_spline_mZPT = nan(n_chs,1);
-var_spline_funs = nan(n_chs,length(spine_eval));
+var_spline_funs = nan(n_chs,length(spline_eval));
 for ii = 1:n_chs
     x = x_bin_edges;
     y = squeeze(var_ep_binned(:,ii));
@@ -1003,6 +1009,7 @@ for ii = 1:n_chs
    plot(x_bin_edges,var_ep_binned(:,ii),'.');
    hold on
    plot(spline_eval,var_spline_funs(ii,:),'r')
+   plot(spline_eval,old_spline_funs(ii,:),'k');
    line(spline_eval([1 end]),psth_var([ii ii]),'color','m');
    line(spline_eval([1 end]),[0 0],'color','k')
    pause
@@ -1011,7 +1018,7 @@ end
 
 %% ESTIMATE FULL EP-BINNED XCOVs
 %create a set of temporally shifted versions of the spiking data
-max_tlag = 10; %max time lag for computing autocorrs
+    max_tlag = 10; %max time lag for computing autocorrs
 tlags = [-max_tlag:max_tlag];
 full_psth_shifted = nan(n_rpts,length(rpt_taxis),n_chs,length(tlags));
 for tt = 1:length(tlags)
