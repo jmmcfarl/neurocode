@@ -1,6 +1,7 @@
 %% MODEL BASED VARIABILITY ANALYSIS
 
 clear all
+addpath('~/James_scripts/bruce/variability/');
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 global Expt_name bar_ori use_MUA
 use_MUA = false;
