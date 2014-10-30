@@ -793,11 +793,11 @@ for ss = 1:length(targs)
     cur_Robs = Robs_mat(:,cc);
     cc_uinds = find(~isnan(cur_Robs));
 
-    EP_Data(ss).unit_num = cc;
+    EP_data(cc).unit_num = cc;
     if cc <= length(ModData)
-    EP_Data(ss).ModData = ModData(cc);
+        EP_data(cc).ModData = ModData(cc);
     else
-        EP_data(ss).ModData = [];
+        EP_data(cc).ModData = [];
     end
     
     if ~isempty(cc_uinds)
@@ -832,9 +832,9 @@ for ss = 1:length(targs)
         cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs(cc_uinds),all_Xmat_shift(cc_uinds,:));
         
         [~,~,base_prates(:,ss)] = NMMmodel_eval(cur_mod,[],all_Xmat);
-        EP_data(ss).fit_mod = cur_mod;
+        EP_data(cc).fit_mod = cur_mod;
     else
-        EP_data(ss).fit_mod = nan;
+        EP_data(cc).fit_mod = nan;
     end
 end
 
@@ -884,8 +884,8 @@ for sd = 1:length(poss_SDs)
     %compute model-predicted rates given this retinal stim
     for ss = 1:length(targs)
        cc = targs(ss);
-       if isstruct(EP_data(ss).fit_mod)
-       [~,~,ep_rates(:,ss)] = NMMmodel_eval(EP_data(ss).fit_mod,[],all_Xmat_shift);
+       if isstruct(EP_data(cc).fit_mod)
+       [~,~,ep_rates(:,ss)] = NMMmodel_eval(EP_data(cc).fit_mod,[],all_Xmat_shift);
        end
     end
     ep_rates = bsxfun(@minus,ep_rates,nanmean(ep_rates));
@@ -902,8 +902,8 @@ for sd = 1:length(poss_SDs)
     %compute model-rates for the second version of the retinal stim
     for ss = 1:length(targs)
         cc = targs(ss);
-        if isstruct(EP_data(ss).fit_mod)
-        [~,~,ep_rates2(:,ss)] = NMMmodel_eval(EP_data(ss).fit_mod,[],all_Xmat_shift);
+        if isstruct(EP_data(cc).fit_mod)
+        [~,~,ep_rates2(:,ss)] = NMMmodel_eval(EP_data(cc).fit_mod,[],all_Xmat_shift);
         end
     end
     ep_rates2 = bsxfun(@minus,ep_rates2,nanmean(ep_rates2));
