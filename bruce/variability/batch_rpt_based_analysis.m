@@ -3,18 +3,18 @@ clear all
 clc
 
 fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
-base_sname = 'model_variability_analysis';
+base_sname = 'rpt_variability_analysis';
 
 all_SU_data = [];
+n_probes = 24;
 
 %% LOAD JBE
 Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
-n_probes = 24;
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
 rmfield_list = {};
 
-% for ee = 1:length(Expt_list)
-for ee = 1:3
+for ee = 1:length(Expt_list)
+% for ee = 1:3
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
     cur_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
@@ -26,11 +26,11 @@ for ee = 1:3
             tname = strcat(cur_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
             load(tname);
             
-            [EP_data.expt_num] = deal(Expt_num);
-            [EP_data.bar_ori] = deal(ori_list(ee,ii));
-            [EP_data.animal] = deal('jbe');
+            [Rpt_Data.expt_num] = deal(Expt_num);
+            [Rpt_Data.bar_ori] = deal(ori_list(ee,ii));
+            [Rpt_Data.animal] = deal('jbe');
             
-            ori_data(ii,:) = EP_data;
+            ori_data(ii,:) = Rpt_Data((n_probes+1):end);
         end
     end
     

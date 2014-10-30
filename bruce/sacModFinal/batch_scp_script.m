@@ -13,7 +13,7 @@ fit_unCor = false;
 % base_fname = 'sac_info_timing_noXV3';
 % base_fname = 'sac_glm_data_withbursts';
 base_fname = 'model_variability_analysis';
-
+% base_fname = 'rpt_variability_analysis';
 
 copy_to = 'local';
 
