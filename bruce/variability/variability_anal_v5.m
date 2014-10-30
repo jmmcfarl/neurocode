@@ -7,7 +7,7 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% % Expt_name = 'M294';
+% % % Expt_name = 'M294';
 % Expt_name = 'M296';
 % use_MUA = false;
 % bar_ori = 90; %bar orientation to use (only for UA recs)
@@ -785,14 +785,14 @@ full_psth = nan(n_rpts,length(rpt_taxis),n_chs);
 mod_prates = nan(n_rpts,length(rpt_taxis),n_chs);
 all_fin_tot_corr = nan(length(all_rpt_inds),n_chs);
 for ss = 1:n_chs
-%     ss = targs(cc);
+    %     ss = targs(cc);
     ss
     cur_Robs = Robs_mat(:,ss);
     cc_uinds = find(~isnan(cur_Robs(all_rpt_inds)));
     
     Rpt_Data(ss).unit_num = ss;
     Rpt_Data(ss).ModData = ModData(ss);
-
+    
     if ~isempty(cc_uinds)
         %% RECONSTRUCT LOO STIM
         loo_cc = find(loo_set == ss); %index within the LOOXV set
@@ -844,10 +844,11 @@ for ss = 1:n_chs
         Rpt_Data(ss).fit_mod = cor_rGQM;
         Rpt_Data(ss).tbt_spks = squeeze(full_psth(:,:,ss));
         Rpt_Data(ss).tbt_modrate = squeeze(mod_prates(:,:,ss));
+    else
+        Rpt_Data(ss).fit_mod = nan;
+        Rpt_Data(ss).tbt_spks = [];
+        Rpt_Data(ss).tbt_modrate = [];
     end
-    Rpt_Data(ss).fit_mod = nan;
-    Rpt_Data(ss).tbt_spks = [];
-    Rpt_Data(ss).tbt_modrate = [];
 end
 
 %% DEFINE IN-SAC AND IN-BUFF INDS
@@ -933,7 +934,7 @@ rpt_avg_prates = nanmean(reshape(mod_prates_ms,[],n_chs)); %mean mod-pred rates
 full_psth_ms = bsxfun(@minus,full_psth_ms,reshape(rpt_avg_rates,1,1,[])); %subtract off overall mean rate
 mod_prates_ms = bsxfun(@minus,mod_prates_ms,reshape(rpt_avg_prates,1,1,[])); %subtract off overall model means
 
-trial_avg_rates = nanmean(full_psth_ms,2);%compute trial avg rates 
+trial_avg_rates = nanmean(full_psth_ms,2);%compute trial avg rates
 full_psth_ms = bsxfun(@minus,full_psth_ms,trial_avg_rates); %subtract off trial-mean rates
 
 trial_avg_var = squeeze(nanvar(trial_avg_rates));
@@ -958,13 +959,13 @@ psth_var_cor = psth_var.*(n_utrials'./(n_utrials'-1)) - psth_noise_var';
 
 %%
 for ss = 1:n_chs
-   Rpt_Data(ss).tot_resp_var = tot_resp_var(ss);
-   Rpt_Data(ss).ms_resp_var = resp_var(ss);
-   Rpt_Data(ss).emp_psth = all_psths(:,ss);
-   Rpt_Data(ss).psth_var = psth_var(ss);
-   Rpt_Data(ss).psth_var_cor = psth_var_cor(ss);
-   Rpt_Data(ss).rpt_avg_rate = rpt_avg_rates(ss);
-   Rpt_Data(ss).n_utrials = n_utrials(ss);
+    Rpt_Data(ss).tot_resp_var = tot_resp_var(ss);
+    Rpt_Data(ss).ms_resp_var = resp_var(ss);
+    Rpt_Data(ss).emp_psth = all_psths(:,ss);
+    Rpt_Data(ss).psth_var = psth_var(ss);
+    Rpt_Data(ss).psth_var_cor = psth_var_cor(ss);
+    Rpt_Data(ss).rpt_avg_rate = rpt_avg_rates(ss);
+    Rpt_Data(ss).n_utrials = n_utrials(ss);
 end
 
 
@@ -975,7 +976,7 @@ end
 % for tt = 1:length(rpt_taxis)
 %     sorted_mod_prates(:,tt,:) = mod_prates_ms(b(:,tt),tt,:);
 %     sorted_mod_prates(isnan(a(:,tt)),tt,:) = nan;
-%     
+%
 %     sorted_full_psth(:,tt,:) = full_psth_raw(b(:,tt),tt,:);
 %     sorted_full_psth(isnan(a(:,tt)),tt,:) = nan;
 % end
@@ -1005,9 +1006,9 @@ rand_XC = nan(length(rpt_taxis),n_chs);
 for tt = 1:length(rpt_taxis)
     Y1 = squeeze(full_psth_ms(:,tt,:));
     Y2 = squeeze(mod_prates_ms(:,tt,:));
-%                 cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
-%                 cur_Dmat = abs(squareform(pdist(full_EP_filt(:,tt))));
-%             cur_Dmat(logical(eye(n_rpts))) = nan;
+    %                 cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
+    %                 cur_Dmat = abs(squareform(pdist(full_EP_filt(:,tt))));
+    %             cur_Dmat(logical(eye(n_rpts))) = nan;
     cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
     cur_Dmat(logical(eye(n_rpts))) = nan;
     cur_Dmat(exclude_trials,:) = nan;
@@ -1083,7 +1084,7 @@ max_tlag = 10; %max time lag for computing autocorrs
 tlags = [-max_tlag:max_tlag];
 full_psth_shifted = nan(n_rpts,length(rpt_taxis),n_chs,length(tlags));
 for tt = 1:length(tlags)
-    full_psth_shifted(:,:,:,tt) = shift_matrix_Nd(full_psth_ms,-tlags(tt),2); 
+    full_psth_shifted(:,:,:,tt) = shift_matrix_Nd(full_psth_ms,-tlags(tt),2);
 end
 
 covar_ep_binned = zeros(length(ED_bin_centers),n_chs,n_chs,length(tlags));
@@ -1141,11 +1142,11 @@ end
 
 %%
 for ss = 1:length(targs)
-   Rpt_Data(targs(ss)).rand_xcov = squeeze(covar_rand(:,targs(ss),:));
-   Rpt_Data(targs(ss)).psth_xcov = squeeze(psth_xcov(:,targs(ss),:));
-   Rpt_Data(targs(ss)).emp_xcov = squeeze(obs_xcov(:,targs(ss),:));
-   Rpt_Data(targs(ss)).spline_xcov = squeeze(covar_spline_ZPT(:,targs(ss),:));
-   Rpt_Data(targs(ss)).varnorm_mat = repmat(sqrt(resp_var(targs(ss))*resp_var'),1,length(tlags));
+    Rpt_Data(targs(ss)).rand_xcov = squeeze(covar_rand(:,targs(ss),:));
+    Rpt_Data(targs(ss)).psth_xcov = squeeze(psth_xcov(:,targs(ss),:));
+    Rpt_Data(targs(ss)).emp_xcov = squeeze(obs_xcov(:,targs(ss),:));
+    Rpt_Data(targs(ss)).spline_xcov = squeeze(covar_spline_ZPT(:,targs(ss),:));
+    Rpt_Data(targs(ss)).varnorm_mat = repmat(sqrt(resp_var(targs(ss))*resp_var'),1,length(tlags));
 end
 %%
 % %nan-out elements of xcov mats corresponding to nearby MU channels for the
