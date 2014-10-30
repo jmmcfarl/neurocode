@@ -791,10 +791,11 @@ for ss = 1:n_chs
     cc_uinds = find(~isnan(cur_Robs(all_rpt_inds)));
     
     Rpt_Data(ss).unit_num = ss;
-    Rpt_Data(ss).ModData = ModData(ss);
     
     if ~isempty(cc_uinds)
-        %% RECONSTRUCT LOO STIM
+        Rpt_Data(ss).ModData = ModData(ss);
+        
+       %% RECONSTRUCT LOO STIM
         loo_cc = find(loo_set == ss); %index within the LOOXV set
         
         if ~isempty(loo_cc)
@@ -845,6 +846,7 @@ for ss = 1:n_chs
         Rpt_Data(ss).tbt_spks = squeeze(full_psth(:,:,ss));
         Rpt_Data(ss).tbt_modrate = squeeze(mod_prates(:,:,ss));
     else
+        Rpt_Data(ss).ModData = nan;
         Rpt_Data(ss).fit_mod = nan;
         Rpt_Data(ss).tbt_spks = [];
         Rpt_Data(ss).tbt_modrate = [];
