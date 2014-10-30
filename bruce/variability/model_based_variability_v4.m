@@ -940,11 +940,12 @@ ep_noise_corr = bsxfun(@rdivide,ep_noise_cov,corr_norm);
 
 %%
 for ss = 1:length(targs)
-   EP_data(ss).actual_EP_SD = actual_EP_SD;
-   EP_data(ss).base_var = base_vars(ss);
-   EP_data(ss).alpha_funs = ep_alpha_funs(ss,:);
-   EP_data(ss).sig_corr_mat = squeeze(ep_sig_corr(ss,:,:,:));
-   EP_data(ss).noise_corr_mat = squeeze(ep_noise_corr(ss,:,:,:));
+    cc = targs(ss);
+   EP_data(cc).actual_EP_SD = actual_EP_SD;
+   EP_data(cc).base_var = base_vars(ss);
+   EP_data(cc).alpha_funs = ep_alpha_funs(ss,:);
+   EP_data(cc).sig_corr_mat = squeeze(ep_sig_corr(ss,:,:,:));
+   EP_data(cc).noise_corr_mat = squeeze(ep_noise_corr(ss,:,:,:));
 end
 
 %%
