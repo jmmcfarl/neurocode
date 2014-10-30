@@ -3,14 +3,13 @@
 addpath('~/James_scripts/bruce/eye_tracking/');
 addpath('~/James_scripts/bruce/processing/');
 
-global Expt_name bar_ori
+global Expt_name bar_ori use_LOOXV
 
 % Expt_name = 'M296';
-% use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 % bar_ori = 90; %bar orientation to use (only for UA recs)
+% use_LOOXV = 1;
 
-use_LOOXV = false;
-recompute_init_mods = 1; %use existing initial models?
+recompute_init_mods = 0; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
 use_sac_kerns = 1; %use sac-modulation kernels
 
@@ -53,7 +52,7 @@ end
 if Expt_num > 280
     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 else
-data_dir = ['~/Data/bruce/' Expt_name];
+    data_dir = ['~/Data/bruce/' Expt_name];
 end
 
 cd(data_dir);
@@ -935,7 +934,10 @@ dit_mods = all_mod_fits;
 dit_mods_spkNL = all_mod_fits_withspkNL;
 dit_LLimp = all_mod_LLimp;
 dit_R2 = all_mod_R2;
-
+for xv = 1:length(loo_set)
+    dit_mods_LOO{xv} = all_mod_fits;
+    dit_mods_spkNL_LOO{xv} = all_mod_fits_withspkNL;
+end
 
 %% PREPROCESS MODEL COMPONENTS
 filt_bank = zeros(n_tr_chs,klen_us,n_squared_filts+1);
@@ -1085,6 +1087,161 @@ drift_post_std(isnan(drift_post_std)) = 0;
 drift_post_mean = interp1(find(~isnan(pfix_ids)),drift_post_mean(~isnan(pfix_ids)),1:NT);
 drift_post_std = interp1(find(~isnan(pfix_ids)),drift_post_std(~isnan(pfix_ids)),1:NT);
 drift_post_mean(isnan(drift_post_mean)) = 0;
+
+if use_LOOXV > 0
+    for xv = 1:length(loo_set)
+        fprintf('Inferring drift corrections, XV %d of %d\n',xv,length(loo_set));
+               
+        %% PREPROCESS MODEL COMPONENTS
+        cur_uset = setdiff(1:n_tr_chs,loo_set(xv));
+        n_uset = length(cur_uset);
+        filt_bank = zeros(n_uset,klen_us,n_squared_filts+1);
+        lin_kerns = nan(n_uset,n_blocks);
+        if use_sac_kerns
+            sac_kerns = nan(n_uset,n_sac_bins);
+            msac_kerns = nan(n_uset,n_sac_bins);
+        end
+        mod_spkNL_params = nan(n_uset,3);
+        for ss = 1:n_uset
+            cur_Xtargs = [dit_mods_LOO{xv}(tr_set(cur_uset(ss))).mods(:).Xtarget];
+            cur_k = [dit_mods_LOO{xv}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 1).filtK];
+            n_used_filts = size(cur_k,2);
+            filt_bank(ss,:,1:n_used_filts) = cur_k;
+            mod_spkNL_params(ss,:) = dit_mods_spkNL_LOO{xv}(tr_set(cur_uset(ss))).spk_NL_params(1:3);
+            lin_kerns(ss,:) = dit_mods_LOO{xv}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+            if use_sac_kerns
+                sac_kerns(ss,:) = dit_mods_LOO{xv}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
+                msac_kerns(ss,:) = dit_mods_LOO{xv}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
+            end
+        end
+        filt_bank = permute(filt_bank,[2 1 3]);
+        
+        %indicator predictions
+        block_out = Xblock(used_inds,:)*lin_kerns';
+        if use_sac_kerns
+            sac_out = Xsac*sac_kerns';
+            msac_out = Xmsac*msac_kerns';
+        end
+        %% ESTIMATE LL for each shift in each stimulus frame
+        frame_LLs = nan(NT,n_Dshifts);
+        for xx = 1:length(Dshifts)
+            fprintf('Dshift %d of %d\n',xx,n_Dshifts);
+            cur_stim_shift = all_Xmat_up_fixcor*Dshift_mat{xx};
+            
+            %outputs of stimulus models at current X-matrix shift
+            gfuns = ones(NT,n_uset);
+            gfuns = bsxfun(@times,gfuns,mod_spkNL_params(:,1)');
+            gfuns = gfuns + cur_stim_shift*squeeze(filt_bank(:,:,1));
+            for ff = 2:(n_squared_filts+1)
+                gfuns = gfuns + mod_signs(ff)*(cur_stim_shift*squeeze(filt_bank(:,:,ff))).^2;
+            end
+            
+            %add contributions from extra lin kernels
+            gfuns = gfuns + block_out;
+            if use_sac_kerns
+                gfuns = gfuns + sac_out + msac_out;
+            end
+            
+            %incorporate beta
+            gfuns = bsxfun(@times,gfuns,mod_spkNL_params(:,2)');
+            
+            %handle numerical overflow with log(1+exp)
+            too_large = gfuns > 50;
+            pred_rate = log(1+exp(gfuns));
+            pred_rate(too_large) = gfuns(too_large);
+            
+            %incorporate alpha
+            pred_rate = bsxfun(@times,pred_rate,mod_spkNL_params(:,3)');
+            
+            %enforce min predicted rate
+            pred_rate(pred_rate < 1e-50) = 1e-50;
+            
+            frame_LLs(:,xx) = squeeze(nansum(Robs_mat(:,cur_uset).*log(pred_rate) - pred_rate,2));
+        end
+        
+        %% INFER MICRO-SAC SEQUENCE
+        lgamma = nan(NT,n_Dshifts);
+        for ff = 1:n_fixs
+            if mod(ff,100)==0
+                fprintf('Fixation %d of %d\n',ff,n_fixs);
+            end
+            
+            %                 tset = find(fix_ids==ff)';
+            tset = find(pfix_ids==ff)';
+            ntset = length(tset);
+            if ntset > drift_dsf
+                nt_pts = ceil(ntset/drift_dsf);
+                tset_inds = 1+floor((0:(ntset-1))/drift_dsf);
+                talpha=zeros(nt_pts,n_Dshifts);
+                tbeta = zeros(nt_pts,n_Dshifts);
+                
+                tpt_loc = ceil(1:drift_dsf:nt_pts*drift_dsf);
+                tpt_loc(end) = ntset;
+                
+                cur_drift_mean = post_mean_drift(tset);
+                cur_LL_set = frame_LLs(tset,:);
+                if mod(ntset,drift_dsf) ~= 0
+                    dangling_pts = nt_pts*drift_dsf-ntset;
+                    cur_LL_set = cat(1,cur_LL_set,zeros(dangling_pts,n_Dshifts));
+                    cur_drift_mean = cat(1,cur_drift_mean,nan(dangling_pts,1));
+                end
+                cur_LL_set = reshape(cur_LL_set,[drift_dsf nt_pts n_Dshifts]);
+                cur_LL_set = squeeze(sum(cur_LL_set,1));
+                
+                cur_drift_mean = drift_dsf*nanmean(reshape(cur_drift_mean,[drift_dsf nt_pts]));
+                
+                if all(use_coils==0)
+                    cur_lA = repmat(base_lA,[1 1 nt_pts]);
+                else
+                    cur_lA = nan(n_Dshifts,n_Dshifts,nt_pts);
+                    for iii = 1:nt_pts
+                        if ~isnan(cur_drift_mean(iii))
+                            cdist = pdist2(Dshifts'*sp_dx + cur_drift_mean(iii),Dshifts'*sp_dx);
+                            cur_lA(:,:,iii) = -cdist.^2/(2*(post_drift_sigma*drift_dsf)^2);
+                        else
+                            cur_lA(:,:,iii) = base_lA;
+                        end
+                    end
+                    cur_lA = bsxfun(@minus,cur_lA,logsumexp(cur_lA,2));
+                end
+                
+                talpha(1,:) = drift_jump_prior + cur_LL_set(1,:);
+                for t = 2:nt_pts
+                    talpha(t,:) = logmulexp(talpha(t-1,:),cur_lA(:,:,t)) + cur_LL_set(t,:);
+                end
+                
+                tbeta(end,:)=log(ones(1,n_Dshifts));
+                for t = (nt_pts-1):-1:1
+                    lf1 = tbeta(t+1,:) + cur_LL_set(t+1,:);
+                    tbeta(t,:) = logmulexp(lf1,cur_lA(:,:,t+1)');
+                end
+                temp_gamma = talpha + tbeta;
+                
+                if drift_dsf > 1
+                    if nt_pts > 1
+                        int_gamma = interp1(tpt_loc,temp_gamma,1:ntset);
+                        lgamma(tset,:) = int_gamma;
+                    else
+                        lgamma(tset,:) = repmat(temp_gamma,ntset,1);
+                    end
+                else
+                    lgamma(tset,:) = temp_gamma;
+                end
+            end
+        end
+        lgamma = bsxfun(@minus,lgamma,logsumexp(lgamma,2));
+        
+        gamma = exp(lgamma);
+        drift_post_mean_LOO(xv,:) = sum(bsxfun(@times,gamma,Dshifts),2);
+        drift_post_std_LOO(xv,:) = sqrt(sum(bsxfun(@times,gamma,Dshifts.^2),2) - squeeze(drift_post_mean_LOO(xv,:)).^2);
+        
+        drift_post_mean_LOO(xv,isnan(drift_post_mean_LOO(xv,:))) = 0;
+        drift_post_std_LOO(xv,isnan(drift_post_std_LOO(xv,:))) = 0;
+        
+        drift_post_mean_LOO(xv,:) = interp1(find(~isnan(pfix_ids)),squeeze(drift_post_mean_LOO(xv,~isnan(pfix_ids))),1:NT);
+        drift_post_std_LOO(xv,:) = interp1(find(~isnan(pfix_ids)),squeeze(drift_post_std_LOO(xv,~isnan(pfix_ids))),1:NT);
+    end
+end
 
 
 %% SAVE EYE-TRACKING RESULTS

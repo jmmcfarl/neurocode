@@ -2,7 +2,8 @@
 clear all
 addpath('~/James_scripts/bruce/variability/');
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
-global Expt_name bar_ori
+global Expt_name bar_ori use_LOOXV
+use_LOOXV = 1;
 
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 bar_ori = nan;
