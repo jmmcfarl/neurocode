@@ -14,13 +14,13 @@ fit_unCor = false;
 % base_fname = 'sac_glm_data_withbursts';
 base_fname = 'model_variability_analysis';
 
-Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
-ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
-% ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 
 copy_to = 'local';
 
 %%
+Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
+ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
+% ori_list = [0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 results = zeros(length(Expt_list),2);
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};

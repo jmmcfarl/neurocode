@@ -10,6 +10,8 @@ global Expt_name bar_ori use_MUA
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 
+fit_unCor = false;
+
 mod_data_name = 'corrected_models2';
 
 %%
@@ -779,7 +781,9 @@ actual_EP_SD = robust_std_dev(fin_tot_corr)*sp_dx;
 %RECOMPUTE XMAT
 best_shift_stimmat_up = all_stimmat_up;
 for i=1:NT
-    best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+    if ~fit_unCor
+        best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+    end
 end
 
 all_Xmat = create_time_embedding(all_stimmat_up,stim_params_us);
@@ -802,7 +806,11 @@ for ss = 1:length(targs)
     
     if ~isempty(cc_uinds)
         
+        if ~fit_unCor
         cur_mod = ModData(cc).rectGQM;
+        else
+            cur_mod = ModData(cc).rectGQM_unCor;
+        end
         
         fprintf('Reconstructing retinal stim for unit %d\n',cc);
         if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
@@ -818,7 +826,9 @@ for ss = 1:length(targs)
             %RECOMPUTE XMAT
             all_shift_stimmat_up = all_stimmat_up;
             for i=1:NT
+                if ~fit_unCor
                 all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+                end
             end
             all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
             all_Xmat_shift = all_Xmat_shift(used_inds,use_kInds_up);
@@ -840,7 +850,7 @@ end
 
 base_prates = bsxfun(@minus,base_prates,nanmean(base_prates));
 %%
-% poss_SDs = [0 0.1];
+% poss_SDs = [0 0.05 0.1];
 poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
 max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
 
@@ -925,27 +935,31 @@ for sd = 1:length(poss_SDs)
 end
 
 %%
-%total stim-driven variance, computed across time
-base_vars = var(ep_rates);
-
+true_sig_vars = nan(length(targs),length(poss_SDs));
 ep_alpha_funs = nan(length(targs),length(poss_SDs));
 for ss = 1:length(targs)
-    ep_alpha_funs(ss,:) = squeeze(ep_rate_cov(ss,ss,max_tlag+1,:))/base_vars(ss);    
+    true_sig_vars(ss,:) = squeeze(true_rate_cov(ss,ss,max_tlag+1,:));
+    ep_alpha_funs(ss,:) = squeeze(ep_rate_cov(ss,ss,max_tlag+1,:))./true_sig_vars(ss,:)';    
 end
 
-corr_norm = sqrt(base_vars'*base_vars);
 ep_noise_cov = true_rate_cov - ep_rate_cov;
-ep_sig_corr = bsxfun(@rdivide,true_rate_cov,corr_norm);
-ep_noise_corr = bsxfun(@rdivide,ep_noise_cov,corr_norm);
+
+ep_sig_corr = nan(size(true_rate_cov));
+ep_noise_corr = nan(size(true_rate_cov));
+for ss = 1:length(poss_SDs)
+    corr_norm = sqrt(true_sig_vars(:,ss)*true_sig_vars(:,ss)');
+    ep_sig_corr(:,:,:,ss) = bsxfun(@rdivide,true_rate_cov(:,:,:,ss),corr_norm);
+    ep_noise_corr(:,:,:,ss) = bsxfun(@rdivide,ep_noise_cov(:,:,:,ss),corr_norm);
+end
 
 %%
 for ss = 1:length(targs)
     cc = targs(ss);
-   EP_data(cc).actual_EP_SD = actual_EP_SD;
-   EP_data(cc).base_var = base_vars(ss);
-   EP_data(cc).alpha_funs = ep_alpha_funs(ss,:);
-   EP_data(cc).sig_corr_mat = squeeze(ep_sig_corr(ss,:,:,:));
-   EP_data(cc).noise_corr_mat = squeeze(ep_noise_corr(ss,:,:,:));
+    EP_data(cc).actual_EP_SD = actual_EP_SD;
+    EP_data(cc).base_vars = true_sig_vars(ss,:);
+    EP_data(cc).alpha_funs = ep_alpha_funs(ss,:);
+    EP_data(cc).sig_corr_mat = squeeze(ep_sig_corr(ss,:,:,:));
+    EP_data(cc).noise_corr_mat = squeeze(ep_noise_corr(ss,:,:,:));
 end
 
 %%
@@ -958,4 +972,4 @@ cd(anal_dir);
 sname = 'model_variability_analysis';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
-save(sname,'targs','EP_data','poss_SDs','use_MUA');
+save(sname,'targs','EP_data','poss_SDs','use_MUA','fit_unCor','ep_sig_corr','ep_noise_corr');
