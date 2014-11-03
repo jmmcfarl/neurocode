@@ -97,8 +97,10 @@ initial_params = [];
 sign_con = [];
 for imod = targets(targets > 0)
 	cur_kern = nim.mods(imod).filtK';
+    if isfield(nim.mods(imod),'Kcon')
 	if nim.mods(imod).Kcon ~= 0
     sign_con(length(initial_params)+(1:length(cur_kern))) = nim.mods(imod).Kcon;
+    end
   end
 	initial_params = [initial_params; cur_kern']; % add coefs to initial param vector
 end
