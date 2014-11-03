@@ -6,11 +6,11 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-% Expt_name = 'G093';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'G093';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
-% fit_unCor = true;
+fit_unCor = false;
 
 mod_data_name = 'corrected_models2';
 
@@ -853,9 +853,31 @@ for ss = 1:length(targs)
 end
 
 base_prates = bsxfun(@minus,base_prates,nanmean(base_prates));
+
 %%
-% poss_SDs = [0 0.05 0.1];
-poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
+% sparsity = 0.1;
+% fullNT = size(all_stim_mat,1);
+% rand_stim = zeros(fullNT,full_nPix);
+% rand_stuff = ones(fullNT,full_nPix);
+% rand_stuff(rand(fullNT,full_nPix) > 0.5) = -1;
+% is_nonzero = rand(fullNT,full_nPix) < sparsity;
+% rand_stim(is_nonzero) = rand_stuff(is_nonzero);
+% 
+% 
+% if spatial_usfac > 1
+%     all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
+%     for ii = 1:size(all_stim_mat,2)
+%         for jj = 1:spatial_usfac
+%             all_stimmat_up(:,spatial_usfac*(ii-1)+jj) = rand_stim(:,ii);
+%         end
+%     end
+% elseif spatial_usfac == 1
+%     all_stimmat_up = all_stim_mat;
+% end
+
+%%
+poss_SDs = [0.1];
+% poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
 max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
 
 cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
