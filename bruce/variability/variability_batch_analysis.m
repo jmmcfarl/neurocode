@@ -92,7 +92,9 @@ for Elist_cnt = 1:length(Expt_list)
 end
 Expt_name = 'M297'; bar_ori = 0;
 variability_anal_v5;
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori use_LOOXV
 Expt_name = 'M297'; bar_ori = 90;
 variability_anal_v5;
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori use_LOOXV
 
 

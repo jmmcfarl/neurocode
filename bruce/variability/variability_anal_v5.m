@@ -7,12 +7,13 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% % % Expt_name = 'M294';
+% % % % Expt_name = 'M294';
 % Expt_name = 'M296';
 % use_MUA = false;
 % bar_ori = 90; %bar orientation to use (only for UA recs)
-
+% 
 mod_data_name = 'corrected_models2';
+ep_dist_bin_edges = linspace(-1,1,100);
 
 %%
 
@@ -107,10 +108,12 @@ et_anal_name = 'full_eyetrack_Rinit';
 if any(use_coils > 0)
     et_anal_name = [et_anal_name '_Cprior'];
 end
+et_hres_anal_name = [et_anal_name '_hres'];
 
 et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
 et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 mod_data_name = [mod_data_name sprintf('_ori%d',bar_ori)];
+et_hres_anal_name = [et_hres_anal_name sprintf('_ori%d',bar_ori)];
 
 %dont fit stim models using these blocks
 ignore_blocks = [];
@@ -763,17 +766,39 @@ cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
 cur_fix_post_std = squeeze(it_fix_post_std(end,:));
 cur_drift_post_mean = squeeze(drift_post_mean(end,:));
 cur_drift_post_std = squeeze(drift_post_std(end,:));
-[best_fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+[orig_fin_tot_corr,orig_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
     cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+orig_sp_dx = sp_dx;
+orig_ep = orig_fin_tot_corr*orig_sp_dx;
 
-if length(used_inds) ~= length(cur_drift_post_mean)
-    error('ET data mismatch!');
+orig_fin_tot_corr_LOO = nan(length(loo_set),NT);
+for ss = 1:length(loo_set)
+[orig_fin_tot_corr_LOO(ss,:)] = construct_eye_position(squeeze(it_fix_post_mean_LOO(ss,end,:)),squeeze(it_fix_post_std_LOO(ss,end,:)),...
+    squeeze(drift_post_mean_LOO(ss,end,:)),squeeze(drift_post_std_LOO(ss,end,:)),fix_ids,trial_start_inds,trial_end_inds,sac_shift);    
 end
+orig_fin_tot_corr_LOO = orig_fin_tot_corr_LOO*orig_sp_dx;
 
-fin_shift_cor = round(best_fin_tot_corr);
-fin_shift_cor(isnan(fin_shift_cor)) = 0;
+%%
+cd(et_dir)
+load(et_hres_anal_name)
+[hres_fin_tot_corr,hres_tot_std] = construct_eye_position(best_fix_cor,best_fix_std,...
+    drift_post_mean,drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+hres_sp_dx = et_params.sp_dx;
+hres_ep = hres_fin_tot_corr*hres_sp_dx;
 
-%RECOMPUTE XMAT
+hres_fin_tot_corr_LOO = nan(length(loo_set),NT);
+for ss = 1:length(loo_set)
+[hres_fin_tot_corr_LOO(ss,:)] = construct_eye_position(best_fix_cor,best_fix_std,...
+    drift_post_mean_LOO(ss,:),drift_post_std_LOO(ss,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);    
+end
+hres_fin_tot_corr_LOO = hres_fin_tot_corr_LOO*hres_sp_dx;
+
+%%
+% fin_shift_cor = round(orig_ep/orig_sp_dx);
+fin_shift_cor = round(hres_ep/hres_sp_dx);
+fin_shift_cor(fin_shift_cor > full_nPix_us) = full_nPix_us;
+fin_shift_cor(fin_shift_cor < -full_nPix_us) = -full_nPix_us;
+
 best_shift_stimmat_up = all_stimmat_up;
 for i=1:NT
     best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
@@ -799,15 +824,19 @@ for ss = 1:n_chs
         loo_cc = find(loo_set == ss); %index within the LOOXV set
         
         if ~isempty(loo_cc)
-            cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-            cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-            cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-            cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-            [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-                cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+%             cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
+%             cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
+%             cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
+%             cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
+%             [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+%                 cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
             
-            all_fin_tot_corr(:,ss) = fin_tot_corr(all_rpt_inds);
-            fin_shift_cor = round(fin_tot_corr);
+%             all_fin_tot_corr(:,ss) = orig_fin_tot_corr_LOO(loo_cc,all_rpt_inds)/orig_sp_dx;
+%             fin_shift_cor = round(orig_fin_tot_corr_LOO(loo_cc,:)/orig_sp_dx);
+            all_fin_tot_corr(:,ss) = hres_fin_tot_corr_LOO(loo_cc,all_rpt_inds)/hres_sp_dx;
+            fin_shift_cor = round(hres_fin_tot_corr_LOO(loo_cc,:)/hres_sp_dx);
+            fin_shift_cor(fin_shift_cor > full_nPix_us) = full_nPix_us;
+            fin_shift_cor(fin_shift_cor < -full_nPix_us) = -full_nPix_us;
             
             %RECOMPUTE XMAT
             all_shift_stimmat_up = all_stimmat_up;
@@ -886,7 +915,10 @@ back_kern(1:back_look+1) = 1;
 back_kern = flipud(back_kern/sum(back_kern));
 
 %eye position during repeats
-rpt_EP = best_fin_tot_corr(all_rpt_inds)*sp_dx;
+% rpt_EP = best_fin_tot_corr(all_rpt_inds)*sp_dx;
+% rpt_EP = orig_ep(all_rpt_inds);
+rpt_EP = hres_ep(all_rpt_inds);
+
 rpt_EPnan = rpt_EP;
 rpt_EPnan(in_sac_inds(all_rpt_inds)) = nan;
 rpt_EPnan(in_blink_inds(all_rpt_inds)) = nan;
@@ -914,6 +946,9 @@ full_EP(in_sac) = nan;
 full_EP_filt(in_sac) = nan;
 ep_naninds = isnan(full_EP(:)); %find within-sac inds
 
+rpt_ep_ov_sd = robust_std_dev(rpt_EP);
+rpt_ep_hist = histc(rpt_EP,ep_dist_bin_edges);
+rpt_ep_hist = rpt_ep_hist/sum(rpt_ep_hist);
 %% SUBTRACT OUT MEAN RATES
 %nan out within-sac (or within blink) times in psth and mod prates
 full_psth_ms = full_psth;
@@ -951,6 +986,8 @@ mod_psth_var = nanvar(all_mod_psths);
 unfolded_mod_psth = reshape(permute(mod_prates_ms,[2 1 3]),[],n_chs);
 mod_tot_var = nanvar(unfolded_mod_psth);
 
+direct_noise_vars = squeeze(nanmean(nanvar(full_psth_ms)));
+
 unfolded_psth_raw = reshape(permute(full_psth_raw,[2 1 3]),[],n_chs);
 avg_rpt_rates = nanmean(unfolded_psth_raw);
 tot_resp_var = nanvar(unfolded_psth_raw);
@@ -962,12 +999,15 @@ psth_var_cor = psth_var.*(n_utrials'./(n_utrials'-1)) - psth_noise_var';
 %%
 for ss = 1:n_chs
     Rpt_Data(ss).tot_resp_var = tot_resp_var(ss);
+    Rpt_Data(ss).dir_noise_var = direct_noise_vars(ss);
     Rpt_Data(ss).ms_resp_var = resp_var(ss);
     Rpt_Data(ss).emp_psth = all_psths(:,ss);
     Rpt_Data(ss).psth_var = psth_var(ss);
     Rpt_Data(ss).psth_var_cor = psth_var_cor(ss);
     Rpt_Data(ss).rpt_avg_rate = rpt_avg_rates(ss);
     Rpt_Data(ss).n_utrials = n_utrials(ss);
+    uset = ~isnan(unfolded_psth_ms(:,ss));
+    Rpt_Data(ss).rpt_ep_sd = robust_std_dev(hres_ep(uset));
 end
 
 
@@ -1149,6 +1189,7 @@ for ss = 1:length(targs)
     Rpt_Data(targs(ss)).emp_xcov = squeeze(obs_xcov(:,targs(ss),:));
     Rpt_Data(targs(ss)).spline_xcov = squeeze(covar_spline_ZPT(:,targs(ss),:));
     Rpt_Data(targs(ss)).varnorm_mat = repmat(sqrt(resp_var(targs(ss))*resp_var'),1,length(tlags));
+    Rpt_Data(targs(ss)).noise_varnorm_mat = repmat(sqrt(direct_noise_vars(targs(ss))*direct_noise_vars),1,length(tlags));
 end
 %%
 % %nan-out elements of xcov mats corresponding to nearby MU channels for the
@@ -1204,4 +1245,4 @@ cd(anal_dir);
 sname = 'rpt_variability_analysis';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
-save(sname,'targs','Rpt_Data','ED_*','spline_*','tlags');
+save(sname,'targs','Rpt_Data','ED_*','spline_*','tlags','rpt_ep*');

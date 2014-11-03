@@ -1,7 +1,7 @@
 %% LEM EYE TRACKING
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
-Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294'};
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296'};
 global Expt_name bar_ori use_LOOXV
 bar_ori = nan;
 use_LOOXV = 1;
@@ -10,6 +10,13 @@ for Elist_cnt = 1:length(Expt_list)
     full_eyetracking_withblinks_v2;
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori use_LOOXV
 end
+
+Expt_name = 'M297'; bar_ori = 0;
+full_eyetracking_withblinks_v2;
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori use_LOOXV
+Expt_name = 'M297'; bar_ori = 90;
+full_eyetracking_withblinks_v2;
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori use_LOOXV
 
 %% JBE EYE TRACKING ORI=0
 clear all

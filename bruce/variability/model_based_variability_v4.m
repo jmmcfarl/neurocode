@@ -6,11 +6,10 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-Expt_name = 'G093';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
-
-fit_unCor = false;
+% Expt_name = 'G093';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
+% fit_unCor = false;
 
 mod_data_name = 'corrected_models2';
 
@@ -876,8 +875,8 @@ base_prates = bsxfun(@minus,base_prates,nanmean(base_prates));
 % end
 
 %%
-poss_SDs = [0.1];
-% poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
+% poss_SDs = [0.1 0.15];
+poss_SDs = [0 0.025 0.05 0.075 0.1 0.125 0.15 0.175 0.2];
 max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
 
 cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
@@ -900,6 +899,8 @@ ep_rates = nan(NT,length(targs));
 ep_rates2 = nan(NT,length(targs));
 ep_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
 true_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
+ep_spk_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
+true_spk_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
 for sd = 1:length(poss_SDs)
     fprintf('SD %d of %d\n',sd,length(poss_SDs));
     
@@ -946,6 +947,7 @@ for sd = 1:length(poss_SDs)
     
     %shiftify the second rate matrix
     mod_rates_shifted = nan(NT,length(targs),length(tlags));
+    mod_spks_shifted = nan(NT,length(targs),length(tlags));
     for tt = 1:length(tlags)
         mod_rates_shifted(:,:,tt) = shift_matrix_Nd(ep_rates2,-tlags(tt),1);
     end    
@@ -961,6 +963,8 @@ for sd = 1:length(poss_SDs)
 end
 
 %%
+ep_noise_cov = true_rate_cov - ep_rate_cov;
+
 true_sig_vars = nan(length(targs),length(poss_SDs));
 ep_alpha_funs = nan(length(targs),length(poss_SDs));
 for ss = 1:length(targs)
@@ -968,7 +972,7 @@ for ss = 1:length(targs)
     ep_alpha_funs(ss,:) = squeeze(ep_rate_cov(ss,ss,max_tlag+1,:))./true_sig_vars(ss,:)';    
 end
 
-ep_noise_cov = true_rate_cov - ep_rate_cov;
+ov_avg_rates = nanmean(Robs_mat(:,targs));
 
 ep_sig_corr = nan(size(true_rate_cov));
 ep_noise_corr = nan(size(true_rate_cov));
@@ -978,6 +982,28 @@ for ss = 1:length(poss_SDs)
     ep_sig_corr(:,:,:,ss) = bsxfun(@rdivide,true_rate_cov(:,:,:,ss),corr_norm);
     ep_psth_corr(:,:,:,ss) = bsxfun(@rdivide,ep_rate_cov(:,:,:,ss),corr_norm);
     ep_noise_corr(:,:,:,ss) = bsxfun(@rdivide,ep_noise_cov(:,:,:,ss),corr_norm);
+end
+
+%%
+tot_sc_vars = nan(length(poss_SDs),length(targs));
+for ss = 1:length(poss_SDs)
+    curr_covars = sum(ep_noise_cov(:,:,:,ss),3);
+    tot_sc_vars(ss,:) = diag(curr_covars) + ov_avg_rates';
+end
+avg_rate_diag = diag(ov_avg_rates);
+
+all_sc_corrs = nan(length(poss_SDs),max_tlag,length(targs),length(targs));
+for ii = 1:max_tlag
+    use_lags = find(abs(tlags) < ii);
+    for ss = 1:length(poss_SDs)
+        curr_covars = sum(ep_noise_cov(:,:,use_lags,ss),3);
+        curr_covars = curr_covars + avg_rate_diag;
+        
+        curr_sc_corrs = curr_covars./(sqrt(tot_sc_vars(ss,:)*tot_sc_vars(ss,:)'));
+        curr_sc_corrs(logical(eye(length(targs)))) = nan;
+
+        all_sc_corrs(ss,ii,:,:) = curr_sc_corrs;
+    end
 end
 
 %%
@@ -992,6 +1018,8 @@ for ss = 1:length(targs)
     EP_data(cc).ep_noise_cov = squeeze(ep_noise_cov(ss,:,:,:));
     EP_data(cc).true_rate_cov = squeeze(true_rate_cov(ss,:,:,:));
     EP_data(cc).ep_rate_cov = squeeze(ep_rate_cov(ss,:,:,:));
+    
+    EP_data(cc).sc_corrs_tfun = squeeze(all_sc_corrs(:,:,ss,:));
 end
 
 %%
