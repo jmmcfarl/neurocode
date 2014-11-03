@@ -1,19 +1,23 @@
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
 addpath('~/James_scripts/TentBasis2D/');
 
-global Expt_name bar_ori use_MUA
+global Expt_name bar_ori use_MUA fit_unCor
 
-Expt_name = 'G093';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'G093';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
-fit_unCor = false;
+% fit_unCor = true;
 
 mod_data_name = 'corrected_models2';
 
+sname = 'model_variability_analysis';
+if fit_unCor
+    sname = strcat(sname,'_unCor');
+end
 %%
 
 micro_thresh = 1; %max amp of microsac (deg)
@@ -946,9 +950,11 @@ ep_noise_cov = true_rate_cov - ep_rate_cov;
 
 ep_sig_corr = nan(size(true_rate_cov));
 ep_noise_corr = nan(size(true_rate_cov));
+ep_psth_corr = nan(size(true_rate_cov));
 for ss = 1:length(poss_SDs)
     corr_norm = sqrt(true_sig_vars(:,ss)*true_sig_vars(:,ss)');
     ep_sig_corr(:,:,:,ss) = bsxfun(@rdivide,true_rate_cov(:,:,:,ss),corr_norm);
+    ep_psth_corr(:,:,:,ss) = bsxfun(@rdivide,ep_rate_cov(:,:,:,ss),corr_norm);
     ep_noise_corr(:,:,:,ss) = bsxfun(@rdivide,ep_noise_cov(:,:,:,ss),corr_norm);
 end
 
@@ -959,7 +965,11 @@ for ss = 1:length(targs)
     EP_data(cc).base_vars = true_sig_vars(ss,:);
     EP_data(cc).alpha_funs = ep_alpha_funs(ss,:);
     EP_data(cc).sig_corr_mat = squeeze(ep_sig_corr(ss,:,:,:));
+    EP_data(cc).psth_corr_mat = squeeze(ep_psth_corr(ss,:,:,:));
     EP_data(cc).noise_corr_mat = squeeze(ep_noise_corr(ss,:,:,:));
+    EP_data(cc).ep_noise_cov = squeeze(ep_noise_cov(ss,:,:,:));
+    EP_data(cc).true_rate_cov = squeeze(true_rate_cov(ss,:,:,:));
+    EP_data(cc).ep_rate_cov = squeeze(ep_rate_cov(ss,:,:,:));
 end
 
 %%
@@ -969,7 +979,6 @@ if ~exist(anal_dir)
 end
 cd(anal_dir);
 
-sname = 'model_variability_analysis';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
 save(sname,'targs','EP_data','poss_SDs','use_MUA','fit_unCor','ep_sig_corr','ep_noise_corr');

@@ -496,7 +496,7 @@ save(sname,'mua_data','lags','dt','mu_avg_rates');
 min_MUA_rate = 0;
 use_MUs = find(mu_avg_rates >= min_MUA_rate);
 
-xl = [-0.1 0.4];
+xl = [-0.1 0.3];
 yl = [0.7 1.4];
 
 f = figure(); hold on
@@ -514,7 +514,7 @@ line(xl,[1 1],'color','k','linestyle','--');
 
 fig_width = 3.5; rel_height = 0.8;
 figufy(f);
-fname = [fig_dir 'Par_vs_orth_MUA.pdf'];
+fname = [fig_dir 'Par_vs_orth_MUA2.pdf'];
 exportfig(f,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f);
 

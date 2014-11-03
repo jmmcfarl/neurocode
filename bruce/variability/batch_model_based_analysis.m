@@ -2,8 +2,10 @@ close all
 clear all
 clc
 
-fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
+% fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
+fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 base_sname = 'model_variability_analysis';
+% base_sname = 'model_variability_analysis_unCor';
 
 all_SU_data = [];
 
@@ -61,6 +63,7 @@ ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
+% for ee = 1
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
     cur_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
@@ -137,7 +140,7 @@ alpha_funs = cell2mat(arrayfun(@(x) x.alpha_funs, all_SU_data(cur_SUs),'uniformo
 figure;
 shadedErrorBar(poss_SDs,nanmean(alpha_funs),nanstd(alpha_funs));
 hold on
-plot(poss_SDs,alpha_funs,'r');
+% plot(poss_SDs,alpha_funs,'r');
 
 target_SD = 0.1;
 target_alphas = interp1(poss_SDs,alpha_funs',target_SD);
@@ -164,6 +167,7 @@ all_noisecorr_n = zeros(length(sig_corr_bin_cents),1);
 
 all_noise_corrs = [];
 all_sig_corrs = [];
+all_psth_corrs = [];
 
 for ss = 1:length(cur_SUs)
     cur_sig_corrs = squeeze(all_SU_data(cur_SUs(ss)).sig_corr_mat(:,maxtlag+1,1));
@@ -176,6 +180,7 @@ for ss = 1:length(cur_SUs)
     end
     all_sig_corrs = cat(1,all_sig_corrs,squeeze(all_SU_data(cur_SUs(ss)).sig_corr_mat(:,maxtlag+1,:)));
     all_noise_corrs = cat(1,all_noise_corrs,squeeze(all_SU_data(cur_SUs(ss)).noise_corr_mat(:,maxtlag+1,:)));
+%     all_psth_corrs = cat(1,all_psth_corrs,squeeze(all_SU_data(cur_SUs(ss)).noise_corr_mat(:,maxtlag+1,:)));
 end
 bad = find(all_sig_corrs == 1);
 all_sig_corrs(bad) = nan;

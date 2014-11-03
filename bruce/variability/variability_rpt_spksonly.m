@@ -55,11 +55,11 @@ if strcmp(rec_type,'LP')
     end
 end
 
-% if Expt_num >= 280
-%     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-% else
+if Expt_num >= 280
+    data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+else
     data_dir = ['~/Data/bruce/' Expt_name];
-% end
+end
 
 cd(data_dir);
 
@@ -106,9 +106,11 @@ if any(use_coils > 0)
     et_anal_name = [et_anal_name '_Cprior'];
 end
 
+et_hres_anal_name = [et_anal_name '_hres'];
+
 et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
 et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
-% mod_data_name = [mod_data_name sprintf('_ori%d',bar_ori)];
+et_hres_anal_name = [et_hres_anal_name sprintf('_ori%d',bar_ori)];
 
 %dont fit stim models using these blocks
 ignore_blocks = [];
@@ -757,8 +759,31 @@ cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
 cur_fix_post_std = squeeze(it_fix_post_std(end,:));
 cur_drift_post_mean = squeeze(drift_post_mean(end,:));
 cur_drift_post_std = squeeze(drift_post_std(end,:));
-[best_fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+[orig_fin_tot_corr,orig_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
     cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+orig_sp_dx = sp_dx;
+orig_ep = orig_fin_tot_corr*orig_sp_dx;
+
+orig_fin_tot_corr_LOO = nan(length(loo_set),NT);
+for ss = 1:length(loo_set)
+[orig_fin_tot_corr_LOO(ss,:)] = construct_eye_position(squeeze(it_fix_post_mean_LOO(ss,end,:)),squeeze(it_fix_post_std_LOO(ss,end,:)),...
+    squeeze(drift_post_mean_LOO(ss,end,:)),squeeze(drift_post_std_LOO(ss,end,:)),fix_ids,trial_start_inds,trial_end_inds,sac_shift);    
+end
+orig_fin_tot_corr_LOO = orig_fin_tot_corr_LOO*orig_sp_dx;
+%%
+% cd(et_dir)
+% load(et_hres_anal_name)
+% [hres_fin_tot_corr,hres_tot_std] = construct_eye_position(best_fix_cor,best_fix_std,...
+%     drift_post_mean,drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+% hres_sp_dx = et_params.sp_dx;
+% hres_ep = hres_fin_tot_corr*hres_sp_dx;
+% 
+% hres_fin_tot_corr_LOO = nan(length(loo_set),NT);
+% for ss = 1:length(loo_set)
+% [hres_fin_tot_corr_LOO(ss,:)] = construct_eye_position(best_fix_cor,best_fix_std,...
+%     drift_post_mean_LOO(ss,:),drift_post_std_LOO(ss,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);    
+% end
+% hres_fin_tot_corr_LOO = hres_fin_tot_corr_LOO*hres_sp_dx;
 
 %% DEFINE IN-SAC AND IN-BUFF INDS
 sac_buff = round(0.05/dt);
@@ -792,10 +817,12 @@ back_kern = zeros(back_look*2+1,1);
 back_kern(1:back_look+1) = 1;
 back_kern = flipud(back_kern/sum(back_kern));
 
-filt_EP = conv(best_fin_tot_corr*sp_dx,back_kern,'same');
+filt_EP = conv(orig_ep,back_kern,'same');
+% filt_EP = conv(hres_ep,back_kern,'same');
 
 %eye position during repeats
-rpt_EP = best_fin_tot_corr(all_rpt_inds)*sp_dx;
+rpt_EP = orig_ep(all_rpt_inds);
+% rpt_EP = hres_ep(all_rpt_inds);
 rpt_EPnan = rpt_EP;
 rpt_EPnan(in_sac_inds(all_rpt_inds)) = nan;
 rpt_EPnan(in_blink_inds(all_rpt_inds)) = nan;
@@ -819,9 +846,9 @@ for ii = 1:length(rpt_trials)
 end
 
 %nan out EP data either in blinks or sacs
-full_EP(in_sac) = nan;
-full_EP_filt(in_sac) = nan;
-ep_naninds = isnan(full_EP(:)); %find within-sac inds
+% full_EP(in_sac) = nan;
+% full_EP_filt(in_sac) = nan;
+% ep_naninds = isnan(full_EP(:)); %find within-sac inds
 
 [EP_filt_TBT_vals,EP_filt_TBT_ord] = sort(full_EP_filt);
 EP_filt_TBT_ord(isnan(EP_filt_TBT_vals))=nan;
@@ -837,22 +864,32 @@ end
 %%
 for ss = 1:length(all_su_spk_times)
     all_su_spk_trials{ss} = [];
+    all_su_spk_rtrials{ss} = [];
     all_su_spk_reltimes{ss} = [];
     all_su_spk_eyepos{ss} = [];
 end
+
+rand_tperm = randperm(length(rpt_trials));
 
 cur_EP_ord = nan(NT,1);
 for ii = 1:length(rpt_trials)
    cur_inds = find(all_trialvec(used_inds) == rpt_trials(ii));
    cur_inds(length(rpt_taxis)+1:end) = [];
+   if length(cur_inds) == length(rpt_taxis)
    cur_EP_ord(cur_inds) = EP_filt_TBT_ord(ii,:);
    for ss = 1:length(all_su_spk_times)
-       cur_spks = find(ismember(all_su_spk_inds{ss},cur_inds));
+       [lia,lib] = ismember(all_su_spk_inds{ss},cur_inds);
+       cur_spks = find(lia);
+       cur_rel_spkinds = lib(lia);
+       
        all_su_spk_trials{ss} = cat(1,all_su_spk_trials{ss},ones(length(cur_spks),1)*ii);
+%        all_su_spk_rtrials{ss} = cat(1,all_su_spk_rtrials{ss},ones(length(cur_spks),1)*rand_tperm(ii));
+       all_su_spk_rtrials{ss} = cat(1,all_su_spk_rtrials{ss},randi(n_rpts,length(cur_spks),1));
        all_su_spk_reltimes{ss} = cat(1,all_su_spk_reltimes{ss},all_su_spk_times{ss}(cur_spks) - all_t_axis(find(all_trialvec == rpt_trials(ii),1)));
-       all_su_spk_eyepos{ss} = cat(1,all_su_spk_eyepos{ss},cur_EP_ord(all_su_spk_inds{ss}(cur_spks)));
+%        all_su_spk_reltimes{ss} = cat(1,all_su_spk_reltimes{ss},rpt_taxis(cur_rel_spkinds)');
+       all_su_spk_eyepos{ss} = cat(1,all_su_spk_eyepos{ss},EP_filt_TBT_ord(ii,cur_rel_spkinds)');
    end
-    
+   end
 end
 
 %%

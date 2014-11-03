@@ -4,13 +4,14 @@ clc
 
 fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
 base_sname = 'rpt_variability_analysis';
+base_tname = 'model_variability_analysis';
 
 all_SU_data = [];
 n_probes = 24;
 
 %% LOAD JBE
-Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
-ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
+Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
+ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 160 nan; 40 nan; 45 nan; 0 90];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -25,7 +26,13 @@ for ee = 1:length(Expt_list)
             %load trig avg data
             tname = strcat(cur_dir,base_sname,sprintf('_ori%d',ori_list(ee,ii)));
             load(tname);
-            
+            tname = strcat(cur_dir,base_tname,sprintf('_ori%d',ori_list(ee,ii)));
+            load(tname);
+
+                        for jj = 1:length(Rpt_Data)
+                Rpt_Data(jj).Mod_EP = EP_data(jj);
+            end
+
             [Rpt_Data.expt_num] = deal(Expt_num);
             [Rpt_Data.bar_ori] = deal(ori_list(ee,ii));
             [Rpt_Data.animal] = deal('jbe');
@@ -59,6 +66,7 @@ dt = 0.01;
 %selection criteria
 min_rate = 5; % min avg rate in Hz (5)
 min_xvLLimp = 0.0; %(0.05);
+min_rpt_trials = 50;
 
 tot_Nunits = length(all_SU_data);
 avg_rates = arrayfun(@(x) x.ModData.unit_data.avg_rate,all_SU_data);
@@ -78,5 +86,92 @@ dprime_stability_cv = arrayfun(@(x) x.ModData.unit_data.dprime_stability_cv,all_
 jbe_SUs = find(strcmp('jbe',{all_SU_data(:).animal}));
 lem_SUs = find(strcmp('lem',{all_SU_data(:).animal}));
 
+n_rpt_trials = arrayfun(@(x) x.n_utrials,all_SU_data);
+
 %%
-cur_SUs = find(avg_rates >= min_rate & mod_xvLLimps > min_xvLLimp);
+cur_SUs = find(avg_rates >= min_rate & mod_xvLLimps > min_xvLLimp & n_rpt_trials >= min_rpt_trials);
+
+actual_EP_SD = arrayfun(@(x) x.Mod_EP.actual_EP_SD,all_SU_data(cur_SUs));
+alpha_funs = cell2mat(arrayfun(@(x) x.Mod_EP.alpha_funs, all_SU_data(cur_SUs),'uniformoutput',0));
+spline_sig_var = cell2mat(arrayfun(@(x) x.spline_resp_ZPT, all_SU_data(cur_SUs),'uniformoutput',0));
+rpt_psth_var = cell2mat(arrayfun(@(x) x.rand_psth_var, all_SU_data(cur_SUs),'uniformoutput',0));
+spline_alpha = rpt_psth_var./spline_sig_var;
+ms_resp_var = cell2mat(arrayfun(@(x) x.ms_resp_var, all_SU_data(cur_SUs),'uniformoutput',0));
+
+SNR = spline_sig_var./ms_resp_var;
+
+mod_alphas = nan(length(cur_SUs),1);
+for ss = 1:length(cur_SUs)
+    mod_alphas(ss) = interp1(poss_SDs,alpha_funs(ss,:),actual_EP_SD(ss));
+end
+
+%%
+cur_SUs = find(avg_rates >= min_rate & mod_xvLLimps > min_xvLLimp & n_rpt_trials >= min_rpt_trials);
+
+maxtlag = 10;
+
+all_psth_noise_corrs = [];
+all_spline_noise_corrs = [];
+all_sig_corrs = [];
+all_psth_corrs = [];
+all_pair_IDS = [];
+all_expt_IDS = [];
+for ss = 1:length(cur_SUs)
+    cur_sig_covs = squeeze(all_SU_data(cur_SUs(ss)).spline_xcov(:,maxtlag+1));
+    cur_psth_covs = squeeze(all_SU_data(cur_SUs(ss)).rand_xcov(:,maxtlag+1));
+    cur_emp_covs = squeeze(all_SU_data(cur_SUs(ss)).emp_xcov(:,maxtlag+1));
+    
+    psth_noise_covs = cur_emp_covs - cur_psth_covs;
+    spline_noise_covs = cur_emp_covs - cur_sig_covs;
+    
+    cur_norms = all_SU_data(cur_SUs(ss)).varnorm_mat(:,maxtlag+1);
+    
+    cur_pair_IDS = [repmat(all_SU_data(cur_SUs(ss)).unit_num,length(cur_norms),1) (1:length(cur_norms))'];
+    
+    all_psth_noise_corrs = cat(1,all_psth_noise_corrs,psth_noise_covs./cur_norms);
+    all_spline_noise_corrs = cat(1,all_spline_noise_corrs,spline_noise_covs./cur_norms);
+    all_sig_corrs = cat(1,all_sig_corrs,cur_sig_covs./cur_norms);
+    all_psth_corrs = cat(1,all_psth_corrs,cur_psth_covs./cur_norms);
+    all_pair_IDS = cat(1,all_pair_IDS,cur_pair_IDS);
+    all_expt_IDS = cat(1,all_expt_IDS,repmat(all_SU_data(cur_SUs(ss)).expt_num,length(cur_norms),1));
+end
+% bad = find(all_sig_corrs == 1);
+% all_sig_corrs(bad) = nan;
+% all_noise_corrs(bad) = nan;
+% 
+
+close all
+% uset = find(all_pair_IDS(:,1) ~= all_pair_IDS(:,2));
+uset = find(all_pair_IDS(:,1) ~= all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24);
+
+% poss_expts = [289];
+poss_expts = [270 275 277 281 287 289 294 296 297];
+uset(~ismember(all_expt_IDS(uset),poss_expts)) = [];
+
+xx = linspace(-0.2,1,100);
+uu = uset(~isnan(all_psth_noise_corrs(uset)));
+
+f1 = figure(); hold on
+plot(all_sig_corrs(uset),all_psth_noise_corrs(uset),'k.'); 
+r = robustfit(all_sig_corrs(uset),all_psth_noise_corrs(uset));
+plot(xx,r(1)+r(2)*xx,'r')
+
+plot(all_sig_corrs(uset),all_spline_noise_corrs(uset),'b.'); 
+r = robustfit(all_sig_corrs(uset),all_spline_noise_corrs(uset));
+plot(xx,r(1)+r(2)*xx,'g')
+
+xlim([-0.1 0.5]);
+ylim([-0.1 0.5]);
+
+
+f2 = figure(); hold on
+plot(all_psth_corrs(uset),all_psth_noise_corrs(uset),'k.'); 
+r = robustfit(all_psth_corrs(uset),all_psth_noise_corrs(uset));
+plot(xx,r(1)+r(2)*xx,'r')
+
+plot(all_sig_corrs(uset),all_spline_noise_corrs(uset),'b.'); 
+r = robustfit(all_sig_corrs(uset),all_spline_noise_corrs(uset));
+plot(xx,r(1)+r(2)*xx,'g')
+xlim([-0.1 0.5]);
+ylim([-0.1 0.5]);
+

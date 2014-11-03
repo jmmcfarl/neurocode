@@ -361,7 +361,7 @@ end
 bad_units = [];
 uset = setdiff(1:96,bad_units);
 % uset = find(dark_avg_rates/dt <= 10);
-xl = [-0.25 0.55];
+xl = [-0.2 0.5];
 f1 = figure();
 h1=shadedErrorBar(lags*dt,1+mean(dark_gsac_avg_sm(:,uset),2),std(dark_gsac_avg_sm(:,uset),[],2)/sqrt(length(uset)));
 % h1=shadedErrorBar(lags*dt,1+mean(dark_gsac_avg(:,uset),2),std(dark_gsac_avg(:,uset),[],2)/sqrt(length(uset)));
@@ -371,15 +371,16 @@ line(xl,[1 1],'color','k')
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
+set(gca,'xtick',[-0.2:0.1:0.5]);
 
-% fig_width = 3.5; rel_height = 0.8;
+fig_width = 3.5; rel_height = 0.8;
 figufy(f1);
-% fname = [fig_dir 'DarkSacMUA.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-
-yl = [0.75 1.25];
-ylim(yl);
-fname = [fig_dir 'DarkSacMUA_zoomout.pdf'];
+fname = [fig_dir 'DarkSacMUA.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 
-% close(f1);
+yl = [0.65 1.3];
+ylim(yl);
+fname = [fig_dir 'DarkSacMUA_zoomout2.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+close(f1);

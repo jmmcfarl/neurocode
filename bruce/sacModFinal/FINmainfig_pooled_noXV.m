@@ -5,7 +5,8 @@ clc
 fit_unCor = 0;
 include_bursts = 0;
 
-fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+% fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
 base_tname = 'sac_trig_avg_data3test';
 base_yname = 'sacTypeDep_noXV';
@@ -213,7 +214,7 @@ cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > 
 all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
 
 
-xl = [-0.1 0.4];
+xl = [-0.1 0.3];
 
 close all
 
@@ -237,12 +238,12 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-% xl2 = [-0.25 0.55];
-% f2 = figure();
-% plot(tlags,nanmean(all_gsac_gray(cur_SUs,:)),'linewidth',2);
-% set(gca,'yAxisLocation','right');
-% ylim([0.75 1.25]);
-% xlim(xl2);
+xl2 = [-0.2 0.5];
+f2 = figure();
+plot(tlags,nanmean(all_gsac_gray(cur_SUs,:)),'linewidth',2);
+set(gca,'yAxisLocation','right');
+ylim([0.65 1.3]);
+xlim(xl2);
 
 % %PRINT FIGURE
 % fig_width = 3.5; rel_height = 0.8;
@@ -344,12 +345,12 @@ stairs(time_binedges,gsac_Etime_dist);
 stairs(time_binedges,gsac_Itime_dist,'r');
 xlim(yl);
 % 
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
@@ -377,7 +378,7 @@ xlim(yl); ylim(yl);
 xlabel('Suppression time (s)');
 ylabel('Enhancement time (s)');
 
-xl = [-0.1 0.4];
+xl = [-0.1 0.3];
 
 f2 = figure();
 hold on
@@ -403,18 +404,18 @@ ylim([0.6 1.6]);
 % ylabel('Relative rate');
 % ylim([0.6 1.4]);
 
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Gsac_timing_scatter.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_timing_scatter.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f2);
-fname = [fig_dir 'Gsac_reverse_polarity_avgs.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f2);
+% fname = [fig_dir 'Gsac_reverse_polarity_avgs.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
@@ -998,7 +999,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
-ylim([0.6 1.3])
+ylim([0.65 1.3])
 
 %COMPARE SSI
 xl = [-0.1 0.3];
@@ -1010,7 +1011,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative SSI');
-ylim([0.5 1.1])
+ylim([0.5 1.2])
 
 %COMPARE OFFSET
 xl = [-0.1 0.3];
@@ -1022,7 +1023,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative offset');
-ylim([-0.05 0.3])
+ylim([-0.1 0.3])
 
 %COMPARE GAIN
 xl = [-0.1 0.3];
@@ -1117,7 +1118,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative rate');
-ylim([0.6 1.3])
+ylim([0.65 1.3])
 
 %COMPARE SSI
 xl = [-0.1 0.3];
@@ -1129,7 +1130,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative SSI');
-ylim([0.5 1.25])
+ylim([0.5 1.2])
 
 %compare offsets
 f3 = figure();hold on
@@ -1140,7 +1141,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Relative Offset');
-ylim([-0.1 0.25]);
+ylim([-0.1 0.3]);
 
 %compare gains
 f4 = figure();hold on
@@ -1151,7 +1152,7 @@ line([0 0],ylim(),'color','k');
 xlim(xl);
 xlabel('Time (s)');
 ylabel('Gain');
-ylim([0.5 1.2]);
+ylim([0.5 1.15]);
 
 % % PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
@@ -1998,7 +1999,7 @@ search_range = [0 0.3];
 [par_Efact,par_exctime] = get_tavg_peaks((all_msac_par_up-1),tlags_up,search_range);
 [orth_Efact,orth_exctime] = get_tavg_peaks((all_msac_orth_up-1),tlags_up,search_range);
 
-xl = [-0.1 0.4];
+xl = [-0.1 0.3];
 
 close all
 %COMBINED MONKEYS WITH SEPARATE TRACE FOR SUB_POP
@@ -2012,12 +2013,12 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-% % %PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'MUA_par_orth2.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% %PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'MUA_par_orth3.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 %% STA ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);

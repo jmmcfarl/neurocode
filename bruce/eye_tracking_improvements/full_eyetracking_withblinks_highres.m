@@ -1233,7 +1233,7 @@ if use_LOOXV > 0
         
         gamma = exp(lgamma);
         drift_post_mean_LOO(xv,:) = sum(bsxfun(@times,gamma,Dshifts),2);
-        drift_post_std_LOO(xv,:) = sqrt(sum(bsxfun(@times,gamma,Dshifts.^2),2) - squeeze(drift_post_mean_LOO(xv,:)).^2);
+        drift_post_std_LOO(xv,:) = sqrt(sum(bsxfun(@times,gamma,Dshifts.^2),2)) - drift_post_mean_LOO(xv,:)'.^2;
         
         drift_post_mean_LOO(xv,isnan(drift_post_mean_LOO(xv,:))) = 0;
         drift_post_std_LOO(xv,isnan(drift_post_std_LOO(xv,:))) = 0;
