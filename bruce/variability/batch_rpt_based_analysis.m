@@ -106,6 +106,11 @@ for ss = 1:length(cur_SUs)
 end
 
 %%
+msize = 10;
+f1 = figure();
+plot(mod_alphas,spline_alpha,'.','markersize',msize);
+line([0 1],[0 1],'color','k');
+%%
 cur_SUs = find(avg_rates >= min_rate & mod_xvLLimps > min_xvLLimp & n_rpt_trials >= min_rpt_trials);
 
 maxtlag = 10;
@@ -124,8 +129,9 @@ for ss = 1:length(cur_SUs)
     psth_noise_covs = cur_emp_covs - cur_psth_covs;
     spline_noise_covs = cur_emp_covs - cur_sig_covs;
     
-    cur_norms = all_SU_data(cur_SUs(ss)).varnorm_mat(:,maxtlag+1);
-    
+%     cur_norms = all_SU_data(cur_SUs(ss)).varnorm_mat(:,maxtlag+1);
+      cur_norms = all_SU_data(cur_SUs(ss)).noise_varnorm_mat(:,maxtlag+1);
+  
     cur_pair_IDS = [repmat(all_SU_data(cur_SUs(ss)).unit_num,length(cur_norms),1) (1:length(cur_norms))'];
     
     all_psth_noise_corrs = cat(1,all_psth_noise_corrs,psth_noise_covs./cur_norms);
@@ -145,7 +151,7 @@ close all
 uset = find(all_pair_IDS(:,1) ~= all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24);
 
 % poss_expts = [289];
-poss_expts = [270 275 277 281 287 289 294 296 297];
+poss_expts = [266 270 275 277 281 287 289 294 296 297];
 uset(~ismember(all_expt_IDS(uset),poss_expts)) = [];
 
 xx = linspace(-0.2,1,100);

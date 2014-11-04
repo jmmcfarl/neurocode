@@ -4,10 +4,11 @@ addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
 addpath('~/James_scripts/TentBasis2D/');
 
-Expt_name = 'G093';
+Expt_name = 'G087';
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
-mod_data_name = 'corrected_models2withMUA';
+fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
+mod_data_name = 'corrected_models2';
 
 %%
 
@@ -89,8 +90,7 @@ if ~exist(anal_dir,'dir')
     mkdir(anal_dir)
 end
 
-et_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
-cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
+et_dir = ['~/Analysis/bruce/' 'G093' '/ET_final_imp/'];
 mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
 
 % et_mod_data_name = 'full_eyetrack_initmods';
@@ -264,7 +264,7 @@ sp_dx = base_sp_dx/spatial_usfac/scale_fac; %model dx in deg
 %%
 full_nPix_us = spatial_usfac*full_nPix;
 
-sparsity = 0.67;
+sparsity = 0.12;
 n_rpts = 200;
 rpt_dur = round(4/dt);
 NT = rpt_dur*n_rpts;
@@ -314,9 +314,9 @@ rpt_ep = reshape(hres_ep(1:NT),rpt_dur,n_rpts);
 rpt_ep = rpt_ep(:,randperm(n_rpts));
 hres_ep = rpt_ep(:);
 
-fin_shift_cor = round(hres_ep/hres_sp_dx);
+fin_shift_cor = round(hres_ep/sp_dx);
 fin_shift_cor(fin_shift_cor > full_nPix_us) = full_nPix_us;
-fin_shift_cor(fin_shift_cor < -fin_shift_cor) = -full_nPix_us;
+fin_shift_cor(fin_shift_cor < -full_nPix_us) = -full_nPix_us;
 %%
 ep_rpt_stim = rpt_stim;
 for i=1:NT
@@ -331,7 +331,7 @@ all_ep_Xmat = create_time_embedding(ep_rpt_stim,stim_params_us);
 all_ep_Xmat = all_ep_Xmat(:,use_kInds_up);
 
 %%
-cc = 103;
+cc = 101;
 target_mod = ModData(cc).rectGQM;
 [~,~,noep_prate] = NMMmodel_eval(target_mod,[],all_Xmat);
 [~,~,ep_prate] = NMMmodel_eval(target_mod,[],all_ep_Xmat);
@@ -383,15 +383,21 @@ psth_ep = jmm_smooth_1d_cor(psth_ep,psth_sm);
 
 %%
 close all
+var(psth_ep)/var(psth)
 
 msize = 4;
-xl = [1 2];
+% xl = [1.5 2.5];
+xl = [3 4];
 ca = [0 100];
+
 f1 = figure();
 subplot(3,2,1)
 imagesc(new_tax,1:n_rpts,ep_prate_interp'/new_dt);
 xlim(xl);
 caxis(ca);
+% colorbar
+xlabel('Time (s)');
+
 subplot(3,2,2)
 plot(rand_ep_spk_times,rand_ep_spk_trials,'k.','markersize',msize)
 xlim(xl);
@@ -400,6 +406,7 @@ subplot(3,2,3)
 imagesc(new_tax,1:n_rpts,noep_prate_interp'/new_dt);
 xlim(xl);
 caxis(ca);
+% colorbar
 
 subplot(3,2,4)
 plot(rand_spk_times,rand_spk_trials,'k.','markersize',msize)
@@ -409,31 +416,55 @@ subplot(3,2,5); hold on
 plot(new_tax,var(ep_prate_interp')/new_dt^2)
 plot(new_tax,var(noep_prate_interp')/new_dt^2,'r')
 xlim(xl);
+set(gca,'YAxisLocation','right');
 
 subplot(3,2,6); hold on
 plot(new_tax,psth_ep/new_dt)
 plot(new_tax,psth/new_dt,'r')
 xlim(xl);
 
+% %PRINT FIGURE
+fig_width = 7; rel_height = 1.4;
+figufy(f1);
+fname = [fig_dir 'Example_illust_rasters.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
 %%
 % f2 = figure();
 % imagesc(old_tax,1:n_rpts,rpt_ep');
 % caxis([-0.5 0.5]);
 
-f3 = figure();
-t1 = 10;
-t2 = 6;
-t3 = 28;
-% for t1 = 9:100
-plot(old_tax,rpt_ep(:,t1));hold on
-plot(old_tax,rpt_ep(:,t2),'r')
-plot(old_tax,rpt_ep(:,t3),'k')
-xlim(xl);
-ylim([-0.4 0.4])
-% pause
-% clf
-% end
+% f3 = figure();
+% t1 = 10;
+% t2 = 6;
+% t3 = 28;
+% % for t1 = 9:100
+% plot(old_tax,rpt_ep(:,t1));hold on
+% plot(old_tax,rpt_ep(:,t2),'r')
+% plot(old_tax,rpt_ep(:,t3),'k')
+% xlim(xl);
+% ylim([-0.4 0.4])
+% % pause
+% % clf
+% % end
+% xlabel('Time (s)');
+% ylabel('Eye position (deg)');
+% 
+% f4 = figure();
+% hist(full_ep,100);
+% xlim([-0.4 0.4])
+% xlabel('Eye position (deg)');
+% ylabel('Relative frequency');
 
-f4 = figure();
-hist(full_ep,100);
-xlim([-0.4 0.4])
+% % %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.9;
+% figufy(f3);
+% fname = [fig_dir 'Example_eyetraces.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+% figufy(f4);
+% fname = [fig_dir 'Example_eyedist.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);

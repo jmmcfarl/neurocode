@@ -2,8 +2,8 @@ close all
 clear all
 clc
 
-% fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
-fig_dir = '/home/james/Analysis/bruce/variability/figures/';
+fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
+% fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 base_sname = 'model_variability_analysis';
 % base_sname = 'model_variability_analysis_unCor';
 
@@ -140,29 +140,89 @@ alpha_funs = cell2mat(arrayfun(@(x) x.alpha_funs, all_SU_data(cur_SUs),'uniformo
 median_ep_SD = median(actual_EP_SD);
 mm = minmax(actual_EP_SD);
 min_ep_SD = mm(1); max_ep_SD = mm(2);
+% min_ep_SD = 0.09; max_ep_SD = 0.13;
 
-figure;hold on
+f1 = figure;hold on
 plot(poss_SDs,alpha_funs,'r');
 shadedErrorBar(poss_SDs,nanmean(alpha_funs),nanstd(alpha_funs));
 yl = ylim();
 line([0 0]+median_ep_SD,yl,'color','k')
-line([0 0]+min_ep_SD,yl,'color','k');
-line([0 0]+max_ep_SD,yl,'color','k');
+line([0 0]+0.05,yl,'color','k');
+line([0 0]+0.14,yl,'color','k');
 target_alphas_med = interp1(poss_SDs,alpha_funs',median_ep_SD);
 target_alphas_min = interp1(poss_SDs,alpha_funs',min_ep_SD);
 target_alphas_max = interp1(poss_SDs,alpha_funs',max_ep_SD);
+xlabel('EP Sigma (deg)');
+ylabel('Alpha');
 
 minmax_alpha_folddiff = target_alphas_min./target_alphas_max;
 
+% %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Model_alpha_funs.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+
 %%
+expt_nums = [all_SU_data(:).expt_num];
+bar_oris = [all_SU_data(:).bar_ori];
+indicators = [expt_nums(:) bar_oris(:)];
+[c,ia,ic] = unique(indicators,'rows');
+actual_EP_SD = arrayfun(@(x) x.actual_EP_SD,all_SU_data(:));
+jbe_set = ismember(ia,jbe_SUs);
+lem_set = ismember(ia,lem_SUs);
 
-figure;
-subplot(2,1,1)
-plot(RF_ecc(cur_SUs),target_alphas_med,'o');
-subplot(2,1,2);
-plot(RF_sigma(cur_SUs)*2,target_alphas_med,'o');
-xlim([0 0.6])
+xx = linspace(0.05,0.14,15);
+jbe_dist = histc(actual_EP_SD(ia(jbe_set)),xx);
+lem_dist = histc(actual_EP_SD(ia(lem_set)),xx);
+f1 = figure();hold on
+stairs(xx,jbe_dist);
+stairs(xx,lem_dist,'r');
+xlim([0.05 0.14]);
+xlabel('EP Sigma (deg)');
+ylabel('N recs');
 
+% %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Rec_sigma_dist.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+
+%%
+cur_jbe = find(ismember(cur_SUs,jbe_SUs));
+cur_lem = find(ismember(cur_SUs,lem_SUs));
+
+msize = 10;
+
+f1 = figure;
+subplot(3,1,1); hold on
+plot(RF_ecc(cur_SUs(cur_jbe)),target_alphas_med(cur_jbe),'.','markersize',msize);
+plot(RF_ecc(cur_SUs(cur_lem)),target_alphas_med(cur_lem),'r.','markersize',msize);
+xlabel('Eccentricity (deg)');
+ylabel('Alpha');
+
+subplot(3,1,2); hold on
+plot(RF_sigma(cur_SUs(cur_jbe))*2,target_alphas_med(cur_jbe),'.','markersize',msize);
+plot(RF_sigma(cur_SUs(cur_lem))*2,target_alphas_med(cur_lem),'r.','markersize',msize);
+xlim([0 0.6]);
+xlabel('RF Sigma (deg)');
+ylabel('Alpha');
+
+subplot(3,1,3); hold on
+plot(RF_ecc(cur_SUs(cur_jbe)),RF_sigma(cur_SUs(cur_jbe))*2,'.','markersize',msize)
+plot(RF_ecc(cur_SUs(cur_lem)),RF_sigma(cur_SUs(cur_lem))*2,'r.','markersize',msize)
+ylim([0 0.6])
+xlabel('Eccentricity (deg)');
+ylabel('RF Sigma (deg)');
+
+% % %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.9*3;
+% figufy(f1);
+% fname = [fig_dir 'RF_ecc_sigma_alpha.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %%
 close all
@@ -203,20 +263,32 @@ all_psth_corrs_med = interp1(poss_SDs,all_psth_corrs',median_ep_SD);
 all_noise_corrs_med = interp1(poss_SDs,all_noise_corrs',median_ep_SD);
 
 xx = linspace(-0.3,0.7,100);
-f = figure(); hold on
-plot(all_psth_corrs_med,all_noise_corrs_med,'.');
+msize = 8;
+f1 = figure(); hold on
+plot(all_psth_corrs_med,all_noise_corrs_med,'k.','markersize',msize);
 r = regress(all_noise_corrs_med',[ones(size(all_noise_corrs_med)); all_psth_corrs_med]');
 plot(xx,xx*r(2)+r(1),'r');
 xlim([-0.3 0.6]);
 ylim([-0.3 0.6])
+xlabel('PSTH Corr');
+ylabel('Noise Corr');
+
+f1p = figure(); hold on
+plot(all_sig_corrs_med,all_noise_corrs_med,'k.','markersize',msize);
+r = regress(all_noise_corrs_med',[ones(size(all_noise_corrs_med)); all_sig_corrs_med]');
+plot(xx,xx*r(2)+r(1),'b');
+xlim([-0.3 0.8]);
+ylim([-0.3 0.8])
+xlabel('PSTH Corr');
+ylabel('Noise Corr');
 
 noise_psth_corr_slope = nan(9,1);
-f2 = figure; hold on
-cmap = jet(9);
+% f2 = figure; hold on
+% cmap = jet(9);
 for cc = 1:9
-    plot(all_psth_corrs(:,cc),all_noise_corrs(:,cc),'.','markersize',5,'color',cmap(cc,:));
+%     plot(all_psth_corrs(:,cc),all_noise_corrs(:,cc),'.','markersize',5,'color',cmap(cc,:));
     r = regress(all_noise_corrs(:,cc),[ones(size(all_noise_corrs_med)); all_psth_corrs(:,cc)']');
-    plot(xx,xx*r(2)+r(1),'color',cmap(cc,:));
+%     plot(xx,xx*r(2)+r(1),'color',cmap(cc,:));
     noise_psth_corr_slope(cc) = r(2);
 end
 xlim([-0.3 0.7]);
@@ -224,23 +296,55 @@ ylim([-0.3 0.7])
 
 
 noise_sig_corr_slope = nan(9,1);
-f4 = figure; hold on
+% f4 = figure; hold on
 for cc = 1:9
-    plot(all_sig_corrs(:,cc),all_noise_corrs(:,cc),'.','markersize',5,'color',cmap(cc,:));
+%     plot(all_sig_corrs(:,cc),all_noise_corrs(:,cc),'.','markersize',5,'color',cmap(cc,:));
     r = regress(all_noise_corrs(:,cc),[ones(size(all_noise_corrs_med)); all_sig_corrs(:,cc)']');
-    plot(xx,xx*r(2)+r(1),'color',cmap(cc,:));
+%     plot(xx,xx*r(2)+r(1),'color',cmap(cc,:));
     noise_sig_corr_slope(cc) = r(2);
 end
 xlim([-0.3 0.7]);
 ylim([-0.3 0.7])
 
+interp_ax = linspace(poss_SDs(1),poss_SDs(end),100);
+psth_corr_slope_interp = spline(poss_SDs,noise_psth_corr_slope,interp_ax);
+sig_corr_slope_interp = spline(poss_SDs,noise_sig_corr_slope,interp_ax);
+
 f3 = figure();hold on
-plot(poss_SDs,noise_psth_corr_slope,'k--');
-plot(poss_SDs,noise_sig_corr_slope,'r--');
-for cc = 1:9
-    plot(poss_SDs(cc),noise_psth_corr_slope(cc),'o','color',cmap(cc,:),'linewidth',2,'markersize',8);
-    plot(poss_SDs(cc),noise_sig_corr_slope(cc),'o','color',cmap(cc,:),'linewidth',2,'markersize',8);
-end
+% plot(poss_SDs,noise_psth_corr_slope,'k--');
+% plot(poss_SDs,noise_sig_corr_slope,'r--');
+plot(interp_ax,psth_corr_slope_interp,'k');
+plot(interp_ax,sig_corr_slope_interp,'r');
+yl = ylim();
+line(median_ep_SD + [0 0],yl,'color','k')
+
+% for cc = 1:9
+%     plot(poss_SDs(cc),noise_psth_corr_slope(cc),'o','color',cmap(cc,:),'linewidth',2,'markersize',8);
+%     plot(poss_SDs(cc),noise_sig_corr_slope(cc),'o','color',cmap(cc,:),'linewidth',2,'markersize',8);
+% end
+% xlabel('EP Sigma (deg)');
+% ylabel('Noise Corr Fraction');
+
+
+% % %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.9;
+% figufy(f1);
+% fname = [fig_dir 'Model_noisec_psthc.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+
+% fig_width = 3.5; rel_height = 0.9;
+% figufy(f1p);
+% fname = [fig_dir 'Model_noisec_sigc.pdf'];
+% exportfig(f1p,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1p);
+% 
+% % %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.9;
+% figufy(f3);
+% fname = [fig_dir 'Model_noisec_slopes.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
 
 %%
 tlags = -maxtlag:maxtlag;
