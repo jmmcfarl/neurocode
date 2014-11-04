@@ -57,11 +57,11 @@ if strcmp(rec_type,'LP')
     end
 end
 
-if Expt_num >= 280
-    data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-else
+% if Expt_num >= 280
+%     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% else
     data_dir = ['~/Data/bruce/' Expt_name];
-end
+% end
 
 cd(data_dir);
 
@@ -866,12 +866,6 @@ back_kern(1:back_look+1) = 1;
 back_kern = flipud(back_kern/sum(back_kern));
 
 %eye position during repeats
-rpt_EP = orig_ep(all_rpt_inds);
-rpt_EPnan = rpt_EP;
-rpt_EPnan(in_sac_inds(all_rpt_inds)) = nan;
-rpt_EPnan(in_blink_inds(all_rpt_inds)) = nan;
-
-%eye position during repeats
 hrpt_EP = hres_ep(all_rpt_inds);
 hrpt_EPnan = hrpt_EP;
 hrpt_EPnan(in_sac_inds(all_rpt_inds)) = nan;
@@ -879,14 +873,9 @@ hrpt_EPnan(in_blink_inds(all_rpt_inds)) = nan;
 
 %initialize a time-embedded version of the EPs
 sp = NMMcreate_stim_params(back_look);
-rpt_EP_emb = create_time_embedding(rpt_EPnan(:),sp);
 hrpt_EP_emb = create_time_embedding(hrpt_EPnan(:),sp);
 
 for ss = 1:length(loo_set)
-    cur_rpt_ep = orig_fin_tot_corr_LOO(ss,all_rpt_inds);
-    cur_rpt_ep(in_sac_inds(all_rpt_inds)) = nan;
-    cur_rpt_ep(in_blink_inds(all_rpt_inds)) = nan;
-   rpt_EP_emb_LOO{ss} = create_time_embedding(cur_rpt_ep(:),sp);
    cur_rpt_ep = hres_fin_tot_corr_LOO(ss,all_rpt_inds);
     cur_rpt_ep(in_sac_inds(all_rpt_inds)) = nan;
     cur_rpt_ep(in_blink_inds(all_rpt_inds)) = nan;
@@ -907,16 +896,13 @@ end
 for ii = 1:length(rpt_trials)
     cur_inds = find(all_trialvec(used_inds(all_rpt_inds)) == rpt_trials(ii));
     in_sac(ii,1:length(cur_inds)) = in_sac_inds(all_rpt_inds(cur_inds)) | in_blink_inds(all_rpt_inds(cur_inds));
-    full_EP(ii,1:length(cur_inds)) = rpt_EP(cur_inds);
     full_hEP(ii,1:length(cur_inds)) = hrpt_EP(cur_inds);
-    full_EP_emb(ii,1:length(cur_inds),:) = rpt_EP_emb(cur_inds,:);
     full_hEP_emb(ii,1:length(cur_inds),:) = hrpt_EP_emb(cur_inds,:);   
     for ss = 1:length(loo_set)
-    full_EP_emb_LOO{ss}(ii,1:length(cur_inds),:) = rpt_EP_emb_LOO{ss}(cur_inds,:);
     full_hEP_emb_LOO{ss}(ii,1:length(cur_inds),:) = hrpt_EP_emb_LOO{ss}(cur_inds,:);   
     end
 end
-ep_naninds = isnan(full_EP(:)); %find within-sac inds
+ep_naninds = isnan(full_hEP(:)); %find within-sac inds
 
 %% SUBTRACT OUT MEAN RATES
 %nan out within-sac (or within blink) times in psth and mod prates
@@ -928,7 +914,6 @@ full_psth_raw = full_psth;
 full_psth_raw = reshape(full_psth_raw,[],n_chs);
 full_psth_raw(ep_naninds,:) = nan;
 full_psth_raw = reshape(full_psth_raw,n_rpts,[],n_chs);
-
 
 rpt_avg_rates = nanmean(reshape(full_psth_ms,[],n_chs)); %mean rates
 
@@ -984,26 +969,16 @@ ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
 [II,JJ] = meshgrid(1:n_rpts);
 
 cur_XC = nan(length(rpt_taxis),length(ED_bin_centers),n_chs);
-cur_XC2 = nan(length(rpt_taxis),length(ED_bin_centers),n_chs);
 cur_cnt = zeros(length(ED_bin_centers),n_chs);
 rand_XC = nan(length(rpt_taxis),n_chs);
-rand_XC2 = nan(length(rpt_taxis),n_chs);
 for tt = 1:length(rpt_taxis)
     Y1 = squeeze(full_psth_ms(:,tt,:));
-    cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
+    cur_Dmat = abs(squareform(pdist(squeeze(full_hEP_emb(:,tt,:)))))/sqrt(back_look);
     cur_Dmat(logical(eye(n_rpts))) = nan;
-    cur_Dmat2 = abs(squareform(pdist(squeeze(full_hEP_emb(:,tt,:)))))/sqrt(back_look);
-    cur_Dmat2(logical(eye(n_rpts))) = nan;
-%     cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb_LOO{1}(:,tt,:)))))/sqrt(back_look);
-%     cur_Dmat(logical(eye(n_rpts))) = nan;
-%     cur_Dmat2 = abs(squareform(pdist(squeeze(full_hEP_emb_LOO{1}(:,tt,:)))))/sqrt(back_look);
-%     cur_Dmat2(logical(eye(n_rpts))) = nan;
     for jj = 1:length(ED_bin_centers)
         curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
         cur_XC(tt,jj,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
         cur_cnt(jj,:) = cur_cnt(jj,:) + sum(~isnan(Y1(II(curset),:)));
-        curset = find(cur_Dmat2 > ED_bin_edges(jj) & cur_Dmat2 <= ED_bin_edges(jj+1));
-        cur_XC2(tt,jj,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
     end
     curset = ~isnan(cur_Dmat);
     rand_XC(tt,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
@@ -1011,7 +986,6 @@ end
 new_psth_var = nanmean(rand_XC);
 
 var_ep_binned = squeeze(nanmean(cur_XC));
-var_ep_binned2 = squeeze(nanmean(cur_XC2));
 all_relprobs = bsxfun(@rdivide,cur_cnt,sum(cur_cnt));
 
 %%
@@ -1021,29 +995,18 @@ spline_eval = 0:0.005:maxlag_ED;
 
 var_spline_ZPT = nan(n_chs,1);
 var_spline_funs = nan(n_chs,length(spline_eval));
-var_spline_ZPT2 = nan(n_chs,1);
-var_spline_funs2 = nan(n_chs,length(spline_eval));
 for ii = 1:n_chs
     x = ED_bin_centers;
     y = squeeze(var_ep_binned(:,ii));
-    y2 = squeeze(var_ep_binned2(:,ii));
     bad = find(isnan(y));  x(bad) = []; y(bad) = []; 
     ss = fnxtr(csape(spline_knots,y(:).'/fnval(fnxtr(csape(spline_knots,eye(length(spline_knots)),'var')),x(:).'),'var'));
     var_spline_ZPT(ii) = fnval(ss,0);
     var_spline_funs(ii,:) = fnval(ss,spline_eval);
-    x = ED_bin_centers;
-    y = squeeze(var_ep_binned2(:,ii));
-    bad = find(isnan(y));  x(bad) = []; y(bad) = []; 
-    ss = fnxtr(csape(spline_knots,y(:).'/fnval(fnxtr(csape(spline_knots,eye(length(spline_knots)),'var')),x(:).'),'var'));
-    var_spline_ZPT2(ii) = fnval(ss,0);
-    var_spline_funs2(ii,:) = fnval(ss,spline_eval);
 end
 psth_var_frac = psth_var'./var_spline_ZPT;
 new_psth_var_frac = new_psth_var'./var_spline_ZPT;
 psth_var_frac_cor = psth_var_cor'./var_spline_ZPT;
 psth_sig_frac = psth_var./resp_var;
-
-new_psth_var_frac2 = new_psth_var'./var_spline_ZPT2;
 
 %%
 % for ss = 1:n_chs
@@ -1063,12 +1026,6 @@ for ii = 1:n_chs
    line(spline_eval([1 end]),new_psth_var([ii ii]),'color','m');
    line(spline_eval([1 end]),[0 0],'color','k')
   
-%    plot(ED_bin_centers,var_ep_binned2(:,ii),'g.');
-%    hold on
-%    plot(spline_eval,var_spline_funs2(ii,:),'k')
-%    
-%    plot(spline_eval,old_var_spline_funs(ii,:),'r--');
-%    plot(spline_eval,old_var_spline_funs2(ii,:),'k--');
    pause
    clf
 end
@@ -1094,7 +1051,7 @@ for cc = 1:length(targs)
         
         %         cur_Dmat = abs(squareform(pdist(full_EP(:,tt))));
         %         cur_Dmat(logical(eye(n_rpts))) = nan;
-        cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
+        cur_Dmat = abs(squareform(pdist(squeeze(full_hEP_emb(:,tt,:)))))/sqrt(back_look);
         cur_Dmat(logical(eye(n_rpts))) = nan;
         for jj = 1:length(ED_bin_centers)
             curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));

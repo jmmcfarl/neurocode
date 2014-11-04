@@ -747,7 +747,6 @@ else
     targs = setdiff(1:n_chs,1:n_probes); %SU only
 end
 
-targs = 25;
 %% CREATE TIME AXIS FOR REPEAT TRIALS
 rpt_taxis = (1:round(trial_dur)/dt)*dt-dt/2;
 rpt_taxis(rpt_taxis < beg_buffer) = [];
