@@ -137,27 +137,36 @@ cur_SUs = find(avg_rates >= min_rate & mod_xvLLimps > min_xvLLimp);
 actual_EP_SD = arrayfun(@(x) x.actual_EP_SD,all_SU_data(cur_SUs));
 alpha_funs = cell2mat(arrayfun(@(x) x.alpha_funs, all_SU_data(cur_SUs),'uniformoutput',0));
 
-figure;
+median_ep_SD = median(actual_EP_SD);
+mm = minmax(actual_EP_SD);
+min_ep_SD = mm(1); max_ep_SD = mm(2);
+
+figure;hold on
+plot(poss_SDs,alpha_funs,'r');
 shadedErrorBar(poss_SDs,nanmean(alpha_funs),nanstd(alpha_funs));
-hold on
-% plot(poss_SDs,alpha_funs,'r');
+yl = ylim();
+line([0 0]+median_ep_SD,yl,'color','k')
+line([0 0]+min_ep_SD,yl,'color','k');
+line([0 0]+max_ep_SD,yl,'color','k');
+target_alphas_med = interp1(poss_SDs,alpha_funs',median_ep_SD);
+target_alphas_min = interp1(poss_SDs,alpha_funs',min_ep_SD);
+target_alphas_max = interp1(poss_SDs,alpha_funs',max_ep_SD);
 
-target_SD = 0.1;
-target_alphas = interp1(poss_SDs,alpha_funs',target_SD);
+minmax_alpha_folddiff = target_alphas_min./target_alphas_max;
 
-target_SD1 = 0.06;
-target_alphas1 = interp1(poss_SDs,alpha_funs',target_SD1);
-target_SD2 = 0.13;
-target_alphas2 = interp1(poss_SDs,alpha_funs',target_SD2);
+%%
 
 figure;
 subplot(2,1,1)
-plot(RF_ecc(cur_SUs),target_alphas,'o');
+plot(RF_ecc(cur_SUs),target_alphas_med,'o');
 subplot(2,1,2);
-plot(RF_sigma(cur_SUs)*2,target_alphas,'o');
+plot(RF_sigma(cur_SUs)*2,target_alphas_med,'o');
 xlim([0 0.6])
 
+
 %%
+close all
+
 maxtlag = 10;
 sig_corr_bin_edges = [-0.99 -0.75 -0.5 -0.25 -0.1 -0.05 0 0.05 0.1 0.25 0.5 0.75 0.99];
 sig_corr_bin_cents = 0.5*(sig_corr_bin_edges(1:end-1) + sig_corr_bin_edges(2:end));
@@ -180,16 +189,67 @@ for ss = 1:length(cur_SUs)
     end
     all_sig_corrs = cat(1,all_sig_corrs,squeeze(all_SU_data(cur_SUs(ss)).sig_corr_mat(:,maxtlag+1,:)));
     all_noise_corrs = cat(1,all_noise_corrs,squeeze(all_SU_data(cur_SUs(ss)).noise_corr_mat(:,maxtlag+1,:)));
-%     all_psth_corrs = cat(1,all_psth_corrs,squeeze(all_SU_data(cur_SUs(ss)).noise_corr_mat(:,maxtlag+1,:)));
+    all_psth_corrs = cat(1,all_psth_corrs,squeeze(all_SU_data(cur_SUs(ss)).psth_corr_mat(:,maxtlag+1,:)));
 end
 bad = find(all_sig_corrs == 1);
 all_sig_corrs(bad) = nan;
 all_noise_corrs(bad) = nan;
+all_psth_corrs(bad) = nan;
 
 all_noisecorr_avgs = bsxfun(@rdivide,all_noisecorr_avgs,all_noisecorr_n);
+
+all_sig_corrs_med = interp1(poss_SDs,all_sig_corrs',median_ep_SD);
+all_psth_corrs_med = interp1(poss_SDs,all_psth_corrs',median_ep_SD);
+all_noise_corrs_med = interp1(poss_SDs,all_noise_corrs',median_ep_SD);
+
+xx = linspace(-0.3,0.7,100);
+f = figure(); hold on
+plot(all_psth_corrs_med,all_noise_corrs_med,'.');
+r = regress(all_noise_corrs_med',[ones(size(all_noise_corrs_med)); all_psth_corrs_med]');
+plot(xx,xx*r(2)+r(1),'r');
+xlim([-0.3 0.6]);
+ylim([-0.3 0.6])
+
+noise_psth_corr_slope = nan(9,1);
+f2 = figure; hold on
+cmap = jet(9);
+for cc = 1:9
+    plot(all_psth_corrs(:,cc),all_noise_corrs(:,cc),'.','markersize',5,'color',cmap(cc,:));
+    r = regress(all_noise_corrs(:,cc),[ones(size(all_noise_corrs_med)); all_psth_corrs(:,cc)']');
+    plot(xx,xx*r(2)+r(1),'color',cmap(cc,:));
+    noise_psth_corr_slope(cc) = r(2);
+end
+xlim([-0.3 0.7]);
+ylim([-0.3 0.7])
+
+
+noise_sig_corr_slope = nan(9,1);
+f4 = figure; hold on
+for cc = 1:9
+    plot(all_sig_corrs(:,cc),all_noise_corrs(:,cc),'.','markersize',5,'color',cmap(cc,:));
+    r = regress(all_noise_corrs(:,cc),[ones(size(all_noise_corrs_med)); all_sig_corrs(:,cc)']');
+    plot(xx,xx*r(2)+r(1),'color',cmap(cc,:));
+    noise_sig_corr_slope(cc) = r(2);
+end
+xlim([-0.3 0.7]);
+ylim([-0.3 0.7])
+
+f3 = figure();hold on
+plot(poss_SDs,noise_psth_corr_slope,'k--');
+plot(poss_SDs,noise_sig_corr_slope,'r--');
+for cc = 1:9
+    plot(poss_SDs(cc),noise_psth_corr_slope(cc),'o','color',cmap(cc,:),'linewidth',2,'markersize',8);
+    plot(poss_SDs(cc),noise_sig_corr_slope(cc),'o','color',cmap(cc,:),'linewidth',2,'markersize',8);
+end
+
 %%
 tlags = -maxtlag:maxtlag;
 target_SD_ind = 5;
 figure;
-pcolor(tlags,sig_corr_bin_cents,squeeze(all_noisecorr_avgs(:,:,target_SD_ind)));shading flat
+pcolor(tlags*dt,sig_corr_bin_cents,squeeze(all_noisecorr_avgs(:,:,target_SD_ind)));shading flat
 caxis([-0.2 0.2]);
+
+%%
+cc = 91;
+sd = 5;
+sig_xcovs = squeeze(all_SU_data(cc).true_rate_cov(:,:,sd));
