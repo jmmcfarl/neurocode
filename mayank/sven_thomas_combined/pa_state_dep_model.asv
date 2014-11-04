@@ -1,0 +1,29 @@
+function rmse = pa_state_dep_model(a,x,y)
+
+state_seq1 = x(:,1);
+state_seq2 = x(:,2);
+
+tau1 = round(a(1));
+tau2 = round(a(2));
+alpha1 = a(3);
+alpha2 = a(4);
+const = a(5);
+
+%pad state sequences
+if tau1 > 0
+    state_seq1 = [nan(tau1,1); state_seq1(1:end-tau1)];
+elseif tau1 < 0
+    state_seq1 = [state_seq1(-tau1:end); nan(-tau1,1)];
+end
+if tau2 > 0
+    state_seq2 = [nan(tau2,1); state_seq2(tau2+1:end)];
+elseif tau2 < 0
+    state_seq2 = [state_seq2(1:end+tau2); nan(-tau2,1)];
+end
+
+yhat = const + alpha1*state_seq1 + alpha2*state_seq2;
+
+yhat(isnan(state_seq1) | isnan(state_seq2)) = nan;
+
+up = find(~isnan(yhat));
+rmse = sum((yhat(up)-y(up)).^2);

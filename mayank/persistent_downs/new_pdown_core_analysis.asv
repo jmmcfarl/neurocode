@@ -1,0 +1,661 @@
+
+clear all
+data_dir = cell(0);
+data_type = cell(0);
+data_exp = cell(0);
+data_ep = [];
+data_dp = [];
+data_hpc_lfp = [];
+
+cd C:\WC_Germany\sven_thomas_combined\
+load ./combined_dir_nd.mat
+for ii = 1:length(l3mec)
+    data_dir = cat(2,data_dir,combined_dir{l3mec(ii)});
+    data_type = cat(2,data_type,{'L3MEC'});
+    if ismember(l3mec(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3mec(ii)));
+end
+for ii = 1:length(l3mec_np)
+    data_dir = cat(2,data_dir,combined_dir{l3mec_np(ii)});
+    data_type = cat(2,data_type,{'L3MEC'});
+    if ismember(l3mec_np(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3mec_np(ii)));
+end
+for ii = 1:length(l3lec)
+    data_dir = cat(2,data_dir,combined_dir{l3lec(ii)});
+    data_type = cat(2,data_type,{'L3LEC'});
+    if ismember(l3lec(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3lec(ii)));
+end
+for ii = 1:length(l3lec_np)
+    data_dir = cat(2,data_dir,combined_dir{l3lec_np(ii)});
+    data_type = cat(2,data_type,{'L3LEC'});
+    if ismember(l3lec_np(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3lec_np(ii)));
+end
+
+cd C:\WC_Germany\persistent_downs\
+load ./new_pdown_dir
+cur_uset = find(new_pdown_use == 1);
+for ii = 1:length(cur_uset)
+    data_dir = cat(2,data_dir,new_pdown_dir{cur_uset(ii)});
+    data_type = cat(2,data_type,{'L3MEC'});
+    data_exp = cat(2,data_exp,{'S'});
+    data_ep = cat(2,data_ep,new_pdown_ep(cur_uset(ii)));
+    data_dp = cat(2,data_ep,new_pdown_dp(cur_uset(ii)));
+    data_hpc_lfp = cat(2,data_hpc_lfp,2);
+end
+
+addpath('C:\WC_Germany\parietal_cortical_2010\');
+addpath('C:\WC_Germany\persistent_9_27_2010\');
+addpath('C:\WC_Germany\new_mec\');
+addpath('C:\WC_Germany\overall_EC');
+addpath('C:\WC_Germany\hsmm_state_detection');
+addpath('C:\WC_Germany\sven_thomas_combined');
+addpath('C:\Code\general_functions\');
+%%
+
+raw_Fs = 2016;
+dsf = 8;
+Fsd = raw_Fs/dsf;
+niqf = raw_Fs/2;
+hcf = 10;
+lcf = 0.05;
+lcf_hf = 15;
+hcf_hf = 80;
+hcf_sm = 0.025;
+rate_sm = round(Fsd*0.05);
+
+maxlag = round(4*Fsd);
+backlag = 4*Fsd;
+forwardlag = 4*Fsd;
+
+params.Fs = raw_Fs;
+params.fpass = [0 100];
+params.tapers = [3 5];
+win = 25;
+
+%robust persistence requires MP skips states longer than this
+thresh_lf8_updur = 0.5;
+thresh_lf8_downdur = 0.5;
+
+%for state duration distribution calculations
+up_range = [0.1 15];
+down_range = [0.1 15];
+numBins = 60;
+log_dur_grid = logspace(log10(up_range(1)),log10(up_range(2)),numBins+1);
+
+min_rec_dur = 500; %in sec
+used_dirs = find(data_ep > min_rec_dur);
+%%
+for d = 1:length(used_dirs)
+    cd(data_dir{used_dirs(d)})
+    pwd
+    
+    load ./used_data lf7 wcv_minus_spike
+    [lf8_lf,t_axis] = get_lf_features(lf7,raw_Fs,Fsd,[lcf hcf]);
+    wcv_lf = get_lf_features(wcv_minus_spike,raw_Fs,Fsd,[lcf hcf]);
+    lf8_hf = get_hf_features(lf7,raw_Fs,Fsd,[lcf_hf hcf_hf],hcf_sm);
+    
+        load ./sync_times.mat
+    synct_d = downsample(synct,dsf);
+
+%     load ./aligned_heka.mat
+%     ac_time = downsample(ac_time,dsf);
+
+%     if data_hpc_lfp(d) == 3
+%         load ./used_data lf3 lf5
+%         if ismember(d,old_data_inds)
+%             lf3 = lf3 + lf5; %redefine LF3 wrt gnd
+%         end
+%         hpc_hf = get_hf_features(lf3,raw_Fs,Fsd,[lcf_hf hcf_hf],hcf_sm);
+%     else
+%         load ./used_data lf2
+%         hpc_hf = get_hf_features(lf2,raw_Fs,Fsd,[lcf_hf hcf_hf],hcf_sm);
+%     end
+    
+    end_time = min(data_ep(used_dirs(d)),data_dp(used_dirs(d)));
+    ep = find(t_axis >= end_time,1);
+    if ~isempty(ep)
+        synct_d(ep+1:end) = []; %ac_time(ep+1:end) = [];
+        lf8_lf(ep+1:end) = []; wcv_lf(ep+1:end) = []; t_axis(ep+1:end) = []; lf8_hf(ep+1:end) = []; %hpc_hf(ep+1:end) = [];
+    else
+        ep = length(t_axis);
+    end
+%     if exist('./all_combined_mp_uds.mat','file')
+%         load ./all_combined_mp_uds.mat
+%         load ./all_combined_lf7_uds.mat
+%     else
+%         load ./pa_hsmm_state_seq7_combined_fin_nd.mat
+%         load ./pa_hsmm_state_seq_combined_fin_nd.mat
+%     end
+load ./pa_hsmm_state_seq_combined_fin_nd.mat
+load ./pa_hsmm_state_seq7_combined_fin_nd.mat
+
+    hmm8 = hmm7;
+    lfp_state_seq = hmm_bbstate_seq7;
+    mp_state_seq = hmm_bbstate_seq;
+    
+    %         if you want to flip the roles of the MP and LFP
+    %         temp = hsmm_bbstate_seq8;
+    %         hsmm_bbstate_seq8 = hsmm_bbstate_seq;
+    %         hsmm_bbstate_seq = temp;
+    
+    [new_seg_inds] = resample_uds_seg_inds_v2(hmm.UDS_segs,hmm.Fs,Fsd,mp_state_seq);
+    dur_uds = sum(diff(new_seg_inds,[],2))/Fsd;
+    [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,mp_state_seq);
+    [up_trans_inds8,down_trans_inds8] = compute_state_transitions_seg(new_seg_inds,lfp_state_seq);
+    
+    bad_mp_states = find(up_trans_inds > ep | down_trans_inds > ep);
+    up_trans_inds(bad_mp_states) = []; down_trans_inds(bad_mp_states) = [];
+    bad_lfp_states = find(up_trans_inds8 > ep | down_trans_inds8 > ep);
+    up_trans_inds8(bad_lfp_states) = []; down_trans_inds8(bad_lfp_states) = [];
+    
+    fract_uds_dur(d) = dur_uds/t_axis(end);
+    
+    %%
+%     if exist('./allEC_ctx_period_data.mat','file')
+%         load ./allEC_ctx_period_data.mat
+%     else
+%         load ./combined_lf7_period_data_fin_nd
+%     end
+load ./allEC_ctx_period_data_hsmm.mat
+    lf8_period_vec = nan(size(wcv_lf));
+    for i = 1:size(new_seg_inds,1)
+        cur_inds = new_seg_inds(i,1):new_seg_inds(i,2);
+        cur_inds_used = find(cur_inds <= ep);
+        lf8_period_vec(cur_inds(cur_inds_used)) = lf8_period_f{i}(cur_inds_used);
+    end
+    
+        %%
+    mp_state_number = nan(length(wcv_lf),1);
+    mp_state_vec = zeros(length(wcv_lf),1);
+    lfp_state_number = nan(length(wcv_lf),1);
+    lfp_state_vec = zeros(length(wcv_lf),1);
+    for i = 1:length(up_trans_inds)-1
+        mp_state_vec(up_trans_inds(i):down_trans_inds(i)) = 1;
+        mp_state_number(up_trans_inds(i):down_trans_inds(i)) = 2*(i-1)+1;
+        mp_state_number(down_trans_inds(i):up_trans_inds(i+1)) = 2*(i-1) + 2;
+    end
+    for i = 1:length(up_trans_inds8)-1
+        lfp_state_vec(up_trans_inds8(i):down_trans_inds8(i)) = 1;
+        lfp_state_number(up_trans_inds8(i):down_trans_inds8(i)) = 2*(i-1)+1;
+        lfp_state_number(down_trans_inds8(i):up_trans_inds8(i+1)) = 2*(i-1) + 2;
+    end
+    mp_state_number(isnan(lf8_period_vec)) = nan;
+    lfp_state_number(isnan(lf8_period_vec)) = nan;
+    mp_state_vec(isnan(lf8_period_vec)) = nan;
+    lfp_state_number(isnan(lf8_period_vec)) = nan;
+
+    %% compute state duration distributions
+    [mp_state_durations{d}] = compute_state_durations_seg(mp_state_seq,Fsd);
+    [lfp_state_durations{d}] = compute_state_durations_seg(lfp_state_seq,Fsd);
+    mp_state_durations{d}{1}(bad_mp_states) = []; mp_state_durations{d}{2}(bad_mp_states) = [];
+    lfp_state_durations{d}{1}(bad_lfp_states) = []; lfp_state_durations{d}{2}(bad_lfp_states) = [];
+        
+    up_dur_loghist(d,:) = histc(mp_state_durations{d}{2},log_dur_grid);
+    up_dur_loghist8(d,:) = histc(lfp_state_durations{d}{2},log_dur_grid);
+    down_dur_loghist(d,:) = histc(mp_state_durations{d}{1},log_dur_grid);
+    down_dur_loghist8(d,:) = histc(lfp_state_durations{d}{1},log_dur_grid);
+    
+    mp_updurs = mp_state_durations{d}{2};
+    mp_downdurs = mp_state_durations{d}{1};
+    lf8_updurs= lfp_state_durations{d}{2};
+    lf8_downdurs = lfp_state_durations{d}{1};
+    
+    mp_dutycycs = mp_updurs./(mp_updurs+mp_downdurs);
+    lf8_dutycycs = lf8_updurs./(lf8_updurs+lf8_downdurs);
+    median_dc(d) = nanmedian(mp_dutycycs);
+    median_dc8(d) = nanmedian(lf8_dutycycs);
+    mean_dc(d) = nanmean(mp_dutycycs);
+    mean_dc8(d) = nanmean(lf8_dutycycs);
+    
+    mean_updur8(d) = nanmean(lfp_state_durations{d}{2});
+    mean_downdur8(d) = nanmean(lfp_state_durations{d}{1});
+    median_updur8(d) = nanmedian(lfp_state_durations{d}{2});
+    median_downdur8(d) = nanmedian(lfp_state_durations{d}{1});
+    mean_updur(d) = nanmean(mp_state_durations{d}{2});
+    mean_downdur(d) = nanmean(mp_state_durations{d}{1});
+    median_updur(d) = nanmedian(mp_state_durations{d}{2});
+    median_downdur(d) = nanmedian(mp_state_durations{d}{1});
+    max_updur8(d) = nanmax(lfp_state_durations{d}{2});
+    max_updur(d) = nanmax(mp_state_durations{d}{2});
+    max_downdur8(d) = nanmax(lfp_state_durations{d}{1});
+    max_downdur(d) = nanmax(mp_state_durations{d}{1});
+        
+    %% compute corresponding state transitions and transition lags
+%     [corresp_lf8_upinds{d},corresp_lf8_downinds{d}] = greedy_find_corresponding_ncx_state_transitions_simp(...
+%         up_trans_inds,down_trans_inds,up_trans_inds8,down_trans_inds8);
+    [corresp_lf8_upinds{d},corresp_lf8_downinds{d}] = find_corresponding_state_transitions_lookback(...
+        up_trans_inds,down_trans_inds,up_trans_inds8,down_trans_inds8);
+    
+    %find non-skipped states
+    non_skipped_mp_up_states{d} = find(~isnan(corresp_lf8_upinds{d}));
+    non_skipped_mp_down_states{d} = find(~isnan(corresp_lf8_downinds{d}));
+    
+    %compute transition lags for non-skipped states
+    mp_uplags{d} = nan(size(up_trans_inds));
+    mp_downlags{d} = nan(size(up_trans_inds));
+    mp_uplags{d}(non_skipped_mp_up_states{d}) = up_trans_inds(non_skipped_mp_up_states{d}) - up_trans_inds8(corresp_lf8_upinds{d}(non_skipped_mp_up_states{d}));
+    mp_downlags{d}(non_skipped_mp_down_states{d}) = down_trans_inds(non_skipped_mp_down_states{d}) - down_trans_inds8(corresp_lf8_downinds{d}(non_skipped_mp_down_states{d}));
+    
+    %compute transition lags relative to ctx state durations
+    mp_reldownlags{d} = nan(size(up_trans_inds));
+    mp_reluplags{d} = nan(size(up_trans_inds));
+    for i = 1:length(up_trans_inds)
+        if ~isnan(corresp_lf8_downinds{d}(i))
+            mp_reldownlags{d}(i) = mp_downlags{d}(i)/lf8_downdurs(corresp_lf8_downinds{d}(i))/Fsd;
+        end
+        if ~isnan(corresp_lf8_upinds{d}(i))
+            mp_reluplags{d}(i) = mp_uplags{d}(i)/lf8_updurs(corresp_lf8_upinds{d}(i))/Fsd;
+        end
+    end
+    
+    %% compute persistence
+%     [mp_upskipped{d},mp_downskipped{d}] = greedy_find_skipped_ncx_states(...
+%         corresp_lf8_upinds{d},corresp_lf8_downinds{d},lfp_state_durations{d}{2},lfp_state_durations{d}{1},thresh_lf8_downdur,thresh_lf8_updur);
+    [mp_upskipped{d},mp_downskipped{d}] = greedy_find_skipped_ncx_states_v2(...
+        corresp_lf8_upinds{d},corresp_lf8_downinds{d},lfp_state_durations{d}{2},lfp_state_durations{d}{1},...
+        up_trans_inds8,down_trans_inds8,mp_state_vec,thresh_lf8_downdur,thresh_lf8_updur);
+
+    rt2_ups{d} = find(mp_upskipped{d}.rnum_skipped > 0);
+    t2_ups{d} = find(mp_upskipped{d}.num_skipped > 0);
+    nrt2_ups{d} = find(mp_upskipped{d}.num_skipped == 0);
+    fract_rt2_ups(d) = length(rt2_ups{d})/(length(rt2_ups{d}) + length(nrt2_ups{d}));
+    fract_t2_ups(d) = length(t2_ups{d})/(length(t2_ups{d}) + length(nrt2_ups{d}));
+    
+    t2_downs{d} = find(mp_downskipped{d}.num_skipped > 0);
+    rt2_downs{d} = find(mp_downskipped{d}.rnum_skipped > 0);
+    nrt2_downs{d} = find(mp_downskipped{d}.num_skipped==0); %number of down states that didn't skip any LFP up states
+   fract_t2_downs(d) = length(t2_downs{d})/(length(t2_downs{d}) + length(nrt2_downs{d}));
+    fract_rt2_downs(d) = length(rt2_downs{d})/(length(rt2_downs{d}) + length(nrt2_downs{d}));
+    
+    robust_non_skipped_mp_ups{d} = [rt2_ups{d}; nrt2_ups{d}];
+    robust_non_skipped_mp_downs{d} = [rt2_downs{d}; nrt2_downs{d}];
+    
+    mp_rel_updurs{d} = nan(size(up_trans_inds));
+    mp_rel_downdurs{d} = nan(size(up_trans_inds));
+    mp_rel_updurs{d}(robust_non_skipped_mp_ups{d}) = mp_state_durations{d}{2}(robust_non_skipped_mp_ups{d}) - ...
+        lfp_state_durations{d}{2}(corresp_lf8_upinds{d}(robust_non_skipped_mp_ups{d}));
+    mp_rel_downdurs{d}(robust_non_skipped_mp_downs{d}) = mp_state_durations{d}{1}(robust_non_skipped_mp_downs{d}) - ...
+        lfp_state_durations{d}{1}(corresp_lf8_downinds{d}(robust_non_skipped_mp_downs{d}));
+    mp_rel_updurs_t2{d} = mp_rel_updurs{d}(rt2_ups{d});
+    mp_rel_updurs_nt2{d} = mp_rel_updurs{d}(nrt2_ups{d});
+    mp_rel_downdurs_t2{d} = mp_rel_downdurs{d}(rt2_downs{d});
+    mp_rel_downdurs_nt2{d} = mp_rel_downdurs{d}(nrt2_downs{d});
+    
+    fract_rt1_ups(d) = nansum(mp_rel_updurs{d} > 0)/sum(~isnan(mp_rel_updurs{d}));
+    fract_rt1_ups_nt2(d) = nansum(mp_rel_updurs_nt2{d} > 0)/sum(~isnan(mp_rel_updurs_nt2{d}));
+    fract_rt1_downs(d) = nansum(mp_rel_downdurs{d} > 0)/sum(~isnan(mp_rel_downdurs{d}));
+    
+    %% compute durations in units of Ncx UDS cycles
+    [mp_updurs_lfpc{d},mp_downdurs_lfpc{d}] = find_duration_ncx_uds_cycles(up_trans_inds,down_trans_inds,...
+        mp_uplags{d},mp_downlags{d},lf8_period_vec);
+    mp_corresp_lf8_mindur{d} = [mp_upskipped{d}.min_dur];
+    mp_corresp_lf8_mindur{d}(nrt2_ups{d}) = lf8_updurs(corresp_lf8_upinds{d}(nrt2_ups{d}));
+    rmp_updurs_lfpc{d} = mp_updurs_lfpc{d};
+%     rmp_updurs_lfpc{d}(mp_upskipped{d}.min_dur < thresh_lf8_downdur) = [];
+    rmp_downdurs_lfpc{d} = mp_downdurs_lfpc{d};
+%     rmp_downdurs_lfpc{d}(mp_downskipped{d}.min_dur < thresh_lf8_updur) = [];
+    
+    %%
+    median_uplag(d) = nanmedian(mp_uplags{d});
+    median_uplag_t2(d) = nanmedian(mp_uplags{d}(rt2_ups{d}));
+    median_uplag_nt2(d) = nanmedian(mp_uplags{d}(nrt2_ups{d}));
+    median_reluplag_t2(d) = nanmedian(mp_reluplags{d}(rt2_ups{d}));
+    median_reluplag_nt2(d) = nanmedian(mp_reluplags{d}(nrt2_ups{d}));
+    median_downlag(d) = nanmedian(mp_downlags{d});
+    median_downlag_t2(d) = nanmedian(mp_downlags{d}(rt2_ups{d}));
+    median_downlag_nt2(d) = nanmedian(mp_downlags{d}(nrt2_ups{d}));
+    median_reldownlag_t2(d) = nanmedian(mp_reldownlags{d}(rt2_ups{d}));
+    median_reldownlag_nt2(d) = nanmedian(mp_reldownlags{d}(nrt2_ups{d}));
+    mean_uplag(d) = nanmean(mp_uplags{d});
+    mean_downlag(d) = nanmean(mp_downlags{d});
+    median_reluplag(d) = nanmedian(mp_reluplags{d});
+    median_reldownlag(d) = nanmedian(mp_reldownlags{d});
+    mean_reluplag(d) = nanmean(mp_reluplags{d});
+    mean_reldownlag(d) = nanmean(mp_reldownlags{d});
+        
+    %tests to see whether lags are different in pers vs non-pers states
+    uplag_pers_test(d) = ranksum(mp_uplags{d}(rt2_ups{d}),mp_uplags{d}(nrt2_ups{d}));
+    downlag_pers_test(d) = ranksum(mp_downlags{d}(rt2_ups{d}),mp_downlags{d}(nrt2_ups{d}));
+    reluplag_pers_test(d) = ranksum(mp_reluplags{d}(rt2_ups{d}),mp_reluplags{d}(nrt2_ups{d}));
+    reldownlag_pers_test(d) = ranksum(mp_reldownlags{d}(rt2_ups{d}),mp_reldownlags{d}(nrt2_ups{d}));
+    
+    rt2_downs{d}(isnan(corresp_lf8_upinds{d}(rt2_downs{d}))) = [];
+    nrt2_downs{d}(isnan(corresp_lf8_upinds{d}(nrt2_downs{d}))) = [];
+    mean_updur8_persups(d) = mean(lf8_updurs(corresp_lf8_upinds{d}(rt2_ups{d})));
+    mean_updur8_npersups(d) = mean(lf8_updurs(corresp_lf8_upinds{d}(nrt2_ups{d})));
+    mean_updur8_persdowns(d) = mean(lf8_updurs(corresp_lf8_upinds{d}(rt2_downs{d})));
+    mean_updur8_npersdowns(d) = mean(lf8_updurs(corresp_lf8_upinds{d}(nrt2_downs{d})));
+    
+    prev_downs_pers = corresp_lf8_downinds{d}(rt2_ups{d})-1;
+    prev_downs_pers(prev_downs_pers < 1 | isnan(prev_downs_pers)) = [];
+    mean_downdur8_persups(d) = mean(lf8_updurs(prev_downs_pers));
+    prev_downs_pers = corresp_lf8_downinds{d}(nrt2_ups{d})-1;
+    prev_downs_pers(prev_downs_pers < 1 | isnan(prev_downs_pers)) = [];
+    mean_downdur8_npersups(d) = mean(lf8_updurs(prev_downs_pers));
+    prev_downs_pers = corresp_lf8_downinds{d}(rt2_downs{d})-1;
+    prev_downs_pers(prev_downs_pers < 1 | isnan(prev_downs_pers)) = [];
+    mean_downdur8_persdowns(d) = mean(lf8_updurs(prev_downs_pers));
+    prev_downs_pers = corresp_lf8_downinds{d}(nrt2_downs{d})-1;
+    prev_downs_pers(prev_downs_pers < 1 | isnan(prev_downs_pers)) = [];
+    mean_downdur8_npersdowns(d) = mean(lf8_updurs(prev_downs_pers));
+    
+    %test whether up-transition lags are correlated with depth of
+    %anesthesia properties
+    robust_non_skipped_mp_ups{d}(end) = [];
+    temp = corrcoef(mp_uplags{d}(robust_non_skipped_mp_ups{d}),lf8_updurs(corresp_lf8_upinds{d}(robust_non_skipped_mp_ups{d})));
+    uplag_updur8_corr(d) = temp(2,1);
+    temp = corrcoef(mp_uplags{d}(robust_non_skipped_mp_ups{d}),lf8_dutycycs(corresp_lf8_upinds{d}(robust_non_skipped_mp_ups{d})));
+    uplag_dc8_corr(d) = temp(2,1);
+    temp = corrcoef(mp_uplags{d}(robust_non_skipped_mp_ups{d}),lf8_downdurs(corresp_lf8_upinds{d}(robust_non_skipped_mp_ups{d})));
+    uplag_downdur8_corr(d) = temp(2,1);
+    
+    temp = corrcoef(mp_reluplags{d}(robust_non_skipped_mp_ups{d}),lf8_updurs(corresp_lf8_upinds{d}(robust_non_skipped_mp_ups{d})));
+    reluplag_updur8_corr(d) = temp(2,1);
+    temp = corrcoef(mp_reluplags{d}(robust_non_skipped_mp_ups{d}),lf8_dutycycs(corresp_lf8_upinds{d}(robust_non_skipped_mp_ups{d})));
+    reluplag_dc8_corr(d) = temp(2,1);
+    temp = corrcoef(mp_reluplags{d}(robust_non_skipped_mp_ups{d}),lf8_downdurs(corresp_lf8_upinds{d}(robust_non_skipped_mp_ups{d})));
+    reluplag_downdur8_corr(d) = temp(2,1);
+    
+    %%
+    if exist('./mua_data3.mat','file')
+        load ./mua_data3
+        ctx_mua_times = sort([mua_times{7} mua_times{8}]);
+        ctx_mua_rate = hist(ctx_mua_times,synct_d)*Fsd;
+        ctx_mua_rate = jmm_smooth_1d_cor(ctx_mua_rate,rate_sm);
+        if length(ctx_mua_rate) > length(synct_d)
+            ctx_mua_rate = ctx_mua_rate(1:length(synct_d));
+        end
+    else
+        ctx_mua_rate = nan(size(synct_d));
+    end
+    avg_ctx_mua_rate(d) = nanmean(ctx_mua_rate);
+    std_ctx_mua_rate(d) = nanstd(ctx_mua_rate);
+    ctx_mua_rate = zscore(ctx_mua_rate);
+
+    skipped_ctx_ups = [];
+    for ii = 1:length(rt2_downs{d})
+        skipped_ctx_ups = cat(2,skipped_ctx_ups,mp_downskipped{d}.inds{rt2_downs{d}(ii)});
+    end
+    non_skipped_ctx_ups = [];
+    for ii = 1:length(up_trans_inds)
+        non_skipped_ctx_ups = cat(2,non_skipped_ctx_ups,corresp_lf8_upinds{d}(ii));
+    end
+    non_skipped_ctx_ups(isnan(non_skipped_ctx_ups)) = [];
+ 
+    pers_ctx_ups = [];
+    for ii = 1:length(rt2_ups{d})
+        pers_ctx_ups = cat(2,pers_ctx_ups,corresp_lf8_upinds{d}(rt2_ups{d}(ii)));
+    end
+    npers_ctx_ups = [];
+    for ii = 1:length(nrt2_ups{d})
+        npers_ctx_ups = cat(2,npers_ctx_ups,corresp_lf8_upinds{d}(nrt2_ups{d}(ii)));
+    end
+
+    [up_amps,down_amps] = get_state_amplitudes(lf8_lf,up_trans_inds8,down_trans_inds8);
+    [up_amps_hf,down_amps_hf] = get_state_amplitudes(lf8_hf,up_trans_inds8,down_trans_inds8);
+    [up_amps_mua,down_amps_mua] = get_state_amplitudes(ctx_mua_rate,up_trans_inds8,down_trans_inds8);
+    if ~isempty(skipped_ctx_ups)
+        skipped_up_amp(d) = mean(up_amps(skipped_ctx_ups));
+        skipped_up_amp_hf(d) = mean(up_amps_hf(skipped_ctx_ups));
+        skipped_up_amp_mua(d) = mean(up_amps_mua(skipped_ctx_ups));
+        skipped_up_dur(d) = mean(lfp_state_durations{d}{2}(skipped_ctx_ups));
+    else
+        skipped_up_amp(d) = nan;
+        skipped_up_amp_hf(d) = nan;
+        skipped_up_amp_mua(d) = nan;
+        skipped_up_dur(d) = nan;
+    end
+    nskipped_up_amp(d) = mean(up_amps(non_skipped_ctx_ups));
+    nskipped_up_amp_hf(d) = mean(up_amps_hf(non_skipped_ctx_ups));
+    nskipped_up_amp_mua(d) = mean(up_amps_mua(non_skipped_ctx_ups));
+    nskipped_up_dur(d) = mean(lfp_state_durations{d}{2}(non_skipped_ctx_ups));
+    
+    if ~isempty(pers_ctx_ups)
+        pers_up_amp(d) = mean(up_amps(pers_ctx_ups));
+        pers_up_amp_hf(d) = mean(up_amps_hf(pers_ctx_ups));
+        pers_up_amp_mua(d) = mean(up_amps_mua(pers_ctx_ups));
+        pers_up_dur(d) = mean(lfp_state_durations{d}{2}(pers_ctx_ups));
+    else
+        pers_up_amp(d) = nan;
+        pers_up_amp_hf(d) = nan;
+        pers_up_amp_mua(d) = nan;
+    end
+    npers_up_amp(d) = mean(up_amps(npers_ctx_ups));
+    npers_up_amp_hf(d) = mean(up_amps_hf(npers_ctx_ups));
+    npers_up_amp_mua(d) = mean(up_amps_mua(npers_ctx_ups));
+    npers_up_dur(d) = mean(lfp_state_durations{d}{2}(npers_ctx_ups));
+   
+    %%
+    nrt2_time_since_last_mp_up{d} = nan(size(up_trans_inds));
+    for i = 1:length(nrt2_time_since_last_mp_up{d})
+        corresp_ctx_up = corresp_lf8_upinds{d}(i);
+        if ~isnan(corresp_ctx_up)
+        prev_mp_down = find(down_trans_inds < up_trans_inds8(corresp_ctx_up),1,'last');
+        if ~isempty(prev_mp_down)
+        nrt2_time_since_last_mp_up{d}(i) = (up_trans_inds8(corresp_ctx_up) - down_trans_inds(prev_mp_down))/Fsd;
+        end
+        end
+    end
+    nrt2_time_since_last_mp_up{d}(nrt2_time_since_last_mp_up{d} > 10) = 10;
+    pup_time_since_last_mp_up{d} = nrt2_time_since_last_mp_up{d}(rt2_ups{d});
+    npup_time_since_last_mp_up{d} = nrt2_time_since_last_mp_up{d}(nrt2_ups{d});
+    
+    rt2_time_since_last_mp_up{d} = nan(length(rt2_downs{d}),1);
+    for i = 1:length(rt2_downs{d})
+        cur_first_skipped = mp_downskipped{d}.inds(rt2_downs{d}(i));
+        cur_first_skipped = cur_first_skipped{1}(1);
+        prev_mp_down = find(down_trans_inds < up_trans_inds8(cur_first_skipped),1,'last');
+        if ~isempty(prev_mp_down)
+        rt2_time_since_last_mp_up{d}(i) = (up_trans_inds8(cur_first_skipped) - down_trans_inds(prev_mp_down))/Fsd;
+        end
+    end
+    rt2_time_since_last_mp_up{d}(rt2_time_since_last_mp_up{d} > 10) = 10;
+    
+    pdown_diff_tslmu(d) = ranksum(rt2_time_since_last_mp_up{d},nrt2_time_since_last_mp_up{d});
+    pup_diff_tslmu(d) = ranksum(pup_time_since_last_mp_up{d},npup_time_since_last_mp_up{d});
+    
+end
+
+cd C:\WC_Germany\persistent_downs\
+% save allEC_core_analysis
+save new_down_core_analysis_backlook
+
+
+%%
+l3mec = find(strcmp(data_type(used_dirs),'L3MEC'));
+l3lec = find(strcmp(data_type(used_dirs),'L3LEC'));
+cd C:\persDowns_paper\Figs\
+
+figure;
+plot(median_downlag(l3mec)/Fsd,fract_rt2_ups(l3mec),'r.','markersize',8)
+hold on
+plot(median_downlag(l3lec)/Fsd,fract_rt2_ups(l3lec),'.','markersize',8)
+box off
+legend('MEC','LEC');
+xlabel('Down-transition lag (s)','fontsize',14);
+ylabel('Fraction persistent ups','fontsize',14);
+set(gca,'fontsize',12,'fontname','arial');
+fillPage(gcf,'papersize',[5 5]);
+
+
+% subplot(2,1,2)
+figure
+plot(median_uplag(l3mec)/Fsd,fract_rt2_downs(l3mec),'r.','markersize',8)
+hold on
+plot(median_uplag(l3lec)/Fsd,fract_rt2_downs(l3lec),'.','markersize',8)
+box off
+legend('MEC','LEC');
+xlabel('Up-transition lag (s)','fontsize',14);
+ylabel('Fraction persistent downs','fontsize',14);
+set(gca,'fontsize',12,'fontname','arial');
+fillPage(gcf,'papersize',[5 5]);
+
+%%
+figure;hold on
+plot(median_uplag(l3mec)/Fsd,median_downlag(l3mec)/Fsd,'r.','markersize',8);
+plot(median_uplag(l3lec)/Fsd,median_downlag(l3lec)/Fsd,'.','markersize',8);
+box off
+legend('MEC','LEC');
+xlabel('Up-transition lag (s)','fontsize',14);
+ylabel('Down-transition lag (s)','fontsize',14);
+set(gca,'fontsize',12,'fontname','arial');
+fillPage(gcf,'papersize',[5 5]);
+
+%%
+numBins = 15;
+pers_range = linspace(0,0.50,numBins+1);
+
+pers_mec = histc(fract_rt2_ups(l3mec),pers_range)/length(l3mec);
+pers_lec = histc(fract_rt2_ups(l3lec),pers_range)/length(l3lec);
+figure
+set(gca,'fontname','arial','fontsize',14)
+stairs(pers_range*100,pers_mec,'r','linewidth',2)
+hold on
+stairs(pers_range*100,pers_lec,'b','linewidth',2)
+legend('MEC','LEC');
+xlim([0 50])
+xlabel('Percent persistent up states','fontsize',14);
+ylabel('Relative frequency','fontsize',14);
+box off
+
+pers_mec = histc(fract_rt2_downs(l3mec),pers_range)/length(l3mec);
+pers_lec = histc(fract_rt2_downs(l3lec),pers_range)/length(l3lec);
+figure
+set(gca,'fontname','arial','fontsize',14)
+stairs(pers_range*100,pers_mec,'r','linewidth',2)
+hold on
+stairs(pers_range*100,pers_lec,'b','linewidth',2)
+legend('MEC','LEC');
+xlim([0 50])
+xlabel('Percent persistent down states','fontsize',14);
+ylabel('Relative frequency','fontsize',14);
+box off
+
+figure;hold on
+plot(100*fract_rt2_ups(l3lec),100*fract_rt2_downs(l3lec),'b.','markersize',8);
+plot(100*fract_rt2_ups(l3mec),100*fract_rt2_downs(l3mec),'r.','markersize',8);
+legend('LEC','MEC');
+line([0 50],[0 50],'color','k')
+xlabel('Percent persistent up states','fontsize',14);
+ylabel('Percent persistent down states','fontsize',14);
+set(gca,'fontname','arial','fontsize',14)
+box off
+
+%%
+clear hist_*
+cur_ax = linspace(0,6,1000);
+binsize = cur_ax(2)-cur_ax(1);
+for d = 1:length(used_dirs)
+    avg_rel_updurs_t2(d) = nanmean(rmp_updurs_lfpc{d}(rt2_ups{d}));
+    avg_rel_updurs_nt2(d) = nanmean(rmp_updurs_lfpc{d}(nrt2_ups{d}));
+    avg_rel_downdurs_t2(d) = nanmean(rmp_downdurs_lfpc{d}(rt2_downs{d}));
+    avg_rel_downdurs_nt2(d) = nanmean(rmp_downdurs_lfpc{d}(nrt2_downs{d}));
+ 
+    avg_updurs_t2(d) = nanmedian(mp_state_durations{d}{2}(rt2_ups{d}));
+    avg_updurs_nt2(d) = nanmedian(mp_state_durations{d}{2}(nrt2_ups{d}));
+    avg_downdurs_t2(d) = nanmedian(mp_state_durations{d}{1}(rt2_downs{d}));
+    avg_downdurs_nt2(d) = nanmedian(mp_state_durations{d}{1}(nrt2_downs{d}));
+
+%     hist_rel_updurs_t2(d,:) = histc(rmp_updurs_lfpc{d}(rt2_ups{d}),cur_ax);
+    hist_rel_updurs_t2(d,:) = histc(rmp_updurs_lfpc{d},cur_ax);
+    hist_rel_updurs_t2(d,:) = hist_rel_updurs_t2(d,:)/length(rt2_ups{d})/binsize;
+    hist_rel_updurs_t2(d,:) = jmm_smooth_1d_cor(hist_rel_updurs_t2(d,:),10);
+%     hist_rel_downdurs_t2(d,:) = histc(rmp_downdurs_lfpc{d}(rt2_downs{d}),cur_ax);
+    hist_rel_downdurs_t2(d,:) = histc(rmp_downdurs_lfpc{d},cur_ax);
+    hist_rel_downdurs_t2(d,:) = hist_rel_downdurs_t2(d,:)/length(rt2_downs{d})/binsize;
+    hist_rel_downdurs_t2(d,:) = jmm_smooth_1d_cor(hist_rel_downdurs_t2(d,:),10);
+end
+
+figure
+h1=shadedErrorBar(cur_ax,nanmean(hist_rel_updurs_t2(l3mec,:)),nanstd(hist_rel_updurs_t2(l3mec,:))/sqrt(length(l3mec)));
+hold on
+h2=shadedErrorBar(cur_ax,nanmean(hist_rel_downdurs_t2(l3mec,:)),nanstd(hist_rel_downdurs_t2(l3mec,:))/sqrt(length(l3mec)),{'color','r'});
+legend([h1.mainLine h2.mainLine],{'Up states','Down states'});
+xlabel('Cortical UDS cycles','fontsize',12);
+ylabel('Probability density','fontsize',12);
+set(gca,'yscale','log')
+xlim([0 4.3])
+ylim([1e-4 200])
+
+%% DISTRIBUTION OF LATENCIES SINCE MP DOWN-TRANS FOR PERS VS NON-PERS
+close all
+min_pdown_frac = 0.1;
+% tt_bins = linspace(0.05,6,50);
+tt_bins = logspace(log10(0.1),log10(6),25);
+tt_bin_cents = 0.5*tt_bins(1:end-1) + 0.5*tt_bins(2:end);
+clear nn_nrt2 nn_rt2
+uset = l3mec(fract_rt2_downs(l3mec) >= min_pdown_frac);
+for ii = 1:length(uset)
+   nn_rt2(ii,:) = histc(rt2_time_since_last_mp_up{uset(ii)},tt_bins);
+   nn_nrt2(ii,:) = histc(nrt2_time_since_last_mp_up{uset(ii)},tt_bins);
+end
+nn_rt2 = bsxfun(@rdivide,nn_rt2,sum(nn_rt2,2));
+nn_nrt2 = bsxfun(@rdivide,nn_nrt2,sum(nn_nrt2,2));
+
+h1=shadedErrorBar(tt_bin_cents,mean(nn_nrt2(:,1:end-1)),std(nn_nrt2(:,1:end-1))/sqrt(length(uset)));
+hold on
+h2=shadedErrorBar(tt_bin_cents,mean(nn_rt2(:,1:end-1)),std(nn_rt2(:,1:end-1))/sqrt(length(uset)),{'color','r'});
+yl = ylim(); ylim([0 yl(2)]);
+xlabel('Time since last MP down-transition (s)','fontsize',12);
+ylabel('Relative frequency','fontsize',12);
+legend([h1.mainLine h2.mainLine],{'Non-persistent','Persistent'});
+box off
+set(gca,'fontsize',10,'fontname','arial');
+xlim([0.1 6]);
+set(gca,'xscale','log');
+fillPage(gcf,'papersize',[5 5]);
+
+%% DISTRIBUTION OF LATENCIES SINCE MP DOWN-TRANS FOR PERS VS NON-PERS
+close all
+min_pup_frac = 0.05;
+% tt_bins = linspace(0.05,6,50);
+tt_bins = logspace(log10(0.1),log10(6),25);
+tt_bin_cents = 0.5*tt_bins(1:end-1) + 0.5*tt_bins(2:end);
+clear nn_nrt2 nn_rt2
+uset = l3mec(fract_rt2_ups(l3mec) >= min_pup_frac);
+for ii = 1:length(uset)
+   nn_rt2(ii,:) = histc(pup_time_since_last_mp_up{uset(ii)},tt_bins);
+   nn_nrt2(ii,:) = histc(npup_time_since_last_mp_up{uset(ii)},tt_bins);
+end
+nn_rt2 = bsxfun(@rdivide,nn_rt2,sum(nn_rt2,2));
+nn_nrt2 = bsxfun(@rdivide,nn_nrt2,sum(nn_nrt2,2));
+
+h1=shadedErrorBar(tt_bin_cents,mean(nn_nrt2(:,1:end-1)),std(nn_nrt2(:,1:end-1))/sqrt(length(uset)));
+hold on
+h2=shadedErrorBar(tt_bin_cents,mean(nn_rt2(:,1:end-1)),std(nn_rt2(:,1:end-1))/sqrt(length(uset)),{'color','r'});
+yl = ylim(); ylim([0 yl(2)]);
+xlabel('Time since MP down-transition (s)','fontsize',12);
+ylabel('Relative frequency','fontsize',12);
+legend([h1.mainLine h2.mainLine],{'Non-persistent','Persistent'});
+box off
+set(gca,'fontsize',10,'fontname','arial');
+xlim([0.1 6]);
+set(gca,'xscale','log');
+fillPage(gcf,'papersize',[5 5]);

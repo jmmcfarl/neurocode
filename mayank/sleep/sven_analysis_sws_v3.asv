@@ -1,0 +1,741 @@
+clear all
+% close all
+
+% cd ~/Data/Sven/2012-6-30_16-6-48/
+% cd ~/Data/Sven/2012-6-30_17-29-16/
+% cd ~/Data/Sven/2012-6-30_18-44-18/
+
+% cd ~/Data/Sven/2012-7-2_15-5-21/
+% cd ~/Data/Sven/2012-7-2_16-19-30/
+% cd ~/Data/Sven/2012-7-2_17-17-14/
+
+% cd C:\WC_Germany\sleep\2012_07_03\2012-7-3_13-17-54
+% % cd C:\WC_Germany\sleep\2012_07_03\2012-7-3_14-17-46
+cd C:\WC_Germany\sleep\2012_07_03\2012-7-3_15-25-44
+
+% cd C:\WC_Germany\sleep\Sleep_07-06\2012-7-6_13-47-20
+% cd C:\WC_Germany\sleep\Sleep_07-06\2012-7-6_15-1-5
+% cd C:\WC_Germany\sleep\Sleep_07-06\2012-7-6_16-12-14
+
+% cd C:\WC_Germany\sleep\2012-7-5_2MiPs\2012-7-5_14-7-37
+% cd C:\WC_Germany\sleep\2012-7-5_2MiPs\2012-7-5_13-16-58
+
+% cd C:\WC_Germany\sleep\2012-7-8_2\2012-7-8_13-9-45
+% cd C:\WC_Germany\sleep\2012-7-8_2\2012-7-8_14-16-26
+
+
+%%
+temp = pwd;
+sl = find(temp == '\',1,'last');
+dname = strcat(temp(sl+1:end),'.mat');
+load(dname)
+
+%% COMPUTE FILTERED LFPS AND SMOOTHED MUAS
+[b,a] = butter(2,[0.2 5]/(Fsd/2));
+mua_sm = round(Fsd*0.1);
+for i = 1:8
+    csc_ff(:,i) = filtfilt(b,a,cscd(:,i));
+    sm_rate(:,i) = smooth(binned_spks(:,i),mua_sm)*Fsd;
+%     sm_rate(:,i) = log(sm_rate(:,i)+1);
+    csc_f(:,i) = zscore(csc_ff(:,i));
+    sm_rate(:,i) = zscore(sm_rate(:,i));
+end
+
+% [b,a] = butter(2,[20 80]/(Fsd/2));
+% pow_sm = round(Fsd*0.05);
+% for i = 1:8
+%     csc_hf(:,i) = filtfilt(b,a,cscd(:,i));
+% %     cscd_hf(:,i) = abs(hilbert(csc_hf(:,i)));
+%     cscd_hf(:,i) = sqrt(smooth(csc_hf(:,i).^2,pow_sm));
+%     cscd_hf(:,i) = zscore(cscd_hf(:,i));
+% end
+
+
+
+%% COMPUTE SPECTROGRAMS
+movingwin = [10 10];
+params.Fs = Fsd;
+params.tapers = [2 3];
+clear Sg tt f
+for i = 1:8
+    [Sg(i,:,:),tt,f]=mtspecgramc(cscd(:,i),movingwin,params);
+end
+
+[~,uds_freq] = min(abs(f - 1.5)); 
+uds_pow = squeeze(Sg(:,:,uds_freq));
+low_freqs = find(f < 0.5);
+lf_pow = squeeze(sum(Sg(:,:,low_freqs),3));
+
+%% IDENTIFY UDS EPOCHS
+min_uds_pow = 1.e-9;
+ctx_ch = 3;
+uds_epochs = find(uds_pow(ctx_ch,:) >= min_uds_pow);
+nonuds_epochs = find(uds_pow(ctx_ch,:) < min_uds_pow);
+
+figure
+plot(tt,uds_pow(ctx_ch,:));hold on
+plot(tt(uds_epochs),uds_pow(ctx_ch,uds_epochs),'r.')
+
+uds_inds = [];
+uds_start_inds = [];
+for i = 1:length(uds_epochs)
+    cur_set = find(t > tt(uds_epochs(i)) - movingwin(1)/2 & t < tt(uds_epochs(i))+movingwin(1)/2);
+    uds_inds = [uds_inds cur_set];
+    uds_start_inds = [uds_start_inds; cur_set(1) cur_set(end)];
+end
+uds_inds = unique(uds_inds);
+nonuds_inds = setdiff(1:length(t),uds_inds);
+
+%%
+ctx_ch = 3;
+mec_ch = 6;
+ca1_ch = 1;
+response = sm_rate(uds_inds,ca1_ch);
+maxlag = round(Fsd*0.5);
+pred = [sm_rate(uds_inds,ctx_ch) sm_rate(uds_inds,mec_ch)];
+% pred = [makeStimRows(sm_rate(uds_inds,3),maxlag) makeStimRows(sm_rate(uds_inds,5),maxlag)]; 
+[beta_uds,beta_int_uds] = regress(response,pred);
+
+response = sm_rate(nonuds_inds,ca1_ch);
+maxlag = round(Fsd*0.25);
+pred = [sm_rate(nonuds_inds,ctx_ch) sm_rate(nonuds_inds,mec_ch)];
+% pred = [makeStimRows(sm_rate(uds_inds,3),maxlag) makeStimRows(sm_rate(uds_inds,5),maxlag)]; 
+[beta_nonuds,beta_int_nonuds] = regress(response,pred);
+
+[xc_ctx_uds,lags] = xcov(sm_rate(uds_inds,3),sm_rate(uds_inds,1),maxlag,'coeff');
+[xc_mec_uds,lags] = xcov(sm_rate(uds_inds,6),sm_rate(uds_inds,1),maxlag,'coeff');
+
+
+ figure
+ plot(lags/Fsd,xc_ctx_uds,'k')
+hold on
+plot(lags/Fsd,xc_mec_uds,'r')
+xlabel('Lags (s)','fontsize',16)
+ylabel('Correlation','fontsize',16)
+legend('Ctx MUA','MEC MUA')
+
+%%
+ctx_ch = 3;
+ca1_ch = 1;
+mec_ch = 5;
+params.Fs = Fsd;
+params.tapers = [4 7];
+params.trialave = 0;
+% movingwin = [10 10];
+params.err = 0;
+win = 10;
+
+ctx_mua = sum(binned_spks(:,2:4),2);
+mec_mua = sum(binned_spks(:,5:8),2);
+ca1_mua = binned_spks(:,1);
+
+[Clfp_ctxmua,~,~,~,~,f,zerosp]=coherencysegcpb(cscd(:,ctx_ch),ctx_mua,win,params,0);
+Clfp_ctxmua = mean(Clfp_ctxmua(:,uds_epochs),2);
+[Clfp_mecmua,~,~,~,~,f,zerosp]=coherencysegcpb(cscd(:,ctx_ch),mec_mua,win,params,0);
+Clfp_mecmua = mean(Clfp_mecmua(:,uds_epochs),2);
+
+% [Cch,Phich,Sch,Pcc_hh,f,ConfC,dof] = coherencyc_unequal_length_trials_jmm([sm_rate(:,ctx_ch) sm_rate(:,ca1_ch)],movingwin,params,uds_start_inds);
+% [Cmh,Phimh,Smh,Pmm_hh,f,ConfC,dof] = coherencyc_unequal_length_trials_jmm([sm_rate(:,mec_ch) sm_rate(:,ca1_ch)],movingwin,params,uds_start_inds);
+% [Cmc,Phimc,Smc,Pmm_cc,f,ConfC,dof] = coherencyc_unequal_length_trials_jmm([sm_rate(:,mec_ch) sm_rate(:,ctx_ch)],movingwin,params,uds_start_inds);
+[Cch,~,Sch,Pcc,Phh,f,ConfC] = coherencysegpb(ctx_mua, ca1_mua,win,params,0);
+Cch = mean(Cch(:,uds_epochs),2); Sch = mean(Sch(:,uds_epochs),2); Pcc = mean(Pcc(:,uds_epochs),2); Phh = mean(Phh(:,uds_epochs),2);
+[Cmh,~,Smh,Pmm,Phh,f,ConfC] = coherencysegpb(mec_mua, ca1_mua,win,params,0);
+Cmh = mean(Cmh(:,uds_epochs),2); Smh = mean(Smh(:,uds_epochs),2); Pmm = mean(Pmm(:,uds_epochs),2); Phh = mean(Phh(:,uds_epochs),2);
+[Ccm,~,Scm,~,~,f,ConfC] = coherencysegpb(ctx_mua, mec_mua,win,params,0);
+Ccm = mean(Ccm(:,uds_epochs),2); Scm = mean(Scm(:,uds_epochs),2); 
+
+% [Cch,~,Sch,Pcc,Phh,f,ConfC] = coherencysegcpb(cscd(:,ctx_ch), binned_spks(:,ca1_ch),win,params,0);
+% Cch = mean(Cch(:,uds_epochs),2); Sch = mean(Sch(:,uds_epochs),2); Pcc = mean(Pcc(:,uds_epochs),2); Phh = mean(Phh(:,uds_epochs),2);
+% [Cmh,~,Smh,Pmm,Phh,f,ConfC] = coherencysegpb(binned_spks(:,mec_ch), binned_spks(:,ca1_ch),win,params,0);
+% Cmh = mean(Cmh(:,uds_epochs),2); Smh = mean(Smh(:,uds_epochs),2); Pmm = mean(Pmm(:,uds_epochs),2); Phh = mean(Phh(:,uds_epochs),2);
+% [Ccm,~,Scm,~,~,f,ConfC] = coherencysegcpb(cscd(:,ctx_ch), binned_spks(:,mec_ch),win,params,0);
+% Ccm = mean(Ccm(:,uds_epochs),2); Scm = mean(Scm(:,uds_epochs),2); 
+
+
+Shc = conj(Sch);
+Shm = conj(Smh);
+Smc = conj(Scm);
+
+%w-m 2-h 8-c
+num = abs(Shm.*Pcc - Shc.*Scm).^2;
+denom = (Phh.*Pcc - abs(Shc).^2).*(Pmm.*Pcc - abs(Smc).^2);
+partial_mh = sqrt(num./denom);
+
+num = abs(Shc.*Pcc - Shm.*Smc).^2;
+denom = (Phh.*Pmm - abs(Shm).^2).*(Pcc.*Pmm - abs(Scm).^2);
+partial_8h = sqrt(num./denom);
+
+figure
+plot(f,partial_8h,'r')
+xlim([0 10])
+hold on
+plot(f,partial_mh)
+plot(f,Clfp_ctxmua,'k')
+plot(f,Clfp_mecmua,'g')
+%% COMPUTE POWER SPECTRA
+% win = [20 10];
+ctx_ch = 3;
+ca1_ch = 1;
+win = 10;
+params.Fs = Fsd;
+params.tapers = [5 9];
+params.trialave = 0;
+for i = 1:8
+    fprintf('Channel %d\n',i);
+    %     [C(i,:),~,~,S(1,:),S(i,:),f] = coherencysegc(cscd(:,1),cscd(:,i),win,params);
+    [C_temp,~,~,~,S_temp,f] = coherencysegc(cscd(:,ctx_ch),cscd(:,i),win,params);
+    if ~isempty(nonuds_epochs)
+        C_nonuds(i,:) = mean(C_temp(:,nonuds_epochs),2);
+        S_nonuds(i,:) = mean(S_temp(:,nonuds_epochs),2);
+    end
+    if ~isempty(uds_epochs)
+        C_uds(i,:) = mean(C_temp(:,uds_epochs),2);
+        S_uds(i,:) = mean(S_temp(:,uds_epochs),2);
+    end
+end
+normS_nonuds = bsxfun(@rdivide,S_nonuds,sum(S_nonuds,2));
+normS_uds = bsxfun(@rdivide,S_uds,sum(S_uds,2));
+
+% for i = 1:8
+%     fprintf('Channel %d\n',i);
+%     [C_temp,~,~,~,S_temp,f] = coherencysegc(cscd(:,ctx_ch),cscd_hf(:,i),win,params);
+%     if ~isempty(nonuds_epochs)
+%         Chf_nonuds(i,:) = mean(C_temp(:,nonuds_epochs),2);
+%         Shf_nonuds(i,:) = mean(S_temp(:,nonuds_epochs),2);
+%     end
+%     if ~isempty(uds_epochs)
+%          Chf_uds(i,:) = mean(C_temp(:,nonuds_epochs),2);
+%        Shf_uds(i,:) = mean(S_temp(:,uds_epochs),2);
+%     end
+%     [C_temp,~,~,~,S_temp,f] = coherencysegc(cscd(:,ca1_ch),cscd_hf(:,i),win,params);
+%     if ~isempty(nonuds_epochs)
+%         Chf_nonuds_ca1(i,:) = mean(C_temp(:,nonuds_epochs),2);
+%     end
+%     if ~isempty(uds_epochs)
+%          Chf_uds_ca1(i,:) = mean(C_temp(:,nonuds_epochs),2);
+%     end
+% end
+
+% figure
+% subplot(3,1,1)
+% plot(f,log(S_nonuds(1,:)),'b')
+% hold on
+% plot(f,log(S_uds(1,:)),'r')
+% set(gca,'xscale','log')
+% subplot(3,1,2)
+% hold on
+% for i = 2:4
+%     plot(f,log(S_nonuds(i,:)),'b','linewidth',0.5*i)
+%     plot(f,log(S_uds(i,:)),'r','linewidth',0.5*i)
+% end
+% set(gca,'xscale','log')
+% subplot(3,1,3)
+% hold on
+% for i = 5:8
+%     plot(f,log(S_nonuds(i,:)),'b','linewidth',0.5*(i-4))
+%     plot(f,log(S_uds(i,:)),'r','linewidth',0.5*(i-4))
+% end
+% set(gca,'xscale','log')
+
+figure
+subplot(2,1,1)
+title('Non-UDS')
+hold on
+plot(f,C_nonuds(1,:),'k','linewidth',2)
+for i = 2:4
+    plot(f,C_nonuds(i,:),'b','linewidth',0.5*i)
+end
+for i = 5:8
+    plot(f,C_nonuds(i,:),'r','linewidth',0.5*(i-4))
+end
+xlim([0 4])
+xlabel('Frequency (Hz)','fontsize',16)
+ylabel('Coherence','fontsize',16)
+subplot(2,1,2)
+title('UDS')
+hold on
+plot(f,C_uds(1,:),'k','linewidth',2)
+for i = 2:4
+    plot(f,C_uds(i,:),'b','linewidth',0.5*i)
+end
+for i = 5:8
+    plot(f,C_uds(i,:),'r','linewidth',0.5*(i-4))
+end
+xlim([0 4])
+xlabel('Frequency (Hz)','fontsize',16)
+ylabel('Coherence','fontsize',16)
+
+% figure
+% subplot(2,1,1)
+% title('Non-UDS')
+% hold on
+% plot(f,Chf_nonuds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     plot(f,Chf_nonuds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Chf_nonuds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 4])
+% xlabel('Frequency (Hz)','fontsize',16)
+% ylabel('Coherence','fontsize',16)
+% subplot(2,1,2)
+% title('UDS')
+% hold on
+% plot(f,Chf_uds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     plot(f,Chf_uds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Chf_uds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 4])
+% xlabel('Frequency (Hz)','fontsize',16)
+% ylabel('Coherence','fontsize',16)
+
+
+%% LOAD MUA
+% FieldSelectionFlags = [1 0 0 1 0];
+% HeaderExtractionFlag = 1;
+% ExtractMode = 1;
+% Filename = 'Sc1.ntt';
+% [Timestamps, Samples, Header] = ...
+%     Nlx2MatSpike_v3( Filename, FieldSelectionFlags,HeaderExtractionFlag, ExtractMode);
+% conv_factor = str2num(Header{15}(13:end));
+% peakvals = bsxfun(@times,Samples(1:4,:),conv_factor');
+% clear Samples
+% [ov_peak,peak_ch] = max(peakvals);
+% for i = 1:4
+%     cur_mua = find(peak_ch == i);
+%     mua{i} = Timestamps(cur_mua);
+% end
+% Filename = 'Sc2.ntt';
+% [Timestamps, Samples, Header] = ...
+%     Nlx2MatSpike_v3( Filename, FieldSelectionFlags,HeaderExtractionFlag, ExtractMode);
+% conv_factor = str2num(Header{15}(13:end));
+% peakvals = bsxfun(@times,Samples(1:4,:),conv_factor');
+% clear Samples
+% [ov_peak,peak_ch] = max(peakvals);
+% for i = 1:4
+%     cur_mua = find(peak_ch == i);
+%     mua{i+4} = Timestamps(cur_mua);
+% end
+% 
+
+
+%% BIN MUA
+% down_ts = downsample(CSC_Timestamps,dsf);
+% for ch = 1:8;
+%     cur_mua = mua{ch};
+%     cur_mua(cur_mua > down_ts(end) | cur_mua < down_ts(1)) = [];
+%     binned_spks(:,ch) = hist(cur_mua,down_ts)';
+% end
+% binned_spks(end,:) = mean(binned_spks);
+
+%% MUA SPECTRA
+% win = [20 10];
+win = [10];
+params.Fs = Fsd;
+params.tapers = [5 9];
+
+spk_cnts = sum(binned_spks);
+mua_rates = spk_cnts/range(t)
+
+mec_ch = 6;
+ctx_ch = 4;
+ca1_ch = 1;
+% for ch = 1:8
+%     ch
+% %     [Cmua_mec(ch,:),~,~,~,Smua(ch,:),f,zerosp]=coherencysegcpb(cscd(:,mec_ch),binned_spks(:,ch),win,params,0);
+%     [Cmua_temp,~,~,~,Smua_temp,f,zerosp]=coherencysegcpb(cscd(:,mec_ch),binned_spks(:,ch),win,params,0);
+%     if ~isempty(nonuds_epochs)
+%         Cmua_mec_nonuds(ch,:) = nanmean(Cmua_temp(:,nonuds_epochs),2);
+%         Smua_nonuds(ch,:) = nanmean(Smua_temp(:,nonuds_epochs),2);
+%     end
+%     if ~isempty(uds_epochs)
+%         Cmua_mec_uds(ch,:) = nanmean(Cmua_temp(:,uds_epochs),2);
+%         Smua_uds(ch,:) = nanmean(Smua_temp(:,uds_epochs),2);
+%     end
+% end
+% Smua_nonuds_norm = bsxfun(@rdivide,Smua_nonuds,sum(Smua_nonuds,2));
+% Smua_uds_norm = bsxfun(@rdivide,Smua_uds,sum(Smua_uds,2));
+
+for ch = 1:8
+    ch
+    %     [Cmua_ctx(ch,:),~,~,~,Smua(ch,:),f,zerosp]=coherencysegcpb(cscd(:,ctx_ch),binned_spks(:,ch),win,params);
+    [Cmua_temp,~,~,~,~,f,zerosp]=coherencysegcpb(cscd(:,ctx_ch),binned_spks(:,ch),win,params,0);
+    if ~isempty(nonuds_epochs)
+        Cmua_ctx_nonuds(ch,:) = nanmean(Cmua_temp(:,nonuds_epochs),2);
+    end
+    if ~isempty(uds_epochs)
+        Cmua_ctx_uds(ch,:) = nanmean(Cmua_temp(:,uds_epochs),2);
+    end
+end
+
+% for ch = 1:8
+%     ch
+%     [Cmua_temp,~,~,~,~,f,zerosp]=coherencysegcpb(binned_spks(:,ctx_ch),binned_spks(:,ch),win,params,0);
+%     if ~isempty(nonuds_epochs)
+%         Cmua_ctxmua_nonuds(ch,:) = nanmean(Cmua_temp(:,nonuds_epochs),2);
+%     end
+%     if ~isempty(uds_epochs)
+%         Cmua_ctxmua_uds(ch,:) = nanmean(Cmua_temp(:,uds_epochs),2);
+%     end
+% end
+% for ch = 1:8
+%     ch
+%     [Cmua_temp,~,~,~,~,f,zerosp]=coherencysegcpb(binned_spks(:,ca1_ch),binned_spks(:,ch),win,params,0);
+%     if ~isempty(nonuds_epochs)
+%         Cmua_ca1mua_nonuds(ch,:) = nanmean(Cmua_temp(:,nonuds_epochs),2);
+%     end
+%     if ~isempty(uds_epochs)
+%         Cmua_ca1mua_uds(ch,:) = nanmean(Cmua_temp(:,uds_epochs),2);
+%     end
+% end
+
+
+
+% figure
+% subplot(3,1,1)
+% plot(f,log(Smua_nonuds(1,:)),'b')
+% hold on
+% plot(f,log(Smua_uds(1,:)),'r')
+% set(gca,'xscale','log')
+% subplot(3,1,2)
+% hold on
+% for i = 2:4
+%     plot(f,log(Smua_nonuds(i,:)),'b','linewidth',0.5*i)
+%     plot(f,log(Smua_uds(i,:)),'r','linewidth',0.5*i)
+% end
+% set(gca,'xscale','log')
+% subplot(3,1,3)
+% hold on
+% for i = 5:8
+%     plot(f,log(Smua_nonuds(i,:)),'b','linewidth',0.5*(i-4))
+%     plot(f,log(Smua_uds(i,:)),'r','linewidth',0.5*(i-4))
+% end
+% set(gca,'xscale','log')
+
+
+% figure
+% subplot(2,2,1)
+% title('Ctx, non-UDS')
+% hold on
+% plot(f,Cmua_ctx_nonuds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     plot(f,Cmua_ctx_nonuds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Cmua_ctx_nonuds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 10])
+% ylim([0.2 0.9])
+% subplot(2,2,2)
+% title('Ctx, UDS')
+% hold on
+% plot(f,Cmua_ctx_uds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     plot(f,Cmua_ctx_uds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Cmua_ctx_uds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 10])
+% ylim([0.2 0.9])
+% subplot(2,2,3)
+% title('MEC, non-UDS')
+% hold on
+% plot(f,Cmua_mec_nonuds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     plot(f,Cmua_mec_nonuds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Cmua_mec_nonuds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 10])
+% ylim([0.2 0.9])
+% subplot(2,2,4)
+% title('MEC, UDS')
+% hold on
+% plot(f,Cmua_mec_uds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     plot(f,Cmua_mec_uds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Cmua_mec_uds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 10])
+% ylim([0.2 0.9])
+% 
+% 
+% figure
+% subplot(2,2,1)
+% title('Ctx MUA, non-UDS')
+% hold on
+% plot(f,Cmua_ctxmua_nonuds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     if i ~= ctx_ch
+%     plot(f,Cmua_ctxmua_nonuds(i,:),'b','linewidth',0.5*i)
+%     end
+% end
+% for i = 5:8
+%     plot(f,Cmua_ctxmua_nonuds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 4])
+% ylim([0.2 0.9])
+% subplot(2,2,2)
+% title('Ctx MUA, UDS')
+% hold on
+% plot(f,Cmua_ctxmua_uds(1,:),'k','linewidth',2)
+% for i = 2:4
+%     if i~= ctx_ch
+%     plot(f,Cmua_ctxmua_uds(i,:),'b','linewidth',0.5*i)
+%     end
+% end
+% for i = 5:8
+%     plot(f,Cmua_ctxmua_uds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 4])
+% ylim([0.2 0.9])
+% subplot(2,2,3)
+% title('CA1 MUA, non-UDS')
+% hold on
+% for i = 2:4
+%     plot(f,Cmua_ca1mua_nonuds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Cmua_ca1mua_nonuds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 4])
+% ylim([0.2 0.9])
+% subplot(2,2,4)
+% title('CA1 MUA, UDS')
+% hold on
+% for i = 2:4
+%     plot(f,Cmua_ca1mua_uds(i,:),'b','linewidth',0.5*i)
+% end
+% for i = 5:8
+%     plot(f,Cmua_ca1mua_uds(i,:),'r','linewidth',0.5*(i-4))
+% end
+% xlim([0 4])
+% ylim([0.2 0.9])
+% 
+figure
+plot(f,Cmua_ctx_uds(2:4,:),'k')
+xlim([0 10])
+shg
+hold on
+plot(f,Cmua_ctx_uds(5:8,:),'b')
+shg
+plot(f,Cmua_ctx_uds(1,:),'r')
+xlabel('Frequency (Hz)','fontsize',16)
+ylabel('Coherence','fontsize',16)
+
+% figure
+% plot(f,Cmua_ctxmua_uds(1,:),'k')
+% xlim([0 10])
+% shg
+% hold on
+% plot(f,Cmua_ctxmua_uds(5,:),'r')
+% shg
+% plot(f,Cmua_ctxmua_uds(6,:),'b')
+% xlabel('Frequency (Hz)','fontsize',16)
+% ylabel('Coherence','fontsize',16)
+%%
+ctx_ch = 3;
+mec_ch = 6;
+
+% csc_f = -csc_f;
+min_amp = 3;
+% [down_blip_amps,down_blip_locs] = findpeaks(-sm_rate(uds_inds,ctx_ch),'minpeakheight',min_amp);
+[down_blip_amps,down_blip_locs] = findpeaks(-csc_f(uds_inds,ctx_ch),'minpeakheight',min_amp);
+down_blip_locs = uds_inds(down_blip_locs);
+[down_blip_amps_mec,down_blip_locs_mec] = findpeaks(-csc_f(uds_inds,mec_ch),'minpeakheight',min_amp);
+down_blip_locs_mec = uds_inds(down_blip_locs_mec);
+% csc_f = -csc_f;
+
+% figure
+% plot(t,csc_f(:,1))
+% hold on
+% plot(t(down_blip_locs),csc_f(down_blip_locs,1),'r.')
+% 
+maxlag = round(Fsd*1);
+down_blip_locs(down_blip_locs < maxlag | down_blip_locs > size(csc_f,1)-maxlag);
+trig_avgs = zeros(2*maxlag+1,8);
+mtrig_avgs = zeros(2*maxlag+1,8);
+for i = 1:length(down_blip_locs)
+    cur_inds = (down_blip_locs(i)-maxlag):(down_blip_locs(i)+maxlag);
+    trig_avgs = trig_avgs + csc_ff(cur_inds,:);
+%     trig_avgs = trig_avgs + cscd_hf(cur_inds,:);
+    mtrig_avgs = mtrig_avgs + sm_rate(cur_inds,:);
+end
+trig_avgs = trig_avgs/length(down_blip_locs);
+mtrig_avgs = mtrig_avgs/length(down_blip_locs);
+
+down_blip_locs_mec(down_blip_locs_mec < maxlag | down_blip_locs_mec > size(csc_f,1)-maxlag);
+trig_avgs_mec = zeros(2*maxlag+1,8);
+mtrig_avgs_mec = zeros(2*maxlag+1,8);
+for i = 1:length(down_blip_locs_mec)
+    cur_inds = (down_blip_locs_mec(i)-maxlag):(down_blip_locs_mec(i)+maxlag);
+    trig_avgs_mec = trig_avgs_mec + csc_ff(cur_inds,:);
+%     trig_avgs_mec = trig_avgs_mec + cscd_hf(cur_inds,:);
+    mtrig_avgs_mec = mtrig_avgs_mec + sm_rate(cur_inds,:);
+end
+trig_avgs_mec = trig_avgs_mec/length(down_blip_locs_mec);
+mtrig_avgs_mec = mtrig_avgs_mec/length(down_blip_locs_mec);
+
+lags = (-maxlag:maxlag)/Fsd;
+
+figure
+subplot(2,2,1)
+plot(lags,trig_avgs);hold on;plot(lags,trig_avgs(:,1),'k','linewidth',2)
+title('Ctx DS Trig LFP','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+subplot(2,2,2)
+plot(lags,mtrig_avgs);hold on;plot(lags,mtrig_avgs(:,1),'k','linewidth',2)
+title('Ctx DS Trig MUA','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+subplot(2,2,3)
+plot(lags,trig_avgs_mec);hold on;plot(lags,trig_avgs_mec(:,1),'k','linewidth',2)
+title('MEC DS Trig LFP','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+subplot(2,2,4)
+plot(lags,mtrig_avgs_mec);hold on;plot(lags,mtrig_avgs_mec(:,1),'k','linewidth',2)
+title('MEC DS Trig MUA','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+figure
+subplot(2,2,1)
+plot(lags,trig_avgs(:,1),'k','linewidth',2)
+hold on
+for i = 2:4
+    plot(lags,trig_avgs(:,i),'b','linewidth',0.5*i)
+    hold on
+end
+for i = 5:8
+    plot(lags,trig_avgs(:,i),'r','linewidth',0.5*(i-4))
+end
+title('Ctx DS Trig LFP','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+subplot(2,2,2)
+plot(lags,mtrig_avgs(:,1),'k','linewidth',2)
+hold on
+for i = 2:4
+    plot(lags,mtrig_avgs(:,i),'b','linewidth',0.5*i)
+    hold on
+end
+for i = 5:8
+    plot(lags,mtrig_avgs(:,i),'r','linewidth',0.5*(i-4))
+end
+title('Ctx DS Trig MUA','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+subplot(2,2,3)
+plot(lags,trig_avgs_mec(:,1),'k','linewidth',2)
+hold on
+for i = 2:4
+    plot(lags,trig_avgs_mec(:,i),'b','linewidth',0.5*i)
+    hold on
+end
+for i = 5:8
+    plot(lags,trig_avgs_mec(:,i),'r','linewidth',0.5*(i-4))
+end
+title('MEC DS Trig LFP','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+subplot(2,2,4)
+plot(lags,mtrig_avgs_mec(:,1),'k','linewidth',2)
+hold on
+for i = 2:4
+    plot(lags,mtrig_avgs_mec(:,i),'b','linewidth',0.5*i)
+    hold on
+end
+for i = 5:8
+    plot(lags,mtrig_avgs_mec(:,i),'r','linewidth',0.5*(i-4))
+end
+title('MEC DS Trig MUA','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+% 
+
+figure
+subplot(1,2,1)
+plot(lags,trig_avgs(:,1),'k','linewidth',2)
+hold on
+for i = 3
+    plot(lags,trig_avgs(:,i),'b','linewidth',2)
+    hold on
+end
+for i = 5
+    plot(lags,trig_avgs(:,i),'r','linewidth',2)
+end
+title('Ctx DS Trig LFP','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+subplot(1,2,2)
+plot(lags,mtrig_avgs(:,1),'k','linewidth',2)
+hold on
+for i = 3
+    plot(lags,mtrig_avgs(:,i),'b','linewidth',2)
+    hold on
+end
+for i = 5
+    plot(lags,mtrig_avgs(:,i),'r','linewidth',2)
+end
+title('Ctx DS Trig MUA','fontsize',18)
+xlabel('Time (s)','fontsize',16)
+ylabel('Relative Amp (z)','fontsize',16)
+
+%%
+ctx_ch = 7;
+min_amp = 3;
+[down_blip_amps,down_blip_locs] = findpeaks(-csc_f(uds_inds,ctx_ch),'minpeakheight',min_amp);
+down_blip_locs = uds_inds(down_blip_locs);
+% 
+maxlag = round(Fsd*8);
+n_blips = length(down_blip_amps);
+down_blip_locs(down_blip_locs < maxlag | down_blip_locs > size(csc_f,1)-maxlag);
+trig_avgs = zeros(n_blips,2*maxlag+1,8);
+mtrig_avgs = zeros(n_blips,2*maxlag+1,8);
+for i = 1:length(down_blip_locs)
+    cur_inds = (down_blip_locs(i)-maxlag):(down_blip_locs(i)+maxlag);
+    trig_avgs(i,:,:) = csc_ff(cur_inds,:);
+    mtrig_avgs(i,:,:) = sm_rate(cur_inds,:);
+end
+[~,amp_ord] = sort(down_blip_amps);
+blip_durs = diff(down_blip_locs)/Fsd;
+max_blip_dur = 10;
+used_blips = find(blip_durs < max_blip_dur);
+[~,dur_ord] = sort(blip_durs(used_blips));
+dur_ord = used_blips(dur_ord);
+
+
+lags = -maxlag:maxlag;
+
+figure
+subplot(2,1,1)
+imagesc(lags/Fsd,1:n_blips,squeeze(trig_avgs(dur_ord,:,ctx_ch)));
+subplot(2,1,2)
+imagesc(lags/Fsd,1:n_blips,squeeze(trig_avgs(dur_ord,:,2)));
+
+figure
+subplot(2,1,1)
+imagesc(lags/Fsd,1:n_blips,squeeze(trig_avgs(dur_ord,:,ctx_ch)));
+subplot(2,1,2)
+imagesc(lags/Fsd,1:n_blips,squeeze(mtrig_avgs(dur_ord,:,8)));
+
+% figure
+% subplot(2,1,1)
+% imagesc(lags/Fsd,1:n_blips,squeeze(trig_avgs(dur_ord,:,ctx_ch)));
+% subplot(2,1,2)
+% imagesc(lags/Fsd,1:n_blips,squeeze(mtrig_avgs(dur_ord,:,3)));
+
+% figure
+% subplot(2,1,1)
+% imagesc(lags/Fsd,1:n_blips,squeeze(trig_avgs(dur_ord,:,ctx_ch)));
+% subplot(2,1,2)
+% imagesc(lags/Fsd,1:n_blips,squeeze(mtrig_avgs(dur_ord,:,1)));

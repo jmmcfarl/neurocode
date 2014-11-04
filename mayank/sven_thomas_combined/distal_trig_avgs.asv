@@ -1,0 +1,406 @@
+
+clear all
+close all
+
+%%
+addpath('C:\WC_Germany\persistent_9_27_2010\')
+addpath('C:\WC_Germany\new_mec\')
+cd C:\WC_Germany\sven_thomas_combined\
+
+load .\distal_dir
+distal_dir = distal_dir(distal_usable);
+mctx_lfp = ctx_lfp(distal_usable);
+mhpc_lfp = hpc_lfp(distal_usable);
+mhpc_mua = hpc_mua(distal_usable);
+
+load ./distal_lec_dir.mat
+distal_dir = [distal_dir distal_lec(usable_distal_lec)];
+ctx_lfp = [mctx_lfp ctx_lfp(usable_distal_lec)];
+hpc_lfp = [mhpc_lfp hpc_lfp(usable_distal_lec)];
+hpc_mua = [mhpc_mua hpc_mua(usable_distal_lec)];
+distal_mec = (1:length(distal_usable));
+distal_lec = (length(distal_usable)+1):(length(distal_usable)+length(usable_distal_lec));
+
+load ./distal_core_analysis_fin_nd_np.mat
+
+raw_Fs = 2016;
+dsf = 8;
+Fsd = raw_Fs/dsf;
+niqf = raw_Fs/2;
+hcf = 10;
+lcf = 0.05;
+lcf_hf = 15;
+hcf_hf = 80;
+hcf_sm = 0.025;
+
+maxlag = round(4*Fsd);
+backlag = 4*Fsd;
+forwardlag = 4*Fsd;
+
+params.Fs = raw_Fs;
+params.fpass = [0 100];
+params.tapers = [3 5];
+win = 25;
+
+[b,a] = butter(2,[lcf hcf]/niqf);
+
+thresh_lf8_updur = 0.5;
+thresh_lf8_downdur = 0.5;
+
+rate_sm = round(Fsd*0.05);
+
+min_n_states = 5;
+%%
+
+for d = 1:length(distal_dir)
+    cd(distal_dir{d})
+    pwd
+    load ./used_data
+    if ctx_lfp(d) == 7
+        lf8 = lf7;
+    end
+    [lf8_lf,t_axis] = get_lf_features(lf8,raw_Fs,Fsd,[lcf hcf]);
+    wcv_lf = get_lf_features(wcv_minus_spike,raw_Fs,Fsd,[lcf hcf]);
+    [desynch_times_lf8,desynch_inds,P_lf8,f,t] = locate_desynch_times_individual_v2(lf8);
+    
+    if ~isnan(hpc_mua(d))
+        load ./mua_data3
+        load ./sync_times.mat
+        synct_d = downsample(synct,dsf);
+        hpc_mua_times = mua_times{hpc_mua(d)};
+        hpc_mua_times(hpc_mua_times > synct_d(end) | hpc_mua_times < synct_d(1)) = [];
+        hpc_mua_rate =hist(hpc_mua_times,synct_d)*Fsd;
+        hpc_mua_rate = jmm_smooth_1d_cor(hpc_mua_rate,rate_sm);
+        mua_rate = zscore(hpc_mua_rate');
+        
+        %         [log_mua,offset(d)] = log_transform_sig(mua_rate);
+        %         mua_rate = zscore(log_mua);
+        
+        if length(mua_rate) > length(t_axis)
+            mua_rate = mua_rate(1:length(t_axis));
+        end
+    else
+        mua_rate = nan(size(lf8_lf));
+    end
+    
+%     load ./pa_hsmm_state_seq_combined_fin
+%     load ./pa_hsmm_state_seq7_combined_fin
+    load ./pa_hsmm_state_seq_combined_fin_nd
+    load ./pa_hsmm_state_seq7_combined_fin_nd
+    hsmm_bbstate_seq8 = hsmm_bbstate_seq7;
+    
+    [new_seg_inds] = resample_uds_seg_inds(hmm.UDS_segs,hmm.Fs,Fsd,length(lf8_lf));
+    dur_uds = sum(diff(new_seg_inds,[],2))/Fsd;
+    [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,hsmm_bbstate_seq);
+    [up_trans_inds8,down_trans_inds8] = compute_state_transitions_seg(new_seg_inds,hsmm_bbstate_seq8);
+    
+    lf8_utrig_lf8(d,:) = get_event_trig_avg(lf8_lf,up_trans_inds8,forwardlag,backlag);
+    lf8_dtrig_lf8(d,:) = get_event_trig_avg(lf8_lf,down_trans_inds8,forwardlag,backlag);
+%     lf8_utrig_hpch(d,:) = get_event_trig_avg(hpc_hf,up_trans_inds8,forwardlag,backlag);
+%     lf8_dtrig_hpch(d,:) = get_event_trig_avg(hpc_hf,down_trans_inds8,forwardlag,backlag);
+%     lf8_utrig_hpc(d,:) = get_event_trig_avg(hpc_lf,up_trans_inds8,forwardlag,backlag);
+%     lf8_dtrig_hpc(d,:) = get_event_trig_avg(hpc_lf,down_trans_inds8,forwardlag,backlag);
+    lf8_utrig_wcv(d,:) = get_event_trig_avg(wcv_lf,up_trans_inds8,forwardlag,backlag);
+    lf8_dtrig_wcv(d,:) = get_event_trig_avg(wcv_lf,down_trans_inds8,forwardlag,backlag);
+    
+    wcv_utrig_lf8(d,:) = get_event_trig_avg(lf8_lf,up_trans_inds,forwardlag,backlag);
+    wcv_dtrig_lf8(d,:) = get_event_trig_avg(lf8_lf,down_trans_inds,forwardlag,backlag);
+%     wcv_utrig_hpch(d,:) = get_event_trig_avg(hpc_hf,up_trans_inds,forwardlag,backlag);
+%     wcv_dtrig_hpch(d,:) = get_event_trig_avg(hpc_hf,down_trans_inds,forwardlag,backlag);
+%     wcv_utrig_hpc(d,:) = get_event_trig_avg(hpc_lf,up_trans_inds,forwardlag,backlag);
+%     wcv_dtrig_hpc(d,:) = get_event_trig_avg(hpc_lf,down_trans_inds,forwardlag,backlag);
+    wcv_utrig_wcv(d,:) = get_event_trig_avg(wcv_lf,up_trans_inds,forwardlag,backlag);
+    wcv_dtrig_wcv(d,:) = get_event_trig_avg(wcv_lf,down_trans_inds,forwardlag,backlag);
+      
+    lf8_utrig_mua(d,:) = get_event_trig_avg(mua_rate,up_trans_inds8,forwardlag,backlag);
+    lf8_dtrig_mua(d,:) = get_event_trig_avg(mua_rate,down_trans_inds8,forwardlag,backlag);
+    wcv_utrig_mua(d,:) = get_event_trig_avg(mua_rate,up_trans_inds,forwardlag,backlag);
+    wcv_dtrig_mua(d,:) = get_event_trig_avg(mua_rate,down_trans_inds,forwardlag,backlag);
+    
+    skipped_lfp_trans = [];
+    for j = 1:length(up_trans_inds)
+        skipped_lfp_trans = [skipped_lfp_trans mp_upskipped{d}.inds{j}];
+    end
+    non_skipped_lfp_trans = setdiff(1:length(down_trans_inds8),skipped_lfp_trans);
+    n_uskip(d) = length(skipped_lfp_trans);
+    
+    dskipped_lfp_trans = [];
+    for j = 1:length(up_trans_inds)
+        dskipped_lfp_trans = [dskipped_lfp_trans mp_downskipped{d}.inds{j}];
+    end
+    non_dskipped_lfp_trans = setdiff(1:length(up_trans_inds8),dskipped_lfp_trans);
+    n_dskip(d) = length(dskipped_lfp_trans);
+    
+    if length(dskipped_lfp_trans) >= min_n_states
+        lf8_utrig_lf8_dsk(d,:) = get_event_trig_avg(lf8_lf,up_trans_inds8(dskipped_lfp_trans),forwardlag,backlag);
+%         lf8_utrig_hpc_dsk(d,:) = get_event_trig_avg(hpc_lf,up_trans_inds8(dskipped_lfp_trans),forwardlag,backlag);
+%         lf8_utrig_hpch_dsk(d,:) = get_event_trig_avg(hpc_hf,up_trans_inds8(dskipped_lfp_trans),forwardlag,backlag);
+        lf8_utrig_wcv_dsk(d,:) = get_event_trig_avg(wcv_lf,up_trans_inds8(dskipped_lfp_trans),forwardlag,backlag);
+        lf8_utrig_mua_dsk(d,:) = get_event_trig_avg(mua_rate,up_trans_inds8(dskipped_lfp_trans),forwardlag,backlag);
+    else
+        lf8_utrig_lf8_dsk(d,:) = nan(1,forwardlag+backlag+1);
+%         lf8_utrig_hpc_dsk(d,:) = nan(1,forwardlag+backlag+1);
+%         lf8_utrig_hpch_dsk(d,:) = nan(1,forwardlag+backlag+1);
+        lf8_utrig_wcv_dsk(d,:) = nan(1,forwardlag+backlag+1);
+        lf8_utrig_mua_dsk(d,:) = nan(1,forwardlag+backlag+1);
+    end
+    lf8_utrig_lf8_ndsk(d,:) = get_event_trig_avg(lf8_lf,up_trans_inds8(non_dskipped_lfp_trans),forwardlag,backlag);
+    lf8_utrig_wcv_ndsk(d,:) = get_event_trig_avg(wcv_lf,up_trans_inds8(non_dskipped_lfp_trans),forwardlag,backlag);
+%     lf8_utrig_hpch_ndsk(d,:) = get_event_trig_avg(hpc_hf,up_trans_inds8(non_dskipped_lfp_trans),forwardlag,backlag);
+%     lf8_utrig_hpc_ndsk(d,:) = get_event_trig_avg(hpc_lf,up_trans_inds8(non_dskipped_lfp_trans),forwardlag,backlag);
+        lf8_utrig_mua_ndsk(d,:) = get_event_trig_avg(mua_rate,up_trans_inds8(non_dskipped_lfp_trans),forwardlag,backlag);
+    
+    if length(skipped_lfp_trans) >= min_n_states
+        lf8_dtrig_lf8_sk(d,:) = get_event_trig_avg(lf8_lf,down_trans_inds8(skipped_lfp_trans),forwardlag,backlag);
+%         lf8_dtrig_hpc_sk(d,:) = get_event_trig_avg(hpc_lf,down_trans_inds8(skipped_lfp_trans),forwardlag,backlag);
+%         lf8_dtrig_hpch_sk(d,:) = get_event_trig_avg(hpc_hf,down_trans_inds8(skipped_lfp_trans),forwardlag,backlag);
+        lf8_dtrig_wcv_sk(d,:) = get_event_trig_avg(wcv_lf,down_trans_inds8(skipped_lfp_trans),forwardlag,backlag);
+            lf8_dtrig_mua_sk(d,:) = get_event_trig_avg(mua_rate,down_trans_inds8(skipped_lfp_trans),forwardlag,backlag);
+    else
+        lf8_dtrig_lf8_sk(d,:) = nan(1,forwardlag+backlag+1);
+        %         lf8_dtrig_hpc_sk(d,:) = nan(1,forwardlag+backlag+1);
+        %         lf8_dtrig_hpch_sk(d,:) = nan(1,forwardlag+backlag+1);
+        lf8_dtrig_wcv_sk(d,:) = nan(1,forwardlag+backlag+1);
+        lf8_dtrig_mua_sk(d,:) = nan(1,forwardlag+backlag+1);
+    end
+    lf8_dtrig_lf8_nsk(d,:) = get_event_trig_avg(lf8_lf,down_trans_inds8(non_skipped_lfp_trans),forwardlag,backlag);
+    lf8_dtrig_wcv_nsk(d,:) = get_event_trig_avg(wcv_lf,down_trans_inds8(non_skipped_lfp_trans),forwardlag,backlag);
+    %     lf8_dtrig_hpc_nsk(d,:) = get_event_trig_avg(hpc_lf,down_trans_inds8(non_skipped_lfp_trans),forwardlag,backlag);
+    %     lf8_dtrig_hpch_nsk(d,:) = get_event_trig_avg(hpc_hf,down_trans_inds8(non_skipped_lfp_trans),forwardlag,backlag);
+    lf8_dtrig_mua_nsk(d,:) = get_event_trig_avg(mua_rate,down_trans_inds8(non_skipped_lfp_trans),forwardlag,backlag);
+         
+    clear mua_rate
+end
+
+cd C:\WC_Germany\sven_thomas_combined\
+save distal_trig_mua_fin_nd *_mua *_lf8 *_wcv maxlag Fsd *dtrig* *utrig*
+
+%% LF8 D-trig NO MUA (FINAL)
+figure; set(gca,'fontname','arial','fontsize',14)
+% plot(lags,mean(lf8_dtrig_lf8),'color',[0.2 0.2 0.2],'linewidth',2)
+hold on
+plot(lags,mean(lf8_dtrig_wcv),'r','linewidth',2)
+legend('Ctx LFP','MEC MP','LEC MP')
+shadedErrorBar(lags,mean(lf8_dtrig_lf8),std(lf8_dtrig_lf8)/sqrt(4),{'color',[0.2 0.2 0.2]});
+shadedErrorBar(lags,mean(lf8_dtrig_wcv),std(lf8_dtrig_wcv)/sqrt(4),{'r'});
+xlim([-1 1.5])
+xlabel('Time since cortical down transition (s)','fontsize',16)
+ylabel('Relative Rate (z)','fontsize',16)
+% legend('Ctx LFP','MEC','LEC','Hpc LFP (MEC)','Hpc LFP (LEC)','Hpc MUA')
+line([0 0],[-1 1.5],'color','k')
+
+% %% LF8 U-trig NO MUA (FINAL)
+% all_cells = [l3mec l3lec];
+% figure; set(gca,'fontname','arial','fontsize',14)
+% plot(lags,mean(lf8_utrig_lf8(all_cells,:)),'color',[0.2 0.2 0.2],'linewidth',2)
+% hold on
+% plot(lags,mean(lf8_utrig_wcv(l3mec,:)),'r','linewidth',2)
+% plot(lags,mean(lf8_utrig_wcv(l3lec,:)),'b','linewidth',2)
+% legend('Ctx LFP','MEC MP','LEC MP')
+% shadedErrorBar(lags,mean(lf8_utrig_lf8(all_cells,:)),std(lf8_utrig_lf8(all_cells,:))/sqrt(length(all_cells)),{'color',[0.2 0.2 0.2]});
+% shadedErrorBar(lags,mean(lf8_utrig_wcv(l3mec,:)),std(lf8_utrig_wcv(l3mec,:))/sqrt(length(l3mec)),{'r'});
+% shadedErrorBar(lags,mean(lf8_utrig_wcv(l3lec,:)),std(lf8_utrig_wcv(l3lec,:))/sqrt(length(l3lec)),{'b'});
+% xlim([-1 1.5])
+% xlabel('Time since cortical down transition (s)','fontsize',16)
+% ylabel('Relative Rate (z)','fontsize',16)
+% % legend('Ctx LFP','MEC','LEC','Hpc LFP (MEC)','Hpc LFP (LEC)','Hpc MUA')
+% line([0 0],[-1 1.5],'color','k')
+
+%% LF8 D-trig
+figure; 
+set(gca,'fontsize',14,'fontname','arial')
+shadedErrorBar(lags,mean(lf8_dtrig_lf8),std(lf8_dtrig_lf8)/sqrt(4),{'color',[0.2 0.2 0.2]});
+hold on
+shadedErrorBar(lags,mean(lf8_dtrig_wcv),std(lf8_dtrig_wcv)/sqrt(4),{'r'});
+xlim([-1 1.5])
+ylabel('Amplitude (z)','fontsize',16,'fontname','arial')
+ax1 = gca;set(ax1,'box','off')
+ax2 = axes('Position',get(ax1,'Position'),...
+           'XAxisLocation','bottom',...
+           'YAxisLocation','right',...
+           'Color','none',...
+           'XColor','k','YColor',[0.3 0.8 0.3]);
+       set(ax2,'fontsize',14,'fontname','arial')
+hold on
+shadedErrorBar(lags,mean(lf8_dtrig_mua),std(lf8_dtrig_mua)/sqrt(4),{'color',[0.3 0.8 0.3],'parent',ax2});
+ylim([-0.5 0.75])
+xlim([-1 1.5])
+xlabel('Time since cortical down transition (s)','fontsize',16,'fontname','arial')
+ylabel('Relative Rate (z)','fontsize',16,'fontname','arial')
+% legend('Ctx LFP','MEC','LEC','Hpc LFP (MEC)','Hpc LFP (LEC)','Hpc MUA')
+line([0 0],[-1 1.5],'color','k')
+
+% %% LF8 U-trig
+% all_cells = [l3mec l3lec];
+% l3mec_h = l3mec(~isnan(hpc_lfp(l3mec)));
+% l3lec_h = l3lec(~isnan(hpc_lfp(l3lec)));
+% l3mec_m = l3mec(~isnan(hpc_mua(l3mec)));
+% figure; 
+% set(gca,'fontsize',14,'fontname','arial')
+% shadedErrorBar(lags,mean(lf8_utrig_lf8(all_cells,:)),std(lf8_utrig_lf8(all_cells,:))/sqrt(length(all_cells)),{'color',[0.2 0.2 0.2]});
+% hold on
+% shadedErrorBar(lags,mean(lf8_utrig_wcv(l3mec,:)),std(lf8_utrig_wcv(l3mec,:))/sqrt(length(l3mec)),{'r'});
+% shadedErrorBar(lags,mean(lf8_utrig_wcv(l3lec,:)),std(lf8_utrig_wcv(l3lec,:))/sqrt(length(l3lec)),{'b'});
+% % h = errorbar(lags,mean(lf8_utrig_hpch(all_h,:)),std(lf8_utrig_hpch(all_h,:))/sqrt(length(all_h)),'g','linewidth',2);
+% % errorbar_tick(h,.001,'units');
+% % h = errorbar(lags,mean(lf8_utrig_hpch(l3lec_h,:)),std(lf8_utrig_hpch(l3lec_h,:))/sqrt(length(l3lec_h)),'c','linewidth',2);
+% % errorbar_tick(h,.001,'units');
+% xlim([-1 1.5])
+% ylabel('Amplitude (z)','fontsize',16,'fontname','arial')
+% ax1 = gca;set(ax1,'box','off')
+% ax2 = axes('Position',get(ax1,'Position'),...
+%            'XAxisLocation','bottom',...
+%            'YAxisLocation','right',...
+%            'Color','none',...
+%            'XColor','k','YColor',[0.3 0.8 0.3]);
+%        set(ax2,'fontsize',14,'fontname','arial')
+% hold on
+% shadedErrorBar(lags,mean(lf8_utrig_mua(l3mec_m,:)),std(lf8_utrig_mua(l3mec_m,:))/sqrt(length(l3mec_m)),{'color',[0.3 0.8 0.3],'parent',ax2});
+% ylim([-0.5 0.75])
+% xlim([-1 1.5])
+% xlabel('Time since cortical down transition (s)','fontsize',16,'fontname','arial')
+% ylabel('Relative Rate (z)','fontsize',16,'fontname','arial')
+% % legend('Ctx LFP','MEC','LEC','Hpc LFP (MEC)','Hpc LFP (LEC)','Hpc MUA')
+% line([0 0],[-1 1.5],'color','k')
+
+%% MP U-trig
+% all_cells = [l3mec l3lec];
+% l3mec_h = l3mec(~isnan(hpc_lfp(l3mec)));
+% l3lec_h = l3lec(~isnan(hpc_lfp(l3lec)));
+% l3mec_m = l3mec(~isnan(hpc_mua(l3mec)));
+% figure; 
+% h = errorbar(lags,mean(wcv_utrig_lf8(all_cells,:)),std(wcv_utrig_lf8(all_cells,:))/sqrt(length(all_cells)),'color',[0.2 0.2 0.2],'linewidth',2);
+% errorbar_tick(h,.001,'units');
+% hold on
+% h = errorbar(lags,mean(wcv_utrig_wcv(l3mec,:)),std(wcv_utrig_wcv(l3mec,:))/sqrt(length(l3mec)),'r','linewidth',2);
+% errorbar_tick(h,.001,'units');
+% h = errorbar(lags,mean(wcv_utrig_wcv(l3lec,:)),std(wcv_utrig_wcv(l3lec,:))/sqrt(length(l3lec)),'b','linewidth',2);
+% errorbar_tick(h,.001,'units');
+% h = errorbar(lags,mean(wcv_utrig_hpch(l3mec_h,:)),std(wcv_utrig_hpch(l3mec_h,:))/sqrt(length(l3mec_h)),'g','linewidth',2);
+% errorbar_tick(h,.001,'units');
+% % h = errorbar(lags,mean(wcv_utrig_hpch(l3lec_h,:)),std(wcv_utrig_hpch(l3lec_h,:))/sqrt(length(l3lec_h)),'c','linewidth',2);
+% % errorbar_tick(h,.001,'units');
+% xlim([-1 1.5])
+% ylabel('Amplitude (z)','fontsize',14)
+% ax1 = gca;set(ax1,'box','off')
+% ax2 = axes('Position',get(ax1,'Position'),...
+%            'XAxisLocation','bottom',...
+%            'YAxisLocation','right',...
+%            'Color','none',...
+%            'XColor','k','YColor',[0.3 0.8 0.3]);
+% hold on
+% h = errorbar(lags,mean(wcv_utrig_mua(l3mec_m,:)),std(wcv_utrig_mua(l3mec_m,:))/sqrt(length(l3mec_m)),'color',[0.3 0.8 0.3],'linewidth',2,'parent',ax2);
+% errorbar_tick(h,.001,'units');
+% ylim([-0.75 0.75])
+% xlim([-1 1.5])
+% xlabel('Time since cortical down transition (s)','fontsize',14)
+% ylabel('Relative Rate (z)','fontsize',14)
+% % legend('Ctx LFP','MEC','LEC','Hpc LFP (MEC)','Hpc LFP (LEC)','Hpc MUA')
+% line([0 0],[-1 1.5],'color','k')
+% 
+%% MP D-trig
+% all_cells = [l3mec l3lec];
+% l3mec_h = l3mec(~isnan(hpc_lfp(l3mec)));
+% l3lec_h = l3lec(~isnan(hpc_lfp(l3lec)));
+% l3mec_m = l3mec(~isnan(hpc_mua(l3mec)));
+% figure; 
+% h = errorbar(lags,mean(wcv_dtrig_lf8(all_cells,:)),std(wcv_dtrig_lf8(all_cells,:))/sqrt(length(all_cells)),'color',[0.2 0.2 0.2],'linewidth',2);
+% errorbar_tick(h,.001,'units');
+% hold on
+% h = errorbar(lags,mean(wcv_dtrig_wcv(l3mec,:)),std(wcv_dtrig_wcv(l3mec,:))/sqrt(length(l3mec)),'r','linewidth',2);
+% errorbar_tick(h,.001,'units');
+% h = errorbar(lags,mean(wcv_dtrig_wcv(l3lec,:)),std(wcv_dtrig_wcv(l3lec,:))/sqrt(length(l3lec)),'b','linewidth',2);
+% errorbar_tick(h,.001,'units');
+% h = errorbar(lags,mean(wcv_dtrig_hpch(l3mec_h,:)),std(wcv_dtrig_hpch(l3mec_h,:))/sqrt(length(l3mec_h)),'g','linewidth',2);
+% errorbar_tick(h,.001,'units');
+% % h = errorbar(lags,mean(wcv_dtrig_hpch(l3lec_h,:)),std(wcv_dtrig_hpch(l3lec_h,:))/sqrt(length(l3lec_h)),'c','linewidth',2);
+% % errorbar_tick(h,.001,'units');
+% xlim([-1 1.5])
+% ylabel('Amplitude (z)','fontsize',14)
+% ax1 = gca;set(ax1,'box','off')
+% ax2 = axes('Position',get(ax1,'Position'),...
+%            'XAxisLocation','bottom',...
+%            'YAxisLocation','right',...
+%            'Color','none',...
+%            'XColor','k','YColor',[0.3 0.8 0.3]);
+% hold on
+% h = errorbar(lags,mean(wcv_dtrig_mua(l3mec_m,:)),std(wcv_dtrig_mua(l3mec_m,:))/sqrt(length(l3mec_m)),'color',[0.3 0.8 0.3],'linewidth',2,'parent',ax2);
+% errorbar_tick(h,.001,'units');
+% ylim([-0.75 0.75])
+% xlim([-1 1.5])
+% xlabel('Time since cortical down transition (s)','fontsize',14)
+% ylabel('Relative Rate (z)','fontsize',14)
+% % legend('Ctx LFP','MEC','LEC','Hpc LFP (MEC)','Hpc LFP (LEC)','Hpc MUA')
+% line([0 0],[-1 1.5],'color','k')
+% 
+%% LF8 D-trig Sk/no-Sk MP MEC/LEC
+figure
+h = errorbar(lags,mean(lf8_dtrig_lf8),std(lf8_dtrig_lf8(all_cells,:))/sqrt(length(all_cells)),'color',[0.2 0.2 0.2],'linewidth',2);
+errorbar_tick(h,.001,'units');
+hold on
+h = errorbar(lags,mean(lf8_dtrig_wcv_nsk(l3mec,:)),std(lf8_dtrig_wcv_nsk(l3mec,:))/sqrt(length(l3mec)),'r','linewidth',2);
+errorbar_tick(h,.001,'units');
+h = errorbar(lags,mean(lf8_dtrig_wcv_sk(l3mec,:)),std(lf8_dtrig_wcv_sk(l3mec,:))/sqrt(length(l3mec)),'color',[0.5 0.1 0.1],'linewidth',2);
+errorbar_tick(h,.001,'units');
+xlim([-1.5 1.5])
+ylabel('Amplitude (z)','fontsize',14)
+xlabel('Time since cortical down transition (s)','fontsize',14)
+legend('Ctx LFP','MEC (Non-pers state)','MEC (pers-state)','LEC (Non-pers state)','LEC (pers-state)')
+
+%% LF8 D-trig Sk/no-Sk Hpc LFP MEC/LEC
+figure
+h = errorbar(lags,mean(lf8_dtrig_lf8(all_cells,:)),std(lf8_dtrig_lf8(all_cells,:))/sqrt(length(all_cells)),'color',[0.2 0.2 0.2],'linewidth',2);
+errorbar_tick(h,.001,'units');
+hold on
+h = errorbar(lags,mean(lf8_dtrig_hpch_nsk(l3mec_h,:)),std(lf8_dtrig_hpch_nsk(l3mec_h,:))/sqrt(length(l3mec_h)),'r','linewidth',2);
+errorbar_tick(h,.001,'units');
+h = errorbar(lags,mean(lf8_dtrig_hpch_sk(l3mec_h,:)),std(lf8_dtrig_hpch_sk(l3mec_h,:))/sqrt(length(l3mec_h)),'color',[0.5 0.1 0.1],'linewidth',2);
+errorbar_tick(h,.001,'units');
+h = errorbar(lags,nanmean(lf8_dtrig_hpch_nsk(l3lec_h,:)),nanstd(lf8_dtrig_hpch_nsk(l3lec_h,:))/sqrt(length(l3lec_h)),'b','linewidth',2);
+errorbar_tick(h,.001,'units');
+h = errorbar(lags,nanmean(lf8_dtrig_hpch_sk(l3lec_h,:)),nanstd(lf8_dtrig_hpch_sk(l3lec_h,:))/sqrt(length(l3lec_h)),'color',[0.1 0.1 0.5],'linewidth',2);
+errorbar_tick(h,.001,'units');
+xlim([-1.5 1.5])
+ylabel('Amplitude (z)','fontsize',14)
+xlabel('Time since cortical down transition (s)','fontsize',14)
+legend('Ctx LFP','Hpc LFP (MEC, Non-pers state)','Hpc LFP (MEC, pers state)','Hpc LFP (LEC, Non-pers state)','Hpc LFP (LEC, pers state)')
+
+%% LF8 D-trig Sk/no-Sk MUA (FINAL)
+figure; set(gca,'fontname','arial','fontsize',14)
+hold on
+plot(lags,mean(lf8_dtrig_lf8),'color',[0.2 0.2 0.2],'linewidth',2)
+plot(lags,mean(lf8_dtrig_wcv_nsk),'r','linewidth',2)
+plot(lags,mean(lf8_dtrig_wcv_sk),'color',[0.5 0.1 0.1],'linewidth',2)
+
+
+%% LF8 D-trig Sk/no-Sk Hpc MUA
+used = find(~isnan(hpc_mua));
+figure
+set(gca,'fontname','arial','fontsize',14)
+hold on
+shadedErrorBar(lags,mean(lf8_dtrig_lf8_nsk(used,:)),std(lf8_dtrig_lf8_nsk(used,:))./sqrt(sum(~isnan(lf8_dtrig_lf8_nsk(used,:)))),{'color',[0.2 0.2 0.2]});
+hold on
+shadedErrorBar(lags,nanmean(lf8_dtrig_lf8_sk(used,:)),nanstd(lf8_dtrig_lf8_sk(used,:))./sqrt(sum(~isnan(lf8_dtrig_lf8_sk(used,:)))),{'color',[0.4 0.4 0.4]});
+shadedErrorBar(lags,mean(lf8_dtrig_wcv_nsk(used,:)),std(lf8_dtrig_wcv_nsk(used,:))/sqrt(4),{'r'});
+shadedErrorBar(lags,mean(lf8_dtrig_wcv_sk(used,:)),std(lf8_dtrig_wcv_sk(used,:))/sqrt(4),{'color',[0.5 0.1 0.1]});
+xlim([-1.5 2.5])
+ylabel('Amplitude (z)','fontsize',16,'fontname','arial')
+ax1 = gca;set(ax1,'box','off')
+ax2 = axes('Position',get(ax1,'Position'),...
+           'XAxisLocation','bottom',...s
+           'YAxisLocation','right',...
+           'Color','none',...
+           'XColor','k','YColor',[0.3 0.8 0.3]);
+set(gca,'fontname','arial','fontsize',14)
+hold on       
+% h = errorbar(lags,nanmean(lf8_dtrig_mua_sk(l3mec_m,:)),nanstd(lf8_dtrig_mua_sk(l3mec_m,:))/sqrt(length(l3mec_m)),'color',[0.1 0.6 0.1],'linewidth',2);
+% errorbar_tick(h,.001,'units');
+% h = errorbar(lags,nanmean(lf8_dtrig_mua_nsk(l3mec_m,:)),nanstd(lf8_dtrig_mua_nsk(l3mec_m,:))/sqrt(length(l3mec_m)),'color',[0.3 0.8 0.3],'linewidth',2);
+% errorbar_tick(h,.001,'units');
+shadedErrorBar(lags,nanmean(lf8_dtrig_mua_sk(used,:)),nanstd(lf8_dtrig_mua_sk(used,:))/sqrt(4),{'color',[0.1 0.6 0.1]});
+shadedErrorBar(lags,nanmean(lf8_dtrig_mua_nsk(used,:)),nanstd(lf8_dtrig_mua_nsk)/sqrt(4),{'color',[0.3 0.8 0.3]});
+xlim([-1.5 2.5])
+ylim([-0.4 1.2])
+xlabel('Time since cortical down transition (s)','fontsize',16,'fontname','arial')
+ylabel('Relative Rate','fontsize',16,'fontname','arial')
+% legend('Ctx LFP','MP (Non-pers state)','MP (pers-state)','Hpc MUA (Pers state)','Hpc MUA (Non-pers state)')

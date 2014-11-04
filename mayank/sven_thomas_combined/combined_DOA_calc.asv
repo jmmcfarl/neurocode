@@ -1,0 +1,122 @@
+clear all
+
+cd C:\WC_Germany\sven_thomas_combined\
+load ./combined_dir_nd
+uset = sort([l3mec l3lec]);
+all_cells = 1:length(combined_dir);
+l3mec = find(ismember(all_cells(uset),l3mec));
+l3lec = find(ismember(all_cells(uset),l3lec));
+combined_dir = combined_dir(uset);
+hpc_mua = hpc_mua(uset);
+hpc_lfp = hpc_lfp(uset);
+ctx_lfp = ctx_lfp(uset);
+
+raw_Fs = 2016;
+dsf = 8;
+Fsd = raw_Fs/dsf;
+
+lcf = 0.01;
+hcf = 100;
+
+params.Fs = Fsd;
+params.err = 0;
+params.tapers = [2 3];
+params.fpass = [0 20];
+
+winlength = 20;
+winslide = 2.5;
+movingwin = [winlength winslide];
+
+%%
+for d = 1:length(combined_dir)
+    cd(combined_dir{d})
+    pwd
+
+    load ./used_data lf8 lf7
+    if ctx_lfp(d) == 7
+        lf8 = lf7;
+    end
+    [lf8_lf,t_axis] = get_lf_features(lf8,raw_Fs,Fsd,[lcf hcf]);
+
+    old_taxis = (1:length(downsample(lf8,40)))/(2016/40);
+    
+    [P8{d},t{d},f{d}]=mtspecgramc(lf8_lf,movingwin,params);
+    dt = mean(diff(t{d}));
+    uds_range = find(f{d} >= 0.2 & f{d} <= 1);
+
+    [peak_pow_lf8{d},peak_freq_loc] = max(10*log10(P8{d}),[],2);
+    peak_freq_lf8{d} = f{d}(peak_freq_loc);
+    
+%     load ./pa_hsmm_state_seq_combined
+%     load ./pa_hsmm_state_seq8_combined
+%     load ./pa_hsmm_state_seq_combined_fin.mat
+%     load ./pa_hsmm_state_seq7_combined_fin.mat
+    load ./pa_hsmm_state_seq_combined_fin_nd
+    load ./pa_hsmm_state_seq7_combined_fin_nd
+    hsmm_bbstate_seq8 = hsmm_bbstate_seq7;
+    hsmm8 = hsmm7;
+    mp_state_seq = hsmm_bbstate_seq;
+    lfp_state_seq = hsmm_bbstate_seq8;
+    
+    lfp_meanfuns = nan(2,length(old_taxis));
+    mp_meanfuns = nan(2,length(old_taxis));
+    for i = 1:size(hsmm.UDS_segs,1)
+       mp_meanfuns(1,hsmm.UDS_segs(i,1):hsmm.UDS_segs(i,2)) = hsmm.state(1).meanfun{i}; 
+       mp_meanfuns(2,hsmm.UDS_segs(i,1):hsmm.UDS_segs(i,2)) = hsmm.state(2).meanfun{i}; 
+    end
+    for i = 1:size(hsmm8.UDS_segs,1)
+       lfp_meanfuns(1,hsmm8.UDS_segs(i,1):hsmm8.UDS_segs(i,2)) = hsmm8.state(1).meanfun{i}; 
+       lfp_meanfuns(2,hsmm8.UDS_segs(i,1):hsmm8.UDS_segs(i,2)) = hsmm8.state(2).meanfun{i}; 
+    end
+    
+    mp_upvar = hsmm.state(2).var;
+    mp_downvar = hsmm.state(1).var;
+    kl1 = gauss_kl_div_fun(diff(mp_meanfuns),mp_downvar,mp_upvar);
+    kl2 = gauss_kl_div_fun(-diff(mp_meanfuns),mp_upvar,mp_downvar);
+    mp_kl_div = kl1+kl2;
+    
+    lfp_upvar = hsmm8.state(2).var;
+    lfp_downvar = hsmm8.state(1).var;
+    kl1 = gauss_kl_div_fun(diff(lfp_meanfuns),lfp_downvar,lfp_upvar);
+    kl2 = gauss_kl_div_fun(-diff(lfp_meanfuns),lfp_upvar,lfp_downvar);
+    lfp_kl_div = kl1+kl2;
+        
+    [new_seg_inds] = resample_uds_seg_inds_v2(hsmm.UDS_segs,hsmm.Fs,252,mp_state_seq);
+    [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,mp_state_seq);
+    [up_trans_inds8,down_trans_inds8] = compute_state_transitions_seg(new_seg_inds,lfp_state_seq);
+    [state_durations] = compute_state_durations_seg(mp_state_seq,Fsd);
+    [state_durations8] = compute_state_durations_seg(lfp_state_seq,Fsd);
+    [state_dutycycles8] = compute_state_dutycycles_seg(lfp_state_seq);
+    
+    lf8_udsfreq{d} = nan(size(up_trans_inds));
+    lf8_udspow{d} = nan(size(up_trans_inds));
+    lf8_dutycyc{d} = nan(size(up_trans_inds));
+    lf8_medupdur{d} = nan(size(up_trans_inds));
+    lf8_meddowndur{d} = nan(size(up_trans_inds));
+    for i = 1:length(t{d})
+       cur_up8 = find(t_axis(up_trans_inds8) >= t{d}(i)-winlength/2 & ...
+           t_axis(up_trans_inds8) < t{d}(i)+winlength/2);
+       cur_down8 = find(t_axis(down_trans_inds8) >= t{d}(i)-winlength/2 & ...
+           t_axis(down_trans_inds8) < t{d}(i)+winlength/2);
+       cur_up = find(t_axis(up_trans_inds) >= t{d}(i)-winlength/2 & ...
+           t_axis(up_trans_inds) < t{d}(i)+winlength/2);
+       lf8_udsfreq{d}(cur_up) = peak_freq_lf8{d}(i);
+       lf8_udspow{d}(cur_up) = peak_pow_lf8{d}(i);
+       lf8_dutycyc{d}(cur_up) = nanmedian(state_dutycycles8(cur_up8));
+       lf8_medupdur{d}(cur_up) = nanmedian(state_durations8{2}(cur_up8));
+       lf8_meddowndur{d}(cur_up) = nanmedian(state_durations8{1}(cur_up8));
+       lf8_medcycdur{d}(cur_up) = nanmedian(state_durations8{1}(cur_up8)+state_durations8{2}(cur_up8));       
+    end
+    
+    lf8_sep{d} = nan(size(up_trans_inds));
+    mp_sep{d} = nan(size(up_trans_inds));
+    for i = 1:length(up_trans_inds)
+        cur_point = find(old_taxis >= t_axis(up_trans_inds(i)),1,'first');
+        lf8_sep{d}(i) = lfp_kl_div(cur_point);
+        mp_sep{d}(i) = mp_kl_div(cur_point);
+    end
+    
+end
+
+cd C:\WC_Germany\sven_thomas_combined\
+save combined_depthofanesth_data_fin_nd lf8_* mp_sep

@@ -1,0 +1,326 @@
+clear all
+close all
+
+%%
+cd C:\WC_Germany\sven_thomas_combined\
+% load ./combined_dir.mat
+load ./combined_dir_nd
+uset = sort([l3mec l3lec]);
+all_cells = 1:61;
+l3mec = find(ismember(all_cells(uset),l3mec));
+l3lec = find(ismember(all_cells(uset),l3lec));
+combined_dir = combined_dir(uset);
+hpc_mua = hpc_mua(uset);
+hpc_lfp = hpc_lfp(uset);
+ctx_lfp = ctx_lfp(uset);
+
+raw_Fs = 2016;
+int_width_range = [2 8]; %range of spike widths (in 32kHz samples) for interneuron spikes
+pyr_width_range = [10 18]; %range of spike widths for pyramidal spikes
+min_corr = 0.4; %minimum correlation coefficient with the corresponding spike template
+
+raw_Fs = 2016;
+dsf = 8;
+Fsd = raw_Fs/dsf;
+lcf = 0.05;
+hcf = 4;
+maxlag = round(Fsd*1);
+%%
+for d = 1:length(combined_dir)
+    cd(combined_dir{d})
+    pwd
+    load ./used_data lf8 lf7 lf6
+    if ctx_lfp(d) == 7
+        lf8 = lf7;
+    elseif ctx_lfp(d) == 6
+        lf8 = lf6;
+    end
+    sess_dur(d) = length(lf8)/raw_Fs;
+    
+    if exist('./mua_data3.mat','file')
+        load ./mua_data3
+        
+        lf8_lf = get_lf_features(lf8,raw_Fs,Fsd,[lcf hcf]);
+        load ./sync_times.mat
+        synct_d = downsample(synct,dsf);
+        
+        load ./pa_hsmm_state_seq_combined_fin_nd.mat
+        load ./pa_hsmm_state_seq7_combined_fin_nd.mat
+        [new_seg_inds] = resample_uds_seg_inds_v2(hsmm7.UDS_segs,hsmm7.Fs,Fsd,hsmm_bbstate_seq7);
+        dur_uds = sum(diff(new_seg_inds,[],2))/Fsd;
+        [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,hsmm_bbstate_seq);
+        [up_trans_inds8,down_trans_inds8] = compute_state_transitions_seg(new_seg_inds,hsmm_bbstate_seq7);
+        
+        is_sync = zeros(size(lf8_lf));
+        for j = 1:size(new_seg_inds,1)
+            is_sync(new_seg_inds(j,1):new_seg_inds(j,2)) = 1;
+        end
+        is_sync = logical(is_sync);
+        for j = 1:8
+            mua_rate(d,j) = length(mua_times{j})/sess_dur(d);
+            %             good_mua = find(mua_corr_pyr{j} > min_corr | mua_corr_int{j} > min_corr);
+            %             mua_rate_good(d,j) = length(good_mua)/sess_dur(d);
+            %             pyr_mua = find(mua_corr_pyr{j} > min_corr & mua_widths{j}' > pyr_width_range(1) & mua_widths{j}' < pyr_width_range(2));
+            %             mua_rate_pyr(d,j) = length(pyr_mua)/sess_dur(d);
+            %             int_mua = find(mua_corr_int{j} > min_corr & mua_widths{j}' > int_width_range(1) & mua_widths{j}' < int_width_range(2));
+            %             mua_rate_int(d,j) = length(int_mua)/sess_dur(d);
+            mua_avg_widths(d,j) = mean(mua_widths{j});
+            mua_avg_amps(d,j) = mean(mua_amps{j});
+            %             mua_avg_intcorr(d,j) = mean(mua_corr_int{j});
+            %             mua_avg_pyrcorr(d,j) = mean(mua_corr_pyr{j});
+            
+            mua_binned = hist(mua_times{j},synct_d);
+            mua_binned([1 end]) = 0;
+            cur_mua_rate = jmm_smooth_1d_cor(mua_binned,round(Fsd*0.05));
+            cur_mua_rate = (cur_mua_rate - mean(cur_mua_rate(is_sync)))/std(cur_mua_rate(is_sync));
+            [mua_lfp_xc(d,j,:),lags] = xcov(lf8_lf,cur_mua_rate,maxlag,'coeff');
+            
+            mua_u8_trig_avg(d,j,:) = get_event_trig_avg(cur_mua_rate,up_trans_inds8,maxlag,maxlag);
+            mua_uw_trig_avg(d,j,:) = get_event_trig_avg(cur_mua_rate,up_trans_inds,maxlag,maxlag);
+        end
+        mua_ov_avg(d,:,:) = avg_waveform;
+    else
+        mua_rate(d,:) = nan(1,8);
+        %         mua_rate_good(d,:) = nan(1,8);
+        %         mua_rate_int(d,:) = nan(1,8);
+        %         mua_rate_pyr(d,:) = nan(1,8);
+    end
+end
+
+cd C:\WC_Germany\sven_thomas_combined\
+save mua_rate_data_nd
+
+%%
+sven_el_depths = [1850	1650	1450	1250	1050	850	650
+    1925	1725	1525	1325	1125	925	725
+    1900	1700	1500	1300	1100	900	700
+    1900	1700	1500	1300	1100	900	700
+    1850	1650	1450	1250	1050	850	650
+    1850	1650	1450	1250	1050	850	650
+    1825	1625	1425	1225	1025	825	625
+    1825	1625	1425	1225	1025	825	625
+    1800	1600	1400	1200	1000	800	600
+    1875	1675	1475	1275	1075	875	675
+    1900	1700	1500	1300	1100	900	700
+    2050	1850	1650	1450	1250	1050	850
+    2100	1900	1700	1500	1300	1100	900
+    1950	1750	1550	1350	1150	950	750
+    1950	1750	1550	1350	1150	950	750
+    1825	1625	1425	1225	1025	825	625
+    2050	1850	1650	1450	1250	1050	850
+    1990	1690	1390	1090	790	490	190
+    2150	1850	1550	1250	950	650	350];
+
+sven_recs = l3mec(23:end);
+
+%%
+for i = l3mec(23:end)
+    plot(2:8,mua_rate(i,2:8),'o')
+    hpc_mua(i)
+    i
+    pause
+    clf
+end
+
+%%
+used_recs = find(~isnan(hpc_mua));
+figure
+imagesc(lags/Fsd,1:7,squeeze(nanmean(mua_lfp_xc(used_recs,2:end,:))));
+set(gca,'ydir','normal')
+xlabel('Lag (s)','fontsize',14)
+ylabel('Channel Number','fontsize',14)
+
+figure
+imagesc(lags/Fsd,1:7,squeeze(nanmean(mua_u8_trig_avg(used_recs,2:end,:))));
+set(gca,'ydir','normal')
+xlabel('Lag (s)','fontsize',14)
+ylabel('Channel Number','fontsize',14)
+figure
+imagesc(lags/Fsd,1:7,squeeze(nanmean(mua_uw_trig_avg(used_recs,2:end,:))));
+set(gca,'ydir','normal')
+xlabel('Lag (s)','fontsize',14)
+ylabel('Channel Number','fontsize',14)
+
+
+figure
+plot(1:7,mean(mua_rate(used_recs,2:end)),'o-')
+% used_recs = find(isnan(hpc_mua));
+% figure
+% imagesc(lags/Fsd,1:7,squeeze(nanmean(mua_lfp_xc(used_recs,:,:))));
+% set(gca,'ydir','normal')
+xlabel('Chanel Number','fontsize',14)
+ylabel('Average rate (Hz)','fontsize',14)
+%%
+sven_all_e = repmat(1:7,19,1);
+sven_all_e = sven_all_e(:);
+sven_all_depths = sven_el_depths(:);
+sven_all_mua = mua_rate(sven_recs,2:8);
+sven_all_mua = sven_all_mua(:);
+sven_hpc_depths = sven_el_depths(~isnan(hpc_mua(sven_recs)),:);
+sven_hpc_depths = sven_hpc_depths(:);
+sven_hpc_mua = mua_rate(sven_recs(~isnan(hpc_mua(sven_recs))),2:8);
+sven_hpc_mua = sven_hpc_mua(:);
+plot(sven_all_depths,sven_all_mua,'o')
+hold on
+plot(sven_hpc_depths,sven_hpc_mua,'r.')
+
+figure
+plot(sven_all_e,sven_all_mua,'o')
+%%
+
+figure; set(gca,'fontname','arial','fontsize',14)
+h = errorbar(1:7,nanmean(mua_rate(isnan(hpc_mua),2:8)),nanstd(mua_rate(isnan(hpc_mua),2:8))./sqrt(sum(isnan(mua_rate(isnan(hpc_mua),2:8)))),'b','linewidth',2);
+hold on
+h = errorbar(1:7,nanmean(mua_rate(~isnan(hpc_mua),2:8)),nanstd(mua_rate(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate(~isnan(hpc_mua),2:8)))),'r','linewidth',2);
+% h = errorbar(1:7,nanmean(mua_rate(:,2:8)),nanstd(mua_rate(:,2:8))./sqrt(sum(~isnan(mua_rate(:,2:8)))),'k','linewidth',2);
+xlabel('Electrode Number','fontsize',16)
+ylabel('MUA Rate (Hz)','fontsize',16)
+legend('Unused recordings','Used recordings')
+xlim([0 8])
+
+%%
+
+% avg_prob_depths = [1907.35294117647	1707.35294117647	1507.35294117647	1307.35294117647	1107.35294117647	907.352941176471	707.352941176471];
+temp = l3mec(23:end);
+temp = find(~isnan(hpc_mua(temp)));
+avg_probe_depths = mean(sven_el_depths(temp,:));
+avg_probe_depths = avg_probe_depths - 200;
+
+median_rate = median(mua_rate(:,2:8),2);
+mua_rate_norm = bsxfun(@rdivide,mua_rate,median_rate)
+
+bad_axis = 0:1.5:9;
+mua_rate_normc = mua_rate_norm;
+mua_rate_normc(53,2:8) = interp1(bad_axis,mua_rate_norm(53,2:8),2:8);
+mua_rate_normc(54,2:8) = interp1(bad_axis,mua_rate_norm(54,2:8),2:8);
+mua_ratec = mua_rate;
+mua_ratec(53,2:8) = interp1(bad_axis,mua_rate(53,2:8),2:8);
+mua_ratec(54,2:8) = interp1(bad_axis,mua_rate(54,2:8),2:8);
+
+figure; set(gca,'fontname','arial','fontsize',14)
+h = errorbar(avg_probe_depths,nanmean(mua_rate_normc(isnan(hpc_mua),2:8)),nanstd(mua_rate_normc(isnan(hpc_mua),2:8))./sqrt(sum(isnan(mua_rate(isnan(hpc_mua),2:8)))),'k','linewidth',4);
+hold on
+h = errorbar(avg_probe_depths,nanmean(mua_rate_normc(~isnan(hpc_mua),2:8)),nanstd(mua_rate_normc(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate(~isnan(hpc_mua),2:8)))),'r','linewidth',4);
+plot(avg_probe_depths,mua_rate_normc(isnan(hpc_mua),2:8),'k-','linewidth',0.5)
+hold on
+plot(avg_probe_depths,mua_rate_normc(~isnan(hpc_mua),2:8),'r-','linewidth',0.5)
+% h = errorbar(1:7,nanmean(mua_rate_norm(:,2:8)),nanstd(mua_rate_norm(:,2:8))./sqrt(sum(~isnan(mua_rate(:,2:8)))),'k','linewidth',2);
+xlabel('Estimated depth (um)','fontsize',16)
+ylabel('Relative MUA Rate','fontsize',16)
+legend('Unused recordings','Used recordings')
+% xlim([0 8])
+
+figure; set(gca,'fontname','arial','fontsize',14)
+% h = errorbar(avg_probe_depths,nanmean(mua_ratec(isnan(hpc_mua),2:8)),nanstd(mua_ratec(isnan(hpc_mua),2:8))./sqrt(sum(isnan(mua_rate(isnan(hpc_mua),2:8)))),'k','linewidth',2);
+hold on
+h = errorbar(avg_probe_depths,nanmean(mua_ratec(~isnan(hpc_mua),2:8)),nanstd(mua_ratec(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate(~isnan(hpc_mua),2:8)))),'k','linewidth',2);
+% plot(avg_prob_depths,mua_ratec(isnan(hpc_mua),2:8),'k-','linewidth',0.5)
+% hold on
+% plot(avg_prob_depths,mua_ratec(~isnan(hpc_mua),2:8),'r-','linewidth',0.5)
+xlabel('Depth from cortical surface (um)','fontsize',16)
+ylabel('MUA Rate (Hz)','fontsize',16)
+% legend('Unused recordings','Used recordings')
+xlim([400 1800])
+%%
+hpc_mua(40) = 5;
+figure
+plot(2:8,mua_rate_norm(isnan(hpc_mua),2:8),'k-')
+hold on
+plot(2:8,mua_rate_norm(~isnan(hpc_mua),2:8),'r-')
+
+
+%%
+temp_set = l3mec(23:end);
+set1 = find(isnan(hpc_mua(temp_set)));
+set2 = find(~isnan(hpc_mua(temp_set)));
+for i = 1:length(set2)
+    plot(sven_el_depths(set2(i),:),mua_rate_norm(temp_set(set2(i)),2:8),'r-')
+    hold on
+end
+for i = 1:length(set1)
+    plot(sven_el_depths(set1(i),:),mua_rate_norm(temp_set(set1(i)),2:8),'k-')
+    hold on
+end
+
+figure
+for i = 1:length(set2)
+    plot(sven_el_depths(set2(i),:),mua_rate(temp_set(set2(i)),2:8),'r-')
+    hold on
+end
+for i = 1:length(set1)
+    plot(sven_el_depths(set1(i),:),mua_rate(temp_set(set1(i)),2:8),'k-')
+    hold on
+end
+
+% figure
+% plot(2:8,mua_rate(isnan(hpc_mua),2:8),'k-')
+% hold on
+% plot(2:8,mua_rate(~isnan(hpc_mua),2:8),'r-')
+
+%%
+figure
+hold on
+h = errorbar(2:8,nanmean(mua_avg_widths(~isnan(hpc_mua),2:8)),nanstd(mua_avg_widths(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_avg_widths(~isnan(hpc_mua),2:8)))),'r');
+xlabel('Electrode Number','fontsize',16)
+ylabel('Spike width','fontsize',16)
+
+figure
+hold on
+h = errorbar(2:8,nanmean(mua_avg_amps(~isnan(hpc_mua),2:8)),nanstd(mua_avg_amps(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_avg_amps(~isnan(hpc_mua),2:8)))),'r');
+xlabel('Electrode Number','fontsize',16)
+ylabel('MUA Rate (Hz)','fontsize',16)
+legend('All recordings','Used recordings')
+
+figure
+hold on
+h = errorbar(2:8,nanmean(mua_avg_intcorr(~isnan(hpc_mua),2:8)),nanstd(mua_avg_intcorr(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_avg_amps(~isnan(hpc_mua),2:8)))),'r');
+xlabel('Electrode Number','fontsize',16)
+ylabel('MUA Rate (Hz)','fontsize',16)
+legend('All recordings','Used recordings')
+
+figure
+hold on
+h = errorbar(2:8,nanmean(mua_avg_pyrcorr(~isnan(hpc_mua),2:8)),nanstd(mua_avg_pyrcorr(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_avg_amps(~isnan(hpc_mua),2:8)))),'r');
+xlabel('Electrode Number','fontsize',16)
+ylabel('MUA Rate (Hz)','fontsize',16)
+legend('All recordings','Used recordings')
+
+l3mec_m = find(~isnan(hpc_mua));
+figure
+cmap = colormap(jet(7));
+for i = 1:7
+    h = errorbar(1:32,nanmean(mua_ov_avg(l3mec_m,i+1,:)),nanstd(mua_ov_avg(l3mec_m,i+1,:))/sqrt(length(l3mec_m)),'color',cmap(i,:));
+    hold on
+end
+
+h = errorbar(2:8,nanmean(mua_rate(:,2:8)),nanstd(mua_rate(:,2:8))./sqrt(sum(~isnan(mua_rate(:,2:8)))));
+hold on
+h = errorbar(2:8,nanmean(mua_rate(~isnan(hpc_mua),2:8)),nanstd(mua_rate(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate(~isnan(hpc_mua),2:8)))),'r');
+h = errorbar(2:8,nanmean(mua_rate_good(~isnan(hpc_mua),2:8)),nanstd(mua_rate_good(:,2:8))./sqrt(sum(~isnan(mua_rate_good(:,2:8)))),'k');
+h = errorbar(2:8,nanmean(mua_rate_good(:,2:8)),nanstd(mua_rate_good(:,2:8))./sqrt(sum(~isnan(mua_rate_good(:,2:8)))),'g');
+xlabel('Electrode Number','fontsize',16)
+ylabel('MUA Rate (Hz)','fontsize',16)
+legend('All recordings','Used recordings')
+
+figure
+hold on
+h = errorbar(2:8,nanmean(mua_rate(~isnan(hpc_mua),2:8)),nanstd(mua_rate(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate(~isnan(hpc_mua),2:8)))),'r');
+h = errorbar(2:8,nanmean(mua_rate_good(~isnan(hpc_mua),2:8)),nanstd(mua_rate_good(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate_good(:,2:8)))),'k');
+h = errorbar(2:8,nanmean(mua_rate_pyr(~isnan(hpc_mua),2:8)),nanstd(mua_rate_pyr(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate_pyr(:,2:8)))),'g');
+h = errorbar(2:8,nanmean(mua_rate_int(~isnan(hpc_mua),2:8)),nanstd(mua_rate_int(~isnan(hpc_mua),2:8))./sqrt(sum(~isnan(mua_rate_int(:,2:8)))),'b');
+xlabel('Electrode Number','fontsize',16)
+ylabel('MUA Rate (Hz)','fontsize',16)
+legend('All recordings','Used recordings')
+
+%%
+for i = 37:61
+    plot(2:8,mua_rate(i,2:8),'o-')
+    hold on
+    plot(2:8,mua_rate_good(i,2:8),'ro-')
+    plot(2:8,mua_rate_int(i,2:8),'ko-')
+    plot(2:8,mua_rate_pyr(i,2:8),'go-')
+    i
+    hpc_mua(i)
+    pause
+    clf
+end

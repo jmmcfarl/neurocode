@@ -1,0 +1,163 @@
+clear all
+close all
+
+clear all
+data_dir = cell(0);
+data_type = cell(0);
+data_exp = cell(0);
+data_ep = [];
+data_dp = [];
+data_hpc_lfp = [];
+
+cd C:\WC_Germany\sven_thomas_combined\
+load ./combined_dir_nd.mat
+for ii = 1:length(l3mec)
+    data_dir = cat(2,data_dir,combined_dir{l3mec(ii)});
+    data_type = cat(2,data_type,{'L3MEC'});
+    if ismember(l3mec(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3mec(ii)));
+end
+for ii = 1:length(l3mec_np)
+    data_dir = cat(2,data_dir,combined_dir{l3mec_np(ii)});
+    data_type = cat(2,data_type,{'L3MEC'});
+    if ismember(l3mec_np(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3mec_np(ii)));
+end
+for ii = 1:length(l3lec)
+    data_dir = cat(2,data_dir,combined_dir{l3lec(ii)});
+    data_type = cat(2,data_type,{'L3LEC'});
+    if ismember(l3lec(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3lec(ii)));
+end
+for ii = 1:length(l3lec_np)
+    data_dir = cat(2,data_dir,combined_dir{l3lec_np(ii)});
+    data_type = cat(2,data_type,{'L3LEC'});
+    if ismember(l3lec_np(ii),old_data_inds)
+        data_exp = cat(2,data_exp,{'T'});
+    else
+        data_exp = cat(2,data_exp,{'S'});
+    end
+    data_ep = cat(2,data_ep,Inf);
+    data_dp = cat(2,data_dp,nan);
+    data_hpc_lfp = cat(2,data_hpc_lfp,hpc_lfp(l3lec_np(ii)));
+end
+
+cd C:\WC_Germany\persistent_downs\
+load ./new_pdown_dir
+cur_uset = find(new_pdown_use == 1);
+for ii = 1:length(cur_uset)
+    data_dir = cat(2,data_dir,new_pdown_dir{cur_uset(ii)});
+    data_type = cat(2,data_type,{'L3MEC'});
+    data_exp = cat(2,data_exp,{'S'});
+    data_ep = cat(2,data_ep,new_pdown_ep(cur_uset(ii)));
+    data_dp = cat(2,data_ep,new_pdown_dp(cur_uset(ii)));
+    data_hpc_lfp = cat(2,data_hpc_lfp,2);
+end
+
+%%
+for dd = 1:length(data_dir)
+    cd(data_dir{dd})
+    pwd
+    
+    if exist('./mua_data3.mat','file')
+        load('./mua_data3.mat');
+        
+        load ./sync_times.mat
+        avg_rates(dd,:) = cellfun(@(x) length(x),mua_amps)/range(synct)*1e6;
+        
+        [wave_peaks(dd,:),peak_locs] = max(avg_waveform(:,4:20),[],2);
+        peak_locs = peak_locs + 3;
+        [~,min_loc] = min(avg_waveform(:,6:end),[],2);
+        min_loc = min_loc + 5;
+        wave_spkwidths(dd,:) = min_loc - peak_locs;
+
+        avg_spkwidths(dd,:) = nan(1,8);
+        for ii = 1:8
+            avg_spkwidths(dd,ii) = mean(mua_widths{ii});
+            dp = find(avg_waveform(ii,peak_locs(ii):end) < wave_peaks(dd,ii)/2,1,'first');
+            sp = find(avg_waveform(ii,1:peak_locs(ii)) < wave_peaks(dd,ii)/2,1,'last');
+            if ~isempty(dp) && ~isempty(sp)
+                avg_spkwidth_fwhm(dd,ii) = peak_locs(ii)+dp-sp;
+            else
+                avg_spkwidth_fwhm(dd,ii) = nan;
+            end
+            dp = find(avg_waveform(ii,peak_locs(ii):end) < wave_peaks(dd,ii)/4,1,'first');
+            sp = find(avg_waveform(ii,1:peak_locs(ii)) < wave_peaks(dd,ii)/4,1,'last');
+            if ~isempty(dp) && ~isempty(sp)
+                avg_spkwidth_fwqm(dd,ii) = peak_locs(ii)+dp-sp;
+            else
+                avg_spkwidth_fwqm(dd,ii) = nan;
+            end
+        end
+        avg_waveforms(dd,:,:) = avg_waveform;
+                
+        temp = avg_rates(dd,:); temp(1) = 0;
+        [peak_hpcmua_rate(dd),peak_hpcmua_loc(dd)] = max(temp(1:4));        
+          if avg_rates(dd,peak_hpcmua_loc(dd)+1) >= peak_hpcmua_rate(dd)
+              peak_hpcmua_loc(dd) = nan;
+          elseif avg_rates(dd,peak_hpcmua_loc(dd)-1) >= peak_hpcmua_rate(dd)
+              peak_hpcmua_loc(dd) = nan;
+          end
+         
+    else
+        
+        avg_rates(dd,:) = nan(1,8);
+        avg_spkwidths(dd,:) = nan(1,8);
+        peak_mua_rate(dd) = nan;
+        peak_mua_loc(dd) = nan;
+        avg_waveforms(dd,:,:) = nan(8,32);
+        avg_spkwidth_fwhm(dd,:) = nan(1,8);
+        avg_spkwidth_fwqm(dd,:) = nan(1,8);
+    end
+end
+
+%%
+bad_peaks = [29 30 47]; %these peaks in the rate vs depth profile are not clear
+peak_hpcmua_loc(bad_peaks) = nan;
+usable_mua = (avg_spkwidths >= 10 & avg_spkwidth_fwhm <= 10 & avg_spkwidth_fwqm <= 11);
+usable_mua
+cd C:\WC_Germany\persistent_downs\
+save mua_classification usable_mua avg_rates peak_hpc* avg_rates avg_*
+%%
+for dd = 1:length(data_dir)
+    dd
+   cmap = jet(7);
+   subplot(2,1,1)
+   for ii = 1:7
+      hold on
+      plot(squeeze(avg_waveforms(dd,ii+1,:))/max(avg_waveforms(dd,ii+1,:)),'color',cmap(ii,:));
+   end
+   subplot(2,1,2)
+   for ii = 1:7
+      hold on
+      if usable_mua(dd,ii+1) == 1
+      plot(squeeze(avg_waveforms(dd,ii+1,:))/max(avg_waveforms(dd,ii+1,:)),'r');
+      else
+      plot(squeeze(avg_waveforms(dd,ii+1,:))/max(avg_waveforms(dd,ii+1,:)),'k');          
+      end
+   end
+    
+   [avg_spkwidths(dd,:)' avg_spkwidth_fwhm(dd,:)' avg_spkwidth_fwqm(dd,:)']
+   
+   pause
+   clf
+end
+

@@ -1,0 +1,15 @@
+function [min_amp,min_loc,max_amp,max_loc,sm_acorr] = get_acorr_peaks(acorr,lags,smth,disp)
+
+zero_lag = find(lags == 0);
+sm_acorr = smooth(acorr,smth);
+smth_acorr = sm_acorr(zero_lag:end);
+
+[min_amp,min_loc] = min(smth_acorr,'npeaks',1);
+[max_amp,max_loc] = findpeaks(smth_acorr(min_loc:end),'npeaks',1);
+
+min_loc = min_loc + zero_lag - 1;
+max_loc = max_loc + min_loc - 1;
+
+if disp==1
+    
+    plot(lags,acorr)

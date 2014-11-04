@@ -1,0 +1,628 @@
+
+clear all
+load C:/WC_Germany/final_pdown_analysis/compiled_data.mat
+addpath('C:/WC_Germany/parietal_cortical_2010/');
+addpath('C:/Code/general/');
+addpath('C:/Code/general_functions/');
+addpath('C:/WC_Germany/hsmm_state_detection/');
+addpath('C:/WC_Germany/persistent_downs/');
+addpath(genpath('C:/Code/figuremaker/'));
+fig_dir = 'C:\WC_Germany\final_pdown_analysis\figures\';
+
+
+min_rec_dur = 500; %in sec
+data_ids = [data(:).id];
+hd_len = arrayfun(@(x)length(x.heka_data),data);
+used_dirs = find([data(:).ep] > min_rec_dur & [data(:).dp] > min_rec_dur);
+
+used_dirs(ismember(data_ids(used_dirs),unclear_uds)) = [];
+
+data = data(used_dirs);
+
+load C:/WC_Germany/final_pdown_analysis/fin_pdown_core_analysis.mat
+if length(core_data) ~= length(data)
+    error('Data mismatch');
+end
+load C:/WC_Germany/final_pdown_analysis/final_cortical_state_data.mat
+
+%%
+raw_Fs = 2016;
+dsf = 8;
+Fsd = raw_Fs/dsf;
+niqf = raw_Fs/2;
+hcf = 10;
+lcf = 0.05;
+lcf_hf = 40;
+hcf_hf = 100;
+hcf_sm = 0.025;
+rate_sm = round(Fsd*0.05);
+
+xi_drel = linspace(-0.4,1.5,100);
+xi_urel = linspace(-1.5,0.75,100);
+xi_lfp = linspace(-3,3,100);
+% backlag = round(Fsd*0.5);
+% forwardlag = round(Fsd*1.25);
+backlag = round(Fsd*1);
+forwardlag = round(Fsd*2);
+
+down_buffer = round(0.1*Fsd);
+spk_back = 0.001;
+spk_for = 0.004;
+
+lags = (-backlag:forwardlag);
+
+avg_win = round(30*Fsd); %duration of boxcar window for fitting changes in DC state-conditional means
+min_samps = 5; %minimum number of samples to compute density at a particular time point
+%%
+for d = 1:length(used_dirs)
+    cd(data(d).dir)
+    pwd
+    
+    if hd_len(d) > 0 %is there heka data
+        used_heka_data(d) = true;
+        load ./used_data lf7 wcv_minus_spike
+        [lfp_lf,t_axis] = get_lf_features(lf7,raw_Fs,Fsd,[lcf hcf]);
+        wcv_lf = get_lf_features(wcv_minus_spike,raw_Fs,Fsd,[lcf hcf]);
+        lfp_hf = get_hf_features(lf7,raw_Fs,Fsd,[lcf_hf hcf_hf],hcf_sm);
+        
+        load ./sync_times.mat
+        synct_d = downsample(synct,dsf);
+        
+        load ./spike_time_jmm.mat
+        full_t_axis = (1:length(wcv_minus_spike))/raw_Fs;
+        spike_times = full_t_axis(spkid);
+        
+        end_time = min(data(d).ep,data(d).dp);
+        ep = find(t_axis >= end_time,1);
+        if ~isempty(ep)
+            synct_d(ep+1:end) = []; lfp_lf(ep+1:end) = []; wcv_lf(ep+1:end) = []; t_axis(ep+1:end) = []; lfp_hf(ep+1:end) = []; %hpc_hf(ep+1:end) = [];
+        else
+            ep = length(t_axis);
+        end
+        
+        %%
+        load ./pa_hsmm_state_seq_combined_fin_nd.mat
+        load ./pa_hsmm_state_seq7_combined_fin_nd.mat
+        hsmm8 = hsmm7;
+        lfp_state_seq = hsmm_bbstate_seq7;
+        mp_state_seq = hsmm_bbstate_seq;
+        
+        [new_seg_inds] = resample_uds_seg_inds_v2(hsmm.UDS_segs,hsmm.Fs,Fsd,mp_state_seq);
+        dur_uds = sum(diff(new_seg_inds,[],2))/Fsd;
+        [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,mp_state_seq);
+        [up_trans_inds8,down_trans_inds8] = compute_state_transitions_seg(new_seg_inds,lfp_state_seq);
+        
+        bad_mp_states = find(up_trans_inds > ep | down_trans_inds > ep);
+        up_trans_inds(bad_mp_states) = []; down_trans_inds(bad_mp_states) = [];
+        bad_lfp_states = find(up_trans_inds8 > ep | down_trans_inds8 > ep);
+        up_trans_inds8(bad_lfp_states) = []; down_trans_inds8(bad_lfp_states) = [];
+        
+        %%
+        load ./allEC_ctx_period_data_hsmm.mat
+        lfp_period_vec = nan(size(wcv_lf));
+        for i = 1:size(new_seg_inds,1)
+            cur_inds = new_seg_inds(i,1):new_seg_inds(i,2);
+            cur_inds_used = find(cur_inds <= ep);
+            lfp_period_vec(cur_inds(cur_inds_used)) = lf8_period_f{i}(cur_inds_used);
+        end
+        
+        %%
+        mp_state_number = nan(length(wcv_lf),1);
+        mp_state_vec = nan(length(wcv_lf),1);
+        lfp_state_number = nan(length(wcv_lf),1);
+        lfp_state_vec = nan(length(wcv_lf),1);
+        for i = 1:length(up_trans_inds)-1
+            mp_state_vec(up_trans_inds(i):down_trans_inds(i)) = 1;
+            mp_state_vec(down_trans_inds(i):up_trans_inds(i+1)) = 0;
+            mp_state_number(up_trans_inds(i):down_trans_inds(i)) = 2*(i-1)+1;
+            mp_state_number(down_trans_inds(i):up_trans_inds(i+1)) = 2*(i-1) + 2;
+        end
+        
+        for i = 1:length(up_trans_inds8)-1
+            lfp_state_vec(up_trans_inds8(i):down_trans_inds8(i)) = 1;
+            lfp_state_vec(down_trans_inds8(i):up_trans_inds8(i+1)) = 0;
+            lfp_state_number(up_trans_inds8(i):down_trans_inds8(i)) = 2*(i-1)+1;
+            lfp_state_number(down_trans_inds8(i):up_trans_inds8(i+1)) = 2*(i-1) + 2;
+        end
+        mp_state_number(isnan(lfp_period_vec)) = nan;
+        lfp_state_number(isnan(lfp_period_vec)) = nan;
+        mp_state_vec(isnan(lfp_period_vec)) = nan;
+        lfp_state_vec(isnan(lfp_period_vec)) = nan;
+        
+        %% compute corresponding state transitions and transition lags
+        [corresp_lfp_upinds,corresp_lfp_downinds] = find_corresponding_state_transitions_lookback(...
+            up_trans_inds,down_trans_inds,up_trans_inds8,down_trans_inds8);
+        
+        %% CREATE INTERPOLATED MP DATA
+        if exist('./aligned_heka.mat','file')
+            load ./aligned_heka.mat
+            dc_dt = median(diff(dc_time));
+            dc_fs = 1/dc_dt;
+            dc_dsf = 20;
+            dc_fsd = dc_fs/dc_dsf;
+            [dc_fb,dc_fa] = butter(4,10/(dc_fsd/2),'low');
+            
+%             %remove spikes from DC MP signal by interpolation
+%             cur_spk_inds = round(interp1(dc_time,1:length(dc_time),spike_times));
+%             spike_times(isnan(cur_spk_inds)) = [];
+%             cur_spk_inds(isnan(cur_spk_inds)) = [];
+%             cur_spk_inds = cur_spk_inds(:); spike_times = spike_times(:); dc_time = dc_time(:);
+%             spike_error = abs(dc_time(cur_spk_inds) - spike_times); %use only spikes that interpolate onto actual DC data
+%             bad = find(spike_error > 2/Fsd);
+%             cur_spk_inds(bad) = [];
+%             blk_inds = -round(spk_back/dc_dt):round(spk_for/dc_dt); %set of times around each spike to interpolate out
+%             blocked_inds = bsxfun(@plus,cur_spk_inds,blk_inds);
+%             blocked_inds = blocked_inds(:);
+%             used_inds = setdiff(1:length(dc_data),blocked_inds); %non-spike samples
+%             dc_data = interp1(used_inds,dc_data(used_inds),1:length(dc_data)); %de-spiked data
+            
+            dc_data = decimate(dc_data,dc_dsf);
+            dc_data = filtfilt(dc_fb,dc_fa,dc_data);
+            dc_time = downsample(dc_time,dc_dsf);
+            dc_time = dc_time(:);
+            
+            dc_interp_data = interp1(dc_time,dc_data,t_axis);
+            ind_interp = ceil(interp1(dc_time,1:length(dc_time),t_axis));
+            used = find(~isnan(ind_interp));
+            t_error = dc_time(ind_interp(used)) - t_axis(used)';
+            used = used(t_error <= 1/Fsd);
+            
+            dc_interp_data(setdiff(1:length(dc_interp_data),used)) = nan;
+                        
+            if nanstd(dc_interp_data) < 1
+                dc_interp_data = dc_interp_data*100;
+            end
+            dc_interp_data = dc_interp_data(:);
+        else
+            dc_interp_data = nan(size(wcv_lf));
+        end
+        
+        %COMPUTE AVG UP- AND DOWN-STATE CONDITIONAL DC MP VALUES FOR
+        %NORMALIZATION
+        dc_upstate_amp(d) = nanmean(dc_interp_data(mp_state_vec == 1));
+        dc_downstate_amp(d) = nanmean(dc_interp_data(mp_state_vec == 0));
+        dc_avg_amp(d) = nanmean(dc_interp_data(~isnan(mp_state_vec)));
+        dc_uds_amp(d) = dc_upstate_amp(d) - dc_downstate_amp(d);
+        
+        dc_interp_data_reld = dc_interp_data - dc_downstate_amp(d);
+        dc_interp_data_relu = dc_interp_data - dc_upstate_amp(d);
+        dc_interp_data_normd = dc_interp_data_reld/dc_uds_amp(d);
+        dc_interp_data_normu = dc_interp_data_relu/dc_uds_amp(d);
+        
+        %% normalize DC MP by time-varying state-conditional means
+        Nwins = ceil(length(t_axis)/avg_win);
+        win_locs = nan(Nwins,1);
+        win_upavg = nan(Nwins,1);
+        win_downavg = nan(Nwins,1);
+        for ii = 1:Nwins
+            cur_inds = (ii-1)*avg_win + (1:avg_win);
+            cur_inds(cur_inds > length(t_axis)) = [];
+            win_locs(ii) = round(mean(cur_inds));
+            cur_ups = cur_inds(mp_state_vec(cur_inds) == 1);
+            cur_downs = cur_inds(mp_state_vec(cur_inds) == 0);
+            win_upavg(ii) = nanmean(dc_interp_data(cur_ups));
+            win_downavg(ii) = nanmean(dc_interp_data(cur_downs));
+        end
+        win_locs = [1; win_locs; length(t_axis)];
+        rpts = find(diff(win_locs) == 0) + 1;
+        win_upavg = [win_upavg(1); win_upavg; win_upavg(end)];
+        win_downavg = [win_downavg(1); win_downavg; win_downavg(end)];
+        
+        win_locs(rpts) = [];
+        win_upavg(rpts) = [];
+        win_downavg(rpts) = [];
+        
+        bad = find(isnan(win_upavg) | isnan(win_downavg));
+        win_locs(bad) = [];
+        win_upavg(bad) = [];
+        win_downavg(bad) = [];
+        
+        interp_win_upavg = interp1(win_locs,win_upavg,1:length(t_axis));
+        interp_win_downavg = interp1(win_locs,win_downavg,1:length(t_axis));
+        interp_win_upavg = interp_win_upavg(:);
+        interp_win_downavg = interp_win_downavg(:);
+        interp_win_amp = interp_win_upavg - interp_win_downavg;
+        dc_interp_data_reld = dc_interp_data - interp_win_downavg;
+        dc_interp_data_relu = dc_interp_data - interp_win_upavg;
+        dc_interp_data_normd = dc_interp_data_reld./interp_win_amp;
+        dc_interp_data_normu = dc_interp_data_relu./interp_win_amp;
+        
+        %% FOR CORTICAL UP TRANSITIONS
+        ctx_ups_mp_up = find(mp_state_vec(up_trans_inds8) == 1);
+        skipped_lfp_ups = [core_data(d).skipped_lfp_ups];
+        non_skipped_lfp_ups = [core_data(d).non_skipped_lfp_ups];
+        
+        skipped_lfp_ups(ismember(skipped_lfp_ups,ctx_ups_mp_up)) = [];
+        non_skipped_lfp_ups(ismember(non_skipped_lfp_ups,ctx_ups_mp_up)) = [];
+        
+        [non_sk_utrig_avg_mp,~,ev_std,n_events,non_sk_utrig_mp_mat] = get_event_trig_avg...
+            (dc_interp_data_normd,up_trans_inds8(non_skipped_lfp_ups),backlag,forwardlag,2,mp_state_number,2,[],min_samps);
+        [non_sk_utrig_avg_lfp,~,ev_std,n_events,non_sk_utrig_lfp_mat] = get_event_trig_avg...
+            (lfp_lf,up_trans_inds8(non_skipped_lfp_ups),backlag,forwardlag,2,lfp_state_number,-1,[],min_samps);
+%         [non_sk_utrig_avg_mp,~,ev_std,n_events,non_sk_utrig_mp_mat] = get_event_trig_avg...
+%             (dc_interp_data_normd,up_trans_inds8(non_skipped_lfp_ups),backlag,forwardlag,2);
+%         [non_sk_utrig_avg_lfp,~,ev_std,n_events,non_sk_utrig_lfp_mat] = get_event_trig_avg...
+%             (lfp_lf,up_trans_inds8(non_skipped_lfp_ups),backlag,forwardlag,2);
+        if length(skipped_lfp_ups) > min_samps
+            [sk_utrig_avg_mp,~,ev_std,n_events,sk_utrig_mp_mat] = get_event_trig_avg...
+                (dc_interp_data_normd,up_trans_inds8(skipped_lfp_ups),backlag,forwardlag,2,mp_state_number,0,[],min_samps);
+            [sk_utrig_avg_lfp,~,ev_std,n_events,sk_utrig_lfp_mat] = get_event_trig_avg...
+                (lfp_lf,up_trans_inds8(skipped_lfp_ups),backlag,forwardlag,2,lfp_state_number,-1,[],min_samps);
+%             [sk_utrig_avg_mp,~,ev_std,n_events,sk_utrig_mp_mat] = get_event_trig_avg...
+%                 (dc_interp_data_normd,up_trans_inds8(skipped_lfp_ups),backlag,forwardlag,2);
+%             [sk_utrig_avg_lfp,~,ev_std,n_events,sk_utrig_lfp_mat] = get_event_trig_avg...
+%                 (lfp_lf,up_trans_inds8(skipped_lfp_ups),backlag,forwardlag,2);
+        else
+            sk_utrig_avg_mp = nan(1,length(lags));
+            sk_utrig_mp_mat = nan(1,length(lags));
+            sk_utrig_avg_lfp = nan(1,length(lags));
+            sk_utrig_lfp_mat = nan(1,length(lags));
+        end
+        
+        non_sk_utrig_mp_dist = nan(length(lags),length(xi_drel));
+        non_sk_utrig_lfp_dist = nan(length(lags),length(xi_lfp));
+        sk_utrig_mp_dist = nan(length(lags),length(xi_drel));
+        for ii = 1:length(lags)
+            uset = ~isnan(non_sk_utrig_mp_mat(:,ii));
+            if sum(uset) > min_samps
+                non_sk_utrig_mp_dist(ii,:) = ksdensity(non_sk_utrig_mp_mat(:,ii),xi_drel);
+                non_sk_utrig_lfp_dist(ii,:) = ksdensity(non_sk_utrig_lfp_mat(:,ii),xi_lfp);
+            else
+                non_sk_utrig_mp_dist(ii,:) = nan(1,length(xi_drel));
+                non_sk_utrig_lfp_dist(ii,:) = nan(1,length(xi_lfp));
+            end
+            uset = ~isnan(sk_utrig_mp_mat(:,ii));
+            if sum(uset) > min_samps
+                sk_utrig_mp_dist(ii,:) = ksdensity(sk_utrig_mp_mat(:,ii),xi_drel);
+                sk_utrig_lfp_dist(ii,:) = ksdensity(sk_utrig_lfp_mat(:,ii),xi_lfp);
+            else
+                sk_utrig_mp_dist(ii,:) = nan(1,length(xi_drel));
+                sk_utrig_lfp_dist(ii,:) = nan(1,length(xi_lfp));
+            end
+        end
+        
+        trig_data(d).sk_utrig_avg_mp = sk_utrig_avg_mp;
+        trig_data(d).sk_utrig_avg_lfp = sk_utrig_avg_lfp;
+        trig_data(d).sk_utrig_mp_dist = sk_utrig_mp_dist;
+        trig_data(d).sk_utrig_lfp_dst = sk_utrig_lfp_dist;
+        trig_data(d).non_sk_utrig_avg_mp = non_sk_utrig_avg_mp;
+        trig_data(d).non_sk_utrig_avg_lfp = non_sk_utrig_avg_lfp;
+        trig_data(d).non_sk_utrig_mp_dist = non_sk_utrig_mp_dist;
+        trig_data(d).non_sk_utrig_lfp_dst = non_sk_utrig_lfp_dist;
+        trig_data(d).N_sk_utrans = length(skipped_lfp_ups);
+        trig_data(d).N_non_sk_utrans = length(non_skipped_lfp_ups);
+        
+        %% FOR CORTICAL DOWN TRANSITIONS
+        ctx_downs_mp_down = find(mp_state_vec(down_trans_inds8) == 0);
+        skipped_lfp_downs = [core_data(d).skipped_lfp_downs];
+        non_skipped_lfp_downs = [core_data(d).non_skipped_lfp_downs];
+        
+        skipped_lfp_downs(ismember(skipped_lfp_downs,ctx_downs_mp_down)) = [];
+        non_skipped_lfp_downs(ismember(non_skipped_lfp_downs,ctx_downs_mp_down)) = [];
+        
+        [non_sk_dtrig_avg_mp,~,ev_std,n_events,non_sk_dtrig_mp_mat] = get_event_trig_avg...
+            (dc_interp_data_normu,down_trans_inds8(non_skipped_lfp_downs),backlag,forwardlag,2,mp_state_number,2,[],min_samps);
+        [non_sk_dtrig_avg_lfp,~,ev_std,n_events,non_sk_dtrig_lfp_mat] = get_event_trig_avg...
+            (lfp_lf,down_trans_inds8(non_skipped_lfp_downs),backlag,forwardlag,2,lfp_state_number,-1,[],min_samps);
+%         [non_sk_dtrig_avg_mp,~,ev_std,n_events,non_sk_dtrig_mp_mat] = get_event_trig_avg...
+%             (dc_interp_data_normu,down_trans_inds8(non_skipped_lfp_downs),backlag,forwardlag,2);
+%         [non_sk_dtrig_avg_lfp,~,ev_std,n_events,non_sk_dtrig_lfp_mat] = get_event_trig_avg...
+%             (lfp_lf,down_trans_inds8(non_skipped_lfp_downs),backlag,forwardlag,2);
+        if length(skipped_lfp_downs) > min_samps
+            [sk_dtrig_avg_mp,~,ev_std,n_events,sk_dtrig_mp_mat] = get_event_trig_avg...
+                (dc_interp_data_normu,down_trans_inds8(skipped_lfp_downs),backlag,forwardlag,2,mp_state_number,0,[],min_samps);
+            [sk_dtrig_avg_lfp,~,ev_std,n_events,sk_dtrig_lfp_mat] = get_event_trig_avg...
+                (lfp_lf,down_trans_inds8(skipped_lfp_downs),backlag,forwardlag,2,lfp_state_number,-1,[],min_samps);
+%             [sk_dtrig_avg_mp,~,ev_std,n_events,sk_dtrig_mp_mat] = get_event_trig_avg...
+%                 (dc_interp_data_normu,down_trans_inds8(skipped_lfp_downs),backlag,forwardlag,2);
+%             [sk_dtrig_avg_lfp,~,ev_std,n_events,sk_dtrig_lfp_mat] = get_event_trig_avg...
+%                 (lfp_lf,down_trans_inds8(skipped_lfp_downs),backlag,forwardlag,2);
+        else
+            sk_dtrig_avg_mp = nan(1,length(lags));
+            sk_dtrig_mp_mat = nan(1,length(lags));
+            sk_dtrig_avg_lfp = nan(1,length(lags));
+            sk_dtrig_lfp_mat = nan(1,length(lags));
+        end
+        
+        non_sk_dtrig_mp_dist = nan(length(lags),length(xi_urel));
+        non_sk_dtrig_lfp_dist = nan(length(lags),length(xi_lfp));
+        sk_dtrig_mp_dist = nan(length(lags),length(xi_urel));
+        for ii = 1:length(lags)
+            uset = ~isnan(non_sk_dtrig_mp_mat(:,ii));
+            if sum(uset) > min_samps
+                non_sk_dtrig_mp_dist(ii,:) = ksdensity(non_sk_dtrig_mp_mat(:,ii),xi_urel);
+                non_sk_dtrig_lfp_dist(ii,:) = ksdensity(non_sk_dtrig_lfp_mat(:,ii),xi_lfp);
+            else
+                non_sk_dtrig_mp_dist(ii,:) = nan(1,length(xi_urel));
+                non_sk_dtrig_lfp_dist(ii,:) = nan(1,length(xi_lfp));
+            end
+            uset = ~isnan(sk_dtrig_mp_mat(:,ii));
+            if sum(uset) > min_samps
+                sk_dtrig_mp_dist(ii,:) = ksdensity(sk_dtrig_mp_mat(:,ii),xi_urel);
+                sk_dtrig_lfp_dist(ii,:) = ksdensity(sk_dtrig_lfp_mat(:,ii),xi_lfp);
+            else
+                sk_dtrig_mp_dist(ii,:) = nan(1,length(xi_urel));
+                sk_dtrig_lfp_dist(ii,:) = nan(1,length(xi_lfp));
+            end
+        end
+        
+        trig_data(d).sk_dtrig_avg_mp = sk_dtrig_avg_mp;
+        trig_data(d).sk_dtrig_avg_lfp = sk_dtrig_avg_lfp;
+        trig_data(d).sk_dtrig_mp_dist = sk_dtrig_mp_dist;
+        trig_data(d).sk_dtrig_lfp_dist = sk_dtrig_lfp_dist;
+        trig_data(d).non_sk_dtrig_avg_mp = non_sk_dtrig_avg_mp;
+        trig_data(d).non_sk_dtrig_avg_lfp = non_sk_dtrig_avg_lfp;
+        trig_data(d).non_sk_dtrig_mp_dist = non_sk_dtrig_mp_dist;
+        trig_data(d).non_sk_dtrig_lfp_dist = non_sk_dtrig_lfp_dist;
+        trig_data(d).N_sk_dtrans = length(skipped_lfp_downs);
+        trig_data(d).N_non_sk_dtrans = length(non_skipped_lfp_downs);
+        
+    else
+        used_heka_data(d) = false;
+    end
+end
+
+% used_heka_data([data(:).id] == 46) = false; %the MP alignment for this rec fails towards the beginning.
+
+%%
+cd C:\WC_Germany\final_pdown_analysis\
+save final_DC_trig_dist trig_data used_heka_data
+
+%%
+l3mec = find(strcmp({data.loc},'MEC') & used_heka_data);
+l3lec = find(strcmp({data.loc},'LEC') & used_heka_data);
+l3mec(~ismember(data_ids(l3mec),clear_l3)) = [];
+
+fract_rt2_ups = [core_data(:).fract_rt2_ups];
+fract_rt2_downs = [core_data(:).fract_rt2_downs];
+
+n_rt2_downs = cellfun(@(x) length(x),{core_data(:).rt2_downs});
+n_rt2_ups = cellfun(@(x) length(x),{core_data(:).rt2_ups});
+
+min_npers = 10;
+l3mec_pups = l3mec(n_rt2_ups(l3mec) >= min_npers);
+l3mec_pdowns = l3mec(n_rt2_downs(l3mec) >= min_npers);
+l3mec_both = intersect(l3mec_pups,l3mec_pdowns);
+
+%%
+close all
+xl = [-0.3 2];
+yl = [-0.2 1.2];
+% yl = [-0.2 0.4];
+
+non_sk_utrig_mp_dist = sqrt(reshape([trig_data(l3mec_pdowns).non_sk_utrig_mp_dist],[length(lags) length(xi_drel) length(l3mec_pdowns)]));
+sk_utrig_mp_dist = sqrt(reshape([trig_data(l3mec_pdowns).sk_utrig_mp_dist],[length(lags) length(xi_drel) length(l3mec_pdowns)]));
+non_sk_utrig_mp_avg = reshape([trig_data(l3mec_pdowns).non_sk_utrig_avg_mp],[length(lags) length(l3mec_pdowns)]);
+sk_utrig_mp_avg = reshape([trig_data(l3mec_pdowns).sk_utrig_avg_mp],[length(lags) length(l3mec_pdowns)]);
+
+[~,ctx_utrig_maxlocs_nonsk] = max(non_sk_utrig_mp_dist,[],2);
+ctx_utrig_maxlocs_nonsk = squeeze(xi_drel(ctx_utrig_maxlocs_nonsk));
+bad = find(any(isnan(non_sk_utrig_mp_dist),2));
+ctx_utrig_maxlocs_nonsk(bad) = nan;
+
+[~,ctx_utrig_maxlocs_sk] = nanmax(sk_utrig_mp_dist,[],2);
+ctx_utrig_maxlocs_sk = squeeze(xi_drel(ctx_utrig_maxlocs_sk));
+bad = squeeze(any(isnan(sk_utrig_mp_dist),2));
+ctx_utrig_maxlocs_sk(bad) = nan;
+
+h1 = figure(); 
+subplot(2,1,1);
+hold on
+imagesc(lags/Fsd,xi_drel,squeeze(nanmean(non_sk_utrig_mp_dist,3))');
+set(gca,'ydir','normal');
+plot(lags/Fsd,nanmedian(ctx_utrig_maxlocs_nonsk,2),'k','linewidth',2);
+% plot(lags/Fsd,mean(ctx_utrig_maxlocs_nonsk,2),'w','linewidth',2);
+axis tight
+ylim(yl);
+line([0 0],yl,'color','w','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical up (s)');
+ylabel('Relative amplitude');
+subplot(2,1,2);
+hold on
+imagesc(lags/Fsd,xi_drel,squeeze(nanmean(sk_utrig_mp_dist,3))');
+set(gca,'ydir','normal');
+plot(lags/Fsd,nanmedian(ctx_utrig_maxlocs_sk,2),'k','linewidth',2);
+% plot(lags/Fsd,mean(ctx_utrig_maxlocs_nonsk,2),'w','linewidth',2);
+axis tight
+ylim(yl);
+line([0 0],yl,'color','w','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical up (s)');
+ylabel('Relative amplitude');
+figufy(h1);
+
+% h2=figure; hold on
+% % shadedErrorBar(lags/Fsd,nanmedian(ctx_utrig_maxlocs_nonsk,2),nanstd(ctx_utrig_maxlocs_nonsk,[],2)/sqrt(length(l3mec_pdowns)),{'color','k'});
+% % shadedErrorBar(lags/Fsd,nanmedian(ctx_utrig_maxlocs_sk,2),nanstd(ctx_utrig_maxlocs_sk,[],2)/sqrt(length(l3mec_pdowns)),{'color','r'});
+% shadedErrorBar(lags/Fsd,nanmean(ctx_utrig_maxlocs_nonsk,2),nanstd(ctx_utrig_maxlocs_nonsk,[],2)/sqrt(length(l3mec_pdowns)),{'color','k'});
+% shadedErrorBar(lags/Fsd,nanmean(ctx_utrig_maxlocs_sk,2),nanstd(ctx_utrig_maxlocs_sk,[],2)/sqrt(length(l3mec_pdowns)),{'color','r'});
+% % shadedErrorBar(lags/Fsd,nanmean(non_sk_utrig_mp_avg,2),nanstd(non_sk_utrig_mp_avg,[],2)/sqrt(length(l3mec_pdowns)),{'color','k'});
+% % shadedErrorBar(lags/Fsd,nanmean(sk_utrig_mp_avg,2),nanstd(sk_utrig_mp_avg,[],2)/sqrt(length(l3mec_pdowns)),{'color','r'});
+% ylim(yl);
+% line([0 0],yl,'color','k','linestyle','--');
+% xlim(xl);
+% xlabel('Time since cortical up (s)');
+% ylabel('Relative amplitude');
+% figufy(h2);
+
+h3=figure; hold on
+shadedErrorBar(lags/Fsd,nanmean(non_sk_utrig_mp_avg,2),nanstd(non_sk_utrig_mp_avg,[],2)/sqrt(length(l3mec_pdowns)),{'color','k'});
+shadedErrorBar(lags/Fsd,nanmean(sk_utrig_mp_avg,2),nanstd(sk_utrig_mp_avg,[],2)/sqrt(length(l3mec_pdowns)),{'color','r'});
+ylim([-0.1 0.15]);
+yl = ylim();
+line([0 0],yl,'color','k','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical up (s)');
+ylabel('Relative amplitude');
+figufy(h3);
+
+%%
+fig_width = 4.36;
+rel_height = 1.6;
+% fname1 = [fig_dir 'utrig_MP_dist_zoom'];
+fname1 = [fig_dir 'utrig_MP_dist'];
+exportfig(h1,fname1,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+% fig_width = 3.27;
+% rel_height = 0.8;
+% % fname2 = [fig_dir 'utrig_MP_avg_zoom'];
+% fname2 = [fig_dir 'utrig_MP_avg'];
+% exportfig(h2,fname2,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+fig_width = 3.27;
+rel_height = 0.8;
+% fname2 = [fig_dir 'utrig_MP_avg_zoom'];
+fname2 = [fig_dir 'utrig_MP_avg'];
+exportfig(h3,fname2,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+close all
+%%
+xl = [-0.3 1.2];
+
+% non_sk_dtrig_mp_dist = sqrt(reshape([trig_data(l3mec_pups).non_sk_dtrig_mp_dist],[length(lags) length(xi_urel) length(l3mec_pups)]));
+% non_sk_dtrig_mp_avg = reshape([trig_data(l3mec_pups).non_sk_dtrig_avg_mp],[length(lags) length(l3mec_pups)]);
+non_sk_dtrig_mp_dist = sqrt(reshape([trig_data(l3mec).non_sk_dtrig_mp_dist],[length(lags) length(xi_urel) length(l3mec)]));
+non_sk_dtrig_mp_avg = reshape([trig_data(l3mec).non_sk_dtrig_avg_mp],[length(lags) length(l3mec)]);
+sk_dtrig_mp_dist = sqrt(reshape([trig_data(l3mec_pups).sk_dtrig_mp_dist],[length(lags) length(xi_urel) length(l3mec_pups)]));
+sk_dtrig_mp_avg = reshape([trig_data(l3mec_pups).sk_dtrig_avg_mp],[length(lags) length(l3mec_pups)]);
+
+[~,ctx_dtrig_maxlocs_nonsk] = nanmax(non_sk_dtrig_mp_dist,[],2);
+ctx_dtrig_maxlocs_nonsk = squeeze(xi_urel(ctx_dtrig_maxlocs_nonsk));
+bad = find(any(isnan(non_sk_dtrig_mp_dist),2));
+ctx_dtrig_maxlocs_nonsk(bad) = nan;
+
+[~,ctx_dtrig_maxlocs_sk] = nanmax(sk_dtrig_mp_dist,[],2);
+ctx_dtrig_maxlocs_sk = squeeze(xi_urel(ctx_dtrig_maxlocs_sk));
+bad = find(any(isnan(sk_dtrig_mp_dist),2));
+ctx_dtrig_maxlocs_sk(bad) = nan;
+
+h1 = figure(); 
+subplot(2,1,1);
+hold on
+imagesc(lags/Fsd,xi_urel,squeeze(nanmean(non_sk_dtrig_mp_dist,3))');
+set(gca,'ydir','normal');
+plot(lags/Fsd,nanmedian(ctx_dtrig_maxlocs_nonsk,2),'k','linewidth',2);
+% plot(lags/Fsd,mean(ctx_dtrig_maxlocs_nonsk,2),'w','linewidth',2);
+yl = ylim();
+axis tight
+line([0 0],yl,'color','w','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical down (s)');
+ylabel('Relative amplitude');
+subplot(2,1,2);
+hold on
+imagesc(lags/Fsd,xi_urel,squeeze(nanmean(sk_dtrig_mp_dist,3))');
+set(gca,'ydir','normal');
+plot(lags/Fsd,nanmedian(ctx_dtrig_maxlocs_sk,2),'k','linewidth',2);
+% plot(lags/Fsd,mean(ctx_dtrig_maxlocs_nonsk,2),'w','linewidth',2);
+yl = ylim();
+axis tight
+line([0 0],yl,'color','w','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical down (s)');
+ylabel('Relative amplitude');
+figufy(h1);
+
+% h2=figure; hold on
+% % shadedErrorBar(lags/Fsd,median(ctx_dtrig_maxlocs_nonsk,2),std(ctx_dtrig_maxlocs_nonsk,[],2)/sqrt(length(l3mec_pups)),{'color','k'});
+% % shadedErrorBar(lags/Fsd,median(ctx_dtrig_maxlocs_sk,2),std(ctx_dtrig_maxlocs_sk,[],2)/sqrt(length(l3mec_pups)),{'color','r'});
+% shadedErrorBar(lags/Fsd,nanmean(ctx_dtrig_maxlocs_nonsk,2),nanstd(ctx_dtrig_maxlocs_nonsk,[],2)/sqrt(length(l3mec_pups)),{'color','k'});
+% % shadedErrorBar(lags/Fsd,nanmean(ctx_utrig_maxlocs_sk,2),nanstd(ctx_utrig_maxlocs_sk,[],2)/sqrt(length(l3mec_pdowns)),{'color','k'});
+% shadedErrorBar(lags/Fsd,nanmean(ctx_dtrig_maxlocs_sk,2),nanstd(ctx_dtrig_maxlocs_sk,[],2)/sqrt(length(l3mec_pups)),{'color','r'});
+% yl = ylim();
+% line([0 0],yl,'color','k','linestyle','--');
+% xlim(xl);
+% xlabel('Time since cortical down (s)');
+% ylabel('Relative amplitude');
+% figufy(h2);
+
+h3=figure; hold on
+% shadedErrorBar(lags/Fsd,nanmean(sk_utrig_mp_avg,2),nanstd(sk_utrig_mp_avg,[],2)/sqrt(length(l3mec_pdowns)),{'color','b'});
+shadedErrorBar(lags/Fsd,nanmean(non_sk_dtrig_mp_avg,2),nanstd(non_sk_dtrig_mp_avg,[],2)/sqrt(length(l3mec_pups)),{'color','k'});
+shadedErrorBar(lags/Fsd,nanmean(sk_dtrig_mp_avg,2),nanstd(sk_dtrig_mp_avg,[],2)/sqrt(length(l3mec_pups)),{'color','r'});
+ylim([-0.2 0.1]);
+yl = ylim();
+line([0 0],yl,'color','k','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical up (s)');
+ylabel('Relative amplitude');
+figufy(h3);
+
+%%
+fig_width = 4.36;
+rel_height = 2;
+% fname1 = [fig_dir 'dtrig_MP_dist_zoom'];
+fname1 = [fig_dir 'dtrig_MP_dist'];
+exportfig(h1,fname1,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+fig_width = 3.27;
+rel_height = 0.8;
+% fname2 = [fig_dir 'dtrig_MP_avg_zoom'];
+fname2 = [fig_dir 'dtrig_MP_avg'];
+exportfig(h2,fname2,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+close all
+
+    %%
+min_persfrac = 0.1;
+% used_data = l3mec;
+used_data = l3mec(fract_rt2_downs(l3mec) > min_persfrac);
+
+xl = [-0.3 0.8];
+yl = [-1.5 2.5];
+% yl = [-0.2 0.4];
+
+non_sk_utrig_lfp_dist = sqrt(reshape([trig_data(used_data).non_sk_utrig_lfp_dst],[length(lags) length(xi_lfp) length(used_data)]));
+sk_utrig_lfp_dist = sqrt(reshape([trig_data(used_data).sk_utrig_lfp_dst],[length(lags) length(xi_lfp) length(used_data)]));
+
+[~,ctx_utrig_maxlocs_nonsk] = max(non_sk_utrig_lfp_dist,[],2);
+ctx_utrig_maxlocs_nonsk = squeeze(xi_lfp(ctx_utrig_maxlocs_nonsk));
+bad = find(any(isnan(non_sk_utrig_lfp_dist),2));
+ctx_utrig_maxlocs_nonsk(bad) = nan;
+
+[~,ctx_utrig_maxlocs_sk] = nanmax(sk_utrig_lfp_dist,[],2);
+ctx_utrig_maxlocs_sk = squeeze(xi_lfp(ctx_utrig_maxlocs_sk));
+bad = squeeze(any(isnan(sk_utrig_lfp_dist),2));
+ctx_utrig_maxlocs_sk(bad) = nan;
+
+h1 = figure(); 
+subplot(2,1,1);
+hold on
+imagesc(lags/Fsd,xi_lfp,squeeze(nanmean(non_sk_utrig_lfp_dist,3))');
+set(gca,'ydir','normal');
+plot(lags/Fsd,nanmedian(ctx_utrig_maxlocs_nonsk,2),'k','linewidth',2);
+% plot(lags/Fsd,mean(ctx_utrig_maxlocs_nonsk,2),'w','linewidth',2);
+axis tight
+ylim(yl);
+line([0 0],yl,'color','w','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical up (s)');
+ylabel('Relative amplitude');
+subplot(2,1,2);
+hold on
+imagesc(lags/Fsd,xi_lfp,squeeze(nanmean(sk_utrig_lfp_dist,3))');
+set(gca,'ydir','normal');
+plot(lags/Fsd,nanmedian(ctx_utrig_maxlocs_sk,2),'k','linewidth',2);
+% plot(lags/Fsd,mean(ctx_utrig_maxlocs_nonsk,2),'w','linewidth',2);
+axis tight
+ylim(yl);
+line([0 0],yl,'color','w','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical up (s)');
+ylabel('Relative amplitude');
+figufy(h1);
+
+h2=figure; hold on
+% shadedErrorBar(lags/Fsd,nanmedian(ctx_utrig_maxlocs_nonsk,2),nanstd(ctx_utrig_maxlocs_nonsk,[],2)/sqrt(length(used_data)),{'color','k'});
+% shadedErrorBar(lags/Fsd,nanmedian(ctx_utrig_maxlocs_sk,2),nanstd(ctx_utrig_maxlocs_sk,[],2)/sqrt(length(used_data)),{'color','r'});
+shadedErrorBar(lags/Fsd,nanmean(ctx_utrig_maxlocs_nonsk,2),nanstd(ctx_utrig_maxlocs_nonsk,[],2)/sqrt(length(used_data)),{'color','k'});
+shadedErrorBar(lags/Fsd,nanmean(ctx_utrig_maxlocs_sk,2),nanstd(ctx_utrig_maxlocs_sk,[],2)/sqrt(length(used_data)),{'color','r'});
+ylim(yl);
+line([0 0],yl,'color','k','linestyle','--');
+xlim(xl);
+xlabel('Time since cortical up (s)');
+ylabel('Relative amplitude');
+figufy(h2);
+
+

@@ -1,0 +1,283 @@
+%% Load in new Sven data
+
+clear all
+close all
+new_mec_dir{1} = 'C:\wc_data\2011-6-22\2011-6-22_18-12-47';
+new_mec_dir{2} = 'C:\wc_data\2011-6-27\2011-6-27_15-41-36';
+new_mec_dir{3} = 'C:\wc_data\2011-6-28\2011-6-28_15-53-14';
+new_mec_dir{4} = 'C:\wc_data\2011-6-29\2011-6-29_16-58-5';
+new_mec_dir{5} = 'C:\wc_data\2011-6-30\2011-6-30_17-4-49';
+new_mec_dir{6} = 'C:\wc_data\2011-7-7\2011-7-7_14-47-31';
+new_mec_dir{7} = 'C:\wc_data\2011-7-8\2011-7-8_15-22-19';
+new_mec_dir{8} = 'C:\wc_data\2011-7-27\2011-7-27_16-36-37';
+new_mec_dir{9} = 'C:\wc_data\2011-7-28\2011-7-28_16-13-33';
+new_mec_dir{10} = 'C:\wc_data\2011-8-11\2011-8-11_19-5-27';
+new_mec_dir{11} = 'C:\wc_data\2011-8-11\2011-8-11_19-47-15';
+new_mec_dir{12} = 'C:\wc_data\2011-8-16\2011-8-16_17-28-7';
+new_mec_dir{13} = 'C:\wc_data\2011-8-17\2011-8-17_12-52-56';
+new_mec_dir{14} = 'C:\wc_data\2011-8-17\2011-8-17_13-14-48';
+new_mec_dir{15} = 'C:\wc_data\2011-8-22\2011-8-22_16-14-4';
+new_mec_dir{16} = 'C:\wc_data\2011-8-26\2011-8-26_12-54-55';
+new_mec_dir{17} = 'C:\wc_data\2011-8-26\2011-8-26_17-46-43';
+new_mec_dir{18} = 'C:\wc_data\2011-8-31\2011-8-31_14-42-7';
+new_mec_dir{19} = 'C:\wc_data\2011-8-31\2011-8-31_14-54-7';
+new_mec_dir{20} = 'C:\wc_data\2011-9-1\2011-9-1_16-49-49';
+new_mec_dir{21} = 'C:\wc_data\2011-9-2\2011-9-2_15-9-11';
+new_mec_dir{22} = 'C:\wc_data\2011-9-6\2011-9-6_13-49-7';
+new_mec_dir{23} = 'C:\wc_data\2011-9-6\2011-9-6_16-2-12';
+new_mec_dir{24} = 'C:\wc_data\2011-9-8\2011-9-8_16-11-51';
+new_mec_dir{25} = 'C:\wc_data\2011-9-13\2011-9-13_13-52-51';
+new_mec_dir{26} = 'C:\wc_data\2011-9-14\Sven\2011-9-14_14-34-1';
+new_mec_dir{27} = 'C:\wc_data\2011-9-14\Sven\2011-9-14_15-41-14';
+new_mec_dir{28} = 'C:\wc_data\2011-9-14\Thomas\2011-9-14_20-32-15';
+new_mec_dir{29} = 'C:\wc_data\2011-9-14\Thomas\2011-9-14_20-50-2';
+new_mec_dir{30} = 'C:\wc_data\2011-9-15\Thomas\2011-9-15_20-31-1';
+new_mec_dir{31} = 'C:\wc_data\2011-9-16\Sven\2011-9-16_13-37-37';
+new_mec_dir{32} = 'C:\wc_data\2011-9-16\Sven\2011-9-16_13-57-26';
+new_mec_dir{33} = 'C:\wc_data\2011-9-16\Sven\2011-9-16_14-20-36';
+new_mec_dir{34} = 'C:\wc_data\2011-9-16\Thomas\2011-9-16_20-15-39';
+new_mec_dir{35} = 'C:\wc_data\2011-9-29\2011-9-29_14-21-46';
+new_mec_dir{36} = 'C:\wc_data\2011-9-30\2011-9-30_14-36-48';
+new_mec_dir{37} = 'C:\wc_data\2011-10-4\2011-10-4_14-18-51';
+new_mec_dir{38} = 'C:\wc_data\2011-10-7\2011-10-7_14-51-19';
+new_mec_dir{39} = 'C:\wc_data\2011-10-13\2011-10-13_15-0-26';
+new_mec_dir{40} = 'C:\wc_data\2011-10-14\2011-10-14_14-8-44';
+new_mec_dir{41} = 'C:\wc_data\2011-10-14\2011-10-14_18-24-16';
+new_mec_dir{42} = 'C:\wc_data\2011-10-18\2011-10-18_15-1-41';
+new_mec_dir{43} = 'C:\wc_data\2011-10-25\2011-10-25_13-46-7';
+new_mec_dir{44} = 'C:\wc_data\2011-10-28\2011-10-28_16-40-5';
+new_mec_dir{45} = 'C:\wc_data\2011-11-3\2011-11-3_15-13-47';
+new_mec_dir{46} = 'C:\wc_data\2011-11-3\2011-11-3_14-46-3';
+new_mec_dir{47} = 'C:\wc_data\2011-11-4\2011-11-4_14-11-47';
+new_mec_dir{48} = 'C:\wc_data\2011-11-14\2011-11-14_13-33-20';
+new_mec_dir{49} = 'C:\wc_data\2011-11-15\2011-11-15_15-18-46';
+new_mec_dir{50} = 'C:\wc_data\2011-11-18\2011-11-18_13-24-13';
+
+cd C:/WC_Germany/new_mec/
+load is_mec
+load hpc_class
+load mediolat
+is_mec = logical(is_mec); 
+%use only histologically identified L3MEC.
+%also excluding 2011-9-15 because of unhealthy animal, and 
+%2011-9-14/d because it was the second recording from the same cell
+%(without iso)
+new_mec_dir = new_mec_dir(is_mec)';
+ml_pos = ml_pos(is_mec);
+new_hpc_mua = hpc_mua(is_mec);
+% new_hpc_lfp = hpc_lfp(is_mec);
+
+%%
+new_mec_heka{1} = 'C:\wc_data\2011-6-27\2011-06_27_1.mat';
+new_mec_heka{2} = 'C:\wc_data\2011-6-29\2011-06_29_2.mat';
+new_mec_heka{3} = 'C:\wc_data\2011-7-27\2011-07_27_1.mat';
+new_mec_heka{4} = 'C:\wc_data\2011-7-28\2011_07-28_1.mat';
+new_mec_heka{5} = 'C:\wc_data\2011-8-16\2011_08_16_2.mat';
+new_mec_heka{6} = 'C:\wc_data\2011-8-17\2011_08_17_1.mat';
+new_mec_heka{7} = 'C:\wc_data\2011-8-17\2011_08_17_2.mat';
+new_mec_heka{8} = 'C:\wc_data\2011-9-6\2011_09_06_1.mat';
+new_mec_heka{9} = 'C:\wc_data\2011-9-6\2011_09_06_2.mat';
+new_mec_heka{10} = 'C:\wc_data\2011-9-8\2011_09_08_4_2.mat';
+new_mec_heka{11} = 'C:\wc_data\2011-9-13\2011_09_13_1.mat';
+new_mec_heka{12} = 'C:\wc_data\2011-9-14\2011_09_14_2.mat';
+new_mec_heka{13} = 'C:\wc_data\2011-9-14\2011_09_14_3.mat';
+new_mec_heka{14} = 'C:\wc_data\2011-9-30\2011_09_30_4.mat';
+new_mec_heka{15} = 'C:\wc_data\2011-10-7\2011_10_07_2.mat';
+new_mec_heka{16} = 'C:\wc_data\2011-10-13\2011_10_13_4.mat';
+new_mec_heka{17} = 'C:\wc_data\2011-10-14\2011_10_14_4.mat';
+new_mec_heka{18} = 'C:\wc_data\2011-10-14\2011_10_14_5.mat';
+new_mec_heka{19} = 'C:\wc_data\2011-10-28\2011_10_28_1.mat';
+new_mec_heka{20} = 'C:\wc_data\2011-11-3\2011_11_03_2.mat';
+new_mec_heka{21} = 'C:\wc_data\2011-11-3\2011_11_03_1.mat';
+new_mec_heka{22} = 'C:\wc_data\2011-11-4\2011_11_04_2.mat';
+new_mec_heka{23} = 'C:\wc_data\2011-11-14\2011_11_14_2.mat';
+new_mec_heka{24} = 'C:\wc_data\2011-11-15\2011_11_15_1.mat';
+new_mec_heka{25} = 'C:\wc_data\2011-11-18\2011_11_18_2.mat';
+
+for i = 1:25
+    new_mec_heka_type{i} = 'cont';
+end
+
+%% Add in non-pyramidal cells
+non_pyr_mec{1} = 'C:\wc_data\2006-09-03_CWC_LFP\2006-9-3_20-2-20';
+non_pyr_mec_heka{1} = 'C:\wc_data\MPascii\A2006_09_03_CWC_LFP.mat';
+non_pyr_mec_type{1} = 'stellate';
+non_pyr_mec_heka_type{1} = 'sweep';
+
+non_pyr_mec{2} = 'C:\wc_data\2007-05-23_CWC_LFP_B\2007-5-23_19-4-42';
+non_pyr_mec_heka{2} = 'C:\wc_data\MPascii\A2007-05-23_CWC_LFP_B.mat';
+non_pyr_mec_type{2} = 'multipolar';
+non_pyr_mec_heka_type{2} = 'sweep';
+
+non_pyr_mec{3} = 'C:\wc_data\2007-05-28_CWC_LFP_B\2007-5-28_19-38-35';
+non_pyr_mec_heka{3} = []; %sven hasn't been able to convert this yet
+non_pyr_mec_type{3} = 'multipolar';
+non_pyr_mec_heka_type{3} = 'sweep';
+
+non_pyr_mec{4} = 'C:\wc_data\2007-06-27_CWC_LFP\2007-6-27_14-32-5';
+non_pyr_mec_heka{4} = 'C:\wc_data\2007-06-27_CWC_LFP\2007-06-27_CWC_LFP.mat'; 
+non_pyr_mec_type{4} = 'unclear';
+non_pyr_mec_heka_type{4} = 'sweep';
+
+non_pyr_mec{5} = 'C:\wc_data\2007-08-29_CWC_LFP_A\2007-8-29_15-18-39';
+non_pyr_mec_heka{5} = 'C:\wc_data\2007-08-29_CWC_LFP_A\2007-08-29_CWC_LFP_Aa.mat'; %haven't converted yet (ASC FILE)
+non_pyr_mec_type{5} = 'unclear';
+non_pyr_mec_heka_type{5} = 'sweep';
+
+non_pyr_mec{6} = 'C:\wc_data\2007-10-10_CWC_LFP_B\2007-10-10_CWC_LFP_B\2007-10-10_16-9-21';
+non_pyr_mec_heka{6} = 'C:\wc_data\MPascii\A2007_10_10_CWC_LFP_B.mat';
+non_pyr_mec_type{6} = 'multipolar';
+non_pyr_mec_heka_type{6} = 'sweep';
+
+non_pyr_mec{7} = 'C:\wc_data\2011-8-22\2011-8-22_16-14-4';
+non_pyr_mec_heka{7} = 'C:\wc_data\2011-8-22\2011-8-22_CWC_LFP.mat'; 
+non_pyr_mec_type{7} = 'stellate';
+non_pyr_mec_heka_type{7} = 'cont';
+
+non_pyr_mec{8} = 'C:\wc_data\2011-9-1\2011-9-1_16-49-49';
+non_pyr_mec_heka{8} = 'C:\wc_data\2011-9-1\2011-9-1_CWC_LFP.mat'; 
+non_pyr_mec_type{8} = 'stellate';
+non_pyr_mec_heka_type{8} = 'cont';
+
+non_pyr_mec{9} = 'C:\wc_data\2011-9-14\Sven\2011-9-14_14-34-1';
+non_pyr_mec_heka{9} = 'C:\wc_data\2011-9-14\2011-09-14_1.mat'; 
+non_pyr_mec_type{9} = 'stellate';
+non_pyr_mec_heka_type{9} = 'cont';
+
+non_pyr_mec{10} = 'C:\wc_data\2006-04-08_CWC_LFP_B\2006-4-8_21-11-53';
+non_pyr_mec_heka{10} = 'C:\wc_data\MPascii\A2006-04-08_CWC_LFP_B.mat';
+non_pyr_mec_type{10} = 'interneuron';
+non_pyr_mec_heka_type{10} = 'sweep';
+
+non_pyr_lec{1} = 'C:\wc_data\2005-12-12_CWC_LFP_B\2005-12-12_17-41-40';
+non_pyr_lec_heka{1} = 'C:\wc_data\MPascii\A2005-12-12_CWC_LFP_B.mat';
+non_pyr_lec_type{1} = 'multipolar';
+non_pyr_lec_heka_type{1} = 'sweep';
+
+non_pyr_lec{2} = 'C:\wc_data\2009-05-16_CWC_LFP\2009-5-16_16-43-50';
+non_pyr_lec_heka{2} = 'C:\wc_data\2009-05-16_CWC_LFP\2009-5-16_spontaneous.mat';
+non_pyr_lec_type{2} = 'multipolar';
+non_pyr_lec_heka_type{2} = 'cont';
+
+non_pyr_lec{3} = 'C:\wc_data\2009-12-01_CWC_LFP';
+non_pyr_lec_heka{3} = 'C:\wc_data\MPascii\2009-12-01_CWC_LFP.mat'; 
+non_pyr_lec_type{3} = 'multipolar';
+non_pyr_lec_heka_type{3} = 'cont';
+
+non_pyr_lec{4} = 'C:\wc_data\2009-12-02_CWC_LFP';
+non_pyr_lec_heka{4} = 'C:\wc_data\MPascii\2009-12-02_CWC_LFP.mat'; 
+non_pyr_lec_type{4} = 'multipolar';
+non_pyr_lec_heka_type{4} = 'cont';
+
+non_pyr_lec{5} = 'C:\wc_data\2010-05-27_CWC_LFP_A';
+non_pyr_lec_heka{5} = 'C:\wc_data\MPascii\2010-05-27_CWC_LFP_A.mat';
+non_pyr_lec_type{5} = 'interneuron';
+non_pyr_lec_heka_type{5} = 'cont';
+
+%% Load in Thomas data
+load C:\WC_Germany\overall_EC\overall_EC_dir.mat
+used_data = [l3mec_p l3lec_p];
+old_mec_dir = cell(length(used_data),1);
+for i = 1:length(used_data)
+    old_mec_dir{i} = sess_data(used_data(i)).directory;
+    old_mec_dir{i}(1) = 'C';
+    old_mec_heka_dir{i} = sess_data(used_data(i)).heka_dir;
+    old_mec_heka_dir{i}(1) = 'C';
+    old_mec_heka_type{i} = sess_data(used_data(i)).heka_type;
+end
+
+%%
+cd C:\WC_Germany\sven_thomas_combined
+load ./distal_dir.mat
+distal_usable = 1:length(distal_dir); %use all recs for now;
+
+distal_dir = distal_dir(distal_usable);
+distal_ctx_lfp = ctx_lfp(distal_usable);
+distal_hpc_mua = hpc_mua(distal_usable);
+distal_hpc_lfp = hpc_lfp(distal_usable);
+distal_heka_dir = distal_heka_dir(distal_usable);
+distal_heka_type = distal_heka_type(distal_usable);
+
+n_distal_recs = length(distal_usable);
+
+
+%%
+combined_dir = [old_mec_dir; new_mec_dir];
+combined_heka = [old_mec_heka_dir(:); new_mec_heka(:)];
+combined_heka_type = [old_mec_heka_type(:); new_mec_heka_type(:)]; 
+l3mec = [(1:length(l3mec_p)) (length(old_mec_dir)+1):length(combined_dir)];
+l3lec = (length(l3mec_p)+1):length(old_mec_dir);
+old_data_inds = 1:length(old_mec_dir);
+new_data_inds = (length(old_mec_dir)+1):length(combined_dir);
+combined_dir_orig = combined_dir;
+old_data_inds_orig = old_data_inds;
+new_data_inds_orig = new_data_inds;
+
+l3mec_np = (length(combined_dir)+1):(length(combined_dir)+length(non_pyr_mec));
+combined_dir = [combined_dir; non_pyr_mec'];
+l3lec_np = (length(combined_dir)+1):(length(combined_dir)+length(non_pyr_lec));
+combined_dir = [combined_dir; non_pyr_lec'];
+combined_heka = [combined_heka; non_pyr_mec_heka(:); non_pyr_lec_heka(:)];
+combined_heka_type = [combined_heka_type; non_pyr_mec_heka_type(:); non_pyr_lec_heka_type(:)];
+%need to add non-pyr heka types
+
+proximal_ca1 = zeros(length(combined_dir)+n_distal_recs,1);
+proximal_ca1(1:length(combined_dir)) = 1;
+l3mec = [l3mec (length(combined_dir):length(combined_dir)+n_distal_recs)];
+combined_dir = [combined_dir; distal_dir'];
+combined_heka = [combined_heka; distal_heka_dir(:)];
+combined_heka_type = [combined_heka_type; distal_heka_type(:)];
+
+all_np = [l3mec_np l3lec_np];
+np_inds = 1:length(all_np);
+new_np = 7:9;
+old_np = setdiff(np_inds,new_np);
+old_data_inds = [old_data_inds all_np(old_np)];
+new_data_inds = [new_data_inds all_np(new_np)];
+
+l3mec_np([4 5]) = []; %10 is interneuron
+
+%could potentially get rid of LEC recording: 2010_07_31
+
+%get rid of 2011-10-28_16-40-5.  No histology
+l3mec(l3mec==55) = [];
+%get rid of 2011-9-30_14-36-48.  Border layer 4
+l3mec(l3mec==50) = [];
+%get rid of 2011-9-14_15-41-14.  It's too short
+l3mec(l3mec==48) = [];
+%get rid of 2011-9-6_16-2-12.  Border layer 2
+l3mec(l3mec==45) = [];
+%get rid of 2011-9-6_13-49-7.  Border layer 2
+l3mec(l3mec==44) = [];
+%get rid of 2011-8-17_12-52-56.  Unhealthy cell
+l3mec(l3mec==42) = [];
+%get rid of 2010-05-29.  All desynch data
+l3lec(l3lec==32) = [];
+
+% %use LF7 as cortical LFP
+% ctx_lfp = 7*ones(1,length(combined_dir));
+
+%use LF7 as cortical LFP (newer, based on Sven's depth data)
+ctx_lfp = 7*ones(1,length(combined_dir_orig)); %older recordings CSC6 at ~600um
+ctx_lfp(new_data_inds_orig) = 8; %newer recordings CSC8 at ~600
+ctx_lfp(60:61) = 7; %2011-11-15 and 2011-11-18 are a bit shallower
+ctx_lfp(56:58) = 7; %2011-11-3 - 2011-11-4 have lots of drift/noise on CSC8
+ctx_lfp = [ctx_lfp 7 7 7 7 7 7 8 8 8 7 7 7 7 7 7]; %for NP
+ctx_lfp = [ctx_lfp distal_ctx_lfp];
+
+%selected (by eye) based on depth profile of LFP power spectra
+hpc_lfp = [2 2 3 2 2 2 nan 2 2 2 nan nan nan 3 3 nan nan 2 2 2 2 2 2 2 3 2 2 2 2 ...
+    2 2 2 nan 2 2 2 2 2 2 2 2 2 2 nan nan 2 nan nan 2 2 nan nan 2 2 2 2 2 2 2 2 2];
+hpc_lfp = [hpc_lfp 2*ones(1,length(all_np))];
+hpc_lfp = [hpc_lfp distal_hpc_lfp];
+
+%selected (by eye) based on MUA rate peak (lower than 5th contact)
+hpc_mua = [nan(1,length(old_data_inds_orig)) 4 4 nan nan nan 4 4 nan nan nan nan nan 4 nan ...
+    nan 4 4 4 4 4 4 4 4 4 3];
+hpc_mua(41) = 5; %clear peak at CSC5
+hpc_mua = [hpc_mua nan(1,length(all_np))];
+hpc_mua = [hpc_mua distal_hpc_mua];
+
+cd C:\WC_Germany\sven_thomas_combined\
+save combined_dir_nd_dist combined_dir combined_heka* l3mec* l3lec* hpc_lfp hpc_mua *_inds ctx_lfp *non_pyr_* proximal_ca1
+

@@ -1,0 +1,139 @@
+
+clear all
+load C:/WC_Germany/final_pdown_analysis/compiled_data.mat
+addpath('C:/WC_Germany/parietal_cortical_2010/');
+addpath('C:/Code/general/');
+addpath('C:/Code/general_functions/');
+addpath('C:/WC_Germany/hsmm_state_detection/');
+addpath('C:/WC_Germany/persistent_downs/');
+addpath(genpath('C:/Code/figuremaker/'));
+addpath(genpath('C:/Code/Chronux/spectral_analysis/'));
+
+min_rec_dur = 500; %in sec
+used_dirs = find([data(:).ep] > min_rec_dur & [data(:).dp] > min_rec_dur);
+fig_dir = 'C:\WC_Germany\final_pdown_analysis\figures\';
+
+data = data(used_dirs);
+
+load C:/WC_Germany/final_pdown_analysis/fin_pdown_core_analysis.mat
+if length(core_data) ~= length(data)
+    error('Data mismatch');
+end
+load C:/WC_Germany/final_pdown_analysis/final_cortical_state_data.mat
+
+%%
+raw_Fs = 2016;
+dsf = 6;
+usfac = 8/dsf;
+Fsd = raw_Fs/dsf;
+niqf = raw_Fs/2;
+hcf = 10;
+lcf = 0.05;
+lcf_hf = 40;
+hcf_hf = 100;
+hcf_sm = 0.025;
+rate_sm = round(Fsd*0.05);
+
+params.Fs = Fsd;
+params.tapers = [2 3];
+movingwin = [0.5 0.5];
+
+%%
+for d = 1:length(used_dirs)
+    cd(data(d).dir)
+    pwd
+    
+    load ./used_data lf7 wcv_minus_spike
+    [lfp_lf,t_axis] = get_lf_features(lf7,raw_Fs,Fsd,[lcf hcf]);
+    
+    load ./sync_times.mat
+    synct_d = downsample(synct,dsf);
+    
+    wcv_ds = decimate(wcv_minus_spike,dsf);
+    
+    end_time = min(data(d).ep,data(d).dp);
+    ep = find(t_axis >= end_time,1);
+    if ~isempty(ep)
+        synct_d(ep+1:end) = []; lfp_lf(ep+1:end) = []; wcv_ds(ep+1:end) = []; t_axis(ep+1:end) = []; 
+%         lfp_ds(ep+1:end) = []; hpc_ds(ep+1:end) = [];
+    else
+        ep = length(t_axis);
+    end
+    
+    %%
+    load ./pa_hsmm_state_seq_combined_fin_nd.mat
+    load ./pa_hsmm_state_seq7_combined_fin_nd.mat
+    hsmm8 = hsmm7;
+    lfp_state_seq = hsmm_bbstate_seq7;
+    mp_state_seq = hsmm_bbstate_seq;
+    for i = 1:length(lfp_state_seq)
+        temp = ceil((1/usfac):(1/usfac):length(lfp_state_seq{i}));
+        lfp_state_seq{i} = lfp_state_seq{i}(temp);
+        mp_state_seq{i} = mp_state_seq{i}(temp);
+    end
+
+    [new_seg_inds] = resample_uds_seg_inds_v2(hsmm.UDS_segs,hsmm.Fs,Fsd,mp_state_seq);
+    dur_uds = sum(diff(new_seg_inds,[],2))/Fsd;
+    [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,mp_state_seq);
+    [up_trans_inds8,down_trans_inds8] = compute_state_transitions_seg(new_seg_inds,lfp_state_seq);
+    
+    bad_mp_states = find(up_trans_inds > ep | down_trans_inds > ep);
+    up_trans_inds(bad_mp_states) = []; down_trans_inds(bad_mp_states) = [];
+    bad_lfp_states = find(up_trans_inds8 > ep | down_trans_inds8 > ep);
+    up_trans_inds8(bad_lfp_states) = []; down_trans_inds8(bad_lfp_states) = [];
+    
+    %%
+    mp_std(d) = std(wcv_ds);
+    
+    sMarkers = [up_trans_inds(:) down_trans_inds(:)];
+    [mp_upstate_spectrum(d,:), f]= mtspectrumc_unequal_length_trials(wcv_ds, movingwin, params, sMarkers);
+    
+    sMarkers = [down_trans_inds(1:end-1) up_trans_inds(2:end)];
+    [mp_downstate_spectrum(d,:), f]= mtspectrumc_unequal_length_trials(wcv_ds, movingwin, params, sMarkers);
+   
+end
+
+%%
+l3lec = find(strcmp({data.type},'L3LEC') & mp_std < 1);
+l3mec = find(strcmp({data.type},'L3MEC') & mp_std < 1);
+
+%%
+figure;
+subplot(2,1,1);
+shadedErrorBar(f,nanmean(log(mp_upstate_spectrum(l3mec,:))),nanstd(log(mp_upstate_spectrum(l3mec,:)))/sqrt(length(l3mec)));
+hold on
+shadedErrorBar(f,nanmean(log(mp_upstate_spectrum(l3lec,:))),nanstd(log(mp_upstate_spectrum(l3lec,:)))/sqrt(length(l3lec)),{'color','r'});
+subplot(2,1,2);
+shadedErrorBar(f,nanmean(log(mp_downstate_spectrum(l3mec,:))),nanstd(log(mp_downstate_spectrum(l3mec,:)))/sqrt(length(l3mec)));
+hold on
+shadedErrorBar(f,nanmean(log(mp_downstate_spectrum(l3lec,:))),nanstd(log(mp_downstate_spectrum(l3lec,:)))/sqrt(length(l3lec)),{'color','r'});
+
+%%
+l_mp_upspec = log10(mp_upstate_spectrum);
+mec_avg = nanmean(l_mp_upspec(l3mec,:));
+mec_std = nanstd(l_mp_upspec(l3mec,:))/sqrt(length(l3mec));
+
+lec_avg = nanmean(l_mp_upspec(l3lec,:));
+lec_std = nanstd(l_mp_upspec(l3lec,:))/sqrt(length(l3lec));
+
+mean_diff = mec_avg - lec_avg;
+std_diff = sqrt(mec_std.^2 + lec_std.^2);
+
+figure
+shadedErrorBar(f,mean_diff,std_diff);
+
+%%
+l_mp_downspec = log10(mp_downstate_spectrum);
+mec_avg = nanmean(l_mp_downspec(l3mec,:));
+mec_std = nanstd(l_mp_downspec(l3mec,:))/sqrt(length(l3mec));
+
+lec_avg = nanmean(l_mp_downspec(l3lec,:));
+lec_std = nanstd(l_mp_downspec(l3lec,:))/sqrt(length(l3lec));
+
+mean_diff = mec_avg - lec_avg;
+std_diff = sqrt(mec_std.^2 + lec_std.^2);
+
+figure
+shadedErrorBar(f,mean_diff,std_diff);
+
+    
