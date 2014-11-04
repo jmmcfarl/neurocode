@@ -1224,6 +1224,7 @@ for ss = 1:length(targs)
     Rpt_Data(targs(ss)).spline_xcov = squeeze(covar_spline_ZPT(:,targs(ss),:));
     Rpt_Data(targs(ss)).tot_varnorm = sqrt(resp_var(targs(ss))*resp_var');
     Rpt_Data(targs(ss)).spline_varnorm = sqrt(est_sig_var(targs(ss))*est_sig_var');
+    Rpt_Data(targs(ss)).psth_varnorm = sqrt(psth_var(targs(ss))*psth_var');
     Rpt_Data(targs(ss)).noise_varnorm = sqrt(direct_noise_vars(targs(ss))*direct_noise_vars);
     Rpt_Data(targs(ss)).geom_mean = sqrt(rpt_avg_rates(targs(ss))*rpt_avg_rates');
     Rpt_Data(targs(ss)).nan_locs = squeeze(nan_locs(targs(ss),:,:));

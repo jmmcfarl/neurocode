@@ -292,14 +292,15 @@ all_noise_corrs_med = interp1(poss_SDs,all_noise_corrs',median_ep_SD);
 
 xx = linspace(-0.3,0.7,100);
 msize = 8;
-f1 = figure(); hold on
-plot(all_psth_corrs_med,all_noise_corrs_med,'k.','markersize',msize);
-r = regress(all_noise_corrs_med',[ones(size(all_noise_corrs_med)); all_psth_corrs_med]');
-plot(xx,xx*r(2)+r(1),'r');
-xlim([-0.3 0.6]);
-ylim([-0.3 0.6])
-xlabel('PSTH Corr');
-ylabel('Noise Corr');
+
+% f1 = figure(); hold on
+% plot(all_psth_corrs_med,all_noise_corrs_med,'k.','markersize',msize);
+% r = regress(all_noise_corrs_med',[ones(size(all_noise_corrs_med)); all_psth_corrs_med]');
+% plot(xx,xx*r(2)+r(1),'r');
+% xlim([-0.3 0.6]);
+% ylim([-0.3 0.6])
+% xlabel('PSTH Corr');
+% ylabel('Noise Corr');
 
 f1p = figure(); hold on
 plot(all_sig_corrs_med,all_noise_corrs_med,'k.','markersize',msize);
@@ -341,7 +342,7 @@ sig_corr_slope_interp = spline(poss_SDs,noise_sig_corr_slope,interp_ax);
 f3 = figure();hold on
 % plot(poss_SDs,noise_psth_corr_slope,'k--');
 % plot(poss_SDs,noise_sig_corr_slope,'r--');
-plot(interp_ax,psth_corr_slope_interp,'k');
+% plot(interp_ax,psth_corr_slope_interp,'k');
 plot(interp_ax,sig_corr_slope_interp,'r');
 yl = ylim();
 line(median_ep_SD + [0 0],yl,'color','k')
@@ -356,10 +357,10 @@ line(median_ep_SD + [0 0],yl,'color','k')
 
 % %PRINT FIGURE
 fig_width = 3.5; rel_height = 0.9;
-figufy(f1);
-fname = [fig_dir 'Model_noisec_psthc.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% figufy(f1);
+% fname = [fig_dir 'Model_noisec_psthc.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 fig_width = 3.5; rel_height = 0.9;
 figufy(f1p);
