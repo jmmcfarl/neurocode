@@ -1214,8 +1214,11 @@ end
 
 %%
 est_sig_var = var_spline_ZPT;
-est_sig_var(est_sig_var < new_psth_var') = new_psth_var(est_sig_var < new_psth_var');
+est_sig_var(est_sig_var < psth_var') = new_psth_var(est_sig_var < psth_var');
 est_sig_var = est_sig_var';
+
+est_noise_var = resp_var - var_spline_ZPT;
+est_noise_var(est_noise_var < direct_noise_vars) = direct_noise_vars(est_noise_var < direct_noise_vars);
 
 for ss = 1:length(targs)
     Rpt_Data(targs(ss)).rand_xcov = squeeze(covar_rand(:,targs(ss),:));
@@ -1224,6 +1227,7 @@ for ss = 1:length(targs)
     Rpt_Data(targs(ss)).spline_xcov = squeeze(covar_spline_ZPT(:,targs(ss),:));
     Rpt_Data(targs(ss)).tot_varnorm = sqrt(resp_var(targs(ss))*resp_var');
     Rpt_Data(targs(ss)).spline_varnorm = sqrt(est_sig_var(targs(ss))*est_sig_var');
+    Rpt_Data(targs(ss)).spline_noise_varnorm = sqrt(est_noise_var(targs(ss))*est_noise_var');
     Rpt_Data(targs(ss)).psth_varnorm = sqrt(psth_var(targs(ss))*psth_var');
     Rpt_Data(targs(ss)).noise_varnorm = sqrt(direct_noise_vars(targs(ss))*direct_noise_vars);
     Rpt_Data(targs(ss)).geom_mean = sqrt(rpt_avg_rates(targs(ss))*rpt_avg_rates');
