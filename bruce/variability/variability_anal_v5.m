@@ -7,7 +7,7 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M296';
+% Expt_name = 'M266';
 % use_MUA = false;
 % bar_ori = 90; %bar orientation to use (only for UA recs)
 
@@ -1110,7 +1110,7 @@ for ss = 1:n_chs
     Rpt_Data(ss).spline_resp_ZPT = var_spline_ZPT(ss);
     Rpt_Data(ss).spline_mod_ZPT = var_spline_mZPT(ss);
 end
-%% VIEW SPLINE FITS
+% %% VIEW SPLINE FITS
 % close all
 % for ii = 1:n_chs
 %     fprintf('Unit %d\n',ii);
@@ -1214,13 +1214,33 @@ end
 
 %%
 est_sig_var = var_spline_ZPT;
-est_sig_var(est_sig_var < psth_var') = new_psth_var(est_sig_var < psth_var');
+est_sig_var(est_sig_var < psth_var') = psth_var(est_sig_var < psth_var');
 est_sig_var = est_sig_var';
 
 est_noise_var = resp_var' - var_spline_ZPT;
 est_noise_var(est_noise_var < direct_noise_vars) = direct_noise_vars(est_noise_var < direct_noise_vars);
 est_noise_var = est_noise_var';
 
+poss_cnt_wins = [0:max_tlag];
+psth_cnt_cov = nan(n_chs,n_chs,length(poss_cnt_wins));
+obs_cnt_cov = nan(n_chs,n_chs,length(poss_cnt_wins));
+spline_cnt_cov = nan(n_chs,n_chs,length(poss_cnt_wins));
+for cw = 1:length(poss_cnt_wins)
+    ulags = find(abs(tlags) <= poss_cnt_wins(cw));
+    psth_cnt_cov(:,:,cw) = squeeze(sum(psth_xcov(:,:,ulags),3));
+    obs_cnt_cov(:,:,cw) = squeeze(sum(obs_xcov(:,:,ulags),3));
+    spline_cnt_cov(:,:,cw) = squeeze(sum(covar_spline_ZPT(:,:,ulags),3));
+end
+
+psth_cnt_var = nan(n_chs,length(poss_cnt_wins));
+obs_cnt_var = nan(n_chs,length(poss_cnt_wins));
+psth_noise_var = nan(n_chs,length(poss_cnt_wins));
+for ss = 1:n_chs
+    psth_cnt_var(ss,:) = squeeze(psth_cnt_cov(ss,ss,:));
+    obs_cnt_var(ss,:) = squeeze(obs_cnt_cov(ss,ss,:));
+end
+psth_noise_cnt_var = obs_cnt_var - psth_cnt_var;
+%%
 for ss = 1:length(targs)
     Rpt_Data(targs(ss)).rand_xcov = squeeze(covar_rand(:,targs(ss),:));
     Rpt_Data(targs(ss)).psth_xcov = squeeze(psth_xcov(:,targs(ss),:));
@@ -1233,7 +1253,23 @@ for ss = 1:length(targs)
     Rpt_Data(targs(ss)).noise_varnorm = sqrt(direct_noise_vars(targs(ss))*direct_noise_vars);
     Rpt_Data(targs(ss)).geom_mean = sqrt(rpt_avg_rates(targs(ss))*rpt_avg_rates');
     Rpt_Data(targs(ss)).nan_locs = squeeze(nan_locs(targs(ss),:,:));
+    
+    Rpt_Data(targs(ss)).psth_cnt_cov = squeeze(psth_cnt_cov(:,targs(ss),:));
+    Rpt_Data(targs(ss)).obs_cnt_cov = squeeze(obs_cnt_cov(:,targs(ss),:));
+    Rpt_Data(targs(ss)).spline_cnt_cov = squeeze(spline_cnt_cov(:,targs(ss),:));
+    Rpt_Data(targs(ss)).psth_cnt_varnorm = sqrt(bsxfun(@times,psth_cnt_var,psth_cnt_var(targs(ss),:)));
+    Rpt_Data(targs(ss)).obs_cnt_varnorm = sqrt(bsxfun(@times,obs_cnt_var,obs_cnt_var(targs(ss),:)));
+    Rpt_Data(targs(ss)).psthnoise_cnt_varnorm = sqrt(bsxfun(@times,psth_noise_cnt_var,psth_noise_cnt_var(targs(ss),:)));
 end
+
+all_data.rand_xcov = covar_rand;
+all_data.psth_xcov = psth_xcov;
+all_data.obs_xcov = obs_xcov;
+all_data.spline_xcov = covar_spline_ZPT;
+all_data.nan_locs = nan_locs;
+all_data.tot_var = resp_var;
+all_data.dir_noisevar = direct_noise_vars;
+all_data.avg_rates = rpt_avg_rates;
 
 %%
 anal_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
@@ -1245,4 +1281,4 @@ cd(anal_dir);
 sname = 'rpt_variability_analysis';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
-save(sname,'targs','Rpt_Data','ED_*','spline_*','tlags','rpt_ep*');
+save(sname,'targs','Rpt_Data','ED_*','spline_*','tlags','rpt_ep*','poss_cnt_wins','all_data');
