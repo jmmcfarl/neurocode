@@ -1217,8 +1217,9 @@ est_sig_var = var_spline_ZPT;
 est_sig_var(est_sig_var < psth_var') = new_psth_var(est_sig_var < psth_var');
 est_sig_var = est_sig_var';
 
-est_noise_var = resp_var - var_spline_ZPT;
+est_noise_var = resp_var' - var_spline_ZPT;
 est_noise_var(est_noise_var < direct_noise_vars) = direct_noise_vars(est_noise_var < direct_noise_vars);
+est_noise_var = est_noise_var';
 
 for ss = 1:length(targs)
     Rpt_Data(targs(ss)).rand_xcov = squeeze(covar_rand(:,targs(ss),:));
