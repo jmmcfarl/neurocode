@@ -1253,6 +1253,9 @@ for ss = 1:length(targs)
     Rpt_Data(targs(ss)).noise_varnorm = sqrt(direct_noise_vars(targs(ss))*direct_noise_vars);
     Rpt_Data(targs(ss)).geom_mean = sqrt(rpt_avg_rates(targs(ss))*rpt_avg_rates');
     Rpt_Data(targs(ss)).nan_locs = squeeze(nan_locs(targs(ss),:,:));
+
+    Rpt_Data(targs(ss)).otherunit_nutrials = n_utrials(:);
+    Rpt_Data(targs(ss)).otherunit_avgrates = rpt_avg_rates(:);
     
     Rpt_Data(targs(ss)).psth_cnt_cov = squeeze(psth_cnt_cov(:,targs(ss),:));
     Rpt_Data(targs(ss)).obs_cnt_cov = squeeze(obs_cnt_cov(:,targs(ss),:));
