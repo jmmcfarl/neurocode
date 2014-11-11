@@ -357,10 +357,14 @@ for Elist_cnt = 1:length(Expt_list)
     clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 end
 
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 Expt_name = 'M297'; bar_ori = 0;
 eyepos_accuracy_analysis;
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 Expt_name = 'M297'; bar_ori = 90;
 eyepos_accuracy_analysis;
+
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 bar_ori = 0;

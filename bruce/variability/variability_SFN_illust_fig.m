@@ -386,6 +386,9 @@ psth_ep = jmm_smooth_1d_cor(psth_ep,psth_sm);
 close all
 var(psth_ep)/var(psth)
 
+line_height = 0.9;
+line_width = 1;
+
 msize = 4;
 % xl = [1.5 2.5];
 xl = [3 4];
@@ -399,9 +402,16 @@ caxis(ca);
 % colorbar
 xlabel('Time (s)');
 
-subplot(3,2,2)
-plot(rand_ep_spk_times,rand_ep_spk_trials,'k.','markersize',msize)
+subplot(3,2,2); hold on
+% plot(rand_ep_spk_times,rand_ep_spk_trials,'k.','markersize',msize)
+for ii = 1:n_rpts
+    cur_spks = find(rand_ep_spk_trials == ii);
+    for jj = 1:length(cur_spks)
+       line(rand_ep_spk_times(cur_spks(jj)) + [0 0],ii + [0 line_height],'color','k','linewidth',line_width);
+    end
+end
 xlim(xl);
+ylim([0 n_rpts]);
 
 subplot(3,2,3)
 imagesc(new_tax,1:n_rpts,noep_prate_interp'/new_dt);
@@ -409,9 +419,16 @@ xlim(xl);
 caxis(ca);
 % colorbar
 
-subplot(3,2,4)
-plot(rand_spk_times,rand_spk_trials,'k.','markersize',msize)
+subplot(3,2,4); hold on
+% plot(rand_spk_times,rand_spk_trials,'k.','markersize',msize)
+for ii = 1:n_rpts
+    cur_spks = find(rand_spk_trials == ii);
+    for jj = 1:length(cur_spks)
+       line(rand_spk_times(cur_spks(jj)) + [0 0],ii + [0 line_height],'color','k','linewidth',line_width);
+    end
+end
 xlim(xl);
+ylim([0 n_rpts]);
 
 subplot(3,2,5); hold on
 plot(new_tax,var(ep_prate_interp')/new_dt^2)
@@ -428,14 +445,14 @@ ylim(ca)
 % %PRINT FIGURE
 fig_width = 7; rel_height = 1.4;
 figufy(f1);
-fname = [fig_dir 'Example_illust_rasters2.pdf'];
+fname = [fig_dir 'Example_illust_rasters3.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
 % 
 %%
-cd ~/Analysis/bruce/G093/
-sname = 'simtemp';
-save new_tax psth* new_dt rand_spk* *prate* n_rpts rand_* 
+% cd ~/Analysis/bruce/G093/
+% sname = 'simtemp';
+% save new_tax psth* new_dt rand_spk* *prate* n_rpts rand_* 
 %%
 % f2 = figure();
 % imagesc(old_tax,1:n_rpts,rpt_ep');

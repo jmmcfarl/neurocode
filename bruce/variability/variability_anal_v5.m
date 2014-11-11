@@ -1129,7 +1129,7 @@ end
 
 %% ESTIMATE FULL EP-BINNED XCOVs
 %create a set of temporally shifted versions of the spiking data
-max_tlag = 20; %max time lag for computing autocorrs
+max_tlag = 40; %max time lag for computing autocorrs
 tlags = [-max_tlag:max_tlag];
 full_psth_shifted = nan(n_rpts,length(rpt_taxis),n_chs,length(tlags));
 for tt = 1:length(tlags)
@@ -1283,7 +1283,7 @@ if ~exist(anal_dir)
 end
 cd(anal_dir);
 
-sname = 'rpt_variability_analysis2';
+sname = 'rpt_variability_analysis3';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
 save(sname,'targs','Rpt_Data','ED_*','spline_*','tlags','rpt_ep*','poss_cnt_wins','all_data');

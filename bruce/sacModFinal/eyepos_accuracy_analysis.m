@@ -1,6 +1,6 @@
 
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,13 +9,13 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'G087';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'G087';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 include_bursts = 0;
 
-sname = 'eye_accuracy';
+sname = 'eye_accuracy2';
 if include_bursts
     sname = [sname '_withbursts'];
 end
@@ -563,6 +563,7 @@ interp_sac_stop_inds(bad_sacs) = [];
 
 if length(saccades) ~= length(et_saccades)
     fprintf('Using old blink detection algo!\n');
+    error('Still not aligned!');
     [saccades,et_params] = detect_saccades_v2(corrected_eye_vals,all_eye_vals,all_eye_speed,all_eye_ts,et_params);
     is_blink = detect_blinks_old(all_eye_ts,all_eye_vals,saccades,et_params);
         [saccades,is_blink] = merge_blinks(saccades,is_blink);

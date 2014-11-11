@@ -195,12 +195,12 @@ set(gca,'xtick',[0:0.2:1]);
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f3);
-fname = [fig_dir 'Model_actual_alpha_dists.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
-
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f3);
+% fname = [fig_dir 'Model_actual_alpha_dists.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
 %%
 expt_nums = [all_SU_data(:).expt_num];
 bar_oris = [all_SU_data(:).bar_ori];
@@ -388,26 +388,26 @@ line(median_ep_SD + [0 0],yl,'color','k')
 % ylabel('Noise Corr Fraction');
 
 
-% %PRINT FIGURE
-fig_width = 3.5; rel_height = 0.9;
-% figufy(f1);
-% fname = [fig_dir 'Model_noisec_psthc.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-
-fig_width = 3.5; rel_height = 0.9;
-figufy(f1p);
-fname = [fig_dir 'Model_noisec_sigc.pdf'];
-exportfig(f1p,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1p);
-
-% %PRINT FIGURE
-fig_width = 3.5; rel_height = 0.9;
-figufy(f3);
-fname = [fig_dir 'Model_noisec_slopes.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
-
+% % %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.9;
+% % figufy(f1);
+% % fname = [fig_dir 'Model_noisec_psthc.pdf'];
+% % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
+% 
+% fig_width = 3.5; rel_height = 0.9;
+% figufy(f1p);
+% fname = [fig_dir 'Model_noisec_sigc.pdf'];
+% exportfig(f1p,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1p);
+% 
+% % %PRINT FIGURE
+% fig_width = 3.5; rel_height = 0.9;
+% figufy(f3);
+% fname = [fig_dir 'Model_noisec_slopes.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
 %%
 target_SD_ind = 5;
 noisecorr_avgs = squeeze(all_noisecorr_avgs(:,:,target_SD_ind));
