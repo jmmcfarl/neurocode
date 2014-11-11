@@ -324,12 +324,12 @@ end
 pair_min_rate = 1;
 
 % uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2));
-uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & all_pair_ntrials >= min_rpt_trials & ...
-    all_pair_avgrates/dt >= pair_min_rate);
+% uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & all_pair_ntrials >= min_rpt_trials & ...
+%     all_pair_avgrates/dt >= pair_min_rate);
 
 % uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24);
-% uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24 & ...
-%     all_pair_ntrials >= min_rpt_trials & all_pair_avgrates/dt >= pair_min_rate);
+uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24 & ...
+    all_pair_ntrials >= min_rpt_trials & all_pair_avgrates/dt >= pair_min_rate);
 
 uu = uset(~isnan(all_psth_corrs(uset,1)) & ~isnan(all_sig_corrs(uset,1)) & ~isnan(all_pnoise_corrs(uset,1)) & ~isnan(all_snoise_corrs(uset,1)));
 
@@ -347,8 +347,8 @@ xl2 = [-0.5 1.5];
 yl = [-0.05 0.3];
 % xl1 = [-0.4 1];
 % xl2 = [-0.5 1.5];
-sm_span = 201;
-% sm_span = 51;
+% sm_span = 201;
+sm_span = 51;
 rmpath('~/James_scripts/bruce/bruce_code/')
 
 close all

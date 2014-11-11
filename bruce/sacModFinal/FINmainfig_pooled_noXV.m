@@ -178,7 +178,7 @@ avg_rates = arrayfun(@(x) x.sacStimProc.ModData.unit_data.avg_rate,all_SU_data);
 tot_spikes = arrayfun(@(x) x.sacStimProc.ModData.unit_data.tot_spikes,all_SU_data);
 rec_dur = arrayfun(@(x) x.sacStimProc.ModData.unit_data.N_used_samps,all_SU_data)*dt/60;
 mod_xvLLimps = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.xvLLimp,all_SU_data);
-mod_xvLLimps_unCor = arrayfun(@(x) x.sacStimProc.ModData.rectGQM_unCor.xvLLimp,all_SU_data);
+% mod_xvLLimps_unCor = arrayfun(@(x) x.sacStimProc.ModData.rectGQM_unCor.xvLLimp,all_SU_data);
 expt_nums = [all_SU_data(:).expt_num];
 expt_oris = [all_SU_data(:).bar_ori];
 
@@ -533,16 +533,16 @@ line(xl,[1 1],'color','k');
 xlim([-0.1 0.3]);
 ylim([0.7 1.25]);
 
-% % % %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-% fname = [fig_dir 'Gsac_TB_SSI.pdf'];
-fname = [fig_dir 'Gsac_TB_SSI2.pdf'];
-if fit_unCor
-fname = [fig_dir 'Gsac_TB_SSI_unCor2.pdf'];
-end
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % % % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% % fname = [fig_dir 'Gsac_TB_SSI.pdf'];
+% fname = [fig_dir 'Gsac_TB_SSI2.pdf'];
+% if fit_unCor
+% fname = [fig_dir 'Gsac_TB_SSI_unCor2.pdf'];
+% end
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 % % 
 % figufy(f2);
 % fname = [fig_dir 'Gsac_TBset_relrates.pdf'];
@@ -663,27 +663,27 @@ xlabel('Time (s)');
 ylabel('Gain');
 ylim([0.4 1.2]);
 
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_SW_rates2.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'Gsac_SW_SSI2.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
-
-figufy(f3);
-fname = [fig_dir 'Gsac_SW_OFFSET2.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
-
-figufy(f4);
-fname = [fig_dir 'Gsac_SW_GAIN2.pdf'];
-exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f4);
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_SW_rates2.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'Gsac_SW_SSI2.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
+% figufy(f3);
+% fname = [fig_dir 'Gsac_SW_OFFSET2.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+% figufy(f4);
+% fname = [fig_dir 'Gsac_SW_GAIN2.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
 
 %% COMPARE SSI, OFFSET AND GAINS FOR GO AND TB MODELS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
@@ -1400,7 +1400,7 @@ jit_amp = 0.000;%jitter data points with gaussian RV to avoid point occlusion
 
 search_range = [0 0.15];
 tsearch_range = [0 max(up_lagax)];
-noise_SD_thresh = 0;
+noise_SD_thresh = 2;
 
 all_tempkerns = [];
 all_gainkerns = [];

@@ -1,5 +1,5 @@
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -7,9 +7,9 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'M297';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'M297';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 mod_data_name = 'corrected_models2';
 ep_dist_bin_edges = linspace(-1,1,100);
@@ -823,49 +823,49 @@ for ss = 1:n_chs
        %% RECONSTRUCT LOO STIM
         loo_cc = find(loo_set == ss); %index within the LOOXV set
         
-        if ~isempty(loo_cc)
-%             cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-%             cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-%             cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-%             cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-%             [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-%                 cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-            
-%             all_fin_tot_corr(:,ss) = orig_fin_tot_corr_LOO(loo_cc,all_rpt_inds)/orig_sp_dx;
-%             fin_shift_cor = round(orig_fin_tot_corr_LOO(loo_cc,:)/orig_sp_dx);
-            all_fin_tot_corr(:,ss) = hres_fin_tot_corr_LOO(loo_cc,all_rpt_inds);
-            fin_shift_cor = round(hres_fin_tot_corr_LOO(loo_cc,:)/sp_dx);
-            fin_shift_cor(fin_shift_cor > full_nPix_us) = full_nPix_us;
-            fin_shift_cor(fin_shift_cor < -full_nPix_us) = -full_nPix_us;
-            
-            %RECOMPUTE XMAT
-            all_shift_stimmat_up = all_stimmat_up;
-            for i=1:NT
-                all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-            end
-            
-        else
-            all_shift_stimmat_up = best_shift_stimmat_up;
-        end
-        all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
-        all_Xmat_shift = all_Xmat_shift(used_inds(all_rpt_inds),use_kInds_up);
+%         if ~isempty(loo_cc)
+% %             cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
+% %             cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
+% %             cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
+% %             cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
+% %             [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+% %                 cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+%             
+% %             all_fin_tot_corr(:,ss) = orig_fin_tot_corr_LOO(loo_cc,all_rpt_inds)/orig_sp_dx;
+% %             fin_shift_cor = round(orig_fin_tot_corr_LOO(loo_cc,:)/orig_sp_dx);
+%             all_fin_tot_corr(:,ss) = hres_fin_tot_corr_LOO(loo_cc,all_rpt_inds);
+%             fin_shift_cor = round(hres_fin_tot_corr_LOO(loo_cc,:)/sp_dx);
+%             fin_shift_cor(fin_shift_cor > full_nPix_us) = full_nPix_us;
+%             fin_shift_cor(fin_shift_cor < -full_nPix_us) = -full_nPix_us;
+%             
+%             %RECOMPUTE XMAT
+%             all_shift_stimmat_up = all_stimmat_up;
+%             for i=1:NT
+%                 all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+%             end
+%             
+%         else
+%             all_shift_stimmat_up = best_shift_stimmat_up;
+%         end
+%         all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
+%         all_Xmat_shift = all_Xmat_shift(used_inds(all_rpt_inds),use_kInds_up);
         
         %% FIT SPK NL TO REPEAT DATA AND EVAL MODEL PREDICTIONS ON ALL REPEAT STIMS
-        if ~isempty(ModData(ss).unit_data)
-            cor_rGQM = ModData(ss).rectGQM;
-            cor_rGQM = NMMfit_logexp_spkNL(cor_rGQM,cur_Robs(all_rpt_inds(cc_uinds)),all_Xmat_shift(cc_uinds,:));
-            [~,~,cor_prate] = NMMmodel_eval(cor_rGQM,cur_Robs(all_rpt_inds),all_Xmat_shift);
-            
-            for ii = 1:length(rpt_trials)
-                cur_inds = find(all_trialvec(used_inds) == rpt_trials(ii));
-                cur_inds(size(full_psth,2)+1:end) = [];
-                
-                cur_rinds = find(ismember(all_rpt_inds,cur_inds));
-                mod_prates(ii,1:length(cur_rinds),ss) = cor_prate(cur_rinds);
-            end
-        else
+%         if ~isempty(ModData(ss).unit_data)
+%             cor_rGQM = ModData(ss).rectGQM;
+%             cor_rGQM = NMMfit_logexp_spkNL(cor_rGQM,cur_Robs(all_rpt_inds(cc_uinds)),all_Xmat_shift(cc_uinds,:));
+%             [~,~,cor_prate] = NMMmodel_eval(cor_rGQM,cur_Robs(all_rpt_inds),all_Xmat_shift);
+%             
+%             for ii = 1:length(rpt_trials)
+%                 cur_inds = find(all_trialvec(used_inds) == rpt_trials(ii));
+%                 cur_inds(size(full_psth,2)+1:end) = [];
+%                 
+%                 cur_rinds = find(ismember(all_rpt_inds,cur_inds));
+%                 mod_prates(ii,1:length(cur_rinds),ss) = cor_prate(cur_rinds);
+%             end
+%         else
             cor_rGQM = nan;
-        end
+%         end
         
         %% EXTRACT BINNED SPIKE DATA ON ALL REPEAT TRIALS
         for ii = 1:length(rpt_trials)
@@ -1129,7 +1129,7 @@ end
 
 %% ESTIMATE FULL EP-BINNED XCOVs
 %create a set of temporally shifted versions of the spiking data
-max_tlag = 10; %max time lag for computing autocorrs
+max_tlag = 20; %max time lag for computing autocorrs
 tlags = [-max_tlag:max_tlag];
 full_psth_shifted = nan(n_rpts,length(rpt_taxis),n_chs,length(tlags));
 for tt = 1:length(tlags)
@@ -1283,7 +1283,7 @@ if ~exist(anal_dir)
 end
 cd(anal_dir);
 
-sname = 'rpt_variability_analysis';
+sname = 'rpt_variability_analysis2';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
 save(sname,'targs','Rpt_Data','ED_*','spline_*','tlags','rpt_ep*','poss_cnt_wins','all_data');
