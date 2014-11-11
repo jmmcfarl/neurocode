@@ -9,16 +9,16 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'M296';
+Expt_name = 'M297';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
-fit_unCor = true;
-fit_subMod = false;
+fit_unCor = false;
+fit_subMod = true;
 fitUpstream = true;
 fitSTA = true;
 fitMsacs = true;
-fitFullPostMod = false;
+fitFullPostMod = true;
 
 include_bursts = 0;
 
@@ -101,11 +101,11 @@ if strcmp(rec_type,'LP')
     end
 end
 
-% if Expt_num >= 280
-%     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-% else
+if Expt_num >= 280
+    data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+else
     data_dir = ['~/Data/bruce/' Expt_name];
-% end
+end
 
 cd(data_dir);
 
@@ -530,6 +530,7 @@ NT = length(used_inds);
 fprintf('Loading ET data\n');
 cd(et_dir)
 load(et_mod_data_name,'all_mod*');
+% et_anal_name = 'full_eyetrack_Rinit_Cprior_ori0_old2.mat';
 load(et_anal_name,'drift*','it_*','et_tr_set','et_saccades');
 tr_set = et_tr_set;
 

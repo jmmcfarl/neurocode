@@ -7,7 +7,8 @@ addpath('~/James_scripts/TentBasis2D/');
 Expt_name = 'G087';
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
-fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
+% fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
+fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 mod_data_name = 'corrected_models2';
 
 %%
@@ -422,14 +423,19 @@ subplot(3,2,6); hold on
 plot(new_tax,psth_ep/new_dt)
 plot(new_tax,psth/new_dt,'r')
 xlim(xl);
+ylim(ca)
 
 % %PRINT FIGURE
 fig_width = 7; rel_height = 1.4;
 figufy(f1);
-fname = [fig_dir 'Example_illust_rasters.pdf'];
+fname = [fig_dir 'Example_illust_rasters2.pdf'];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
-
+% 
+%%
+cd ~/Analysis/bruce/G093/
+sname = 'simtemp';
+save new_tax psth* new_dt rand_spk* *prate* n_rpts rand_* 
 %%
 % f2 = figure();
 % imagesc(old_tax,1:n_rpts,rpt_ep');

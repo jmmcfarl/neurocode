@@ -2,8 +2,8 @@ close all
 clear all
 clc
 
-fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
-% fig_dir = '/home/james/Analysis/bruce/variability/figures/';
+% fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
+fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 base_sname = 'model_variability_analysis';
 % base_sname = 'model_variability_analysis_unCor';
 
@@ -106,7 +106,7 @@ end
 dt = 0.01;
 
 %selection criteria
-min_rate = 1; % min avg rate in Hz (5)
+min_rate = 5; % min avg rate in Hz (5)
 min_xvLLimp = 0.0; %(0.05);
 
 tot_Nunits = length(all_SU_data);
@@ -146,8 +146,8 @@ min_ep_SD = mm(1); max_ep_SD = mm(2);
 
 f1 = figure;hold on
 % plot(poss_SDs,alpha_funs,'r');
-plot(poss_SDs,alpha_funs(cur_jbe,:),'r','linewidth',0.25);
-plot(poss_SDs,alpha_funs(cur_lem,:),'b','linewidth',0.25);
+plot(poss_SDs,alpha_funs(cur_jbe,:),'b','linewidth',0.25);
+plot(poss_SDs,alpha_funs(cur_lem,:),'r','linewidth',0.25);
 shadedErrorBar(poss_SDs,nanmean(alpha_funs),nanstd(alpha_funs));
 yl = ylim();
 line([0 0]+median_ep_SD,yl,'color','k')
@@ -161,12 +161,45 @@ ylabel('Alpha');
 
 minmax_alpha_folddiff = target_alphas_min./target_alphas_max;
 
+target_alphas_actual = nan(length(cur_SUs),1);
+for ss = 1:length(cur_SUs)
+target_alphas_actual(ss) = interp1(poss_SDs,alpha_funs(ss,:)',actual_EP_SD(ss));
+end
+
+xx = linspace(0,1,25);
+f2 = figure();hold on
+jbe_alpha_dist = histc(target_alphas_med(cur_jbe),xx);
+lem_alpha_dist = histc(target_alphas_med(cur_lem),xx);
+stairs(xx,jbe_alpha_dist,'b');
+stairs(xx,lem_alpha_dist,'r');
+set(gca,'xtick',[0:0.2:1]);
+
+xx = linspace(0,1,25);
+f3 = figure();hold on
+jbe_alpha_dist = histc(target_alphas_actual(cur_jbe),xx);
+lem_alpha_dist = histc(target_alphas_actual(cur_lem),xx);
+stairs(xx,jbe_alpha_dist,'b');
+stairs(xx,lem_alpha_dist,'r');
+set(gca,'xtick',[0:0.2:1]);
+
 % %PRINT FIGURE
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'Model_alpha_funs2.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
+% 
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f2);
+% fname = [fig_dir 'Model_alpha_dists.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f3);
+fname = [fig_dir 'Model_actual_alpha_dists.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
 
 %%
 expt_nums = [all_SU_data(:).expt_num];
@@ -245,12 +278,12 @@ ylim([0 0.6])
 xlabel('Eccentricity (deg)');
 ylabel('RF Sigma (deg)');
 
-% % %PRINT FIGURE
-% fig_width = 7; rel_height = 1;
-% figufy(f1);
-% fname = [fig_dir 'RF_ecc_sigma_alpha.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% %PRINT FIGURE
+fig_width = 7; rel_height = 1;
+figufy(f1);
+fname = [fig_dir 'RF_ecc_sigma_alpha.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 %%
 close all

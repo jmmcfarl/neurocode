@@ -15,8 +15,8 @@ Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M29
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 160 nan; 40 nan; 45 nan; 0 90];
 rmfield_list = {};
 
-% for ee = 1:length(Expt_list)
-for ee = 1:7
+for ee = 1:length(Expt_list)
+% for ee = 1:7
     Expt_name = Expt_list{ee};
     Expt_num = str2num(Expt_name(2:end));
     cur_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
@@ -140,13 +140,13 @@ all_psth_corrs = [];
 all_pair_IDS = [];
 all_expt_IDS = [];
 for ss = 1:length(cur_SUs)
-%     cur_sig_covs = squeeze(all_SU_data(cur_SUs(ss)).spline_xcov(:,maxtlag+1));
-%     cur_psth_covs = squeeze(all_SU_data(cur_SUs(ss)).rand_xcov(:,maxtlag+1));
-%     cur_emp_covs = squeeze(all_SU_data(cur_SUs(ss)).emp_xcov(:,maxtlag+1));
-    cur_sig_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).spline_xcov(:,ulags),2));
-%     cur_psth_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).rand_xcov(:,ulags),2));
-    cur_psth_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).psth_xcov(:,ulags),2));
-    cur_emp_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).emp_xcov(:,ulags),2));
+    cur_sig_covs = squeeze(all_SU_data(cur_SUs(ss)).spline_xcov(:,maxtlag+1));
+    cur_psth_covs = squeeze(all_SU_data(cur_SUs(ss)).psth_xcov(:,maxtlag+1));
+    cur_emp_covs = squeeze(all_SU_data(cur_SUs(ss)).emp_xcov(:,maxtlag+1));
+%     cur_sig_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).spline_xcov(:,ulags),2));
+% %     cur_psth_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).rand_xcov(:,ulags),2));
+%     cur_psth_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).psth_xcov(:,ulags),2));
+%     cur_emp_covs = squeeze(mean(all_SU_data(cur_SUs(ss)).emp_xcov(:,ulags),2));
     
     psth_noise_covs = cur_emp_covs - cur_psth_covs;
     spline_noise_covs = cur_emp_covs - cur_sig_covs;
@@ -166,14 +166,14 @@ for ss = 1:length(cur_SUs)
 
     cur_pair_IDS = [repmat(all_SU_data(cur_SUs(ss)).unit_num,length(cur_sig_norms),1) (1:length(cur_sig_norms))'];
     
-%     all_psth_noise_corrs = cat(1,all_psth_noise_corrs,bsxfun(@rdivide,psth_noise_covs,cur_noise_norms));
-%     all_spline_noise_corrs = cat(1,all_spline_noise_corrs,bsxfun(@rdivide,spline_noise_covs,cur_snoise_norms));
-%     all_sig_corrs = cat(1,all_sig_corrs,bsxfun(@rdivide,cur_sig_covs,cur_ssig_norms));
-%     all_psth_corrs = cat(1,all_psth_corrs,bsxfun(@rdivide,cur_psth_covs,cur_sig_norms));
-    all_psth_noise_corrs = cat(1,all_psth_noise_corrs,bsxfun(@rdivide,psth_noise_covs,cur_tot_norms));
-    all_spline_noise_corrs = cat(1,all_spline_noise_corrs,bsxfun(@rdivide,spline_noise_covs,cur_tot_norms));
-    all_sig_corrs = cat(1,all_sig_corrs,bsxfun(@rdivide,cur_sig_covs,cur_tot_norms));
-    all_psth_corrs = cat(1,all_psth_corrs,bsxfun(@rdivide,cur_psth_covs,cur_tot_norms));
+    all_psth_noise_corrs = cat(1,all_psth_noise_corrs,bsxfun(@rdivide,psth_noise_covs,cur_noise_norms));
+    all_spline_noise_corrs = cat(1,all_spline_noise_corrs,bsxfun(@rdivide,spline_noise_covs,cur_noise_norms));
+    all_sig_corrs = cat(1,all_sig_corrs,bsxfun(@rdivide,cur_sig_covs,cur_sig_norms));
+    all_psth_corrs = cat(1,all_psth_corrs,bsxfun(@rdivide,cur_psth_covs,cur_sig_norms));
+%     all_psth_noise_corrs = cat(1,all_psth_noise_corrs,bsxfun(@rdivide,psth_noise_covs,cur_tot_norms));
+%     all_spline_noise_corrs = cat(1,all_spline_noise_corrs,bsxfun(@rdivide,spline_noise_covs,cur_tot_norms));
+%     all_sig_corrs = cat(1,all_sig_corrs,bsxfun(@rdivide,cur_sig_covs,cur_tot_norms));
+%     all_psth_corrs = cat(1,all_psth_corrs,bsxfun(@rdivide,cur_psth_covs,cur_tot_norms));
     
     all_pair_IDS = cat(1,all_pair_IDS,cur_pair_IDS);
     all_expt_IDS = cat(1,all_expt_IDS,repmat(all_SU_data(cur_SUs(ss)).expt_num,length(cur_sig_norms),1));
@@ -186,7 +186,7 @@ all_psth_noise_corrs(bad) = nan;
 
 
 % close all
-uset = find(all_pair_IDS(:,1) ~= all_pair_IDS(:,2));
+uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2));
 % uset = find(all_pair_IDS(:,1) ~= all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24 & ~isnan(all_sig_corrs) & ~isnan(all_spline_noise_corrs) & ~isnan(all_psth_corrs));
 
 % poss_expts = [289];
@@ -203,16 +203,24 @@ msize = 6;
 f1 = figure(); hold on
 plot(all_psth_corrs,all_psth_noise_corrs,'k.','markersize',msize); 
 r = robustfit(all_psth_corrs,all_psth_noise_corrs);
-% r = regress(all_psth_noise_corrs,[ones(length(all_psth_corrs),1) all_psth_corrs]);
-plot(all_sig_corrs,all_spline_noise_corrs,'r.','markersize',msize); 
-r2 = robustfit(all_sig_corrs,all_spline_noise_corrs);
-% r2 = regress(all_spline_noise_corrs,[ones(length(all_sig_corrs),1) all_sig_corrs]);
 plot(xx,r(1)+r(2)*xx,'b','linewidth',2)
-plot(xx,r2(1)+r2(2)*xx,'g','linewidth',2)
 % xlim([-0.3 1]);
 % ylim([-0.05 0.2]);
 % set(gca,'xtick',[-0.2:0.2:1]);
 % 
+
+xx = linspace(-0.3,1,100);
+msize = 6;
+f1 = figure(); hold on
+plot(all_sig_corrs,all_spline_noise_corrs,'r.','markersize',msize); 
+r2 = robustfit(all_sig_corrs,all_spline_noise_corrs);
+% r2 = regress(all_spline_noise_corrs,[ones(length(all_sig_corrs),1) all_sig_corrs]);
+plot(xx,r2(1)+r2(2)*xx,'g','linewidth',2)
+% xlim([-0.3 1]);
+% ylim([-0.05 0.2]);
+% set(gca,'xtick',[-0.2:0.2:1]);
+
+
 % % %PRINT FIGURE
 % fig_width = 3.5; rel_height = 0.9;
 % figufy(f1);
@@ -272,6 +280,8 @@ all_snoise_corrs = [];
 all_sig_corrs = [];
 all_psth_corrs = [];
 all_pair_IDS = [];
+all_pair_avgrates = [];
+all_pair_ntrials = [];
 all_expt_IDS = [];
 for ss = 1:length(cur_SUs)
     cur_sig_covs = all_SU_data(cur_SUs(ss)).spline_cnt_cov;
@@ -284,14 +294,19 @@ for ss = 1:length(cur_SUs)
     psth_norm = all_SU_data(cur_SUs(ss)).psth_cnt_varnorm;
     pnoise_norm = all_SU_data(cur_SUs(ss)).psthnoise_cnt_varnorm;
     
-%     cur_psth_corrs = cur_psth_covs./psth_norm;
-%     cur_sig_corrs = cur_sig_covs./psth_norm;
-%     cur_pnoise_corrs = cur_pnoise_covs./pnoise_norm;
-%     cur_snoise_corrs = cur_snoise_covs./pnoise_norm;
-    cur_psth_corrs = bsxfun(@rdivide,cur_psth_covs,psth_norm(:,end));
-    cur_sig_corrs = bsxfun(@rdivide,cur_sig_covs,psth_norm(:,end));
-    cur_pnoise_corrs = bsxfun(@rdivide,cur_pnoise_covs,pnoise_norm(:,end));
-    cur_snoise_corrs = bsxfun(@rdivide,cur_snoise_covs,pnoise_norm(:,end));
+    psth_norm1 = repmat(psth_norm(:,1),1,length(poss_cnt_wins));
+    pnoise_norm1 = repmat(pnoise_norm(:,1),1,length(poss_cnt_wins));
+    psth_norm(psth_norm < psth_norm1) = psth_norm1(psth_norm < psth_norm1);
+    pnoise_norm(pnoise_norm < pnoise_norm1) = pnoise_norm1(pnoise_norm < pnoise_norm1);
+    
+    cur_psth_corrs = cur_psth_covs./psth_norm;
+    cur_sig_corrs = cur_sig_covs./psth_norm;
+    cur_pnoise_corrs = cur_pnoise_covs./pnoise_norm;
+    cur_snoise_corrs = cur_snoise_covs./pnoise_norm;
+%     cur_psth_corrs = bsxfun(@rdivide,cur_psth_covs,psth_norm(:,1));
+%     cur_sig_corrs = bsxfun(@rdivide,cur_sig_covs,psth_norm(:,1));
+%     cur_pnoise_corrs = bsxfun(@rdivide,cur_pnoise_covs,pnoise_norm(:,1));
+%     cur_snoise_corrs = bsxfun(@rdivide,cur_snoise_covs,pnoise_norm(:,1));
     
     cur_pair_IDS = [repmat(all_SU_data(cur_SUs(ss)).unit_num,size(cur_psth_corrs,1),1) (1:size(cur_psth_corrs,1))'];
     
@@ -302,8 +317,67 @@ for ss = 1:length(cur_SUs)
     
     all_pair_IDS = cat(1,all_pair_IDS,cur_pair_IDS);
     all_expt_IDS = cat(1,all_expt_IDS,repmat(all_SU_data(cur_SUs(ss)).expt_num,size(cur_psth_corrs,1),1));
+    all_pair_ntrials = cat(1,all_pair_ntrials,all_SU_data(cur_SUs(ss)).otherunit_nutrials);
+    all_pair_avgrates = cat(1,all_pair_avgrates,all_SU_data(cur_SUs(ss)).otherunit_avgrates);
 end
-uset = find(all_pair_IDS(:,1) ~= all_pair_IDS(:,2));
-% uset = find(all_pair_IDS(:,1) ~= all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24);
+
+pair_min_rate = 1;
+
+% uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2));
+uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & all_pair_ntrials >= min_rpt_trials & ...
+    all_pair_avgrates/dt >= pair_min_rate);
+
+% uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24);
+% uset = find(all_pair_IDS(:,1) > all_pair_IDS(:,2) & min(all_pair_IDS,[],2) > 24 & ...
+%     all_pair_ntrials >= min_rpt_trials & all_pair_avgrates/dt >= pair_min_rate);
+
+uu = uset(~isnan(all_psth_corrs(uset,1)) & ~isnan(all_sig_corrs(uset,1)) & ~isnan(all_pnoise_corrs(uset,1)) & ~isnan(all_snoise_corrs(uset,1)));
 
 
+
+for cm = 1:length(poss_cnt_wins)
+    psth_ss(cm) = corr(all_psth_corrs(uu,cm),all_pnoise_corrs(uu,cm),'type','spearman');
+    sig_ss(cm) = corr(all_sig_corrs(uu,cm),all_snoise_corrs(uu,cm),'type','spearman');
+end
+
+%%
+% yl = [-0.1 0.5];
+xl1 = [-0.5 1];
+xl2 = [-0.5 1.5];
+yl = [-0.05 0.3];
+% xl1 = [-0.4 1];
+% xl2 = [-0.5 1.5];
+sm_span = 201;
+% sm_span = 51;
+rmpath('~/James_scripts/bruce/bruce_code/')
+
+close all
+xx = all_psth_corrs(uu,1); yy = all_pnoise_corrs(uu,1);
+[psth_spear,psth_p] = corr(xx,yy,'type','spearman');
+f1 = figure();
+subplot(1,2,1);
+plot(xx,yy,'r.')
+hold on
+[xs,ord] = sort(xx); yy = yy(ord);
+ysm = smooth(xs,yy,sm_span,'rlowess');
+plot(xs,ysm,'k','linewidth',2);
+xlim(xl1);
+ylim(yl);
+
+xx = all_sig_corrs(uu,1); yy = all_snoise_corrs(uu,1);
+[sig_spear,sig_p] = corr(xx,yy,'type','spearman');
+subplot(1,2,2);
+plot(xx,yy,'.')
+hold on
+[xs,ord] = sort(xx); yy = yy(ord);
+ysm = smooth(xs,yy,sm_span,'rlowess');
+plot(xs,ysm,'k','linewidth',2);
+xlim(xl2);
+ylim(yl);
+
+% % %PRINT FIGURE
+% fig_width = 7; rel_height = 0.4;
+% figufy(f1);
+% fname = [fig_dir 'Sigc_Noisec_MUs2.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
