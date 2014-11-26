@@ -90,7 +90,7 @@ if strcmp(meantype,'variable') %for variable state meanfunctions
     for i = 1:hmm.Nsegs
         temp_meanfun{i}(1,isnan(temp_meanfun{i}(1,:))) = temp_meanfun{i}(2,isnan(temp_meanfun{i}(1,:))) - avgmeandiff;
         temp_meanfun{i}(2,isnan(temp_meanfun{i}(2,:))) = temp_meanfun{i}(1,isnan(temp_meanfun{i}(2,:))) + avgmeandiff;
-%         temp_meanfun{i} = [temp_meanfun{i}(:,1) temp_meanfun{i} temp_meanfun{i}(:,end)]';
+        %         temp_meanfun{i} = [temp_meanfun{i}(:,1) temp_meanfun{i} temp_meanfun{i}(:,end)]';
         if t_axis{i}(2) ~= 0
             t_axis{i}(1) = 0;
         end
@@ -130,7 +130,7 @@ if strcmp(meantype,'variable') %for variable state meanfunctions
         bad_model = [bad_model; bad_ups];
         bad_downs = find(new_obs(UDS_seg_inds_new{i},1) > meanfun_est{i}(:,2) & most_likely_state'==1);
         bad_model = [bad_model; bad_downs];
-%         bad_model = find(max_state_llik < min_mllik);
+        %         bad_model = find(max_state_llik < min_mllik);
         if ~isempty(bad_model)
             for l = 1:hmm.K
                 rob_llik(l,:) = -mdiff{i}(:,l).^2/(2*avg_var);
@@ -192,7 +192,7 @@ elseif strcmp(meantype,'fixed')
         bad_model = [bad_model bad_ups];
         bad_downs = find(new_obs(UDS_seg_inds_new{i},1) > mean_est(2,1) & most_likely_state'==1);
         bad_model = [bad_model bad_downs];
-%         bad_model = find(max_state_llik < min_mllik);
+        %         bad_model = find(max_state_llik < min_mllik);
         if ~isempty(bad_model)
             for l = 1:hmm.K
                 rob_llik(l,:) = -mdiff{i}(:,l).^2/(2*avg_var);
@@ -242,75 +242,78 @@ for i = 1:hmm.Nsegs
     length_to = -Inf*ones(num_trans,num_perts); %initialize matrix of 'lengths' to arrive at each perturbation for each transition
     coming_from = zeros(num_trans,num_perts); %initialize a matrix to store the preceding perturbation that maximized the probability of a current perturbation
     
-    %for t = 1
-    trans_ind = state_trans{i}(1,1);
-    trans_to = state_trans{i}(1,2);
-    trans_from = setdiff([1 2],trans_to); %must have come from the other state
-    poss_pert_to_inds = trans_ind + pert_range;
-    poss_pert_to_range = 1:num_perts;
-    poss_pert_to_range(poss_pert_to_inds <= 1 | poss_pert_to_inds > length(UDS_seg_inds_new{i})) = []; %don't consider perturbations outside of the range of samples
-    lobs_prob_pre = psi(poss_pert_to_inds(poss_pert_to_range)-1,trans_from) - psi(poss_pert_to_inds(poss_pert_to_range(1))-1,trans_from);
-    lobs_prob_post = psi(poss_pert_to_inds(poss_pert_to_range(end)),trans_to) - psi(poss_pert_to_inds(poss_pert_to_range)-1,trans_to);
-    lobs_prob = lobs_prob_pre + lobs_prob_post;
-    prop_durs = poss_pert_to_inds(poss_pert_to_range);
-    prop_durs(prop_durs > hmm.max_state_dur) = hmm.max_state_dur; %if proposed state duration is longer than max clamp to like of max dur
-    log_duration_prob = p_d(prop_durs,trans_from);
-    length_to(1,poss_pert_to_range) = lobs_prob + log_duration_prob;
-    
-    for t = 2:num_trans
-        trans_ind = state_trans{i}(t,1);
-        trans_to = state_trans{i}(t,2);
-        trans_from = setdiff([1 2],trans_to);
+    if num_trans > 0
+        %for t = 1
+        trans_ind = state_trans{i}(1,1);
+        trans_to = state_trans{i}(1,2);
+        trans_from = setdiff([1 2],trans_to); %must have come from the other state
         poss_pert_to_inds = trans_ind + pert_range;
         poss_pert_to_range = 1:num_perts;
-        poss_pert_to_range(poss_pert_to_inds <= 1 | poss_pert_to_inds > length(UDS_seg_inds_new{i})) = [];
-        cur_dur = trans_ind - state_trans{i}(t-1,1);
+        poss_pert_to_range(poss_pert_to_inds <= 1 | poss_pert_to_inds > length(UDS_seg_inds_new{i})) = []; %don't consider perturbations outside of the range of samples
         lobs_prob_pre = psi(poss_pert_to_inds(poss_pert_to_range)-1,trans_from) - psi(poss_pert_to_inds(poss_pert_to_range(1))-1,trans_from);
         lobs_prob_post = psi(poss_pert_to_inds(poss_pert_to_range(end)),trans_to) - psi(poss_pert_to_inds(poss_pert_to_range)-1,trans_to);
         lobs_prob = lobs_prob_pre + lobs_prob_post;
-        for p = 1:length(poss_pert_to_range) %for each possible perturbation
-            prop_durs = cur_dur + delta_mat(:,poss_pert_to_range(p)); %this is the resulting duration of the current state under this perturbation
-            poss_pert_from_range = find(prop_durs > 0 & prop_durs < size(P,2));
-            log_duration_prob = p_d(prop_durs(poss_pert_from_range),trans_from); %log probability of this duration
-            prob_llik = length_to(t-1,poss_pert_from_range) + log_duration_prob' + lobs_prob(p); %total
-            if ~isempty(prob_llik)%compute the most likely perturbation for the given previous perturbation
-                [cur_len,cur_loc] = max(prob_llik);
-                length_to(t,p) = cur_len(1);
-                cur_loc = cur_loc(1);
-                coming_from(t,p) = poss_pert_from_range(cur_loc);
-            else
-                npdurs = size(delta_mat,1);
-                length_to(t,p) = 1;
-                coming_from(t,p) = round(npdurs/2);
+        prop_durs = poss_pert_to_inds(poss_pert_to_range);
+        prop_durs(prop_durs > hmm.max_state_dur) = hmm.max_state_dur; %if proposed state duration is longer than max clamp to like of max dur
+        log_duration_prob = p_d(prop_durs,trans_from);
+        length_to(1,poss_pert_to_range) = lobs_prob + log_duration_prob;
+        
+        for t = 2:num_trans
+            trans_ind = state_trans{i}(t,1);
+            trans_to = state_trans{i}(t,2);
+            trans_from = setdiff([1 2],trans_to);
+            poss_pert_to_inds = trans_ind + pert_range;
+            poss_pert_to_range = 1:num_perts;
+            poss_pert_to_range(poss_pert_to_inds <= 1 | poss_pert_to_inds > length(UDS_seg_inds_new{i})) = [];
+            cur_dur = trans_ind - state_trans{i}(t-1,1);
+            lobs_prob_pre = psi(poss_pert_to_inds(poss_pert_to_range)-1,trans_from) - psi(poss_pert_to_inds(poss_pert_to_range(1))-1,trans_from);
+            lobs_prob_post = psi(poss_pert_to_inds(poss_pert_to_range(end)),trans_to) - psi(poss_pert_to_inds(poss_pert_to_range)-1,trans_to);
+            lobs_prob = lobs_prob_pre + lobs_prob_post;
+            for p = 1:length(poss_pert_to_range) %for each possible perturbation
+                prop_durs = cur_dur + delta_mat(:,poss_pert_to_range(p)); %this is the resulting duration of the current state under this perturbation
+                poss_pert_from_range = find(prop_durs > 0 & prop_durs < size(P,2));
+                log_duration_prob = p_d(prop_durs(poss_pert_from_range),trans_from); %log probability of this duration
+                prob_llik = length_to(t-1,poss_pert_from_range) + log_duration_prob' + lobs_prob(p); %total
+                if ~isempty(prob_llik)%compute the most likely perturbation for the given previous perturbation
+                    [cur_len,cur_loc] = max(prob_llik);
+                    length_to(t,p) = cur_len(1);
+                    cur_loc = cur_loc(1);
+                    coming_from(t,p) = poss_pert_from_range(cur_loc);
+                else
+                    npdurs = size(delta_mat,1);
+                    length_to(t,p) = 1;
+                    coming_from(t,p) = round(npdurs/2);
+                end
             end
         end
+        
+        %now back-track and find the best perturbation on each transition
+        [~,best_pert(num_trans)] = max(length_to(num_trans,:));
+        for t=num_trans-1:-1:1,
+            best_pert(t) = coming_from(t+1,best_pert(t+1));
+        end
+        new_state_trans = state_trans{i}(:,1) + pert_range(best_pert)';
+        new_state_trans(new_state_trans < 1) = 1;
+        new_state_trans(new_state_trans > length(UDS_seg_inds_new{i})) = length(UDS_seg_inds_new{i});
+        up_trans{i} = new_state_trans(state_trans{i}(:,2) == 2);
+        down_trans{i} = new_state_trans(state_trans{i}(:,2) == 1);
+        clear best_pert
     end
-    
-    %now back-track and find the best perturbation on each transition
-    [~,best_pert(num_trans)] = max(length_to(num_trans,:));
-    for t=num_trans-1:-1:1,
-        best_pert(t) = coming_from(t+1,best_pert(t+1));
-    end
-    new_state_trans = state_trans{i}(:,1) + pert_range(best_pert)';
-    new_state_trans(new_state_trans < 1) = 1;
-    new_state_trans(new_state_trans > length(UDS_seg_inds_new{i})) = length(UDS_seg_inds_new{i});
-    up_trans{i} = new_state_trans(state_trans{i}(:,2) == 2);
-    down_trans{i} = new_state_trans(state_trans{i}(:,2) == 1);
-    clear best_pert
 end
-
 %% reconstruct optimized state sequence
 for ns = 1:hmm.Nsegs
     new_hsmm_state_seq{ns} = ones(curT_new(ns),1);
-    for i = 1:length(up_trans{ns})
-        next_down = down_trans{ns}(find(down_trans{ns} > up_trans{ns}(i),1,'first'));
-        if ~isempty(next_down)
-            new_hsmm_state_seq{ns}(up_trans{ns}(i):next_down) = 2;
-        else
-            new_hsmm_state_seq{ns}(up_trans{ns}(i):end) = 2;
+    if ~isempty(up_trans{ns})
+        for i = 1:length(up_trans{ns})
+            next_down = down_trans{ns}(find(down_trans{ns} > up_trans{ns}(i),1,'first'));
+            if ~isempty(next_down)
+                new_hsmm_state_seq{ns}(up_trans{ns}(i):next_down) = 2;
+            else
+                new_hsmm_state_seq{ns}(up_trans{ns}(i):end) = 2;
+            end
         end
-    end
-    if down_trans{ns}(1) < up_trans{ns}(1)
-        new_hsmm_state_seq{ns}(1:down_trans{ns}(1)) = 2;
+        if down_trans{ns}(1) < up_trans{ns}(1)
+            new_hsmm_state_seq{ns}(1:down_trans{ns}(1)) = 2;
+        end
     end
 end
