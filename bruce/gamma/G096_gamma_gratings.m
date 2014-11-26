@@ -20,8 +20,9 @@ use_lfps = 1:4:96;
 lcf = 0.5;
 
 min_trial_dur = 1;
-cur_expt_set = [6:19];
-
+% cur_expt_set = [6:19];
+cur_expt_set = [1:27];
+cur_expt_set([1 2 5]) = [];
 %%
 fprintf('Computing prep data\n');
 trial_cnt = 0;
@@ -42,9 +43,14 @@ all_trial_or = [];
 all_trial_sz = [];
 all_trial_jv = [];
 all_trial_nsf = [];
-
+all_trial_st = [];
+all_trial_co = [];
+all_trial_ph = [];
+all_trial_fh = [];
+all_trial_Bc = [];
+all_trial_hi = [];
 for ee = 1:length(cur_expt_set);
-    fprintf('Expt %d of %d\n',ee,length(cur_expt_set));
+%     fprintf('Expt %d of %d\n',ee,length(cur_expt_set));
     cur_expt = cur_expt_set(ee);
     
     trial_start_times = [Expts{cur_expt}.Trials(:).TrialStart]/1e4;
@@ -52,15 +58,20 @@ for ee = 1:length(cur_expt_set);
     trial_durs = [Expts{cur_expt}.Trials(:).dur]/1e4;
     trial_ids = [Expts{cur_expt}.Trials(:).id];
     trial_result = [Expts{cur_expt}.Trials(:).Result];
+    
+    fprintf('Expt %d, %d Trials\n',ee,length(trial_ids));
+    
     if isfield(Expts{cur_expt}.Trials,'sf')
         trial_sf = [Expts{cur_expt}.Trials(:).sf];
     else
-        trial_sf = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.sf;
+%         trial_sf = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.sf;
+        trial_sf = nan(size(trial_start_times));
     end
     if isfield(Expts{cur_expt}.Trials,'tf')
         trial_tf = [Expts{cur_expt}.Trials(:).tf];
     else
-        trial_tf = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.tf;
+%         trial_tf = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.tf;
+        trial_tf = nan(size(trial_start_times));
     end
     if isfield(Expts{cur_expt}.Trials,'or')
         trial_or = [Expts{cur_expt}.Trials(:).or];
@@ -71,13 +82,52 @@ for ee = 1:length(cur_expt_set);
     if isfield(Expts{cur_expt}.Trials,'jv')
         trial_jv = [Expts{cur_expt}.Trials(:).jv];
     else
-        trial_jv = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.jv;
+%         trial_jv = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.jv;
+        trial_jv = nan(size(trial_start_times));
     end
     if isfield(Expts{cur_expt}.Trials,'nsf')
         trial_nsf = reshape([Expts{cur_expt}.Trials(:).nsf],10,length(trial_start_times));
     else
-        trial_nsf = [];
+        fprintf('No nsf in expt %d\n',ee);
+        trial_nsf = nan(10,length(trial_jv));
+%         trial_nsf = [];
     end
+    if isfield(Expts{cur_expt}.Trials,'st')
+        trial_st = [Expts{cur_expt}.Trials(:).st];
+    else
+        trial_st = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.st;
+    end
+    if isfield(Expts{cur_expt}.Trials,'co')
+        trial_co = [Expts{cur_expt}.Trials(:).co];
+    else
+%         trial_co = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.co;
+        trial_co = nan(size(trial_start_times));
+    end
+    if isfield(Expts{cur_expt}.Trials,'ph')
+        trial_ph = [Expts{cur_expt}.Trials(:).ph];
+    else
+%         trial_ph = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.ph;
+        trial_ph = nan(size(trial_start_times));
+    end
+    if isfield(Expts{cur_expt}.Trials,'fh')
+        trial_fh = [Expts{cur_expt}.Trials(:).fh];
+    else
+%         trial_fh = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.fh;
+        trial_fh = nan(size(trial_start_times));
+    end
+     if isfield(Expts{cur_expt}.Trials,'Bc')
+        trial_Bc = [Expts{cur_expt}.Trials(:).Bc];
+    else
+%         trial_Bc = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.Bc;
+        trial_Bc = nan(size(trial_start_times));
+    end
+     if isfield(Expts{cur_expt}.Trials,'hi')
+        trial_hi = [Expts{cur_expt}.Trials(:).hi];
+    else
+%         trial_hi = ones(size(trial_start_times))*Expts{cur_expt}.Stimvals.hi;
+        trial_hi = nan(size(trial_start_times));
+    end
+   
     
 %     [un_ids,id_inds] = unique(trial_ids);
     
@@ -93,6 +143,12 @@ for ee = 1:length(cur_expt_set);
     all_trial_sz = cat(1,all_trial_sz,trial_sz');
     all_trial_jv = cat(1,all_trial_jv,trial_jv');
     all_trial_nsf = cat(1,all_trial_nsf,trial_nsf');
+    all_trial_st = cat(1,all_trial_st,trial_st');
+    all_trial_co = cat(1,all_trial_co,trial_co');
+    all_trial_ph = cat(1,all_trial_ph,trial_ph');
+    all_trial_fh = cat(1,all_trial_fh,trial_fh');
+    all_trial_Bc = cat(1,all_trial_Bc,trial_Bc');
+    all_trial_hi = cat(1,all_trial_hi,trial_hi');
     
     n_trials = length(trial_ids);
 
@@ -141,21 +197,22 @@ Fsd = Fs/dsf;
 
 
 %%
+addpath(genpath('~/James_scripts/chronux/spectral_analysis/'));
 start_buffer = round(Fsd*0.5);
 all_trial_start_inds = round(interp1(all_t_axis,1:length(all_t_axis),all_trial_start_times));
 all_trial_end_inds = round(interp1(all_t_axis,1:length(all_t_axis),all_trial_end_times));
 
-% stims = [all_trial_sf(:) all_trial_tf(:)];
-stims = [all_trial_nsf];
-[C,IA,IC] = unique(stims,'rows');
+%% SINGLE GRATINGS
+base_gratings = find(all_trial_st == 3 & isnan(all_trial_Bc) & all_trial_sz == 6.0057);
+stim_values = [all_trial_tf(base_gratings) all_trial_sf(base_gratings)];
+[C,IA,IC] = unique(stim_values,'rows');
 n_types = size(C,1);
-%%
-addpath(genpath('~/James_scripts/chronux/spectral_analysis/'));
+
 params.Fs = Fsd;
 params.tapers = [3 5];
 params.fpass = [0 125];
 movingwin = [1.5 1.5];
-sMarkers = [all_trial_start_inds(:)+start_buffer all_trial_end_inds(:)];
+sMarkers = [all_trial_start_inds(base_gratings)+start_buffer all_trial_end_inds(base_gratings)];
 used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
 params.err = [0];
 
@@ -170,49 +227,247 @@ for ii = 1:n_types
         
 end
 
-%%
-base_C = 5;
-logS = log10(S);
-avg_pow = squeeze(mean(logS(base_C,:,:),2))';
-
-beta = polyfit(f,avg_pow,1);
-pred_pow = polyval(beta,f);
-
-% norm_S = bsxfun(@minus,logS,reshape(pred_pow,[1 1 length(f)]));
-norm_S = bsxfun(@minus,logS,reshape(avg_pow,[1 1 length(f)]));
+avg_pow = squeeze(mean(log10(S),2));
 %%
 close all
 for ii = 1:n_types
-    plot(f,squeeze(mean(log10(S(ii,:,:)),2)));
+    C(ii,:)
+    plot(f,avg_pow,'k');
+    hold on
+    plot(f,avg_pow(ii,:),'r','linewidth',2);
     pause
     clf
 end
 
 %%
-cmap =[1 0 0; 0 1 0; 0 0 1];
-for ii = 2:4
-    
-    plot(f,squeeze(mean(log10(S(ii,:,:)),2)),'color',cmap(ii-1,:),'linewidth',2);
-hold on
+poss_tf = [0 1 2 4 8];
+poss_sf = [1 2 4];
+lwds = [1 2 3];
+cmap = jet(length(poss_tf));
+
+cmap(1,:) = [0 0 1];
+cmap(end-1,:) = [1 0.5 0];
+cmap(end,:) = [1 0 0];
+
+close all
+for ii = 1:length(poss_sf)
+    for jj = 1:length(poss_tf)
+        
+        cur_type = find(C(:,1) == poss_tf(jj) & C(:,2) == poss_sf(ii));
+        plot(f,avg_pow(cur_type,:),'color',cmap(jj,:),'linewidth',lwds(ii));
+        hold on
+        
+    end
 end
+
+%% GRATINGS VS RLS
+base_rls = find(all_trial_st == 15);
+stim_values = [all_trial_jv(base_rls) all_trial_tf(base_rls)];
+[C_rls,IA,IC] = unique(stim_values,'rows');
+n_types_rls = size(C_rls,1);
+
+params.Fs = Fsd;
+params.tapers = [3 5];
+params.fpass = [0 125];
+movingwin = [1.5 1.5];
+sMarkers = [all_trial_start_inds(base_rls)+start_buffer all_trial_end_inds(base_rls)];
+used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
+params.err = [0];
+
+clear S
+for ii = 1:n_types_rls
+    fprintf('Condition %d of %d\n',ii,n_types_rls);
+    cur_trials = find(IC == ii & used_trial_durs > movingwin(1));
+    
+    for ll = 1:length(use_lfps)
+        [S(ii,ll,:), f]= mtspectrumc_unequal_length_trials( all_V(:,ll), movingwin, params, sMarkers(cur_trials,:));
+    end
+        
+end
+
+avg_pow_rls = squeeze(mean(log10(S),2));
 %%
 close all
-cmap =[1 0 0; 0 1 0; 0 0 1];
-unique_sfs = unique(all_trial_sf);
-unique_tfs = unique(all_trial_tf);
-for jj = 1:length(unique_tfs);
-    use_tf = unique_tfs(jj);
-    subplot(2,3,jj)
-    for ii = 1:length(unique_sfs)
-    cur_C = find(C(:,1) == unique_sfs(ii) & C(:,2) == use_tf);
-%     plot(f,squeeze(mean(norm_S(cur_C,:,:),2)),'color',cmap(ii,:),'linewidth',2);
-    plot(f,squeeze(mean(logS(cur_C,:,:),2)),'color',cmap(ii,:),'linewidth',2);
+for ii = 1:n_types_rls
+    C_rls(ii,:)
+    plot(f,avg_pow_rls,'k');
     hold on
-    end
-title(sprintf('TF = %d',use_tf));
-legend('SF = 1','SF = 2','SF = 4');
-xlabel('Frequency (Hz)','fontsize',12);
-ylabel('Log power','fontsize',12);
-ylim([-13.5 -9.5]);
-xlim([0 120])
+    plot(f,avg_pow_rls(ii,:),'r','linewidth',2);
+    pause
+    clf
 end
+
+
+%% COMPOUND GRATINGS
+compound_gratings = find(all_trial_st == 18 & isnan(all_trial_Bc) & all_trial_sz == 6.0057 & ~isnan(all_trial_nsf(:,1)));
+stim_values = [all_trial_nsf(compound_gratings,:) all_trial_jv(compound_gratings) all_trial_tf(compound_gratings)];
+[C_comp,IA,IC] = unique(stim_values,'rows');
+n_types_comp = size(C_comp,1);
+
+params.Fs = Fsd;
+params.tapers = [3 5];
+params.fpass = [0 125];
+movingwin = [1.5 1.5];
+sMarkers = [all_trial_start_inds(compound_gratings)+start_buffer all_trial_end_inds(compound_gratings)];
+used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
+params.err = [0];
+
+clear S
+for ii = 1:n_types_comp
+    fprintf('Condition %d of %d\n',ii,n_types_comp);
+    cur_trials = find(IC == ii & used_trial_durs > movingwin(1));
+    
+    for ll = 1:length(use_lfps)
+        [S(ii,ll,:), f]= mtspectrumc_unequal_length_trials( all_V(:,ll), movingwin, params, sMarkers(cur_trials,:));
+    end
+        
+end
+
+avg_pow_comp = squeeze(mean(log10(S),2));
+
+%only have 1 instance of this stim type so eliminate
+avg_pow_comp(1,:) = [];
+n_types_comp = n_types_comp - 1;
+
+%%
+poss_tf = [0 1 2 4 8];
+poss_sf = [1 2 4];
+lwds = [1 2 3];
+cmap = jet(length(poss_tf));
+
+cmap(1,:) = [0 0 1];
+cmap(end-1,:) = [1 0.5 0];
+cmap(end,:) = [1 0 0];
+
+close all
+for zz = 1:n_types_comp
+    for ii = 1:length(poss_sf)
+        for jj = 1:length(poss_tf)
+            
+            cur_type = find(C(:,1) == poss_tf(jj) & C(:,2) == poss_sf(ii));
+            plot(f,avg_pow(cur_type,:),'color',cmap(jj,:),'linewidth',lwds(ii));
+            hold on
+            
+        end
+    end
+    C_comp(zz,:)
+    plot(f,avg_pow_comp(zz,:),'k','linewidth',4);
+    pause
+    clf
+end
+
+%%
+close all
+for ii = 1:n_types_comp
+    C(ii,:)
+    plot(f,avg_pow_comp,'k');
+    hold on
+    plot(f,avg_pow_comp(ii,:),'r','linewidth',2);
+    pause
+    clf
+end
+
+%% SIZE/BACKGROUND
+size_gratings = find(all_trial_st == 3 & ~isnan(all_trial_Bc) & isnan(all_trial_co));
+stim_values = [all_trial_sz(size_gratings,:) all_trial_Bc(size_gratings)];
+[C_size,IA,IC] = unique(stim_values,'rows');
+n_types_size = size(C_size,1);
+
+params.Fs = Fsd;
+params.tapers = [3 5];
+params.fpass = [0 125];
+movingwin = [1.5 1.5];
+sMarkers = [all_trial_start_inds(size_gratings)+start_buffer all_trial_end_inds(size_gratings)];
+used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
+params.err = [0];
+
+clear S
+for ii = 1:n_types_size
+    fprintf('Condition %d of %d\n',ii,n_types_size);
+    cur_trials = find(IC == ii & used_trial_durs > movingwin(1));
+    
+    for ll = 1:length(use_lfps)
+        [S(ii,ll,:), f]= mtspectrumc_unequal_length_trials( all_V(:,ll), movingwin, params, sMarkers(cur_trials,:));
+    end
+        
+end
+
+avg_pow_size = squeeze(mean(log10(S),2));
+
+%%
+poss_sz = unique(C_size(:,1));
+poss_Bc = [0 1];
+lwds = [1 2];
+cmap = jet(length(poss_sz));
+
+cmap(1,:) = [0 0 1];
+cmap(end-1,:) = [1 0.5 0];
+cmap(end,:) = [1 0 0];
+
+
+base_compare = find(C(:,1) == 4 & C(:,2) == 4);
+close all
+plot(f,avg_pow(base_compare,:),'k','linewidth',2); hold on
+% for ii = 1:length(poss_Bc)
+for ii = 2
+    for jj = 1:length(poss_sz)
+        
+        cur_type = find(C_size(:,1) == poss_sz(jj) & C_size(:,2) == poss_Bc(ii));
+        plot(f,avg_pow_size(cur_type,:),'color',cmap(jj,:),'linewidth',lwds(ii));
+        hold on
+        
+    end
+end
+
+
+%%
+close all
+for ii = 1:n_types_size
+    C_size(ii,:)
+    plot(f,avg_pow_size,'k');
+    hold on
+    plot(f,avg_pow_size(ii,:),'r','linewidth',2);
+    pause
+    clf
+end
+
+%% SIZE/BACKGROUND
+% size_gratings = find(all_trial_st == 3 & (~isnan(all_trial_Bc) | ~isnan(all_trial_co)));
+% all_trial_Bc(size_gratings(isnan(all_trial_Bc(size_gratings)))) = 1;
+% all_trial_co(size_gratings(isnan(all_trial_co(size_gratings)))) = 1;
+% 
+% stim_values = [all_trial_sz(size_gratings,:) all_trial_Bc(size_gratings) all_trial_co(size_gratings)];
+% [C_size,IA,IC] = unique(stim_values,'rows');
+% n_types_size = size(C_size,1);
+% 
+% params.Fs = Fsd;
+% params.tapers = [3 5];
+% params.fpass = [0 125];
+% movingwin = [1.5 1.5];
+% sMarkers = [all_trial_start_inds(size_gratings)+start_buffer all_trial_end_inds(size_gratings)];
+% used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
+% params.err = [0];
+% 
+% clear S
+% for ii = 1:n_types_size
+%     fprintf('Condition %d of %d\n',ii,n_types_size);
+%     cur_trials = find(IC == ii & used_trial_durs > movingwin(1));
+%     
+%     for ll = 1:length(use_lfps)
+%         [S(ii,ll,:), f]= mtspectrumc_unequal_length_trials( all_V(:,ll), movingwin, params, sMarkers(cur_trials,:));
+%     end
+%         
+% end
+% 
+% avg_pow_size = squeeze(mean(log10(S),2));
+% 
+% %%
+% close all
+% for ii = 1:n_types_size
+%     C_size(ii,:)
+%     plot(f,avg_pow_size,'k');
+%     hold on
+%     plot(f,avg_pow_size(ii,:),'r','linewidth',2);
+%     pause
+%     clf
+% end
