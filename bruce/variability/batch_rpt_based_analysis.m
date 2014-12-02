@@ -4,7 +4,7 @@ clc
 
 % fig_dir = '/Users/james/Analysis/bruce/variability/figures/';
 fig_dir = '/home/james/Analysis/bruce/variability/figures/';
-base_sname = 'rpt_variability_analysis2';
+base_sname = 'rpt_variability_analysis4';
 base_tname = 'model_variability_analysis';
 
 all_SU_data = [];
@@ -279,6 +279,7 @@ all_pnoise_corrs = [];
 all_snoise_corrs = [];
 all_sig_corrs = [];
 all_psth_corrs = [];
+all_trial_corrs = [];
 all_pair_IDS = [];
 all_pair_avgrates = [];
 all_pair_ntrials = [];
@@ -290,6 +291,9 @@ for ss = 1:length(cur_SUs)
     
     cur_snoise_covs = cur_emp_covs - cur_sig_covs;
     cur_pnoise_covs = cur_emp_covs - cur_psth_covs;
+    
+    cur_trial_corrs = all_SU_data(cur_SUs(ss)).trial_corrs;
+    all_trial_corrs = cat(1,all_trial_corrs,cur_trial_corrs(:));
     
     psth_norm = all_SU_data(cur_SUs(ss)).psth_cnt_varnorm;
     pnoise_norm = all_SU_data(cur_SUs(ss)).psthnoise_cnt_varnorm;

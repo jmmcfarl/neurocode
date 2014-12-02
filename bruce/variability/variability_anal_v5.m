@@ -1174,6 +1174,7 @@ for ll = 1:length(loo_set)
             cur_XC(tt,jj) = nanmean(Y1(II(curset)).*Y1(JJ(curset)));
         end
               
+        Y1 = squeeze(full_psth_zm(:,tt,loo_set(ll)));
         [closest_sep,closest_pair] = nanmin(cur_Dmat);
         uset = ~isnan(closest_sep);
         cur_time_vars(tt) = nanmean(Y1(uset).*Y1(closest_pair(uset)));
@@ -1202,7 +1203,13 @@ for ss = 1:n_chs
     Rpt_Data(ss).ep_spline_respvar = var_spline_funs(ss,:);
     Rpt_Data(ss).spline_resp_ZPT = var_spline_ZPT(ss);
     Rpt_Data(ss).spline_mod_ZPT = var_spline_mZPT(ss);
+    
+    Rpt_Data(ss).base_FF = base_FF(ss);
+    Rpt_Data(ss).cor_FF = cor_FF(ss);
+    Rpt_Data(ss).loo_spline_ZPT = loo_spline_ZPT(ss);
+    Rpt_Data(ss).loo_cor_FF = loo_cor_FF(ss);
 end
+
 % %% VIEW SPLINE FITS
 % close all
 % for ii = 1:n_chs
