@@ -121,8 +121,8 @@ avg_cond_lfp = squeeze(mean(all_cond_lfp));
 sem_cond_lfp = squeeze(std(all_cond_lfp))/sqrt(length(use_lfps));
 % sem_cond_lfp = squeeze(std(all_cond_lfp));
 
-cd ~/Analysis/bruce/ 
-save gamma_powfits interp* wfreqs use_lfps all_*_spectrum
+% cd ~/Analysis/bruce/ 
+% save gamma_powfits interp* wfreqs use_lfps all_*_spectrum
 
 
 %% VISUALIZE G091 ori
@@ -217,14 +217,14 @@ fname = sprintf('G092_specgramZOOM_cond%d',cc);
     for ii = 1:length(stimes)
         line(stimes([ii ii]),yl,'color','w')
     end
-    fillPage(gcf,'papersize',[8 8]);
-    print(fname,'-dpng')
+%     fillPage(gcf,'papersize',[8 8]);
+%     print(fname,'-dpng')
 %     if cc == 1
 %     print(fname,'-dpsc')
 %     else
 %     print(fname,'-dpsc','-append')
 %     end
-%     pause
+    pause
     clf
 end
 

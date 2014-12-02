@@ -12,6 +12,10 @@ cd(data_dir);
 
 load(sprintf('jbe%sExpts.mat',Expt_name)); %load in Expts struct
 
+for ii = 1:length(Expts)
+    expt_name{ii} = Expts{ii}.Header.expname;
+end
+
 %%
 dsf = 1; %lfps originally sampled at 400Hz
 use_lfps = 1:4:96;

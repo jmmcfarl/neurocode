@@ -229,15 +229,15 @@ end
 
 avg_pow = squeeze(mean(log10(S),2));
 %%
-close all
-for ii = 1:n_types
-    C(ii,:)
-    plot(f,avg_pow,'k');
-    hold on
-    plot(f,avg_pow(ii,:),'r','linewidth',2);
-    pause
-    clf
-end
+% close all
+% for ii = 1:n_types
+%     C(ii,:)
+%     plot(f,avg_pow,'k');
+%     hold on
+%     plot(f,avg_pow(ii,:),'r','linewidth',2);
+%     pause
+%     clf
+% end
 
 %%
 poss_tf = [0 1 2 4 8];
@@ -250,7 +250,8 @@ cmap(end-1,:) = [1 0.5 0];
 cmap(end,:) = [1 0 0];
 
 close all
-for ii = 1:length(poss_sf)
+% for ii = 1:length(poss_sf)
+for ii = 3
     for jj = 1:length(poss_tf)
         
         cur_type = find(C(:,1) == poss_tf(jj) & C(:,2) == poss_sf(ii));
@@ -258,7 +259,19 @@ for ii = 1:length(poss_sf)
         hold on
         
     end
+    if ii == 1
+        legend('0 Hz','1 Hz','2 Hz','4 Hz','8 Hz');
+    end
 end
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+% cur_fname = '/home/james/Desktop/gamma_sf_tf';
+% print(gcf,'-dpdf',cur_fname);
+
+cur_fname = '/home/james/Desktop/gamma_sf4_tf';
+print(gcf,'-dpdf',cur_fname);
 
 %% GRATINGS VS RLS
 base_rls = find(all_trial_st == 15);
@@ -325,9 +338,92 @@ end
 
 avg_pow_comp = squeeze(mean(log10(S),2));
 
-%only have 1 instance of this stim type so eliminate
-avg_pow_comp(1,:) = [];
-n_types_comp = n_types_comp - 1;
+% %only have 1 instance of this stim type so eliminate
+% avg_pow_comp(1,:) = [];
+% n_types_comp = n_types_comp - 1;
+
+%%
+jv_two = find(C_comp(:,11) == 2);
+jv_one = find(C_comp(:,11) == 1);
+jv_p5 = find(C_comp(:,11) == 0.5);
+f1 = figure(); hold
+plot(f,avg_pow_comp(jv_two(1),:),'k','linewidth',3);
+plot(f,avg_pow_comp(jv_two(2),:),'r','linewidth',3);
+plot(f,avg_pow_comp(jv_two(3),:),'g','linewidth',3);
+plot(f,avg_pow_comp(jv_two(4),:),'b','linewidth',3);
+legend('10-grating','1-2-4','2-4','2-4-8');
+
+plot(f,avg_pow_comp(jv_one(1),:),'r','linewidth',2);
+plot(f,avg_pow_comp(jv_one(2),:),'g','linewidth',2);
+plot(f,avg_pow_comp(jv_one(3),:),'b','linewidth',2);
+
+plot(f,avg_pow_comp(jv_p5(1),:),'r','linewidth',1);
+plot(f,avg_pow_comp(jv_p5(2),:),'g','linewidth',1);
+plot(f,avg_pow_comp(jv_p5(3),:),'b','linewidth',1);
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+cur_fname = '/home/james/Desktop/gamma_compound_drift';
+print(gcf,'-dpdf',cur_fname);
+
+close(gcf);
+f1 = figure(); hold
+plot(f,avg_pow_comp(jv_two(1),:),'k','linewidth',3);
+plot(f,avg_pow_comp(jv_two(2),:),'r','linewidth',3);
+plot(f,avg_pow_comp(jv_two(3),:),'g','linewidth',3);
+plot(f,avg_pow_comp(jv_two(4),:),'b','linewidth',3);
+legend('10-grating','1-2-4','2-4','2-4-8');
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+cur_fname = '/home/james/Desktop/gamma_compound_drift_jv2';
+print(gcf,'-dpdf',cur_fname);
+
+close(gcf);
+f1 = figure(); hold
+plot(f,avg_pow_comp(jv_one(1),:),'r','linewidth',2);
+plot(f,avg_pow_comp(jv_one(2),:),'g','linewidth',2);
+plot(f,avg_pow_comp(jv_one(3),:),'b','linewidth',2);
+legend('1-2-4','2-4','2-4-8');
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+cur_fname = '/home/james/Desktop/gamma_compound_drift_jv1';
+print(gcf,'-dpdf',cur_fname);
+
+close(gcf);
+f1 = figure(); hold
+plot(f,avg_pow_comp(jv_p5(1),:),'r','linewidth',1);
+plot(f,avg_pow_comp(jv_p5(2),:),'g','linewidth',1);
+plot(f,avg_pow_comp(jv_p5(3),:),'b','linewidth',1);
+legend('1-2-4','2-4','2-4-8');
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+cur_fname = '/home/james/Desktop/gamma_compound_drift_jvp5';
+print(gcf,'-dpdf',cur_fname);
+
+jv_one = find(C_comp(:,11) == 1);
+tf_4 = find(C_comp(:,11) == 0 & C_comp(:,12) == 4);
+f2 = figure(); hold 
+plot(f,avg_pow_comp(jv_one(1),:),'r','linewidth',2);
+plot(f,avg_pow_comp(jv_one(2),:),'g','linewidth',2);
+plot(f,avg_pow_comp(jv_one(3),:),'b','linewidth',2);
+legend('1-2-4','2-4','2-4-8');
+
+plot(f,avg_pow_comp(tf_4(1),:),'r','linewidth',1);
+plot(f,avg_pow_comp(tf_4(2),:),'g','linewidth',1);
+plot(f,avg_pow_comp(tf_4(3),:),'b','linewidth',1);
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+cur_fname = '/home/james/Desktop/gamma_compound_tf_jv';
+print(gcf,'-dpdf',cur_fname);
 
 %%
 poss_tf = [0 1 2 4 8];
@@ -366,6 +462,33 @@ for ii = 1:n_types_comp
     pause
     clf
 end
+
+%% DRIFTING COMPOUND GRATINGS 
+compound_gratings = find(all_trial_st == 18 & isnan(all_trial_Bc) & all_trial_sz == 6.0057 & ~isnan(all_trial_nsf(:,1)) & all_trial_jv > 0);
+stim_values = [all_trial_nsf(compound_gratings,:) all_trial_jv(compound_gratings) all_trial_tf(compound_gratings)];
+[C_comp,IA,IC] = unique(stim_values,'rows');
+n_types_comp = size(C_comp,1);
+
+params.Fs = Fsd;
+params.tapers = [3 5];
+params.fpass = [0 125];
+movingwin = [1.5 1.5];
+sMarkers = [all_trial_start_inds(compound_gratings)+start_buffer all_trial_end_inds(compound_gratings)];
+used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
+params.err = [0];
+
+clear S
+for ii = 1:n_types_comp
+    fprintf('Condition %d of %d\n',ii,n_types_comp);
+    cur_trials = find(IC == ii & used_trial_durs > movingwin(1));
+    
+    for ll = 1:length(use_lfps)
+        [S(ii,ll,:), f]= mtspectrumc_unequal_length_trials( all_V(:,ll), movingwin, params, sMarkers(cur_trials,:));
+    end
+        
+end
+
+avg_pow_comp = squeeze(mean(log10(S),2));
 
 %% SIZE/BACKGROUND
 size_gratings = find(all_trial_st == 3 & ~isnan(all_trial_Bc) & isnan(all_trial_co));
@@ -408,8 +531,8 @@ cmap(end,:) = [1 0 0];
 base_compare = find(C(:,1) == 4 & C(:,2) == 4);
 close all
 plot(f,avg_pow(base_compare,:),'k','linewidth',2); hold on
-% for ii = 1:length(poss_Bc)
-for ii = 2
+for ii = 1:length(poss_Bc)
+% for ii = 1
     for jj = 1:length(poss_sz)
         
         cur_type = find(C_size(:,1) == poss_sz(jj) & C_size(:,2) == poss_Bc(ii));
@@ -417,8 +540,79 @@ for ii = 2
         hold on
         
     end
+    if ii == 1
+       legend('0.5','1','2','4','6'); 
+    end
 end
 
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+cur_fname = '/home/james/Desktop/gamma_cent_surround';
+print(gcf,'-dpdf',cur_fname);
+
+%% SIZE/BACKGROUND HOLE
+size_gratings = find(all_trial_exptvec == 24);
+stim_values = [all_trial_sz(size_gratings,:) all_trial_co(size_gratings)];
+[C_size,IA,IC] = unique(stim_values,'rows');
+n_types_size = size(C_size,1);
+
+params.Fs = Fsd;
+params.tapers = [3 5];
+params.fpass = [0 125];
+movingwin = [1.5 1.5];
+sMarkers = [all_trial_start_inds(size_gratings)+start_buffer all_trial_end_inds(size_gratings)];
+used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
+params.err = [0];
+
+clear S
+for ii = 1:n_types_size
+    fprintf('Condition %d of %d\n',ii,n_types_size);
+    cur_trials = find(IC == ii & used_trial_durs > movingwin(1));
+    
+    for ll = 1:length(use_lfps)
+        [S(ii,ll,:), f]= mtspectrumc_unequal_length_trials( all_V(:,ll), movingwin, params, sMarkers(cur_trials,:));
+    end
+        
+end
+
+avg_pow_size = squeeze(mean(log10(S),2));
+
+%%
+poss_sz = unique(C_size(:,1));
+poss_co = [0 1];
+lwds = [1 2];
+cmap = jet(length(poss_sz));
+
+cmap(1,:) = [0 0 1];
+cmap(end-1,:) = [1 0.5 0];
+cmap(end,:) = [1 0 0];
+
+
+base_compare = find(C(:,1) == 4 & C(:,2) == 4);
+close all
+for ii = 1:length(poss_co)
+% for ii = 1
+    for jj = 1:length(poss_sz)
+        
+        cur_type = find(C_size(:,1) == poss_sz(jj) & C_size(:,2) == poss_co(ii));
+        plot(f,avg_pow_size(cur_type,:),'color',cmap(jj,:),'linewidth',lwds(ii));
+        hold on
+        
+    end
+    if ii == 1
+       legend('0.5','1','2','4','6'); 
+    end
+end
+% plot(f,avg_pow(base_compare,:),'k','linewidth',2); hold on
+
+axis tight
+xlabel('Frequency (Hz)');
+ylabel('Log Power');
+figufy(gcf);
+cur_fname = '/home/james/Desktop/gamma_cent_hole';
+print(gcf,'-dpdf',cur_fname);
 
 %%
 close all
