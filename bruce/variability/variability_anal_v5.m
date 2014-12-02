@@ -7,9 +7,9 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M296';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'M296';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 mod_data_name = 'corrected_models2';
 ep_dist_bin_edges = linspace(-1,1,100);
@@ -762,23 +762,23 @@ all_nonrpt_inds = find(~ismember(all_trialvec(used_inds),rpt_trials));
 
 
 %% Recon retinal stim for non LOO data
-cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
-cur_fix_post_std = squeeze(it_fix_post_std(end,:));
-cur_drift_post_mean = squeeze(drift_post_mean(end,:));
-cur_drift_post_std = squeeze(drift_post_std(end,:));
-[orig_fin_tot_corr,orig_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-    cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-orig_sp_dx = sp_dx;
-orig_ep = orig_fin_tot_corr*orig_sp_dx;
+% cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
+% cur_fix_post_std = squeeze(it_fix_post_std(end,:));
+% cur_drift_post_mean = squeeze(drift_post_mean(end,:));
+% cur_drift_post_std = squeeze(drift_post_std(end,:));
+% [orig_fin_tot_corr,orig_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+%     cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+% orig_sp_dx = sp_dx;
+% orig_ep = orig_fin_tot_corr*orig_sp_dx;
+% 
+% orig_fin_tot_corr_LOO = nan(length(loo_set),NT);
+% for ss = 1:length(loo_set)
+% [orig_fin_tot_corr_LOO(ss,:)] = construct_eye_position(squeeze(it_fix_post_mean_LOO(ss,end,:)),squeeze(it_fix_post_std_LOO(ss,end,:)),...
+%     squeeze(drift_post_mean_LOO(ss,end,:)),squeeze(drift_post_std_LOO(ss,end,:)),fix_ids,trial_start_inds,trial_end_inds,sac_shift);    
+% end
+% orig_fin_tot_corr_LOO = orig_fin_tot_corr_LOO*orig_sp_dx;
 
-orig_fin_tot_corr_LOO = nan(length(loo_set),NT);
-for ss = 1:length(loo_set)
-[orig_fin_tot_corr_LOO(ss,:)] = construct_eye_position(squeeze(it_fix_post_mean_LOO(ss,end,:)),squeeze(it_fix_post_std_LOO(ss,end,:)),...
-    squeeze(drift_post_mean_LOO(ss,end,:)),squeeze(drift_post_std_LOO(ss,end,:)),fix_ids,trial_start_inds,trial_end_inds,sac_shift);    
-end
-orig_fin_tot_corr_LOO = orig_fin_tot_corr_LOO*orig_sp_dx;
-
-%%
+%% Recon retinal stim with high res ET data
 cd(et_dir)
 load(et_hres_anal_name)
 [hres_fin_tot_corr,hres_tot_std] = construct_eye_position(best_fix_cor,best_fix_std,...
@@ -1028,7 +1028,7 @@ end
 %     sorted_full_psth(:,tt,:) = full_psth_raw(b(:,tt),tt,:);
 %     sorted_full_psth(isnan(a(:,tt)),tt,:) = nan;
 % end
-%%
+%% COMPUTE VARIANCES FOR BINNED DELTA ES FOR ALL CELLS (using full recon et)
 maxlag_ED = 0.15;
 ED_space = 0.0025;
 ED_bin_edges = 0:ED_space:maxlag_ED;
@@ -1078,7 +1078,7 @@ var_ep_binned = squeeze(nanmean(cur_XC));
 var_ep_mod = squeeze(nanmean(cur_mXC));
 all_relprobs = bsxfun(@rdivide,cur_cnt,sum(cur_cnt));
 
-%%
+%% FIT SPLINES TO VAR VS ET FUNCTIONS (again using full et recon)
 spline_spacing = 0.015;
 spline_knots = spline_spacing:spline_spacing:maxlag_ED;
 spline_eval = -0.02:0.005:maxlag_ED;
@@ -1104,6 +1104,94 @@ new_psth_var_frac = new_psth_var'./var_spline_ZPT;
 psth_var_frac_cor = psth_var_cor'./var_spline_ZPT;
 mod_var_frac = mod_psth_var'./var_spline_mZPT;
 psth_sig_frac = psth_var./resp_var;
+
+%% ESTIMATE FANO FACTOR CORRECTIONS USING NEAREST ET (FULL CORRECTION)
+full_psth_zm = bsxfun(@minus,full_psth_raw,nanmean(full_psth_raw));
+actual_vars = squeeze(nanvar(full_psth_raw,[],1));
+
+%for doing adjacent-trial correction
+adj1 = 1:(n_rpts-1);
+adj2 = 2:n_rpts;
+
+timewise_vars = nan(length(rpt_taxis),n_chs);
+adj_vars = nan(length(rpt_taxis),n_chs);
+for tt = 1:length(rpt_taxis)
+     Y1 = squeeze(full_psth_zm(:,tt,:));
+
+     cur_Dmat = abs(squareform(pdist(squeeze(full_EP_emb(:,tt,:)))))/sqrt(back_look);
+     cur_Dmat(logical(eye(n_rpts))) = nan;
+          
+     [closest_sep,closest_pair] = nanmin(cur_Dmat);
+     uset = ~isnan(closest_sep);
+    
+     timewise_vars(tt,:) = squeeze(nanmean(bsxfun(@times,Y1(uset,:),Y1(closest_pair(uset),:)),1));
+     adj_vars(tt,:) = squeeze(nanmean(bsxfun(@times,Y1(adj1,:),Y1(adj2,:)),1));   
+end
+corrected_noise_vars = actual_vars - timewise_vars;
+adj_corrected_noise_vars = actual_vars - adj_vars;
+
+[base_FF,cor_FF,adj_FF] = deal(nan(n_chs,1));
+for ii = 1:n_chs
+   base_FF(ii) = all_psths_raw(:,ii)\actual_vars(:,ii);
+   cor_FF(ii) = all_psths_raw(:,ii)\corrected_noise_vars(:,ii);
+   adj_FF(ii) = all_psths_raw(:,ii)\adj_corrected_noise_vars(:,ii);
+end
+
+%% RE-ESTIMATE SINGLE-NEURON ET CORRECTIONS USING LOO ET SIGNALS
+
+loo_spline_ZPT = nan(n_chs,1);
+loo_cor_FF = nan(n_chs,1);
+for ll = 1:length(loo_set)
+    
+    fprintf('LOO %d of %d\n',ll,length(loo_set));
+    
+    %eye position during repeats
+    cur_rpt_EP = hres_fin_tot_corr_LOO(ll,all_rpt_inds);
+    cur_rpt_EPnan = cur_rpt_EP;
+    cur_rpt_EPnan(in_sac_inds(all_rpt_inds)) = nan;
+    cur_rpt_EPnan(in_blink_inds(all_rpt_inds)) = nan;
+    
+    %initialize a time-embedded version of the EPs
+    sp = NMMcreate_stim_params(back_look);
+    cur_rpt_EP_emb = create_time_embedding(cur_rpt_EPnan(:),sp);
+    
+    cur_full_EP_emb = nan(n_rpts,length(rpt_taxis),back_look);
+    for ii = 1:length(rpt_trials)
+        cur_inds = find(all_trialvec(used_inds(all_rpt_inds)) == rpt_trials(ii));
+        cur_full_EP_emb(ii,1:length(cur_inds),:) = cur_rpt_EP_emb(cur_inds,:);
+    end
+    
+    cur_XC = nan(length(rpt_taxis),length(ED_bin_centers));
+    cur_time_vars = nan(length(rpt_taxis),1);
+    for tt = 1:length(rpt_taxis)
+        Y1 = squeeze(full_psth_ms(:,tt,loo_set(ll)));
+        cur_Dmat = abs(squareform(pdist(squeeze(cur_full_EP_emb(:,tt,:)))))/sqrt(back_look);
+        cur_Dmat(logical(eye(n_rpts))) = nan;
+        cur_Dmat(exclude_trials,:) = nan;
+        for jj = 1:length(ED_bin_centers)
+            curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
+%             cur_XC(tt,jj,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
+            cur_XC(tt,jj) = nanmean(Y1(II(curset)).*Y1(JJ(curset)));
+        end
+              
+        [closest_sep,closest_pair] = nanmin(cur_Dmat);
+        uset = ~isnan(closest_sep);
+        cur_time_vars(tt) = nanmean(Y1(uset).*Y1(closest_pair(uset)));
+        
+    end
+    loo_var_ep_binned = squeeze(nanmean(cur_XC));
+    
+    x = ED_bin_centers;
+    y = loo_var_ep_binned;
+    bad = find(isnan(y));  x(bad) = []; y(bad) = [];
+    ss = fnxtr(csape(spline_knots,y(:).'/fnval(fnxtr(csape(spline_knots,eye(length(spline_knots)),'var')),x(:).'),'var'));
+    loo_spline_ZPT(loo_set(ll)) = fnval(ss,0);
+
+    cur_corrected_noise_vars = actual_vars(:,loo_set(ll)) - cur_time_vars;
+    loo_cor_FF(loo_set(ll)) = all_psths_raw(:,loo_set(ll))\cur_corrected_noise_vars;
+end
+
+loo_psth_var_frac = new_psth_var'./loo_spline_ZPT;
 
 %%
 for ss = 1:n_chs
