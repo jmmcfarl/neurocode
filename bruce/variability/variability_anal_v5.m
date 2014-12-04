@@ -7,9 +7,9 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'M296';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'M296';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 mod_data_name = 'corrected_models2';
 ep_dist_bin_edges = linspace(-1,1,100);
@@ -982,6 +982,7 @@ trial_avg_rates = bsxfun(@minus,trial_avg_rates,nanmean(trial_avg_rates));
 trial_avg_var = squeeze(nanvar(trial_avg_rates));
 
 %% COMPUTE PSTH AND TOTAL VARIANCE
+all_psths_raw = squeeze(nanmean(full_psth));
 all_psths = squeeze(nanmean(full_psth_ms)); %empirical psth
 psth_var = nanvar(all_psths); %variance of psths
 unfolded_psth_ms = reshape(permute(full_psth_ms,[2 1 3]),[],n_chs);

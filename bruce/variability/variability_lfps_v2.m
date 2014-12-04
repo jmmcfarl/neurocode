@@ -7,7 +7,7 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'M297';
+Expt_name = 'M296';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
 
