@@ -1,4 +1,4 @@
-function [all_binned_mua,all_binned_sua,Clust_data,all_su_spk_times,all_su_spk_inds] = ...
+function [all_binned_mua,all_binned_sua,Clust_data,all_su_spk_times,all_su_spk_inds,all_mu_spk_times] = ...
     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
     all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params)
 
@@ -74,6 +74,7 @@ end
 
 double_spike_buffer = 3; %number of samples (in either direction) to exclude double spikes from adjacent-probe SUs
 all_binned_mua = nan(length(all_t_axis),n_probes);
+all_mu_spk_times = cell(n_probes,1);
 for cc = 1:n_probes
     %this is the set of blocks where this probe had an SU, and the
     %correspodning SU numbers
@@ -113,6 +114,7 @@ for cc = 1:n_probes
     end
     
     [cur_spkhist,cur_bin_inds] = histc(all_spk_times{cc}(cur_mua_inds),all_t_bin_edges);
+    all_mu_spk_times{cc} = cat(1,all_mu_spk_times{cc},all_spk_times{cc}(cur_mua_inds));
     cur_spkhist(all_bin_edge_pts) = [];
     all_binned_mua(:,cc) = cur_spkhist;
 end
