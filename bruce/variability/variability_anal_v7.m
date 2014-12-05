@@ -401,8 +401,8 @@ for ee = 1:n_blocks;
         end
         cur_t_axis = 0.5*cur_t_edges(1:end-1) + 0.5*cur_t_edges(2:end);
         
-        cur_t_edges_up = cur_t_edges(1):up_dt:cur_t_edges(end);
-        cur_t_axis_up = 0.5*cur_t_edges_up(1:end-1) + 0.5*cur_t_edges_up(2:end);
+%         cur_t_edges_up = cur_t_edges(1):up_dt:cur_t_edges(end);
+%         cur_t_axis_up = 0.5*cur_t_edges_up(1:end-1) + 0.5*cur_t_edges_up(2:end);
         
         cur_tsince_start = cur_t_axis - trial_start_times(use_trials(tt));
         
