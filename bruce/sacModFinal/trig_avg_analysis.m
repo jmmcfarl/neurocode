@@ -8,10 +8,9 @@ global Expt_name bar_ori
 % bar_ori = 90;
 
 include_bursts = 0;
-% nboot = 500; %number of bootstrap samples for computing trig-avg SD
-nboot = 2; %number of bootstrap samples for computing trig-avg SD
+nboot = 5000; %number of bootstrap samples for computing trig-avg SD
 
-sname = 'sac_trig_avg_data3test';
+sname = 'sac_trig_avg_data4';
 
 %%
 Expt_num = str2num(Expt_name(2:end));

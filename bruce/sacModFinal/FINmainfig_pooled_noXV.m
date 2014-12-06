@@ -8,7 +8,8 @@ include_bursts = 0;
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 % fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
-base_tname = 'sac_trig_avg_data3test';
+% base_tname = 'sac_trig_avg_data3test';
+base_tname = 'sac_trig_avg_data4';
 base_yname = 'sacTypeDep_noXV';
 base_iname = 'sac_info_timing_noXV3';
 
@@ -344,14 +345,14 @@ hold on
 stairs(time_binedges,gsac_Etime_dist);
 stairs(time_binedges,gsac_Itime_dist,'r');
 xlim(yl);
-% 
+
 % % %PRINT PLOTS
 % fig_width = 3.5; rel_height = 1;
 % figufy(f1);
 % fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-
+% 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
 % fname = [fig_dir 'Gsac_mod_dist.pdf'];
@@ -362,7 +363,7 @@ xlim(yl);
 % fname = [fig_dir 'Gsac_time_dist.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
-
+% 
 %% FOR SUPPLEMENTARY FIGURE LOOKING AT "REVERSE POLARITY" UNITS
 %SCATTERPLOT OF MODULATION TIMING
 yl = [0 0.3]; %mod timing axis
@@ -410,7 +411,7 @@ ylim([0.6 1.6]);
 % fname = [fig_dir 'Gsac_timing_scatter.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-
+% 
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
 % fname = [fig_dir 'Gsac_reverse_polarity_avgs.pdf'];
