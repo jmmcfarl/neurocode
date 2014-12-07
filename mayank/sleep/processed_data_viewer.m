@@ -1,10 +1,10 @@
 clear all
 cd ~/Analysis/Mayank/sleep/
 load sleep_dirs
-load sleep_dirs_old
+% load sleep_dirs_old
 
 %%
-dd = 3;
+dd = 21;
 cd(data(dd).dir)
 load procData
 
@@ -120,10 +120,11 @@ mp_interp = interp1(mp_t(uu),mp_d(uu),csc_time);
 params.Fs = csc_Fsd;
 params.tapers = [4 7];
 params.fpass = [0 40];
-movingwin = [20 5];
+% movingwin = [20 5];
+movingwin = [50 25];
 clear C
 
-[b,a] = butter(2,[0.1 50]/(csc_Fs/2));
+[b,a] = butter(4,[0.01 50]/(csc_Fs/2));
 mp_interp(isnan(mp_interp)) = 0;
 mp_interp = filtfilt(b,a,mp_interp);
 

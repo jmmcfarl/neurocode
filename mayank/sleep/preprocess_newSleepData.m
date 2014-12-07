@@ -3,95 +3,247 @@ addpath('~/James_scripts/NeuralynxMatlabImportExport_v501/')
 addpath(genpath('~/James_scripts_old/Nlx2Mat_relDec11/'))
 addpath('~/Analysis/Mayank/sleep/');
 
+dd = 1;
 %cortical
-data(1).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-16_12-26-27';
-data(1).ipsiLFPs = [];
-data(1).contraLFPs = [2 6 10 14 18 22 26 30];
-data(1).MPfile = 'CSC33.ncs';
-data(1).ipsi_L = 0;
-data(1).contra_L = 0;
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-16_12-26-27';
+data(dd).ipsiLFPs = [];
+data(dd).contraLFPs = [2 6 10 14 18 22 26 30];
+data(dd).MPfile = 'CSC33.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx';
 
-%cortical
-data(2).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-17_12-45-54';
-data(2).ipsiLFPs = [2 6 10 14 18 22 26 30];
-data(2).contraLFPs = [];
-data(2).MPfile = 'CSC33.ncs';
-data(2).ipsi_L = 0;
-data(2).contra_L = 0;
+dd = dd + 1;
+%d2 cortical
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-17_12-45-54';
+data(dd).ipsiLFPs = [2 6 10 14 18 22 26 30];
+data(dd).contraLFPs = [];
+data(dd).MPfile = 'CSC33.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx';
 %some decent epochs of cortical UDS. The MP is a bit wierd though and
 %doesnt have too clear of UDS. Not sure if usable or not...
 
+dd = dd + 1;
+%d3 cortical
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-30_14-18-08';
+data(dd).ipsiLFPs = [];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx';
 
-%cortical
-data(3).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-30_14-18-08';
-data(3).ipsiLFPs = [];
-data(3).contraLFPs = [1:16];
-data(3).MPfile = 'WC.ncs';
-data(3).ipsi_L = 0;
-data(3).contra_L = 0;
+dd = dd + 1;
+%d4 cortical
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-01_13-08-37';
+data(dd).ipsiLFPs = [];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx';
 
-%cortical
-data(4).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-01_13-08-37';
-data(4).ipsiLFPs = [];
-data(4).contraLFPs = [1:16];
-data(4).MPfile = 'WC.ncs';
-data(4).ipsi_L = 0;
-data(4).contra_L = 0;
-
-%cortical
-data(5).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-07_12-30-20';
-data(5).ipsiLFPs = [1:16];
-data(5).contraLFPs = [1:16];
-data(5).MPfile = 'WC.ncs';
-data(5).ipsi_L = 1;
-data(5).contra_L = 0;
+dd = dd + 1;
+%d5 cortical
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-07_12-30-20';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 1;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx';
 %some pretty good UDS towards the beginning. Probably usable but not great
 
+dd = dd + 1;
+%d6 cortical
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-09_12-29-04';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'Ctx';
+%great UDS, especially at the beginning. Both MP and LFP are great.
 
-%cortical
-data(6).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-09_12-29-04';
-data(6).ipsiLFPs = [1:16];
-data(6).contraLFPs = [1:16];
-data(6).MPfile = 'WC.ncs';
-data(6).ipsi_L = 0;
-data(6).contra_L = 1;
-%great UDS, especially at the beginning. Both MP and LFP are great. 
-
-
-%MEC
-data(7).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-14_14-04-11';
-data(7).ipsiLFPs = [1:16];
-data(7).contraLFPs = [];
-data(7).MPfile = 'WC.ncs';
-data(7).ipsi_L = 0;
-data(7).contra_L = 0;
+dd = dd + 1;
+%d7 MEC
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-14_14-04-11';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'MEC';
 %not great UDS in LFP or MP. Some brief epochs with decent UDS. Might be
 %able to see some examples of pers ups. Not pers downs.
 
-%MEC
-data(8).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-22/2014-10-22_11-57-18';
-data(8).ipsiLFPs = [1:16];
-data(8).contraLFPs = [];
-data(8).MPfile = 'WC.ncs';
-data(8).ipsi_L = 0;
-data(8).contra_L = 0;
+dd = dd + 1;
+%d8 MEC
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-22/2014-10-22_11-57-18';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'MEC';
 %not really clear UDS. I would say not usable, but there might be some
 %instances that could be argued for pers states.
 
-%MEC
-data(9).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-31_13-43-29';
-data(9).ipsiLFPs = [1:16];
-data(9).contraLFPs = [];
-data(9).MPfile = 'WC.ncs';
-data(9).ipsi_L = 0;
-data(9).contra_L = 0;
+dd = dd + 1;
+%d9 MEC
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-31_13-43-29';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'MEC';
+%great MEC example. Long rec. Good cortical UDS towards the end. Very clear
+%MEC MP UDS, with nice pups and pdowns.
+
+dd = dd + 1;
+%d10 MEC. Short, not much cortical UDS. Probably not useful
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-04_12-27-44';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d11 MEC. Long enough, with some decent cortical UDS. Wierd MP, dominated by
+%DS, with choppy ups. Maybe some pdowns.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-04_15-31-37';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%c12 MEC. Not much clear UDS in either cortical LFP or MP
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-06_13-41-25';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d13 MEC. Nice recording with clear UDS, and nice MP. But very short, so only a
+%few nice examples.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-06_15-20-38';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d14 MEC. Pretty good rec. Decent cortical UDS and MP. Some good pups and
+%pdowns.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-08_14-36-03';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d15 MEC. Decent rec. Some decent cortical UDS. MP is pretty DS heavy, with
+%choppy UPs. Probably some pers DOWNS. Maybe some pers UPS. Kinda hard to
+%tell though.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-12_10-57-15';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d16 MEC. Cortical UDS is pretty good at times. The MP is not really stable,
+%and doesn't have clear UDS. So, very likely not usable.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-13_12-48-52';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d17 MEC. Great cortical UDS. MP not really stable, or just not showing clear
+%UDS. So, very likely not usable.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-13_13-25-58';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d18 MEC. Nice cortical UDS. MP does not have very clear UDS, but occasionally
+%its decently clear. Probably a few pdowns and pups here, but wont be the
+%best examples. Possibly usable.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-15_12-48-19';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d19 MEC. Very nice long rec. Good cortical UDS. MEC MP pretty good, with some
+%nice examples of Pup and Pdown at times. The UDS are a bit strange
+%(changing very often), but should be usable. MP also appears to be
+%degrading slowly towards the end.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-15_13-08-31';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d20 MEC. Probably too short to use for much. Decent cortical UDS. MEC MP not
+%too stable. Also has DS-heavy with choppy UPS. Probably not usable.
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-20_12-54-16';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
+
+dd = dd + 1;
+%d21 MEC. Nice recording. A bit on the short side. Cortical UDS is OK. MEC MP
+%is fantastic! Very clear bimodal UDS. Nice strong PUps. Maybe some PDowns
+%as well
+data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-20_13-09-58';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC';
 
 % cd ~/Analysis/Mayank/sleep/
 % save sleep_dirs data
 
 %%
-for dd = 9:length(data);
-%     dd = 2;
+for dd = 15:length(data);
+    %     dd = 2;
     cd(data(dd).dir);
     
     Fs = 32e3;
@@ -116,7 +268,11 @@ for dd = 9:length(data);
         Nlx2MatCSC_v3(data(dd).MPfile, FieldSelectionFlags,HeaderExtractionFlag, ExtractMode);
     mp_t = interp1(1:512:numel(CSC_Samples),CSC_Timestamps,1:numel(CSC_Samples));
     Fs = median(CSC_SampleFrequencies);
-    mp = CSC_Samples(:)*str2num(Header{15}(13:end));
+    if strcmp(Header{16}(1:12),'-ADBitVolts ')
+        mp = CSC_Samples(:)*str2num(Header{16}(13:end));
+    else
+        error('Header format');
+    end
     Fsd = Fs/dsf;
     cur_time = interp1(1:512:numel(CSC_Samples),CSC_Timestamps,1:numel(CSC_Samples));
     clear CSC_Samples
@@ -139,7 +295,11 @@ for dd = 9:length(data);
                 Nlx2MatCSC_v3(Filename, FieldSelectionFlags,HeaderExtractionFlag, ExtractMode);
             cur_time = interp1(1:512:numel(CSC_Samples),CSC_Timestamps,1:numel(CSC_Samples));
             Fs(i) = median(CSC_SampleFrequencies);
-            csc{i} = CSC_Samples(:)*str2num(Header{15}(13:end));
+            if strcmp(Header{16}(1:12),'-ADBitVolts ')
+                csc{i} = CSC_Samples(:)*str2num(Header{16}(13:end));
+            else
+                error('Header Format');
+            end
             bad_samps = find(isnan(cur_time));
             cur_time(bad_samps) = [];
             csc{i}(bad_samps) = [];
@@ -182,7 +342,11 @@ for dd = 9:length(data);
                 Nlx2MatCSC_v3(Filename, FieldSelectionFlags,HeaderExtractionFlag, ExtractMode);
             cur_time = interp1(1:512:numel(CSC_Samples),CSC_Timestamps,1:numel(CSC_Samples));
             Fs(i) = median(CSC_SampleFrequencies);
-            csc{i} = CSC_Samples(:)*str2num(Header{15}(13:end));
+              if strcmp(Header{16}(1:12),'-ADBitVolts ')
+          csc{i} = CSC_Samples(:)*str2num(Header{16}(13:end));
+              else
+                  error('Header Format');
+              end
             bad_samps = find(isnan(cur_time));
             cur_time(bad_samps) = [];
             csc{i}(bad_samps) = [];
@@ -202,7 +366,7 @@ for dd = 9:length(data);
             contra_mua_times{i} = mua_times;
             
         end
-        Fs = unique(Fs(2));
+        Fs = unique(Fs);
         
         csc_time = downsample(cur_time,dsf);
     else
@@ -226,32 +390,32 @@ for dd = 9:length(data);
     heka_fs = 1e4;
     heka_name = dir('20*');
     if ~isempty(heka_name)
-    heka_name = heka_name.name;
-    load(heka_name);
-    heka_var = whos('V*');
-    heka_var = heka_var.name;
-    eval(sprintf('heka_data = %s.values;',heka_var));
-    
-    dc_times = (1:length(heka_data))/heka_fs;
-    interp_heka = nanzscore(interp1(dc_times,heka_data,mp_uptime));
-    [bb,aa] = butter(2,2/(Fs/mp_temp_dsf/2),'high');
-    mp_filt = zscore(filtfilt(bb,aa,mp_up));
-    
-    uset = find(~isnan(mp_filt) & ~isnan(interp_heka'));
-    [xc,xc_lags] = xcov(mp_filt(uset),interp_heka(uset),(Fs/mp_temp_dsf)*100,'coef');
-    [xc_maxval,xc_maxloc] = max(xc);
-    xc_offset = xc_lags(xc_maxloc)/(Fs/mp_temp_dsf);
-    
-    heka_data = decimate(heka_data,heka_dsf);
-    heka_time = downsample(dc_times,heka_dsf) + xc_offset;
-    heka_alignment.xc_maxval = xc_maxval;
-    heka_alignment.xc_offset = xc_offset;
-    
-    xc_maxval
+        heka_name = heka_name.name;
+        load(heka_name);
+        heka_var = whos('V*');
+        heka_var = heka_var.name;
+        eval(sprintf('heka_data = %s.values;',heka_var));
+        
+        dc_times = (1:length(heka_data))/heka_fs;
+        interp_heka = nanzscore(interp1(dc_times,heka_data,mp_uptime));
+        [bb,aa] = butter(2,2/(Fs/mp_temp_dsf/2),'high');
+        mp_filt = zscore(filtfilt(bb,aa,mp_up));
+        
+        uset = find(~isnan(mp_filt) & ~isnan(interp_heka'));
+        [xc,xc_lags] = xcov(mp_filt(uset),interp_heka(uset),(Fs/mp_temp_dsf)*100,'coef');
+        [xc_maxval,xc_maxloc] = max(xc);
+        xc_offset = xc_lags(xc_maxloc)/(Fs/mp_temp_dsf);
+        
+        heka_data = decimate(heka_data,heka_dsf);
+        heka_time = downsample(dc_times,heka_dsf) + xc_offset;
+        heka_alignment.xc_maxval = xc_maxval;
+        heka_alignment.xc_offset = xc_offset;
+        
+        xc_maxval
     else
-       heka_data = [];
-       heka_time = [];
-       heka_alignment = [];
+        heka_data = [];
+        heka_time = [];
+        heka_alignment = [];
     end
     %%
     sname = 'procData';

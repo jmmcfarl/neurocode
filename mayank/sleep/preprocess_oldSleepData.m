@@ -13,6 +13,7 @@ data(1).ipsi_L = 0;
 data(1).contra_L = 0;
 data(1).heka_dir = '/Users/james/Analysis/Mayank/sleep/2012-7-5_Patch/2012_07_05_1.mat';
 data(1).celltype = 'MECL3';
+data(1).MPloc = 'MEC';
 % MP not really that stable. Maybe some decent cortical UDS but cant see clear persistence. Probably not analyzable
 
 %MEC
@@ -24,6 +25,7 @@ data(2).ipsi_L = 0;
 data(2).contra_L = 0;
 data(2).heka_dir = '';
 data(2).celltype = 'MECL3';
+data(2).MPloc = 'MEC';
 % MP strange. LFP doesn't really show clear UDS either. Not usable
 
 
@@ -36,6 +38,7 @@ data(3).ipsi_L = 0;
 data(3).contra_L = 0;
 data(3).heka_dir = '/Users/james/Analysis/Mayank/sleep/2012-7-10_Sleep_WC/2012_07_10_sleep_1.mat';
 data(3).celltype = 'MECL3';
+data(3).MPloc = 'MEC';
 %Wierd MP with 'incomplete' looking UP states. Decent cortical UDS. Maybe
 %examples of pers downs? But they aren't really clear because of the wierd
 %MP UDS
@@ -50,6 +53,7 @@ data(4).ipsi_L = 0;
 data(4).contra_L = 0;
 data(4).heka_dir = '/Users/james/Analysis/Mayank/sleep/2012-7-13#1/2012_07_13_sleep_3.mat';
 data(4).celltype = 'MECL3';
+data(4).MPloc = 'MEC';
 %some pretty good cortical UDS. MP is pretty good too. Good examples of
 %pers ups, and maybe a few pers downs.
 
@@ -63,6 +67,7 @@ data(5).ipsi_L = 0;
 data(5).contra_L = 0;
 data(5).heka_dir = '/Users/james/Analysis/Mayank/sleep/2012-7-13#2/2012_07_13_sleep_6.mat';
 data(5).celltype = 'MECL3';
+data(5).MPloc = 'MEC';
 %not much clear UDS (a few good brief epochs). MP is pretty wierd though.
 %Probably not usable. Not really clear examples of pers.
 

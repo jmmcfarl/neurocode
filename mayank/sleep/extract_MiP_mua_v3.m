@@ -37,7 +37,11 @@ for nn = 1:n_chunks
     [TimeStamps, DataPoints, Header] = Nlx2MatSpike_v3(Fname, FieldSelection, ExtractHeader, 2,cur_range);
     
     %extract bit conversion factors from header
-    bitconv = Header{15};
+    if strcmp(Header{16}(1:12),'-ADBitVolts ')
+        bitconv = Header{16};
+    else
+        error('Header format');
+    end
     conv_factors = bitconv(13:end);
     conv_factors = str2num(conv_factors);
     [n_pts,n_ch,n_spks] = size(DataPoints);
