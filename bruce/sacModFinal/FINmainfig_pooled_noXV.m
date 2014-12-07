@@ -1388,6 +1388,8 @@ ylabel('Gain');
 %% COMPARE STIM TIMING AND SAC-MOD TIMING
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
 
+%get the E and I-filter temporal kernels (hilbert based) for each units
+%model
 all_Ekerns = [];
 all_Ikerns = [];
 for ii = 1:length(cur_SUs)
@@ -1396,25 +1398,33 @@ for ii = 1:length(cur_SUs)
     all_Ikerns = cat(1,all_Ikerns,cur_Ikern');
 end
 
+%sac trig avgs, spline interpolated for up-sampling
 all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
-
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_gsac_up = spline(tlags,all_gsac_tavg,tlags_up);
 
+%find E and I sta peaks
 search_range = [0 0.3];
 [gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_up-1),tlags_up,search_range);
 search_range = [0 0.3];
 [gsac_Efact,gsac_exctime] = get_tavg_peaks((all_gsac_up-1),tlags_up,search_range);
 
+%only use units where rate suppression comes before rate enhancement
 include = find(gsac_inhtime < gsac_exctime);
 
 
-[earlier_timing,peak_earlier] = min([gsac_inhtime gsac_exctime],[],2);
+% [earlier_timing,peak_earlier] = min([gsac_inhtime gsac_exctime],[],2);
+
+%stim filter time axis
 flen = 15;
 lag_ax = ((1:flen)*dt - dt/2);
 up_lagax = linspace(lag_ax(1),lag_ax(end),500);
+
+%up-sample stim filter temporal kernels
 all_Ekerns_up = spline(lag_ax,all_Ekerns,up_lagax);
 all_Ikerns_up = spline(lag_ax,all_Ikerns,up_lagax);
+
+%fine timing of temporal kernel peaks
 search_range = [0 max(up_lagax)];
 [Ekern_max,Ekern_time] = get_tavg_peaks(all_Ekerns_up,up_lagax,search_range);
 [Ikern_max,Ikern_time] = get_tavg_peaks(all_Ikerns_up,up_lagax,search_range);
@@ -1426,20 +1436,13 @@ search_range = [0 max(up_lagax)];
 % cur_O(cur_sigI(peak_earlier(cur_sigI) == 1)) = true;
 % cur_O(cur_sigE(peak_earlier(cur_sigE) == 1)) = true;
 
+%plot E-filter temp-kernel timing vs sac-suppression timing
 xl = [0.02 0.08];
 yl = [0.02 0.16];
-
 mS = 3;
 f1 = figure(); hold on
-% plot(Ekern_time,gsac_inhtime,'b.','markersize',12)
-% plot(Ekern_time(cur_sigI),gsac_inhtime(cur_sigI),'r.');
 plot(Ekern_time(include),gsac_inhtime(include),'b.','markersize',12);
-% plot(Ekern_time,earlier_timing,'b.','markersize',12)
-% plot(Ekern_time(cur_O),earlier_timing(cur_O),'r.','markersize',12)
-% plot(Ekern_time(cur_sigI),gsac_inhtime(cur_sigI),'r.');
-% plot(Ekern_time(cur_rP),gsac_inhtime(cur_rP),'ro','markersize',12);
 xlim(xl); ylim(yl);
-% line(xl,xl,'color','k')
 r = robustfit(Ekern_time,gsac_inhtime);
 xx = linspace(xl(1),xl(2),50);
 plot(xx,r(1)+r(2)*xx,'r')
@@ -1464,23 +1467,25 @@ ylabel('Suppression timing (s)');
 %% COMPARE TEMPKERNS ADN MODEL GAIN LATENCIES
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
-noise_lags = find(slags <= 0 | slags*dt > 0.15);
+noise_lags = find(slags <= 0 | slags*dt > 0.15); %time lags used to define 'background SD'
 close all
 
+%set regularization params
 lambda_L2_ii = 1;
 lambda_d2T_ii = 3;
 GO_lambda_off = 4;
 GO_lambda_gain = 3;
 
+%create stim-filter taxis
 flen = 15;
 lag_ax = ((1:flen)*dt - dt/2);
 up_lagax = linspace(lag_ax(1),lag_ax(end),500);
-slags_up = linspace(slags(1)*dt,slags(end)*dt,500);
+slags_up = linspace(slags(1)*dt,slags(end)*dt,500); %sta up-sampled taxis
 jit_amp = 0.000;%jitter data points with gaussian RV to avoid point occlusion
 
-search_range = [0 0.15];
+search_range = [0 0.15]; %range of tlags to search for peaks in sac kernels
 tsearch_range = [0 max(up_lagax)];
-noise_SD_thresh = 2;
+noise_SD_thresh = 2; %min peak magnitude beyond background SD to include in analysis
 
 all_tempkerns = [];
 all_gainkerns = [];
@@ -1490,26 +1495,27 @@ cell_tg_slope = nan(length(cur_SUs),1);
 for ii = 1:length(cur_SUs)
     %get stim-filter temporal kernels
     cur_tkerns = get_hilbert_tempkerns(all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM);
-    %get gain kerels from full model
+    %get gain kernels from full model
     cur_gainkerns = reshape([all_SU_data(cur_SUs(ii)).sacStimProc.gsac_post_Fullmod{1,lambda_d2T_ii,lambda_L2_ii}.mods(3).filtK],length(slags),[])';
-    cur_relweights = all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.rel_filt_weights;
-    cur_modsigns = [all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.mods(:).sign];
+    cur_relweights = all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.rel_filt_weights; %relative weight of each stim filter
+    cur_modsigns = [all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.mods(:).sign]; %sign of each stim filter
     
     clear cur_tkerns_up
-    uset = find(cur_relweights > 0);
-    cur_tkerns_up(uset,:) = spline(lag_ax,cur_tkerns(:,uset)',up_lagax); %spline interpoltae temporal kernels
+    uset = find(cur_relweights > 0); %set of filters with non-zero magnitude
+    cur_tkerns_up(uset,:) = spline(lag_ax,cur_tkerns(:,uset)',up_lagax); %spline interpolate temporal kernels
     [~,cur_tk_time] = get_tavg_peaks(cur_tkerns_up,up_lagax,tsearch_range); %get peaks of temporal kernels
     cur_gkerns_up = spline(slags*dt,cur_gainkerns,slags_up); %spline interpolate gain kernels
     [cur_gkern_max,cur_gk_time] = get_tavg_peaks(-(cur_gkerns_up-1),slags_up,search_range); %get peaks of gain kernels
     cur_noise_level = std(cur_gainkerns(:,noise_lags),[],2); %compute 'background noise' of gain kernels
     uset = uset(cur_gkern_max(uset) >= cur_noise_level(uset)*noise_SD_thresh); %only take filters with sufficient peak SNR
-    %fit within-cell robust linear reg between temporal kernel and gain
-    %kernel peak timing
+    
+    %analyze within-cell relationship between filter and gain kernel timing
     if length(uset) >= 5
-%         r = robustfit(cur_tk_time(uset),cur_gk_time(uset));
-%         cell_tg_slope(ii) = r(2);
-cell_tg_slope(ii) = corr(cur_tk_time(uset),cur_gk_time(uset),'type','spearman');
+        %         r = robustfit(cur_tk_time(uset),cur_gk_time(uset));
+        %         cell_tg_slope(ii) = r(2);
+        cell_tg_slope(ii) = corr(cur_tk_time(uset),cur_gk_time(uset),'type','spearman');
     end
+    
     all_tempkerns = cat(1,all_tempkerns,cur_tkerns');
     all_gainkerns = cat(1,all_gainkerns,1+cur_gainkerns);
     all_relweights = cat(1,all_relweights,cur_relweights');
@@ -1531,15 +1537,18 @@ all_gkerns_up = spline(slags*dt,all_gainkerns,slags_up);
 
 %find gain kernels with sufficient SNR of peaks
 noise_level =std(all_gainkerns(:,noise_lags),[],2);
-ukerns = find(all_relweights > 0 & gkern_max > noise_SD_thresh*noise_level & ~isnan(tkern_max));
-[a,b] = corr(gkern_time(ukerns),tkern_time(ukerns),'type','spearman')
+ukerns = find(all_relweights > 0 & gkern_max > noise_SD_thresh*noise_level & ~isnan(tkern_max)); %only use subunits with nonzero stim filters, and significant gain kernel peaks
+[a,b] = corr(gkern_time(ukerns),tkern_time(ukerns),'type','spearman') %compute correlation between gain kernel suppression timing and stimulus filter temporal kernel timing across usable subunits
 
-%E and I subunits
+%usabl E and I subunits
 esubs = ukerns(all_modsigns(ukerns)==1);
 isubs = ukerns(all_modsigns(ukerns)==-1);
 
-gkern_time = gkern_time + randn(size(gkern_time))*jit_amp;
-tkern_time = tkern_time + randn(size(tkern_time))*jit_amp;
+%if using jittering to prevent occlusion
+if jit_amp > 0
+    gkern_time = gkern_time + randn(size(gkern_time))*jit_amp;
+    tkern_time = tkern_time + randn(size(tkern_time))*jit_amp;
+end
 
 mS = 8;
 f1 = figure(); hold on
@@ -1553,6 +1562,7 @@ xlim([0 0.15]);
 xlabel('Gain suppression timing (s)');
 ylabel('Temporal response timing (s)');
 
+%separate correlations for E and I subunits
 [a,b] = corr(gkern_time(esubs),tkern_time(esubs),'type','spearman')
 [a,b] = corr(gkern_time(isubs),tkern_time(isubs),'type','spearman')
 
@@ -1611,51 +1621,64 @@ ylabel('Temporal response timing (s)');
 
 %% COMPARE E-I Tempkerns and Gain kerns
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
+
+%get up-sampled temporal filter t-axis
 flen = 15;
 lag_ax = ((1:flen)*dt - dt/2)*1e3;
 up_lagax = linspace(lag_ax(1),lag_ax(end),500);
 slags_up = linspace(slags(1)*dt,slags(end)*dt,500);
 
 base_lags = find(slags <= 0);
-noise_lags = find(slags <= 0 | slags*dt > 0.15);
-noise_SD_thresh = 0;
+noise_lags = find(slags <= 0 | slags*dt > 0.15); %times defining gain kernel background 'noise level'
+noise_SD_thresh = 0; %minimum peak amplitude for gain kernels above background 
 search_range = [0 0.15];
 tsearch_range = up_lagax([1 end]);
 
-lambda_ii = 3;
+lambda_ii = 3; %reg parameter selection
 
+%pull out E and I gain kernels for each unit
 gsac_EIgain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_EImod{lambda_ii}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_Egain = gsac_EIgain(:,1:length(slags));
 gsac_Igain = gsac_EIgain(:,(length(slags)+1):end);
 
+%normalize E and I gain kernels
 gsac_Egain = bsxfun(@rdivide,gsac_Egain,mean(gsac_Egain(:,base_lags),2));
 gsac_Igain = bsxfun(@rdivide,gsac_Igain,mean(gsac_Igain(:,base_lags),2));
 
-flen = 15;
 all_Ekerns = nan(length(cur_SUs),flen);
 all_Ikerns = nan(length(cur_SUs),flen);
 all_NIfilts = nan(length(cur_SUs),1);
 all_NEfilts = nan(length(cur_SUs),1);
 for ii = 1:length(cur_SUs)
+    %get E and I stim filter temporal kernels
     [cur_tkerns,cur_ekern,cur_ikern] = get_hilbert_tempkerns(all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM);
     all_Ekerns(ii,:) = cur_ekern;
     all_Ikerns(ii,:) = cur_ikern;
+    
+    %keep count of the total number of E and I filters for each cell
     cur_modsigns = [all_SU_data(cur_SUs(ii)).sacStimProc.ModData.rectGQM.mods(:).sign];
     all_NIfilts(ii) = sum(cur_modsigns==-1);
     all_NEfilts(ii) = sum(cur_modsigns==1);
 end
 
+%spline interpolate stimulus filter temporal kernels and find peaks
 all_Ekerns_up = spline(lag_ax,all_Ekerns,up_lagax);
 all_Ikerns_up = spline(lag_ax,all_Ikerns,up_lagax);
 [Ekern_max,Ekern_time] = get_tavg_peaks(all_Ekerns_up,up_lagax,tsearch_range);
 [Ikern_max,Ikern_time] = get_tavg_peaks(all_Ikerns_up,up_lagax,tsearch_range);
 
+%interpolate gain kernels and find peaks
 gsac_Egain_up = spline(slags*dt,gsac_Egain,slags_up);
 gsac_Igain_up = spline(slags*dt,gsac_Igain,slags_up);
 [Egain_max,Egain_time] = get_tavg_peaks(-(gsac_Egain_up-1),slags_up,search_range);
 [Igain_max,Igain_time] = get_tavg_peaks(-(gsac_Igain_up-1),slags_up,search_range);
+
+%find gain kernel noise levels for E and I filters
 Enoise_level =std(gsac_Egain(:,noise_lags),[],2);
 Inoise_level =std(gsac_Igain(:,noise_lags),[],2);
+
+%only use E and I gain kernels where peak is sufficiently high above bckgnd
+%noise level
 use_E = find(Egain_max >= noise_SD_thresh*Enoise_level);
 use_I = find(Igain_max >= noise_SD_thresh*Inoise_level);
 use_B = intersect(use_E,use_I);
@@ -1731,25 +1754,27 @@ xlim([-75 75]);
 % close(f5);
 
 %% ANALYZE LAMINAR DEPENDENCIES WITH MUA
-mod_dt = 0.01;
-flen = 15;
+
+%get stim filter taxis
+mod_dt = 0.01; flen = 15;
 tax = (0:(flen-1))*mod_dt + mod_dt/2;
 up_tax = linspace(tax(1),tax(end),500);
 tsearch_range = up_tax([1 end]);
-search_range = [0 0.3];
-xl = [-0 0.25];
+
+search_range = [0 0.3]; %search range for STAs
+xl = [-0 0.25]; %xrange for plotting
 
 mua_sm = 0.005/trig_avg_params.dt; %smoothing sigma for MUA rates
 
 %load info about layer boundaries
 load('~/Analysis/bruce/FINsac_mod/layer_boundaries/layer_classification.mat')
 boundary_enums = [boundary_class(:).Expt_num];
-all_lbs = [boundary_class(:).lb];
-all_ubs = [boundary_class(:).ub];
-mean_lb = mean(all_lbs);
-mean_ub = mean(all_ubs);
-mean_diff = mean_lb-mean_ub;
-interp_ax = 1:1:24;
+all_lbs = [boundary_class(:).lb]; %location of lower L4 bound
+all_ubs = [boundary_class(:).ub]; %location of upper L4 bound
+mean_lb = mean(all_lbs); %across rec avg boundary loc
+mean_ub = mean(all_ubs); 
+mean_diff = mean_lb-mean_ub; %avg size of L4
+interp_ax = 1:1:24; %axis for interpolating depth profiles
 
 %load in all MUA models and compute excitatory temporal kernels
 base_mname = 'corrected_models2';
@@ -1767,10 +1792,13 @@ for ii = 1:n_lem_expts
         cur_ori = Olist(ii,kk);
         if ~isnan(cur_ori)
             sname = strcat(mod_dir,base_mname,sprintf('_ori%d',cur_ori));
-            load(sname);
+            load(sname); %load in models
             tname = strcat(sac_dir,base_tname,sprintf('_ori%d',cur_ori));
-            load(tname);
-            expt_MUA_stas(kk,ii,:,:) = mua_data.gsac_avg';
+            load(tname); %load in trig avg data
+            expt_MUA_stas(kk,ii,:,:) = mua_data.gsac_avg'; %store MUA sac-trig avgs
+            
+            %cycle over MUA probes and compute the Ekern temporal profile
+            %for each 
             for jj = 1:n_probes
                 cur_mod = ModData(jj).rectGQM;
                 [avg_tkerns,avg_Ekerns] = get_hilbert_tempkerns(cur_mod);
@@ -1794,9 +1822,9 @@ SU_probenums = arrayfun(@(x) x.sacStimProc.ModData.unit_data.probe_number,all_SU
 SU_exptnums = [all_SU_data(:).expt_num];
 
 %loop over expts and assign probes to layer classes
-all_SU_lclass = nan(length(all_SU_data),1);
-all_MU_lclass = nan(n_lem_expts,n_probes);
-all_MU_recID = nan(n_lem_expts,n_probes);
+all_SU_lclass = nan(length(all_SU_data),1); %layer classififcation for each SU
+all_MU_lclass = nan(n_lem_expts,n_probes); %layer classification for each MU
+all_MU_recID = nan(n_lem_expts,n_probes); %recording ID for each MU
 % all_interp_mua_sta = nan(n_lem_expts,length(interp_ax),length(tlags));
 % all_interp_mua_Ekern = nan(n_lem_expts,length(interp_ax),length(up_tax));
 all_mua_Ekerns = [];
@@ -1807,6 +1835,7 @@ for ee = 1:n_lem_expts
     cur_ub = boundary_class(cur_bound_info).ub;
     cur_lb = boundary_class(cur_bound_info).lb;
     
+    %data needed for depth profile interpolation
     cur_diff = cur_lb - cur_ub;
     cur_slope = cur_diff/mean_diff;
     cur_off = mean_ub - cur_ub*cur_slope;
@@ -1821,6 +1850,8 @@ for ee = 1:n_lem_expts
     gran_probes = (cur_ub+1):(cur_lb-1);
     supra_probes = 1:(cur_ub-1);
     infra_probes = (cur_lb+1):24;
+    
+    %get layer classification for each MU probe
     cur_pclass = nan(24,1);
     cur_pclass(supra_probes) = 1; cur_pclass(gran_probes) = 2; cur_pclass(infra_probes) = 3;
     
@@ -1856,6 +1887,7 @@ xlim([0 0.15]);
 
 [MUA_Tpeak,MUA_Ttime] = get_tavg_peaks(expt_MUA_Ekerns,up_tax,tsearch_range);
 
+%spline interpolate MUA stas
 tlags_up = linspace(tlags(1),tlags(end),500);
 expt_MUA_stas_up = spline(tlags,expt_MUA_stas,tlags_up);
 % [MUA_Efact,MUA_Etime] = get_tavg_peaks((expt_MUA_stas-1),tlags,search_range);
@@ -1937,29 +1969,41 @@ group = {all_MU_lclass all_MU_recID};
 
 %% COMPARE GO MOD AND SUBSPACE MOD
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
+base_lags = find(slags <= 0);
 
+%regularization parameter selection
 GO_lambda_gain = 3;
 GO_lambda_off = 4;
 sub_lambda = 3;
 
+%get GO-model SSI, normalized
 GO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_NSSI = bsxfun(@rdivide,GO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
+GO_NSSI = bsxfun(@rdivide,GO_NSSI,mean(GO_NSSI(:,base_lags),2)); %normalize by pre-sac avg
+
+%get GO-model LL
 GO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovLL = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
 GO_NLL = bsxfun(@rdivide,GO_LL,GO_ovLL); %normalize TB SSI by overall model info
 
+%get subspace model SSI, normalized
 sub_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_subMod{sub_lambda}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 sub_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_subMod{sub_lambda}.ovInfo,all_SU_data(cur_SUs));
 sub_NSSI = bsxfun(@rdivide,sub_SSI,sub_ovinfos); %normalize GO SSI by overall model info
+sub_NSSI = bsxfun(@rdivide,sub_NSSI,mean(sub_NSSI(:,base_lags),2)); %normalize by pre-sac avg
+
+%get subspace model LL
 sub_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_subMod{sub_lambda}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
 sub_ovLL = arrayfun(@(x) x.sacStimProc.gsac_subMod{sub_lambda}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
 sub_NLL = bsxfun(@rdivide,sub_LL,sub_ovLL); %normalize TB SSI by overall model info
 
+%slight temporal smoothing of LLs
 for ii = 1:length(cur_SUs)
     GO_NLL(ii,:) = jmm_smooth_1d_cor(GO_NLL(ii,:),1);
     sub_NLL(ii,:) = jmm_smooth_1d_cor(sub_NLL(ii,:),1);
 end
+
 xl = [-0.1 0.3];
 f1 = figure();hold on
 h1 = shadedErrorBar(slags*dt,mean(GO_NSSI),std(GO_NSSI)/sqrt(length(cur_SUs)),{'color','b'});
@@ -2057,6 +2101,7 @@ exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','s
 close(f1);
 
 %% PARALLEL VS ORTHOGANOL MSACS
+%number of parallel and orthoganol msacs (subsampled so they are matched)
 N_msacs_Par_sub = arrayfun(@(x) x.trig_avg.N_msacs_Par_sub,all_SU_data);
 N_msacs_Orth_sub = arrayfun(@(x) x.trig_avg.N_msacs_Orth_sub,all_SU_data);
 
@@ -2064,17 +2109,22 @@ cur_SUs = find(avg_rates >= min_rate & N_msacs >= min_TA_Nsacs & mod_xvLLimps > 
 % cur_SUs = find(avg_rates >= min_rate & N_msacs_Par_sub >= min_TA_Nsacs & N_msacs_Orth_sub >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
 % all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 % all_msac_orth = cell2mat(arrayfun(@(x) x.trig_avg.msac_Orth_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+
+%par and orth msac trig avgs, using matched sample sizes
 all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_sub_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 all_msac_orth = cell2mat(arrayfun(@(x) x.trig_avg.msac_Orth_sub_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 
+%spine interpolate
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_msac_par_up = spline(tlags,all_msac_par,tlags_up);
 all_msac_orth_up = spline(tlags,all_msac_orth,tlags_up);
 
+%find suppression peaks
 search_range = [0 0.3];
 [par_Ifact,par_inhtime] = get_tavg_peaks(-(all_msac_par_up-1),tlags_up,search_range);
 [orth_Ifact,orth_inhtime] = get_tavg_peaks(-(all_msac_orth_up-1),tlags_up,search_range);
 
+%find excitation peaks
 search_range = [0 0.3];
 [par_Efact,par_exctime] = get_tavg_peaks((all_msac_par_up-1),tlags_up,search_range);
 [orth_Efact,orth_exctime] = get_tavg_peaks((all_msac_orth_up-1),tlags_up,search_range);
@@ -2093,12 +2143,12 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'MUA_par_orth3.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'MUA_par_orth3.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% STA ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
