@@ -281,8 +281,10 @@ prc = 95;
 Epeak_CI = nan(tot_Nunits,1);
 Ipeak_CI = nan(tot_Nunits,1);
 for ii = 1:tot_Nunits
-    Epeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_gray_nullP,prc);
-    Ipeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_gray_nullV,prc);
+%     Epeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_gray_nullP,prc);
+%     Ipeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_gray_nullV,prc);
+    Epeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_nullP,prc);
+    Ipeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_nullV,prc);
 end
 sigE = cur_SUs(gsac_Efact(cur_SUs) > Epeak_CI(cur_SUs));
 sigI = cur_SUs(gsac_Ifact(cur_SUs) > Ipeak_CI(cur_SUs));
@@ -346,24 +348,24 @@ stairs(time_binedges,gsac_Etime_dist);
 stairs(time_binedges,gsac_Itime_dist,'r');
 xlim(yl);
 
-% % %PRINT PLOTS
-% fig_width = 3.5; rel_height = 1;
-% figufy(f1);
-% fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f2);
-% fname = [fig_dir 'Gsac_mod_dist.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-% 
-% figufy(f3);
-% fname = [fig_dir 'Gsac_time_dist.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
-% 
+% %PRINT PLOTS
+fig_width = 3.5; rel_height = 1;
+figufy(f1);
+fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+fig_width = 3.5; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir 'Gsac_mod_dist.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+figufy(f3);
+fname = [fig_dir 'Gsac_time_dist.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
+
 %% FOR SUPPLEMENTARY FIGURE LOOKING AT "REVERSE POLARITY" UNITS
 %SCATTERPLOT OF MODULATION TIMING
 yl = [0 0.3]; %mod timing axis
@@ -1625,31 +1627,31 @@ stairs(xx,gain_diff_hist,'k');
 stairs(xx,kern_diff_hist,'r');
 xlim([-75 75]);
 
-% % %PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'EI_gainkerns.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-figure(f1);
-xlim(xlz);
-fname = [fig_dir 'EI_gainkerns_zoom.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'EI_tempkerns.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
-
-figufy(f3);
-fname = [fig_dir 'EI_timing_scatter.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
-
-figufy(f5);
-fname = [fig_dir 'EI_timing_dists.pdf'];
-exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f5);
+% % % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'EI_gainkerns.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% figure(f1);
+% xlim(xlz);
+% fname = [fig_dir 'EI_gainkerns_zoom.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'EI_tempkerns.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
+% figufy(f3);
+% fname = [fig_dir 'EI_timing_scatter.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+% figufy(f5);
+% fname = [fig_dir 'EI_timing_dists.pdf'];
+% exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f5);
 
 %% ANALYZE LAMINAR DEPENDENCIES WITH MUA
 mod_dt = 0.01;

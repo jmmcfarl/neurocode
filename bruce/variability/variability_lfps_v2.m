@@ -1065,7 +1065,7 @@ for ee = ublock_set
  end
 
 %%
-target_band = [8 15];
+target_band = [2 4];
 [bb,aa] = butter(2,target_band/(Fsd/2));
 full_lfps_filt = filtfilt(bb,aa,full_lfps);
 
