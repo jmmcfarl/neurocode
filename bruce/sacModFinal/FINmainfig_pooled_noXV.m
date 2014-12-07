@@ -172,8 +172,9 @@ tlags = tlags*Tdt;
 min_rate = 5; % min avg rate in Hz (5)
 min_Nsacs = 500; % min number of saccades for full analysis (1e3)
 min_TA_Nsacs = 500; %min number of saccades for trig avg analysis
-min_xvLLimp = 0.0; %(0.05);
+min_xvLLimp = 0.0; %(0.05); %minimum cross-validated LL improvement for stim-proc models
 
+%basic stats for each cell
 tot_Nunits = length(all_SU_data);
 avg_rates = arrayfun(@(x) x.sacStimProc.ModData.unit_data.avg_rate,all_SU_data);
 tot_spikes = arrayfun(@(x) x.sacStimProc.ModData.unit_data.tot_spikes,all_SU_data);
@@ -183,6 +184,7 @@ mod_xvLLimps = arrayfun(@(x) x.sacStimProc.ModData.rectGQM.xvLLimp,all_SU_data);
 expt_nums = [all_SU_data(:).expt_num];
 expt_oris = [all_SU_data(:).bar_ori];
 
+%cluster properties
 clust_iso_dist = arrayfun(@(x) x.sacStimProc.ModData.unit_data.SU_isodist,all_SU_data);
 clust_Lratio = arrayfun(@(x) x.sacStimProc.ModData.unit_data.SU_Lratio,all_SU_data);
 clust_refract = arrayfun(@(x) x.sacStimProc.ModData.unit_data.SU_refract,all_SU_data);
@@ -190,6 +192,7 @@ clust_dprime = arrayfun(@(x) x.sacStimProc.ModData.unit_data.SU_dprime,all_SU_da
 rate_stability_cv = arrayfun(@(x) x.sacStimProc.ModData.unit_data.rate_stability_cv,all_SU_data);
 dprime_stability_cv = arrayfun(@(x) x.sacStimProc.ModData.unit_data.dprime_stability_cv,all_SU_data);
 
+%cell rec props
 jbe_SUs = find(strcmp('jbe',{all_SU_data(:).animal}));
 lem_SUs = find(strcmp('lem',{all_SU_data(:).animal}));
 
@@ -200,6 +203,7 @@ parafov_SUs = find([all_SU_data(:).expt_num] > 200 & ~ismember([all_SU_data(:).e
 lem_parafov_SUs = intersect(parafov_SUs,lem_SUs);
 lem_fov_SUs = intersect(fov_SUs,lem_SUs);
 
+%number of each type of saccade for each SU
 N_gsacs = arrayfun(@(x) x.trig_avg.N_gsacs,all_SU_data);
 N_msacs = arrayfun(@(x) x.trig_avg.N_msacs,all_SU_data);
 N_gsacs_gray = arrayfun(@(x) x.trig_avg.N_gsacs_gray,all_SU_data);
@@ -211,11 +215,11 @@ N_simsacs = arrayfun(@(x) x.trig_avg.N_simsacs,all_SU_data);
 %% GRAY-BACKGROUND SACCADE TRIGGERED AVERAGES
 % cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
 % all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(:),'uniformoutput',0));
+%USE pooled data across grayback and image back
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
-all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
+all_gsac = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
 
-
-xl = [-0.1 0.3];
+xl = [-0.1 0.3]; %x-axis limit
 
 close all
 
@@ -228,8 +232,8 @@ close all
 
 %COMBINED MONKEYS WITH SEPARATE TRACE FOR SUB_POP
 f1 = figure(); hold on
-h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(cur_SUs,:)),nanstd(all_gsac_gray(cur_SUs,:))/sqrt(length(cur_SUs)),{'color','k'});
-curset = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
+h1=shadedErrorBar(tlags,nanmean(all_gsac(cur_SUs,:)),nanstd(all_gsac(cur_SUs,:))/sqrt(length(cur_SUs)),{'color','k'});
+% curset = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 % h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(curset,:)),nanstd(all_gsac_gray(curset,:))/sqrt(length(curset)),{'color','r'});
 % plot(tlags,nanmean(all_gsac_gray(curset,:)),'r','linewidth',2);
 xlim(xl);
@@ -239,9 +243,11 @@ line([0 0],ylim(),'color','k');
 xlabel('Time (s)');
 ylabel('Relative rate');
 
+%this plot is using a broadened x-axis for comparison with the sac-in-dark
+%condition
 xl2 = [-0.2 0.5];
 f2 = figure();
-plot(tlags,nanmean(all_gsac_gray(cur_SUs,:)),'linewidth',2);
+plot(tlags,nanmean(all_gsac(cur_SUs,:)),'linewidth',2);
 set(gca,'yAxisLocation','right');
 ylim([0.65 1.3]);
 xlim(xl2);
@@ -263,21 +269,22 @@ xlim(xl2);
 % all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(:),'uniformoutput',0));
 % all_msac_gray = cell2mat(arrayfun(@(x) x.trig_avg.msac_gray_avg', all_SU_data(:),'uniformoutput',0));
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
-all_gsac_gray = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
-all_msac_gray = cell2mat(arrayfun(@(x) x.trig_avg.msac_avg', all_SU_data(:),'uniformoutput',0));
+all_gsac = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformoutput',0));
+all_msac = cell2mat(arrayfun(@(x) x.trig_avg.msac_avg', all_SU_data(:),'uniformoutput',0));
 
-tlags_up = linspace(tlags(1),tlags(end),500);
-all_gsac_up = nan(size(all_gsac_gray,1),length(tlags_up));
-incl = find(~isnan(all_gsac_gray(:,1)));
-all_gsac_up(incl,:) = spline(tlags,all_gsac_gray(incl,:),tlags_up);
+tlags_up = linspace(tlags(1),tlags(end),500); %up-sampled t-axis for interpolation
+all_gsac_up = nan(size(all_gsac,1),length(tlags_up));
+incl = find(~isnan(all_gsac(:,1)));
+all_gsac_up(incl,:) = spline(tlags,all_gsac(incl,:),tlags_up); %spline interpolation
 
-search_range = [0 0.3];
-[gsac_Efact,gsac_exctime] = get_tavg_peaks((all_gsac_gray-1),tlags,search_range);
-[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_gray-1),tlags,search_range);
+%get the timing and magnitude of enhancement and suppression peaks
+search_range = [0 0.3]; %range of time lags to search for local extrema
+[gsac_Efact,gsac_exctime] = get_tavg_peaks((all_gsac-1),tlags,search_range);
+[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac-1),tlags,search_range);
 [gsac_Efact_up,gsac_exctime_up] = get_tavg_peaks((all_gsac_up-1),tlags_up,search_range);
 [gsac_Ifact_up,gsac_inhtime_up] = get_tavg_peaks(-(all_gsac_up-1),tlags_up,search_range);
 
-prc = 95;
+prc = 95; %pull out the upper prc from the null sampling dists of peak amps
 Epeak_CI = nan(tot_Nunits,1);
 Ipeak_CI = nan(tot_Nunits,1);
 for ii = 1:tot_Nunits
@@ -286,21 +293,20 @@ for ii = 1:tot_Nunits
     Epeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_nullP,prc);
     Ipeak_CI(ii) = prctile(all_SU_data(ii).trig_avg.gsac_nullV,prc);
 end
-sigE = cur_SUs(gsac_Efact(cur_SUs) > Epeak_CI(cur_SUs));
-sigI = cur_SUs(gsac_Ifact(cur_SUs) > Ipeak_CI(cur_SUs));
-sigB = intersect(sigE,sigI);
-normal_polarity_units = sigB(gsac_exctime(sigB) > gsac_inhtime(sigB));
-reverse_polarity_units = sigB(gsac_exctime(sigB) < gsac_inhtime(sigB));
-nsigE = setdiff(cur_SUs,sigE);
-nsigI = setdiff(cur_SUs,sigI);
-nsigB = setdiff(cur_SUs,sigB);
+sigE = cur_SUs(gsac_Efact(cur_SUs) > Epeak_CI(cur_SUs)); %significant enhancement peaks
+sigI = cur_SUs(gsac_Ifact(cur_SUs) > Ipeak_CI(cur_SUs)); %significant suppression peaks
+sigB = intersect(sigE,sigI); %units with significant E and S peaks
+normal_polarity_units = sigB(gsac_exctime(sigB) > gsac_inhtime(sigB)); %units with normal I<E timing
+reverse_polarity_units = sigB(gsac_exctime(sigB) < gsac_inhtime(sigB)); %units with reverse E<I timing
+nsigE = setdiff(cur_SUs,sigE); %number of non-sig E peaks
+nsigI = setdiff(cur_SUs,sigI); %number of non-sig I peaks
+nsigB = setdiff(cur_SUs,sigB); %number of non-both sigs
 
 xl = [0 1]; %mod strength axis
 yl = [0 0.3]; %mod timing axis
 mS = 4; %marker size
 mS2 = 8; %marker size
 
-% tjitter = Tdt/4; %jitter time peaks when plotting to prevent dot occlusion
 tjitter = 0; %jitter time peaks when plotting to prevent dot occlusion
 % close all
 %PLOT MOD STRENGTH VS TIMING USING ONLY SIGNIFICANT PEAKS
@@ -348,24 +354,24 @@ stairs(time_binedges,gsac_Etime_dist);
 stairs(time_binedges,gsac_Itime_dist,'r');
 xlim(yl);
 
-% %PRINT PLOTS
-fig_width = 3.5; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-fig_width = 3.5; rel_height = 0.8;
-figufy(f2);
-fname = [fig_dir 'Gsac_mod_dist.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
-
-figufy(f3);
-fname = [fig_dir 'Gsac_time_dist.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
-
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_time_mod_scatter.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f2);
+% fname = [fig_dir 'Gsac_mod_dist.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
+% figufy(f3);
+% fname = [fig_dir 'Gsac_time_dist.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
 %% FOR SUPPLEMENTARY FIGURE LOOKING AT "REVERSE POLARITY" UNITS
 %SCATTERPLOT OF MODULATION TIMING
 yl = [0 0.3]; %mod timing axis
@@ -385,8 +391,8 @@ xl = [-0.1 0.3];
 
 f2 = figure();
 hold on
-h2=shadedErrorBar(tlags,nanmean(all_gsac_gray(reverse_polarity_units,:)),nanstd(all_gsac_gray(reverse_polarity_units,:))/sqrt(length(reverse_polarity_units)),{'color','r'});
-h1=shadedErrorBar(tlags,nanmean(all_gsac_gray(normal_polarity_units,:)),nanstd(all_gsac_gray(normal_polarity_units,:))/sqrt(length(normal_polarity_units)),{'color','b'});
+h2=shadedErrorBar(tlags,nanmean(all_gsac(reverse_polarity_units,:)),nanstd(all_gsac(reverse_polarity_units,:))/sqrt(length(reverse_polarity_units)),{'color','r'});
+h1=shadedErrorBar(tlags,nanmean(all_gsac(normal_polarity_units,:)),nanstd(all_gsac(normal_polarity_units,:))/sqrt(length(normal_polarity_units)),{'color','b'});
 % plot(tlags,all_gsac_gray(reverse_polarity_units,:),'k')
 line(xl,[1 1],'color','k');
 line([0 0],ylim(),'color','k');
@@ -428,11 +434,11 @@ ylim([0.6 1.6]);
 
 %% TB GAIN AND OFFSET 
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
-TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{1}.lagX*dt;
-base_lags = find(TB_Xtick <= 0);
+TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{1}.lagX*dt; %time axis for TB rep
+base_lags = find(TB_Xtick <= 0); %pre-sac time lags
 
-lambda_ii = 4;
-xl = [-0.1 0.3];
+lambda_ii = 4; %selection of reg strength parameter
+xl = [-0.1 0.3]; %x-axis window for plotting
 
 TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 
@@ -441,6 +447,7 @@ gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)
 TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
 % TB_Noffset = bsxfun(@rdivide,TB_Noffset,TB_gains); %normalize by gains
 
+%normalize gain and offset by baseline avgs
 TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,base_lags),2));
 TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,base_lags),2));
 
@@ -491,17 +498,19 @@ base_lags = find(slags <= 0);
 
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 
-lambda_ii = 4;
+lambda_ii = 4; %selection of regularization strength hyperparam
 xl = [-0.1 0.3];
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
-TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
+TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2)); %normalize by baseline avgs
 
 % gsac_avg_rates = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_avg_rate',all_SU_data(cur_SUs),'uniformoutput',0));
 % gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 % gsac_rel_rates = bsxfun(@rdivide,gsac_avg_rates,gsac_ov_rates);
 
+%saccade-triggered avg rates, interpolated onto same time axis to use for
+%normalization
 gsac_rel_rates = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_rel_rates_interp = interp1(tlags,gsac_rel_rates',slags*dt)';
 
@@ -509,8 +518,9 @@ gsac_rel_rates_interp = interp1(tlags,gsac_rel_rates',slags*dt)';
 % ov_SSI_rate = TB_ovinfos.*gsac_ov_rates;
 % TB_NSSI_rate = bsxfun(@rdivide,TB_SSI_rate,ov_SSI_rate);
 
+%normalize SSI by sac-trig-avg rate
 TB_NSSI_rate = bsxfun(@times,TB_NSSI,gsac_rel_rates_interp);
-TB_NSSI_rate = bsxfun(@rdivide,TB_NSSI_rate,mean(TB_NSSI_rate(:,base_lags),2));
+TB_NSSI_rate = bsxfun(@rdivide,TB_NSSI_rate,mean(TB_NSSI_rate(:,base_lags),2)); %normalize by baseline avg
 
 
 %plot TB SSI and SSI rate
@@ -553,42 +563,43 @@ ylim([0.7 1.25]);
 % close(f2);
 
 %% PLOTS COMPARING STRONGLY ENHANCED VS STRONGLY SUPPRESSED UNITS
-cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
-
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp); 
 base_lags = find(slags <= 0);
 
-lambda_ii = 4;
+lambda_ii = 4; %reg hyper selection
 xl = [-0.1 0.3];
 
-TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{lambda_ii}.lagX*dt;
+TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{lambda_ii}.lagX*dt; %TB time axis
 TBbase_lags = find(TB_Xtick <= 0);
 
-
+%sac-trig avg firing rate
 all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 search_range = [0 0.3];
-[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
-[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
+% [gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
+% [gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
 
+%get normalized TB-model SSI (computing using standard t-axis)
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
 TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
 
+%get normalized TB-model gain and offset (computed using TB-taxis)
 TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
-
 TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
 % TB_Noffset = bsxfun(@rdivide,TB_Noffset,TB_gains); %normalize by gain
-
 TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,TBbase_lags),2));
 TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,TBbase_lags),2));
 
-search_range = [0 0.15];
+%find timing and magnitude of TB-model SSI suppression peaks
+search_range = [0 0.15]; %search range for TB SSI suppression peaks
 [SSI_Ifact,SSI_inhtime] = get_tavg_peaks(-(TB_NSSI-1),slags*dt,search_range);
 [Gain_Ifact,GAIN_inhtime] = get_tavg_peaks(-(TB_gains-1),TB_Xtick,search_range);
-[Off_Efact,OFF_exctime] = get_tavg_peaks((TB_Noffset),TB_Xtick,search_range);
+% [Off_Efact,OFF_exctime] = get_tavg_peaks((TB_Noffset),TB_Xtick,search_range);
 
+%compute partial corr coefs between SSI and gain/offset
 interp_TB_gains = interp1(TB_Xtick,TB_gains',slags*dt)';
 interp_TB_offset = interp1(TB_Xtick,TB_Noffset',slags*dt)';
 clear gain_SSI_corr offset_SSI_corr
@@ -599,12 +610,12 @@ end
 
 % EIrat = gsac_Efact./gsac_Ifact;
 % EIrat = Off_Efact;
-EIrat = SSI_Ifact;
 % EIrat = gsac_Ifact;
 % EIrat = Gain_Ifact;
 % EIrat = gsac_Efact;
 % EIrat = gsac_Ifact;
 % EIprc = prctile(EIrat,[25 50 75]);
+EIrat = SSI_Ifact; %divide neurons into groups based on magnitude of SSI suppression
 EIprc = prctile(EIrat,[33 50 67]);
 
 % enh_units = find(gsac_Efact > prctile(gsac_Efact,67));
@@ -612,6 +623,7 @@ EIprc = prctile(EIrat,[33 50 67]);
 
 % enh_units = find(EIrat >= EIprc(3));
 % sup_units = find(EIrat <= EIprc(1));
+%divide into two groups based on median
 enh_units = find(EIrat >= EIprc(2));
 sup_units = find(EIrat <= EIprc(2));
 
@@ -694,48 +706,57 @@ TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{1}.lagX*dt;
 base_lags = find(slags <= 0);
 TBbase_lags = find(TB_Xtick <= 0);
 
-GO_color = [0.25 0.8 0.25];
+GO_color = [0.25 0.8 0.25]; %color to plot GO model
 
+%regularization hyper param selection
 TB_lambda_ii = 4;
 GO_lambda_off = 4;
 GO_lambda_gain = 3;
 
+%get TB-model SSI, normalized
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
-% TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
+TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
 
+%get TB-model log-likelihood
 TB_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_ovLL = arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.LLimp,all_SU_data(cur_SUs)); %overall TB model infos
 TB_NLL = bsxfun(@rdivide,TB_LL,TB_ovLL); %normalize TB SSI by overall model info
 % TB_NLL = bsxfun(@rdivide,TB_NLL,mean(TB_NLL(:,base_lags),2));
 
+%get TB-model offset (normalized)
 TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
 TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,TBbase_lags),2));
 
+%get TB-model gains, normalized
 TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{TB_lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,TBbase_lags),2));
 
-
+%GO model offset, normalized
 GO_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_Noffset = bsxfun(@rdivide,GO_offset,gsac_ov_rates);
 GO_Noffset = bsxfun(@minus,GO_Noffset,mean(GO_Noffset(:,base_lags),2));
 
+%GO model gain normalized
 GO_gain = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_gain = bsxfun(@rdivide,GO_gain,mean(GO_gain(:,base_lags),2));
 
+%GO model SSI, normalized
 GO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_NSSI = bsxfun(@rdivide,GO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
-% GO_NSSI = bsxfun(@rdivide,GO_NSSI,mean(GO_NSSI(:,base_lags),2));
+GO_NSSI = bsxfun(@rdivide,GO_NSSI,mean(GO_NSSI(:,base_lags),2));
 
+%GO-model LL
 GO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovLL = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
 GO_NLL = bsxfun(@rdivide,GO_LL,GO_ovLL); %normalize TB SSI by overall model info
 % GO_NLL = bsxfun(@rdivide,GO_NLL,mean(GO_NLL(:,base_lags),2));
 
+%slight temporal smoothing of model LLs
 for ii = 1:length(cur_SUs)
     GO_NLL(ii,:) = jmm_smooth_1d_cor(GO_NLL(ii,:),1);
     TB_NLL(ii,:) = jmm_smooth_1d_cor(TB_NLL(ii,:),1);
@@ -813,59 +834,73 @@ ylim([0.5 1.15])
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 
+%reg hyper param selection
 GO_lambda_off = 4;
 GO_lambda_gain = 3;
 
+%sac trig avg rates
 all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
+
+%GO-model sac offset, normalized
 GO_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_Noffset = bsxfun(@rdivide,GO_offset,gsac_ov_rates);
 GO_Noffset = bsxfun(@minus,GO_Noffset,mean(GO_Noffset(:,base_lags),2));
 
+%GO-model sac gain, normalized
 GO_gain = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_gain = bsxfun(@rdivide,GO_gain,mean(GO_gain(:,base_lags),2));
 
+%GO-model sac SSI, normalized
 GO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_NSSI = bsxfun(@rdivide,GO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
-% GO_NSSI = bsxfun(@rdivide,GO_NSSI,mean(GO_NSSI(:,base_lags),2));
+GO_NSSI = bsxfun(@rdivide,GO_NSSI,mean(GO_NSSI(:,base_lags),2));
 
-GO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
-GO_ovLL = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
-GO_NLL = bsxfun(@rdivide,GO_LL,GO_ovLL); %normalize TB SSI by overall model info
-GO_NLL = bsxfun(@rdivide,GO_NLL,mean(GO_NLL(:,base_lags),2));
+% %GO-model LL
+% GO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
+% GO_ovLL = arrayfun(@(x) x.sacStimProc.gsac_post_mod{GO_lambda_off,GO_lambda_gain}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
+% GO_NLL = bsxfun(@rdivide,GO_LL,GO_ovLL); %normalize TB SSI by overall model info
+% GO_NLL = bsxfun(@rdivide,GO_NLL,mean(GO_NLL(:,base_lags),2));
 
+%micro-sac trig avg rates
 all_msac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.msac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 msac_ov_rates = arrayfun(@(x) x.sacStimProc.msac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
 
+%micro-sac offset, normalized
 mGO_offset = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 mGO_Noffset = bsxfun(@rdivide,mGO_offset,msac_ov_rates);
 mGO_Noffset = bsxfun(@minus,mGO_Noffset,mean(mGO_Noffset(:,base_lags),2));
 
+%micro-sac gains, normalized
 mGO_gain = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 mGO_gain = bsxfun(@rdivide,mGO_gain,mean(mGO_gain(:,base_lags),2));
 
+%micro-sac SSI, normalized
 mGO_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 mGO_ovinfos = arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 % mGO_NSSI = bsxfun(@rdivide,mGO_SSI,mGO_ovinfos); %normalize GO SSI by overall model info
 mGO_NSSI = bsxfun(@rdivide,mGO_SSI,GO_ovinfos); %normalize GO SSI by overall model info
-% mGO_NSSI = bsxfun(@rdivide,mGO_NSSI,mean(mGO_NSSI(:,base_lags),2));
+mGO_NSSI = bsxfun(@rdivide,mGO_NSSI,mean(mGO_NSSI(:,base_lags),2));
 
-mGO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
-mGO_ovLL = arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
-mGO_NLL = bsxfun(@rdivide,mGO_LL,mGO_ovLL); %normalize TB SSI by overall model info
-mGO_NLL = bsxfun(@rdivide,mGO_NLL,mean(mGO_NLL(:,base_lags),2));
+% mGO_LL = cell2mat(arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.sac_LLimp',all_SU_data(cur_SUs),'uniformoutput',0));
+% mGO_ovLL = arrayfun(@(x) x.sacStimProc.msac_post_mod{GO_lambda_off,GO_lambda_gain}.ovLLimp,all_SU_data(cur_SUs)); %overall TB model infos
+% mGO_NLL = bsxfun(@rdivide,mGO_LL,mGO_ovLL); %normalize TB SSI by overall model info
+% mGO_NLL = bsxfun(@rdivide,mGO_NLL,mean(mGO_NLL(:,base_lags),2));
 
+%spline interpolate gsac and msac trig avgs
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_gsac_tavg_up = spline(tlags,all_gsac_tavg,tlags_up);
 all_msac_tavg_up = spline(tlags,all_msac_tavg,tlags_up);
 
+%find enh and sup peaks in gsac and msac trig avgs
 search_range = [0 0.3];
 [gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg_up-1),tlags_up,search_range);
 [gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg_up-1,tlags_up,search_range);
 [msac_Ifact,msac_inhtime] = get_tavg_peaks(-(all_msac_tavg_up-1),tlags_up,search_range);
 [msac_Efact,msac_exctime] = get_tavg_peaks(all_msac_tavg_up-1,tlags_up,search_range);
 
+%find SSI suppression peaks
 search_range = [0 0.15];
 [gsac_SSI_Ifact] = get_tavg_peaks(-(GO_NSSI-1),slags*dt,search_range);
 [msac_SSI_Ifact] = get_tavg_peaks(-(mGO_NSSI-1),slags*dt,search_range);
@@ -944,51 +979,66 @@ fig_width = 3.5; rel_height = 0.8;
 % close(f4);
 
 %% COMPARE GRAY AND IMAGE BACKGROUNDS
-cur_min_Nsacs = 250;
+cur_min_Nsacs = 250; %require half as many saccades in each background type condition
 cur_SUs = find(avg_rates >= min_rate & N_gsacs_gray >= cur_min_Nsacs & N_gsacs_im >= cur_min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 
+%reg hyperparam selection
 GO_lambda_off = 4;
 GO_lambda_gain = 3;
 
+%gray back trig avg rate
 all_gsac_gr_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_gray_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+
+%image back trig avg rate
+all_gsac_im_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_im_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+
+%gray back GO-model SSI, normalized
 GO_gr_SSI = cell2mat(arrayfun(@(x) x.type_dep.gsacGR_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_gr_ovinfos = arrayfun(@(x) x.type_dep.gsacGR_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_gr_NSSI = bsxfun(@rdivide,GO_gr_SSI,GO_gr_ovinfos); %normalize GO SSI by overall model info
 GO_gr_NSSI = bsxfun(@rdivide,GO_gr_NSSI,mean(GO_gr_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
-all_gsac_im_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_im_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+%image back GO-model SSI, normalized
 GO_im_SSI = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_im_ovinfos = arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_im_NSSI = bsxfun(@rdivide,GO_im_SSI,GO_im_ovinfos); %normalize GO SSI by overall model info
 GO_im_NSSI = bsxfun(@rdivide,GO_im_NSSI,mean(GO_im_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
+%find SSI suppresion peaks for each condition
 search_range = [0 0.15];
 [GR_SSI_Ifact,GR_SSI_inhtime] = get_tavg_peaks(-(GO_gr_NSSI-1),slags*dt,search_range);
 [IM_SSI_Ifact,IM_SSI_inhtime] = get_tavg_peaks(-(GO_im_NSSI-1),slags*dt,search_range);
 
+%spline interpolate sac-trig-avgs (upsample)
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_gsac_gr_tavg_up = spline(tlags,all_gsac_gr_tavg,tlags_up);
 all_gsac_im_tavg_up = spline(tlags,all_gsac_im_tavg,tlags_up);
+
+%find enh and sup timing and mag for each condition
 search_range = [0 0.3];
 [GR_Efact,GR_exctime] = get_tavg_peaks((all_gsac_gr_tavg_up-1),tlags_up,search_range);
 [IM_Efact,IM_exctime] = get_tavg_peaks((all_gsac_im_tavg_up-1),tlags_up,search_range);
 [GR_Ifact,GR_inhtime] = get_tavg_peaks(-(all_gsac_gr_tavg_up-1),tlags_up,search_range);
 [IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg_up-1),tlags_up,search_range);
 
+%compute GO-model image back offset, normalized
 IM_ov_rates = arrayfun(@(x) x.type_dep.gsac_IM_ovavg_rate,all_SU_data(cur_SUs));
 IM_offset = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 IM_Noffset = bsxfun(@rdivide,IM_offset,IM_ov_rates);
 IM_Noffset = bsxfun(@minus,IM_Noffset,mean(IM_Noffset(:,base_lags),2));
 
+%compute GO-model gray back offset, normalized
 GR_ov_rates = arrayfun(@(x) x.type_dep.gsac_GR_ovavg_rate,all_SU_data(cur_SUs));
 GR_offset = cell2mat(arrayfun(@(x) x.type_dep.gsacGR_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 GR_Noffset = bsxfun(@rdivide,GR_offset,GR_ov_rates);
 GR_Noffset = bsxfun(@minus,GR_Noffset,mean(GR_Noffset(:,base_lags),2));
 
+%compute GO-model image back gain, normalized
 IM_gain = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 IM_gain = bsxfun(@rdivide,IM_gain,mean(IM_gain(:,base_lags),2));
 
+%compute GO-model gray back gain, normalized
 GR_gain = cell2mat(arrayfun(@(x) x.type_dep.gsacGR_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 GR_gain = bsxfun(@rdivide,GR_gain,mean(GR_gain(:,base_lags),2));
 
@@ -1062,52 +1112,65 @@ ylim([0.5 1.15])
 % exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f4);
 
-%% COMPARE REAL AND SIMULATED SACCADES
-cur_min_Nsacs = 250;
+%% COMPARE REAL (WITH IMAGE BACK) AND SIMULATED SACCADES
+cur_min_Nsacs = 250; %min nsacs (or sim sacs) required for each condition 
 cur_SUs = find(avg_rates >= min_rate & N_gsacs_im >= cur_min_Nsacs & N_simsacs >= cur_min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 
+%reg param selection
 GO_lambda_off = 4;
 GO_lambda_gain = 3;
 
+%sac trig avgs for each condition 
 all_gsac_im_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_im_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+all_simsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.simsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+
+%compute GO-model SSI for real sacs, normalized
 GO_im_SSI = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_im_ovinfos = arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_im_NSSI = bsxfun(@rdivide,GO_im_SSI,GO_im_ovinfos); %normalize GO SSI by overall model info
 GO_im_NSSI = bsxfun(@rdivide,GO_im_NSSI,mean(GO_im_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
-all_simsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.simsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+%compute GO_model SSI for sim sacs, normalized
 GO_sim_SSI = cell2mat(arrayfun(@(x) x.type_dep.simsac_mod{GO_lambda_off,GO_lambda_gain}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
 GO_sim_ovinfos = arrayfun(@(x) x.type_dep.simsac_mod{GO_lambda_off,GO_lambda_gain}.ovInfo,all_SU_data(cur_SUs));
 GO_sim_NSSI = bsxfun(@rdivide,GO_sim_SSI,GO_sim_ovinfos); %normalize GO SSI by overall model info
 GO_sim_NSSI = bsxfun(@rdivide,GO_sim_NSSI,mean(GO_sim_NSSI(:,base_lags),2)); %normalize GO SSI by overall model info
 
+%compute SSI suppression peaks for each condition
 search_range = [0 0.15];
 [IM_SSI_Ifact,IM_SSI_inhtime] = get_tavg_peaks(-(GO_im_NSSI-1),slags*dt,search_range);
 [SIM_SSI_Ifact,SIM_SSI_inhtime] = get_tavg_peaks(-(GO_sim_NSSI-1),slags*dt,search_range);
 
+%spline interpolation for trig avg rates
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_simsac_tavg_up = spline(tlags,all_simsac_tavg,tlags_up);
 all_gsac_im_tavg_up = spline(tlags,all_gsac_im_tavg,tlags_up);
+
+%find enh and sup peak timing and mag
 search_range = [0 0.3];
 [IM_Ifact,IM_inhtime] = get_tavg_peaks(-(all_gsac_im_tavg_up-1),tlags_up,search_range);
 [SIM_Ifact,SIM_inhtime] = get_tavg_peaks(-(all_simsac_tavg_up-1),tlags_up,search_range);
 [IM_Efact,IM_exctime] = get_tavg_peaks((all_gsac_im_tavg_up-1),tlags_up,search_range);
 [SIM_Efact,SIM_exctime] = get_tavg_peaks((all_simsac_tavg_up-1),tlags_up,search_range);
 
+%compute GO-model offsets for real sacs, normalized
 IM_ov_rates = arrayfun(@(x) x.type_dep.gsac_IM_ovavg_rate,all_SU_data(cur_SUs));
 IM_offset = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 IM_Noffset = bsxfun(@rdivide,IM_offset,IM_ov_rates);
 IM_Noffset = bsxfun(@minus,IM_Noffset,mean(IM_Noffset(:,base_lags),2));
 
+%compute GO-model offsets for sim sacs, normalized
 SIM_ov_rates = arrayfun(@(x) x.type_dep.simsac_ovavg_rate,all_SU_data(cur_SUs));
 SIM_offset = cell2mat(arrayfun(@(x) x.type_dep.simsac_mod{GO_lambda_off,GO_lambda_gain}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
 SIM_Noffset = bsxfun(@rdivide,SIM_offset,SIM_ov_rates);
 SIM_Noffset = bsxfun(@minus,SIM_Noffset,mean(SIM_Noffset(:,base_lags),2));
 
+%compute GO-model gains for real sacs, normalized
 IM_gain = cell2mat(arrayfun(@(x) x.type_dep.gsacIM_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 IM_gain = bsxfun(@rdivide,IM_gain,mean(IM_gain(:,base_lags),2));
 
+%compute GO-model gains for sim sacs, normalized
 SIM_gain = cell2mat(arrayfun(@(x) x.type_dep.simsac_mod{GO_lambda_off,GO_lambda_gain}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
 SIM_gain = bsxfun(@rdivide,SIM_gain,mean(SIM_gain(:,base_lags),2));
 
@@ -1181,25 +1244,31 @@ ylim([0.5 1.15]);
 
 %% COMPARE PRE AND POST MODELS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
-base_lags = find(slags <= -0.025);
+base_lags = find(slags <= -0.025); %use slightly earlier def of backgnd time points since the upstream kernels start slightly earlier
 close all
 
+%hyperparameter selection
 post_lambda_off = 4;
-pre_lambda =3;
+pre_lambda = 3; %this is just the gain kernel lambda, the offset kernel lambda is fixed equal to post-model (4) 
 post_lambda_gain = 3;
 
+%pre and post gain kernels
 gsac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_post_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
 
+%noramlize gain kernels
 gsac_post_gain = bsxfun(@rdivide,gsac_post_gain,mean(gsac_post_gain(:,base_lags),2));
 gsac_pre_gain = bsxfun(@rdivide,gsac_pre_gain,mean(gsac_pre_gain(:,base_lags),2));
 
+%compute pre and post offset kernels
 gsac_pre_off =cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda}.off_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
 gsac_post_off =cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.mods(2).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
 
+%normalize offset kernels
 gsac_pre_off = bsxfun(@minus,gsac_pre_off,mean(gsac_pre_off(:,base_lags),2));
 gsac_post_off = bsxfun(@minus,gsac_post_off,mean(gsac_post_off(:,base_lags),2));
 
+%compute LLs of different models
 base_LLs = arrayfun(@(x) x.sacStimProc.gsac_base_LLimp,all_SU_data(cur_SUs));
 off_LLs = arrayfun(@(x) x.sacStimProc.gsac_off_mod{post_lambda_off}.ovLLimp,all_SU_data(cur_SUs));
 post_LLs = arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.ovLLimp,all_SU_data(cur_SUs));
@@ -1228,6 +1297,8 @@ xlim(xl);
 xlabel('Time (s)');
 ylabel('Offset');
 
+%rel LL improvement of pre model over post model (normalized by improvement
+%of post-model over a sac-mod null model)
 rel_LLimps = (pre_LLs - post_LLs)./(post_LLs - off_LLs);
 f3 = figure();
 hist(rel_LLimps,15);
@@ -1260,30 +1331,36 @@ xlim([-0.9 0.9]);
 
 %% COMPARE GSAC AND MSAC PRE MODELS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
-base_lags = find(slags <= -0.025);
+base_lags = find(slags <= -0.025); %again, use slightly earlier definition of backgnd time points to handle upstream gain kernel timing
 
+%reg param selection
 post_lambda_off = 4;
 pre_lambda = 3;
 post_lambda_gain = 3;
 
+%gsac and msac upstream gain kernels
 gsac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
 msac_pre_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.msacPreGainMod{pre_lambda}.stim_kernel',all_SU_data(cur_SUs),'uniformoutput',0));
 
+%normalize upstream gain kernels
 msac_pre_gain = bsxfun(@rdivide,msac_pre_gain,mean(msac_pre_gain(:,base_lags),2));
 gsac_pre_gain = bsxfun(@rdivide,gsac_pre_gain,mean(gsac_pre_gain(:,base_lags),2));
 
+%get sac model LLs
 gsac_base_LLs = arrayfun(@(x) x.sacStimProc.gsac_base_LLimp,all_SU_data(cur_SUs));
 gsac_off_LLs = arrayfun(@(x) x.sacStimProc.gsac_off_mod{post_lambda_off}.ovLLimp,all_SU_data(cur_SUs));
 gsac_post_LLs = arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.ovLLimp,all_SU_data(cur_SUs));
 gsac_pre_LLs = arrayfun(@(x) x.sacStimProc.gsacPreGainMod{pre_lambda}.ovLLimp,all_SU_data(cur_SUs));
 
+%get msac model LLs
 msac_base_LLs = arrayfun(@(x) x.sacStimProc.msac_base_LLimp,all_SU_data(cur_SUs));
 msac_off_LLs = arrayfun(@(x) x.sacStimProc.msac_off_mod{post_lambda_off}.ovLLimp,all_SU_data(cur_SUs));
 msac_post_LLs = arrayfun(@(x) x.sacStimProc.msac_post_mod{post_lambda_off,post_lambda_gain}.ovLLimp,all_SU_data(cur_SUs));
 msac_pre_LLs = arrayfun(@(x) x.sacStimProc.msacPreGainMod{pre_lambda}.ovLLimp,all_SU_data(cur_SUs));
 
-gsac_rel_LLimps = (gsac_pre_LLs - gsac_post_LLs)./(gsac_pre_LLs - gsac_off_LLs);
-msac_rel_LLimps = (msac_pre_LLs - msac_post_LLs)./(msac_pre_LLs - msac_off_LLs);
+%compute relative LL improvements
+gsac_rel_LLimps = (gsac_pre_LLs - gsac_post_LLs)./(gsac_post_LLs - gsac_off_LLs);
+msac_rel_LLimps = (msac_pre_LLs - msac_post_LLs)./(msac_post_LLs - msac_off_LLs);
 
 %COMPARE PRE AND POST GAINS
 xl = [-0.1 0.2];
