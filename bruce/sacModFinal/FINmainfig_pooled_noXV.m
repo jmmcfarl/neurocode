@@ -1537,6 +1537,8 @@ all_gkerns_up = spline(slags*dt,all_gainkerns,slags_up);
 
 %find gain kernels with sufficient SNR of peaks
 noise_level =std(all_gainkerns(:,noise_lags),[],2);
+really_poss_ukerns = find(all_relweights > 0 & ~isnan(tkern_max));
+poss_ukerns = find(all_relweights > 0 & ~isnan(tkern_max) & ~isnan(gkern_max));
 ukerns = find(all_relweights > 0 & gkern_max > noise_SD_thresh*noise_level & ~isnan(tkern_max)); %only use subunits with nonzero stim filters, and significant gain kernel peaks
 [a,b] = corr(gkern_time(ukerns),tkern_time(ukerns),'type','spearman') %compute correlation between gain kernel suppression timing and stimulus filter temporal kernel timing across usable subunits
 
