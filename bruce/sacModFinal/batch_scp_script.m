@@ -9,11 +9,11 @@ fit_unCor = false;
 % base_fname = 'sac_trig_avg_data3';
 % base_fname = 'gen_trig_avg_data';
 % base_fname = 'eye_accuracy';
-% base_fname = 'sac_trig_avg_data3test';
+base_fname = 'sac_trig_avg_data4';
 % base_fname = 'sac_info_timing_noXV3';
 % base_fname = 'sac_glm_data_withbursts';
 % base_fname = 'model_variability_analysis';
-base_fname = 'rpt_variability_analysis';
+% base_fname = 'rpt_variability_analysis';
 
 copy_to = 'local';
 
@@ -27,10 +27,10 @@ for ee = 1:length(Expt_list)
     Expt_num = str2num(Expt_name(2:end));
 %     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
 %     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/models/'];
-%     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-%     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-    source_dir = ['/home/james/Analysis/bruce/' Expt_name '/variability/'];
-    dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/variability/'];
+    source_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+    dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+%     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/variability/'];
+%     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/variability/'];
     
     if strcmp(copy_to,'local')
         if ~exist(dest_dir,'dir')
@@ -82,10 +82,10 @@ for ee = 1:length(Expt_list)
    
 %     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/models/'];
 %     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/models/'];
-%      source_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-%     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-    source_dir = ['/home/james/Analysis/bruce/' Expt_name '/variability/'];
-    dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/variability/'];
+     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+    dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+%     source_dir = ['/home/james/Analysis/bruce/' Expt_name '/variability/'];
+%     dest_dir = ['/Users/james/Analysis/bruce/' Expt_name '/variability/'];
   
     if strcmp(copy_to,'local')
         if ~exist(dest_dir,'dir')

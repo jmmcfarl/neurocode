@@ -5,8 +5,8 @@ clc
 fit_unCor = 0;
 include_bursts = 0;
 
-fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
-% fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
+% fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
 % base_tname = 'sac_trig_avg_data3test';
 base_tname = 'sac_trig_avg_data4';
@@ -575,8 +575,8 @@ TBbase_lags = find(TB_Xtick <= 0);
 %sac-trig avg firing rate
 all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 search_range = [0 0.3];
-% [gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
-% [gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
+[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
+[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
 
 %get normalized TB-model SSI (computing using standard t-axis)
 TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
@@ -1468,6 +1468,7 @@ ylabel('Suppression timing (s)');
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 noise_lags = find(slags <= 0 | slags*dt > 0.15); %time lags used to define 'background SD'
+% noise_lags = find(slags <= 0); %time lags used to define 'background SD'
 close all
 
 %set regularization params
@@ -1920,9 +1921,9 @@ expt_MUA_stas_up = spline(tlags,expt_MUA_stas,tlags_up);
 %Use a two-way anova with random effects on recording ID.
 group = {all_MU_lclass all_MU_recID};
 [p,table,stats] = anovan(MUA_Itime,group,'random',2);
-% [p,table,stats] = anovan(MUA_Ttime,group,'random',2);
+[p,table,stats] = anovan(MUA_Ttime,group,'random',2);
 % [p,table,stats] = anovan(MUA_Ifact,group,'random',2);
-% [p,table,stats] = anovan(MUA_Etime,group,'random',2);
+[p,table,stats] = anovan(MUA_Etime,group,'random',2);
 % [p,table,stats] = anovan(MUA_Efact,group,'random',2);
 
 % all_Ekerns = nan(length(all_SU_data),flen);
@@ -2116,7 +2117,7 @@ cur_SUs = find(avg_rates >= min_rate & N_msacs >= min_TA_Nsacs & mod_xvLLimps > 
 all_msac_par = cell2mat(arrayfun(@(x) x.trig_avg.msac_Par_sub_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 all_msac_orth = cell2mat(arrayfun(@(x) x.trig_avg.msac_Orth_sub_avg', all_SU_data(cur_SUs),'uniformoutput',0));
 
-%spine interpolate
+%spline interpolate
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_msac_par_up = spline(tlags,all_msac_par,tlags_up);
 all_msac_orth_up = spline(tlags,all_msac_orth,tlags_up);
@@ -2151,7 +2152,7 @@ ylabel('Relative rate');
 % fname = [fig_dir 'MUA_par_orth3.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-
+% 
 %% STA ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 
