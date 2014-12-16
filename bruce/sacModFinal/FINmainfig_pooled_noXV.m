@@ -1464,7 +1464,7 @@ ylabel('Suppression timing (s)');
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
-%% COMPARE TEMPKERNS ADN MODEL GAIN LATENCIES
+%% COMPARE TEMPKERNS AND MODEL GAIN LATENCIES
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0);
 noise_lags = find(slags <= 0 | slags*dt > 0.15); %time lags used to define 'background SD'
