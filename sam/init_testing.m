@@ -16,7 +16,7 @@ end
 
 %%
 trial_dur = 5;
-dt = 0.05;
+dt = 0.025;
 trial_tbin_edges = (0:dt:trial_dur)*1e3;
 trial_tbin_cents = 0.5*trial_tbin_edges(1:end-1) + 0.5*trial_tbin_edges(2:end);
 
@@ -33,9 +33,24 @@ for ii = 1:n_trials
        psths(cc,:) = psths(cc,:) + cur_hist(1:end-1);
     end
 end
+psths = psths/n_trials;
 
 trial_spike_counts = cellfun(@(x) length(x),tbt_spikes);
 ov_trial_avgs = mean(trial_spike_counts);
+
+%%
+sm_sig = round(0.1/dt);
+norm_psths = bsxfun(@rdivide,psths/dt,ov_trial_avgs');
+for ii = 1:n_units
+   norm_psths(ii,:) = jmm_smooth_1d_cor(norm_psths(ii,:),sm_sig); 
+end
+
+uset = find(ov_trial_avgs >= 0.01);
+f1 = figure();
+shadedErrorBar(trial_tbin_cents/1e3,mean(norm_psths(uset,:)),std(norm_psths(uset,:))/sqrt(length(uset)));
+xlabel('Time (s)');
+ylabel('Rate (Hz)');
+
 %%
 un_oris = unique(angleOrder);
 ori_rates = nan(length(un_oris),n_units);
