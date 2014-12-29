@@ -3,7 +3,7 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-Expt_name = 'M230';
+Expt_name = 'M239';
 
 if strcmp(Expt_name,'M239')
     load('M239/lemM239.image.ORBW.LFP.mat')
@@ -142,11 +142,11 @@ end
 trial_LFPs = permute(trial_LFPs,[2 1 3]);
 
 %%
-beg_buff = 0.2; end_buff = 0.05; trial_dur = 2;
+beg_buff = 0.15; end_buff = 0.05; trial_dur = 2;
 upts = find(LFP_trial_taxis_ds >= beg_buff & LFP_trial_taxis_ds <= trial_dur-end_buff);
 
-% poss_trials = find(trialOB == 130 & trialSe > 0);
-poss_trials = find(trialOB > 50 & trialSe > 0);
+poss_trials = find(trialOB == 130 & trialSe > 0);
+% poss_trials = find(trialOB > 50 & trialSe > 0);
 % un_seeds = unique(trialSe(poss_trials));
 un_seeds = unique([trialSe(poss_trials)' trialOB(poss_trials)'],'rows');
 same_pairs = []; diff_pairs = [];
@@ -203,15 +203,16 @@ for cc = 1:length(uprobes)
     data1(:,bad_trials) = []; data2(:,bad_trials) = [];
     [Crand(cc,:),~,S12rand,S1rand,S2rand,f]=coherencyc(data1,data2,params);
 end
-
+Csame = squeeze(Csame);
+Cdiff = squeeze(Cdiff);
 %%
 poss_lws = [1 2 1 3];
 for cc = 1:length(uprobes)
-%     plot(f,Csame(cc,:),f,Cdiff(cc,:),'r',f,Crand(cc,:),'k');
-for ob = [1 4]
-    hold on
-    plot(f,squeeze(Csame(ob,cc,:)),f,squeeze(Cdiff(ob,cc,:)),'r','linewidth',poss_lws(ob));
-end
+    plot(f,Csame(cc,:),f,Cdiff(cc,:),'r',f,Crand(cc,:),'k');
+% for ob = [1 4]
+%     hold on
+%     plot(f,squeeze(Csame(ob,cc,:)),f,squeeze(Cdiff(ob,cc,:)),'r','linewidth',poss_lws(ob));
+% end
 xlim([0 100])
     pause
     clf
@@ -240,3 +241,24 @@ for cc = 1:length(uprobes)
     clf
     
 end
+
+%%
+cc = 8;
+        
+    data1 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(:,1)),cc));
+    data2 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(:,2)),cc));
+    bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+    data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+    [Csame(cc,:),~,S12same,S1same,S2same,f,~,~,Csameerr]=coherencyc(data1,data2,params);
+    
+   data1 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(:,1)),cc));
+    data2 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(:,2)),cc));
+    bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+    data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+    [Cdiff(cc,:),~,S12diff,S1diff,S2diff,f,~,~,Cdifferr]=coherencyc(data1,data2,params);
+
+    %%
+    close all
+    hold on
+    plot(f,Csame(cc,:),f,Csameerr,'b--')
+    plot(f,Cdiff(cc,:),'r',f,Cdifferr,'r--')

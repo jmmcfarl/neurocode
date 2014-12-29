@@ -3,25 +3,49 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-load('M239/lemM239.image.ORBW.LFP.mat')
-% load('M230/lemM230.image.ORBW.LFP.mat')
+Expt_name = 'M239';
 
-%% FOR M239
-block_trial_boundaries = [1 157;
- 158 265;
- 266 380;
- 381 499;
- 500 627;
- 628 747;
- 748 870;
- 871 988;
- 989 1104];
+if strcmp(Expt_name,'M239')
+    load('M239/lemM239.image.ORBW.LFP.mat')
+elseif strcmp(Expt_name,'M230')
+    load('M230/lemM230.image.ORBW.LFP.mat')
+end
+
+%% SET BLOCK TRIAL RANGES
+if strcmp(Expt_name,'M239')
+    block_trial_boundaries = [1 157;
+        158 265;
+        266 380;
+        381 499;
+        500 627;
+        628 747;
+        748 870;
+        871 988;
+        989 1104];
+elseif strcmp(Expt_name,'M230')
+    block_trial_boundaries = [1 140;
+        141 275;
+        276 409;
+        410 533;
+        534 668;
+        669 801;
+        802 936;
+        937 1058;
+        1059 1116;
+        1117 1163;
+        1164 1240;
+        1241 1375;
+        1376 1415;
+        1416 1480;
+        1481 1612;
+        1613 1740];    
+end
 n_blocks = size(block_trial_boundaries,1);
 
 %% Assemble stim, Robs, LFP into trial structure
 Ntrials = length(AllExpt.Expt.Trials);
 LFP_Fs = 1.0 / AllExpt.Expt.Header.LFPsamplerate;  % this is 1 kHz 
-dt = 0.005;  % assuming 10 ms frame time exactly
+dt = 0.01;  % assuming 10 ms frame time exactly
 trialDur = 2; %in sec.
 Nframes = 200; %number of video frames (@100Hz) per trial
 NT = ceil(trialDur/dt); %number of time bins per trial
@@ -93,7 +117,7 @@ tot_spks_per_trial_norm(tot_spks_per_trial == 0) = nan;
 sig_trials = find(trialOB < 130);
 stim_up = sig_trials(trialrwDir(sig_trials)==1);
 stim_down = sig_trials(trialrwDir(sig_trials)==-1);
-sig_prob = nan(length(SUindx),1);
+sig_prob = nan(Nunits,1);
 for cc = 1:Nunits
    cur_resp_ax = 0:(nanmax(tot_spks_per_trial_norm(sig_trials,cc)));
    up_hist = histc(tot_spks_per_trial_norm(stim_up,cc),cur_resp_ax);
@@ -191,14 +215,16 @@ LFP_Fsd = LFP_Fs/LFP_dsf;
 %anti-aliasing filter and high-pass filter
 aa_hcf = LFP_Fsd/2*0.8;
 % [b_aa,a_aa] = butter(4,aa_hcf/(LFP_Fs/2),'low');
-aa_lcf = 1;
+aa_lcf = 0.5;
 [b_aa,a_aa] = butter(4,[aa_lcf aa_hcf]/(LFP_Fs/2));
 
 LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
 
 %wavelet parameters
-nwfreqs = 15;
-min_freq = 1; max_freq = 70;
+nwfreqs = 8;
+min_freq = 1; max_freq = 20;
+% nwfreqs = 5;
+% min_freq = 1; max_freq = 6;
 min_scale = 1/max_freq*LFP_Fsd;
 max_scale = 1/min_freq*LFP_Fsd;
 wavetype = 'cmor1-1';
@@ -252,6 +278,8 @@ trial_LFP_amps = nanzscore(trial_LFP_amps);
 trial_LFPs = nanzscore(trial_LFPs);
 
 LFP_tbt = reshape(trial_LFP_amps(:,end),[TLEN Ntrials]);
+
+
 %%
 good_LFP_trials = find(all(~isnan(LFP_tbt)));
 utrials = good_LFP_trials(trialOB(good_LFP_trials) == 130);
@@ -260,6 +288,7 @@ utrials = good_LFP_trials(trialOB(good_LFP_trials) == 130);
 RR = RR(:);
 
 tdata = find(~ismember(RR,utrials) & ismember(RR,good_LFP_trials));
+% tdata = find(ismember(RR,utrials));
 udata = find(ismember(RR,utrials));
 % xv_frac = 0.;
 % xv_trials = randperm(length(utrials));
@@ -288,7 +317,7 @@ for cc = 1:Nunits
 %     uinds = find(~isnan(cur_Robs));
     truinds = tdata(~isnan(cur_Robs(tdata)));
     xvuinds = udata(~isnan(cur_Robs(udata)));
-    if ~isempty(uinds)
+    if ~isempty(truinds)
         lfp_mod(cc) = NMMinitialize_model(mod_stim_params,[1 1],{'lin','lin'},mod_reg_params,[1 2]);
         lfp_mod(cc) = NMMfit_filters(lfp_mod(cc),cur_Robs,X,[],truinds,silent);
         [LL, nullLL, pred_rate] = NMMeval_model( lfp_mod(cc), cur_Robs, X, [], truinds);
@@ -374,3 +403,116 @@ for cc = 1:Nunits
    LFPmod_choice_prob(cc) = trapz(false_pos,true_pos);
 end
 
+LFPmod_choice_diff = nanmean(LFPmod_pred_spkcnts(resp_up,:)) - nanmean(LFPmod_pred_spkcnts(resp_down,:));
+act_choice_diff = nanmean(tot_spks_per_trial_norm(utrials(resp_up),:)) - nanmean(tot_spks_per_trial_norm(utrials(resp_down),:));
+
+%% CALCULATE CHOICE-predictable covariance
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+un_stim_seeds = unique(trialSe(test_trials));
+
+beg_buff = 15; %number of bins from beginning of trial to exclude
+
+%subtract off avg rates for times within this set of trials
+[RR,TT] = meshgrid(1:Ntrials,1:NT);
+istrain = (ismember(RR(:),test_trials)) & (TT(:) > beg_buff);
+fullRobs_resh = reshape(fullRobs,[],Nunits);
+fullRobs_ms = bsxfun(@minus,fullRobs,reshape(nanmean(fullRobs_resh(istrain,:)),[1 1 Nunits]));
+
+cur_XC = zeros(Nunits,Nunits);
+cur_cnt = zeros(Nunits,1);
+cur_XC2 = zeros(Nunits,Nunits);
+cur_cnt2 = zeros(Nunits,1);
+for tr = 1:length(un_stim_seeds)
+    cur_tr_set = test_trials(trialSe(test_trials) == un_stim_seeds(tr));
+    fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
+    if length(cur_tr_set) >= 2
+        cur_resp = trialrespDir(cur_tr_set);
+        [II,JJ] = meshgrid(1:length(cur_tr_set));
+        cur_Robs = squeeze(fullRobs((beg_buff+1):end,cur_tr_set,:));
+        cur_Robs2 = reshape(cur_Robs,[],length(cur_tr_set),1,Nunits);
+        
+        cur_Dmat = abs(squareform(pdist(cur_resp')));
+        cur_Dmat(logical(eye(length(cur_tr_set)))) = nan;
+        cur_Dmat(JJ > II) = nan;
+        
+        curset = find(cur_Dmat == 0);
+        cur_XC = cur_XC + squeeze(nansum(nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:))),2));
+        cur_cnt = cur_cnt + squeeze(sum(~(isnan(cur_Robs(1,II(curset),:))) & ~(isnan(cur_Robs(1,JJ(curset),:))),2));
+        
+        curset = find(~isnan(cur_Dmat));
+        cur_XC2 = cur_XC2 + squeeze(nansum(nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:))),2));
+        cur_cnt2 = cur_cnt2 + squeeze(sum(~(isnan(cur_Robs(1,II(curset),:))) & ~(isnan(cur_Robs(1,JJ(curset),:))),2));
+    end
+end
+
+sameVar = bsxfun(@rdivide,cur_XC,cur_cnt);
+randVar = bsxfun(@rdivide,cur_XC2,cur_cnt2);
+
+choice_covmat = sameVar - randVar;
+SU_choice_varfrac = diag(choice_covmat)./diag(randVar);
+normfac = sqrt(diag(randVar)*diag(randVar)');
+choice_corrmat = choice_covmat./normfac;
+
+%% LFP state-explained covariance
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+un_stim_seeds = unique(trialSe(test_trials));
+targChan = 10;
+
+R_trial_taxis = (beg_buffer:(NT-1))*dt + dt/2;
+TLEN = length(R_trial_taxis);
+trial_LFP_state = nan(TLEN,Ntrials,nprobes);
+
+%5-15 looks good, see similar structure in choice- and LFP-explained cov
+%mats
+lcf = 1.5; hcf = 4; %cut-off freqs for LFP filter
+[filt_bb,filt_aa] = butter(2,[lcf hcf]/(LFP_Fs/2));
+for tr = 1:Ntrials
+    cur_LFPs = double(AllExpt.Expt.Trials(tr).LFP);
+    cur_LFPs(isnan(cur_LFPs)) = 0;
+    cur_LFPs = filtfilt(filt_bb,filt_aa,cur_LFPs);
+%     cur_phase = unwrap(angle(hilbert(cur_LFPs)));
+%     cur_phase_interp = mod(interp1(LFP_trial_taxis,cur_phase,R_trial_taxis),2*pi);
+    cur_lfp_interp = interp1(LFP_trial_taxis,cur_LFPs,R_trial_taxis);
+    trial_LFP_state(:,tr,:) = cur_lfp_interp;
+end
+
+beg_buff = 15; %number of bins from beginning of trial to exclude
+
+maxlag_ED = 2;
+ED_space = 0.25;
+ED_bin_edges = 0:ED_space:maxlag_ED;
+ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
+
+%subtract off avg rates for times within this set of trials
+[RR,TT] = meshgrid(1:Ntrials,1:NT);
+istrain = (ismember(RR(:),test_trials)) & (TT(:) > beg_buff);
+fullRobs_resh = reshape(fullRobs,[],Nunits);
+fullRobs_ms = bsxfun(@minus,fullRobs,reshape(nanmean(fullRobs_resh(istrain,:)),[1 1 Nunits]));
+tot_var = nanvar(fullRobs_resh(istrain,:));
+
+cur_tr_set = test_trials;
+fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
+[II,JJ] = meshgrid(1:length(cur_tr_set));
+
+cur_LFP_data = squeeze(trial_LFP_state(:,cur_tr_set,targChan));
+cur_XC = nan(NT,length(ED_bin_centers),Nunits,Nunits);
+rand_XC = nan(NT,Nunits,Nunits);
+for tt = (beg_buff+1):NT
+    tt
+    cur_Robs = squeeze(fullRobs_ms(tt,cur_tr_set,:));
+    cur_Robs2 = reshape(cur_Robs,[],1,Nunits);
+    cur_Dmat = abs(circ_dist2(cur_LFP_data(tt,:),cur_LFP_data(tt,:)));
+    cur_Dmat(JJ >= II) = nan;
+    for jj = 1:length(ED_bin_centers)
+        curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
+        %                 cur_XC(jj,:) = cur_XC(jj,:) + squeeze(nansum(bsxfun(@times,cur_Robs(II(curset),:),cur_Robs(JJ(curset),:)),1));
+        cur_XC(tt,jj,:,:) = (nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+    end
+    curset = ~isnan(cur_Dmat);
+    %             rand_XC = rand_XC + squeeze(nansum(bsxfun(@times,cur_Robs(II(curset),:),cur_Robs(JJ(curset),:)),1));
+    rand_XC(tt,:,:) = squeeze(nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+end
+cur_XC = squeeze(nanmean(cur_XC));
+rand_XC = squeeze(nanmean(rand_XC));
+
+LFP_explained(ppp,bbb,:,:) = squeeze(stateDepVar(1,:,:)) - randVar; %dont worry about spline interpolation for now, just take the bin with most similar LFP states
