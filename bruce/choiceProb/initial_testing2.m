@@ -3,7 +3,7 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-Expt_name = 'M239';
+Expt_name = 'M230';
 
 if strcmp(Expt_name,'M239')
     load('M239/lemM239.image.ORBW.LFP.mat')
@@ -69,7 +69,7 @@ for tr = 1:Ntrials
     for nn = 1:Nunits
         trindx = find( AllExpt.Spikes{nn}.Trial == trialNums(tr));
         if ~isempty(trindx)
-           tot_spks_per_trial(tr,nn) = length(AllExpt.Spikes{nn}.Spikes{trindx}); 
+           tot_spks_per_trial(tr,nn) = sum(AllExpt.Spikes{nn}.Spikes{trindx} <= trialDur/1e-4 & AllExpt.Spikes{nn}.Spikes{trindx} >= 0); 
         end
     end
 end
@@ -104,11 +104,9 @@ for cc = 1:Nunits
     fullRobs(:,isnan(tot_spks_per_trial_norm(:,cc)),cc) = nan;
 end
 
-trialSpkCnts = squeeze(nansum(fullRobs));
-totSpkCnts = squeeze(nansum(trialSpkCnts));
+trialSpkCnts = squeeze(nansum(fullRobs,1));
+totSpkCnts = squeeze(nansum(trialSpkCnts,1));
 avg_spk_rates = nanmean(reshape(fullRobs,[],Nunits));
-
-fullRobs_ms = bsxfun(@minus,fullRobs,reshape(avg_spk_rates,[1 1 Nunits]));
 
 %% CALCULATE CHOICE PROBS
 tot_spks_per_trial_norm = tot_spks_per_trial;
@@ -175,7 +173,25 @@ sig_prob_ci = prctile(boot_sig_prob',[5 95]);
 choice_prob_z = (choice_prob - nanmean(boot_choice_prob,2))./nanstd(boot_choice_prob,[],2);
 sig_prob_z = (sig_prob - nanmean(boot_sig_prob,2))./nanstd(boot_sig_prob,[],2);
 
-%%
+%% USE WITHIN-CHOICE AVGS
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+
+tot_spks_per_trial_ms = bsxfun(@minus,tot_spks_per_trial_norm,nanmean(tot_spks_per_trial_norm(test_trials,:)));
+
+cur_resp = trialrespDir(test_trials);
+resp_up = test_trials(cur_resp == 1);
+resp_down = test_trials(cur_resp == -1);
+
+avg_up_resp = nanmean(tot_spks_per_trial_ms(resp_up,:));
+avg_down_resp = nanmean(tot_spks_per_trial_ms(resp_down,:));
+choice_cond_avgs = [avg_up_resp; avg_down_resp];
+choice_cond_covmat = squeeze(nanmean(bsxfun(@times,choice_cond_avgs,reshape(choice_cond_avgs,2,1,Nunits))));
+% choice_cond_covmat = nancov(choice_cond_avgs,1);
+
+normfac = sqrt(nanvar(tot_spks_per_trial_ms(test_trials,:))'*nanvar(tot_spks_per_trial_ms(test_trials,:)));
+
+choice_cond_corrmat = choice_cond_covmat./normfac;
+%% AVG OF WITHIN-CHOICE COVMATS
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
 % test_trials = find(trialrespDir~= 0);
 
@@ -193,19 +209,153 @@ avg_up_covmat = squeeze(nanmean(bsxfun(@times,tot_spks_per_trial_ms(resp_up(II(u
 
 %covariance of responses on unequal trials with up choice
 [II,JJ] = meshgrid(1:length(resp_down));
-uset = find(II > JJ);
+uset = find(II ~= JJ);
 avg_down_covmat = squeeze(nanmean(bsxfun(@times,tot_spks_per_trial_ms(resp_down(II(uset)),:),tot_spks2(resp_down(JJ(uset)),:,:)),1));
 
 %avg chioce-conditional covariances
 avg_choice_covmat = 0.5*avg_down_covmat + 0.5*avg_up_covmat;
 
+[II,JJ] = meshgrid(1:length(test_trials));
+cur_Dmat = abs(squareform(pdist(cur_resp')));
+cur_Dmat(JJ == II) = nan;
+uset = find(cur_Dmat == 0);
+avg_same_covmat = squeeze(nanmean(bsxfun(@times,tot_spks_per_trial_ms(test_trials(II(uset)),:),tot_spks2(test_trials(JJ(uset)),:,:)),1));
+    
+noise_covmat = squeeze(nanmean(bsxfun(@times,tot_spks_per_trial_ms(test_trials,:),tot_spks2(test_trials,:,:)),1));
+
 %normalization matrix of variance products
 normfac = sqrt(nanvar(tot_spks_per_trial_ms(test_trials,:))'*nanvar(tot_spks_per_trial_ms(test_trials,:)));
 
 avg_choice_corrmat = avg_choice_covmat./normfac;
+% opp_corrmat = avg_opp_covmat./normfac;
+avg_same_corrmat = avg_same_covmat./normfac;
 
-noise_covmat = squeeze(nanmean(bsxfun(@times,tot_spks_per_trial_ms(test_trials,:),tot_spks2(test_trials,:,:)),1));
 noise_corrmat = noise_covmat./normfac;
+
+%% CALCULATE CHOICE-predictable covariance at dt resolution (not controlling for stim dep)
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+% test_trials = find(trialrespDir ~= 0);
+
+% beg_buff = round(0.15/dt); %number of bins from beginning of trial to exclude
+beg_buff = 0; %number of bins from beginning of trial to exclude
+
+%subtract off avg rates for times within this set of trials
+[RR,TT] = meshgrid(1:Ntrials,1:NT);
+istrain = (ismember(RR(:),test_trials)) & (TT(:) > beg_buff);
+fullRobs_resh = reshape(fullRobs,[],Nunits);
+fullRobs_ms = bsxfun(@minus,fullRobs,reshape(nanmean(fullRobs_resh(istrain,:)),[1 1 Nunits]));
+
+cur_resp = trialrespDir(test_trials);
+resp_up = (cur_resp == 1);
+resp_down = (cur_resp == -1);
+
+cur_Robs = fullRobs_ms((beg_buff+1):end,test_trials,:);
+psths = squeeze(nanmean(cur_Robs,2));
+up_psths = squeeze(nanmean(cur_Robs(:,resp_up,:),2));
+down_psths = squeeze(nanmean(cur_Robs(:,resp_down,:),2));
+
+psth_covmat = squeeze(nanmean(bsxfun(@times,psths,reshape(psths,[],1,Nunits))));
+up_psth_covmat = squeeze(nanmean(bsxfun(@times,up_psths,reshape(up_psths,[],1,Nunits))));
+down_psth_covmat = squeeze(nanmean(bsxfun(@times,down_psths,reshape(down_psths,[],1,Nunits))));
+choicecond_psth_covmat = 0.5*up_psth_covmat + 0.5*down_psth_covmat;
+
+% marg_choice_covmat = choicecond_psth_covmat - psth_covmat;
+% marg_choice_corrmat = marg_choice_covmat./normfac;
+% psth_corrmat = psth_covmat./normfac;
+
+
+[II,JJ] = meshgrid(1:length(test_trials));
+
+cur_Dmat = abs(squareform(pdist(cur_resp')));
+cur_Dmat(JJ == II) = nan;
+sameset = find(cur_Dmat == 0);
+possset = find(~isnan(cur_Dmat));
+
+Nuse_pairs = length(sameset);
+TLEN = NT - beg_buff;
+tot_choice_varmat = zeros(Nunits,Nunits);
+tot_rand_varmat = zeros(Nunits,Nunits);
+choice_cnt = zeros(Nunits,Nunits);
+rand_cnt = zeros(Nunits,Nunits);
+for tt = 1:TLEN
+    fprintf('Time %d of %d\n',tt,TLEN);
+    cur_Robs = squeeze(fullRobs_ms(beg_buff+tt,test_trials,:));
+    cur_Robs2 = reshape(cur_Robs,length(test_trials),1,Nunits);
+    
+    curset = randperm(length(sameset)); curset = sameset(curset(1:Nuse_pairs));
+    temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
+    tot_choice_varmat = tot_choice_varmat + squeeze(nansum(temp,1));
+    choice_cnt = choice_cnt + squeeze(sum(~isnan(temp),1));
+    
+    curset = randperm(length(possset)); curset = possset(curset(1:Nuse_pairs));
+    temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
+    tot_rand_varmat = tot_rand_varmat + squeeze(nansum(temp,1));
+    rand_cnt = rand_cnt + squeeze(sum(~isnan(temp),1));
+end
+tot_choice_varmat = tot_choice_varmat./choice_cnt;
+tot_rand_varmat = tot_rand_varmat./rand_cnt;
+temp = reshape(cur_Robs,[],Nunits);
+normfac = sqrt(nanvar(temp)'*nanvar(temp));
+marg_choice_varmat = tot_choice_varmat - tot_rand_varmat;
+marg_choice_corrmat = marg_choice_varmat./normfac;
+
+%% CALCULATE CHOICE-predictable covariance at dt resolution (controlling for stim-dep)
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+% test_trials = find(trialrespDir ~= 0);
+un_stim_seeds = unique(trialSe(test_trials));
+
+% beg_buff = round(0.15/dt); %number of bins from beginning of trial to exclude
+beg_buff = 0; %number of bins from beginning of trial to exclude
+
+%subtract off avg rates for times within this set of trials
+[RR,TT] = meshgrid(1:Ntrials,1:NT);
+istrain = (ismember(RR(:),test_trials)) & (TT(:) > beg_buff);
+fullRobs_resh = reshape(fullRobs,[],Nunits);
+fullRobs_ms = bsxfun(@minus,fullRobs,reshape(nanmean(fullRobs_resh(istrain,:)),[1 1 Nunits]));
+
+cur_XC = zeros(Nunits,Nunits);
+cur_cnt = zeros(Nunits,Nunits);
+cur_XC2 = zeros(Nunits,Nunits);
+cur_cnt2 = zeros(Nunits,Nunits);
+for tr = 1:length(un_stim_seeds)
+    cur_tr_set = test_trials(trialSe(test_trials) == un_stim_seeds(tr));
+    fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
+    if length(cur_tr_set) >= 2
+        cur_resp = trialrespDir(cur_tr_set);
+        [II,JJ] = meshgrid(1:length(cur_tr_set));
+        cur_Robs = (fullRobs_ms((beg_buff+1):end,cur_tr_set,:));
+        cur_Robs2 = reshape(cur_Robs,[],length(cur_tr_set),1,Nunits);
+        
+        cur_Dmat = abs(squareform(pdist(cur_resp')));
+        cur_Dmat(JJ >= II) = nan;
+        
+        curset = find(cur_Dmat == 0);
+        temp = nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:)),1);
+        cur_XC = cur_XC + squeeze(nansum(temp,2));
+        cur_cnt = cur_cnt + squeeze(sum(~isnan(temp),2));
+%         cur_XC = cur_XC + squeeze(nansum(nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:)),1),2));
+%         cur_cnt = cur_cnt + squeeze(sum(~(isnan(cur_Robs(1,II(curset),:))) & ~(isnan(cur_Robs(1,JJ(curset),:))),2));
+        
+        curset = find(~isnan(cur_Dmat));
+        temp = nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:)),1);
+        cur_XC2 = cur_XC2 + squeeze(nansum(temp,2));
+        cur_cnt2 = cur_cnt2 + squeeze(sum(~isnan(temp),2));
+%         cur_XC2 = cur_XC2 + squeeze(nansum(nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:)),1),2));
+%         cur_cnt2 = cur_cnt2 + squeeze(sum(~(isnan(cur_Robs(1,II(curset),:))) & ~(isnan(cur_Robs(1,JJ(curset),:))),2));
+    end
+end
+
+% sameVar = bsxfun(@rdivide,cur_XC,cur_cnt);
+% randVar = bsxfun(@rdivide,cur_XC2,cur_cnt2);
+sameVar = cur_XC./cur_cnt;
+randVar = cur_XC2./cur_cnt2;
+
+choice_covmat = sameVar - randVar;
+SU_choice_varfrac = diag(choice_covmat)./diag(randVar);
+temp = reshape(fullRobs_ms(:,test_trials,:),[],Nunits);
+normfac = sqrt(nanvar(temp)'*nanvar(temp));
+choice_corrmat = choice_covmat./normfac;
+stim_corrmat = randVar./normfac;
 
 %% USE WAVELET ANALYSIS TO COMPUTE PHASE-LOCKING SPECTRA FOR EACH UNIT
 LFP_trial_taxis = AllExpt.Expt.Header.LFPtimes*1e-4;
@@ -222,7 +372,7 @@ LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
 
 %wavelet parameters
 nwfreqs = 8;
-min_freq = 1; max_freq = 20;
+min_freq = 1; max_freq = 15;
 % nwfreqs = 5;
 % min_freq = 1; max_freq = 6;
 min_scale = 1/max_freq*LFP_Fsd;
@@ -231,7 +381,8 @@ wavetype = 'cmor1-1';
 scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
 wfreqs = scal2frq(scales,wavetype,1/LFP_Fsd);
 
-beg_buffer = round(0.15/dt);
+% beg_buffer = round(0.15/dt);
+beg_buffer = round(0/dt);
 R_trial_taxis = (beg_buffer:(NT-1))*dt + dt/2;
 TLEN = length(R_trial_taxis);
 
@@ -347,27 +498,27 @@ samestim_covmat = zeros(Nunits,Nunits);
 samestim_sumcovmat = zeros(Nunits,Nunits);
 cnt = 0;
 for ss = 1:length(unique_ses)
-   curset = find(trialSe(utrials) == unique_ses(ss)); 
-   if length(curset) >= 2
-   temp_prates = squeeze(all_prate_outs_ms(:,curset,:));
-   temp_prates2 = reshape(temp_prates,TLEN,[],1,Nunits);
-   
-   [II,JJ] = meshgrid(1:length(curset));
-    uset = find(II > JJ);
-    temp = squeeze(nansum(nanmean(bsxfun(@times,temp_prates(:,II(uset),:),temp_prates2(:,JJ(uset),:,:)),1),2));
-    if ~any(isnan(temp(:)))
-    samestim_covmat = samestim_covmat + temp;
+    curset = find(trialSe(utrials) == unique_ses(ss));
+    if length(curset) >= 2
+        temp_prates = squeeze(all_prate_outs_ms(:,curset,:));
+        temp_prates2 = reshape(temp_prates,TLEN,[],1,Nunits);
+        
+        [II,JJ] = meshgrid(1:length(curset));
+        uset = find(II > JJ);
+        temp = squeeze(nansum(nanmean(bsxfun(@times,temp_prates(:,II(uset),:),temp_prates2(:,JJ(uset),:,:)),1),2));
+        if ~any(isnan(temp(:)))
+            samestim_covmat = samestim_covmat + temp;
+        end
+        
+        temp_prates = squeeze(all_sum_outs_ms(curset,:));
+        temp_prates2 = reshape(temp_prates,[],1,Nunits);
+        temp = squeeze(nansum(bsxfun(@times,temp_prates(II(uset),:),temp_prates2(JJ(uset),:,:)),1));
+        if ~any(isnan(temp(:)))
+            samestim_sumcovmat = samestim_sumcovmat + temp;
+            cnt = cnt + length(uset);
+        end
+        
     end
-    
-   temp_prates = squeeze(all_sum_outs_ms(curset,:));
-   temp_prates2 = reshape(temp_prates,[],1,Nunits);
-    temp = squeeze(nansum(bsxfun(@times,temp_prates(II(uset),:),temp_prates2(JJ(uset),:,:)),1));
-    if ~any(isnan(temp(:)))
-    samestim_sumcovmat = samestim_sumcovmat + temp;
-    cnt = cnt + length(uset);
-    end
-    
-   end
 end
 samestim_covmat = samestim_covmat/cnt;
 samestim_sumcovmat = samestim_sumcovmat/cnt;
@@ -406,52 +557,6 @@ end
 LFPmod_choice_diff = nanmean(LFPmod_pred_spkcnts(resp_up,:)) - nanmean(LFPmod_pred_spkcnts(resp_down,:));
 act_choice_diff = nanmean(tot_spks_per_trial_norm(utrials(resp_up),:)) - nanmean(tot_spks_per_trial_norm(utrials(resp_down),:));
 
-%% CALCULATE CHOICE-predictable covariance
-test_trials = find(trialOB == 130 & trialrespDir ~= 0);
-un_stim_seeds = unique(trialSe(test_trials));
-
-beg_buff = 15; %number of bins from beginning of trial to exclude
-
-%subtract off avg rates for times within this set of trials
-[RR,TT] = meshgrid(1:Ntrials,1:NT);
-istrain = (ismember(RR(:),test_trials)) & (TT(:) > beg_buff);
-fullRobs_resh = reshape(fullRobs,[],Nunits);
-fullRobs_ms = bsxfun(@minus,fullRobs,reshape(nanmean(fullRobs_resh(istrain,:)),[1 1 Nunits]));
-
-cur_XC = zeros(Nunits,Nunits);
-cur_cnt = zeros(Nunits,1);
-cur_XC2 = zeros(Nunits,Nunits);
-cur_cnt2 = zeros(Nunits,1);
-for tr = 1:length(un_stim_seeds)
-    cur_tr_set = test_trials(trialSe(test_trials) == un_stim_seeds(tr));
-    fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
-    if length(cur_tr_set) >= 2
-        cur_resp = trialrespDir(cur_tr_set);
-        [II,JJ] = meshgrid(1:length(cur_tr_set));
-        cur_Robs = squeeze(fullRobs((beg_buff+1):end,cur_tr_set,:));
-        cur_Robs2 = reshape(cur_Robs,[],length(cur_tr_set),1,Nunits);
-        
-        cur_Dmat = abs(squareform(pdist(cur_resp')));
-        cur_Dmat(logical(eye(length(cur_tr_set)))) = nan;
-        cur_Dmat(JJ > II) = nan;
-        
-        curset = find(cur_Dmat == 0);
-        cur_XC = cur_XC + squeeze(nansum(nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:))),2));
-        cur_cnt = cur_cnt + squeeze(sum(~(isnan(cur_Robs(1,II(curset),:))) & ~(isnan(cur_Robs(1,JJ(curset),:))),2));
-        
-        curset = find(~isnan(cur_Dmat));
-        cur_XC2 = cur_XC2 + squeeze(nansum(nanmean(bsxfun(@times,cur_Robs2(:,II(curset),:,:),cur_Robs(:,JJ(curset),:))),2));
-        cur_cnt2 = cur_cnt2 + squeeze(sum(~(isnan(cur_Robs(1,II(curset),:))) & ~(isnan(cur_Robs(1,JJ(curset),:))),2));
-    end
-end
-
-sameVar = bsxfun(@rdivide,cur_XC,cur_cnt);
-randVar = bsxfun(@rdivide,cur_XC2,cur_cnt2);
-
-choice_covmat = sameVar - randVar;
-SU_choice_varfrac = diag(choice_covmat)./diag(randVar);
-normfac = sqrt(diag(randVar)*diag(randVar)');
-choice_corrmat = choice_covmat./normfac;
 
 %% LFP state-explained covariance
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
