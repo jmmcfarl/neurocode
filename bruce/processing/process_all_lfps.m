@@ -1,10 +1,10 @@
 % close all
 
-% dir_prefix = '~';
-dir_prefix = '/media/NTlab_data2';
-Expt_name = 'G099';
-data_dir = ['/media/NTlab_data2/Data/bruce/' Expt_name];
-% data_dir = ['~/Data/bruce/' Expt_name];
+dir_prefix = '~';
+% dir_prefix = '/media/NTlab_data2';
+Expt_name = 'G103';
+% data_dir = ['/media/NTlab_data2/Data/bruce/' Expt_name];
+data_dir = ['~/Data/bruce/' Expt_name];
 % raw_data_dir = [dir_prefix '/Data/bruce/' Expt_name];
 raw_data_dir = [dir_prefix '/Data/bruce/' Expt_name];
 
@@ -14,7 +14,7 @@ save_dir = data_dir;
 cd(data_dir);
 load(sprintf('jbe%sExpts.mat',Expt_name)); %load in Expts struct
 
-force_recompute = 1;
+force_recompute = 0;
 %%
 use_lfps = 1:96;
 Fs = 1/3.333307000208032e-05;

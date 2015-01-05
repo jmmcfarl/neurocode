@@ -3,7 +3,7 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-Expt_name = 'M239';
+Expt_name = 'M230';
 
 if strcmp(Expt_name,'M239')
     load('M239/lemM239.image.ORBW.LFP.mat')
@@ -41,6 +41,7 @@ elseif strcmp(Expt_name,'M230')
         1613 1740];    
 end
 n_blocks = size(block_trial_boundaries,1);
+
 %% Assemble stim, Robs, LFP into trial structure
 Ntrials = length(AllExpt.Expt.Trials);
 LFP_Fs = 1.0 / AllExpt.Expt.Header.LFPsamplerate;  % this is 1 kHz
@@ -142,11 +143,11 @@ end
 trial_LFPs = permute(trial_LFPs,[2 1 3]);
 
 %%
-beg_buff = 0.15; end_buff = 0.05; trial_dur = 2;
+beg_buff = 0.3; end_buff = 0.05; trial_dur = 2;
 upts = find(LFP_trial_taxis_ds >= beg_buff & LFP_trial_taxis_ds <= trial_dur-end_buff);
 
-poss_trials = find(trialOB == 130 & trialSe > 0);
-% poss_trials = find(trialOB > 50 & trialSe > 0);
+% poss_trials = find(trialOB == 130 & trialSe > 0);
+poss_trials = find(trialOB > 50 & trialSe > 0);
 % un_seeds = unique(trialSe(poss_trials));
 un_seeds = unique([trialSe(poss_trials)' trialOB(poss_trials)'],'rows');
 same_pairs = []; diff_pairs = [];
@@ -176,7 +177,7 @@ params.Fs = LFP_Fsd;
 params.tapers = [5 9];
 params.trialave = 1;
 params.err = [2 0.05];
-clear Csame Cdiff
+clear Csame Cdiff S12same S12diff S1same S1diff
 for cc = 1:length(uprobes)
     cc
     for ob = 1:length(poss_OB)
@@ -186,14 +187,14 @@ for cc = 1:length(uprobes)
     data2 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(curset,2)),cc));
     bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
     data1(:,bad_trials) = []; data2(:,bad_trials) = [];
-    [Csame(ob,cc,:),~,S12same,S1same,S2same,f]=coherencyc(data1,data2,params);
+    [Csame(ob,cc,:),~,S12same(ob,cc,:),S1same(ob,cc,:),S2same,f]=coherencyc(data1,data2,params);
     
          curset = find(diff_OB(:,1) == poss_OB(ob));
    data1 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(curset,1)),cc));
     data2 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(curset,2)),cc));
     bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
     data1(:,bad_trials) = []; data2(:,bad_trials) = [];
-    [Cdiff(ob,cc,:),~,S12diff,S1diff,S2diff,f]=coherencyc(data1,data2,params);
+    [Cdiff(ob,cc,:),~,S12diff(ob,cc,:),S1diff(ob,cc,:),S2diff,f]=coherencyc(data1,data2,params);
     
     end
     
@@ -244,21 +245,158 @@ end
 
 %%
 cc = 8;
-        
-    data1 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(:,1)),cc));
-    data2 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(:,2)),cc));
-    bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
-    data1(:,bad_trials) = []; data2(:,bad_trials) = [];
-    [Csame(cc,:),~,S12same,S1same,S2same,f,~,~,Csameerr]=coherencyc(data1,data2,params);
-    
-   data1 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(:,1)),cc));
-    data2 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(:,2)),cc));
-    bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
-    data1(:,bad_trials) = []; data2(:,bad_trials) = [];
-    [Cdiff(cc,:),~,S12diff,S1diff,S2diff,f,~,~,Cdifferr]=coherencyc(data1,data2,params);
 
-    %%
-    close all
+data1 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(:,1)),cc));
+data2 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(:,2)),cc));
+bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+[Csame(cc,:),~,S12same,S1same,S2same,f,~,~,Csameerr]=coherencyc(data1,data2,params);
+
+data1 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(:,1)),cc));
+data2 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(:,2)),cc));
+bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+[Cdiff(cc,:),~,S12diff,S1diff,S2diff,f,~,~,Cdifferr]=coherencyc(data1,data2,params);
+
+%%
+close all
+hold on
+plot(f,Csame(cc,:),f,Csameerr,'b--')
+plot(f,Cdiff(cc,:),'r',f,Cdifferr,'r--');
+
+%%
+beg_buff = 0.3; end_buff = 0; trial_dur = 2;
+upts = find(LFP_trial_taxis_ds >= beg_buff & LFP_trial_taxis_ds <= trial_dur-end_buff);
+
+poss_trials = find(trialOB > 50 & trialSe > 0);
+un_seeds = unique([trialSe(poss_trials)' trialOB(poss_trials)'],'rows');
+same_pairs = []; diff_pairs = [];
+for ii = 1:length(un_seeds)
+    cur_trials = find(trialSe(poss_trials) == un_seeds(ii,1) & trialrespDir(poss_trials) ~= 0 ...
+        & trialOB(poss_trials) == un_seeds(ii,2));
+    cur_resp = trialrespDir(poss_trials(cur_trials));
+    
+    if length(cur_resp) >= 2
+        poss_pairs = nchoosek(1:length(cur_resp),2);
+        resp_pairs = cur_resp(poss_pairs);
+        same_set = find(diff(resp_pairs,[],2) == 0);
+        opp_set = find(diff(resp_pairs,[],2) ~= 0);
+        same_pairs = cat(1,same_pairs,cur_trials(poss_pairs(same_set,:)));
+        diff_pairs = cat(1,diff_pairs,cur_trials(poss_pairs(opp_set,:)));
+    end
+end
+
+poss_OB = unique(trialOB(:));
+for ob = 1:length(poss_OB)
+    cposs_trials = find(trialOB == poss_OB(ob));
+    rand_pairs = randperm(length(cposs_trials))';
+    OBrand_pairs{ob} = cposs_trials([rand_pairs circshift(rand_pairs,[1 0])]);
+    
+    uposs_trials = cposs_trials(trialrwDir(cposs_trials) == 1);
+    rand_pairs = randperm(length(uposs_trials))';
+    OBrand_pairs_up{ob} = uposs_trials([rand_pairs circshift(rand_pairs,[1 0])]);
+  
+    dposs_trials = cposs_trials(trialrwDir(cposs_trials) == -1);
+     rand_pairs = randperm(length(dposs_trials))';
+    OBrand_pairs_dn{ob} = dposs_trials([rand_pairs circshift(rand_pairs,[1 0])]);
+   
+end
+
+same_OB = trialOB(poss_trials(same_pairs));
+diff_OB = trialOB(poss_trials(diff_pairs));
+%%
+
+params.Fs = LFP_Fsd;
+params.tapers = [4 7];
+params.trialave = 1;
+params.err = [2 0.05];
+clear Csame Cdiff S12same S12diff S1same S1diff Crand S1rand
+for cc = 1:length(uprobes)
+    cc
+    for ob = 1:length(poss_OB)
+        curset = find(same_OB(:,1) == poss_OB(ob));
+        
+        data1 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(curset,1)),cc));
+        data2 = squeeze(trial_LFPs(upts,poss_trials(same_pairs(curset,2)),cc));
+        bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+        data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+        [Csame(ob,cc,:),~,S12same(ob,cc,:),S1same(ob,cc,:),S2same,f]=coherencyc(data1,data2,params);
+        
+        curset = find(diff_OB(:,1) == poss_OB(ob));
+        data1 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(curset,1)),cc));
+        data2 = squeeze(trial_LFPs(upts,poss_trials(diff_pairs(curset,2)),cc));
+        bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+        data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+        [Cdiff(ob,cc,:),~,S12diff(ob,cc,:),S1diff(ob,cc,:),S2diff,f]=coherencyc(data1,data2,params);
+        
+        data1 = squeeze(trial_LFPs(upts,OBrand_pairs{ob}(:,1),cc));
+        data2 = squeeze(trial_LFPs(upts,OBrand_pairs{ob}(:,2),cc));
+        bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+        data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+        [Crand(ob,cc,:),~,S12rand,S1rand(ob,cc,:),S2rand,f]=coherencyc(data1,data2,params);
+        
+%         data1 = squeeze(trial_LFPs(upts,OBrand_pairs_up{ob}(:,1),cc));
+%         data2 = squeeze(trial_LFPs(upts,OBrand_pairs_up{ob}(:,2),cc));
+%         bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+%         data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+%         [Crand_up(ob,cc,:),~,S12rand,S1rand_up(ob,cc,:),S2rand,f]=coherencyc(data1,data2,params);
+% 
+%             data1 = squeeze(trial_LFPs(upts,OBrand_pairs_dn{ob}(:,1),cc));
+%         data2 = squeeze(trial_LFPs(upts,OBrand_pairs_dn{ob}(:,2),cc));
+%         bad_trials = find(any(isnan(data1),1) | any(isnan(data2),1));
+%         data1(:,bad_trials) = []; data2(:,bad_trials) = [];
+%         [Crand_down(ob,cc,:),~,S12rand,S1rand_down(ob,cc,:),S2rand,f]=coherencyc(data1,data2,params);
+end
+end
+Csame = squeeze(Csame);
+Cdiff = squeeze(Cdiff);
+Crand = squeeze(Crand);
+
+%%
+avg_Csame = squeeze(nanmean(Csame,2));
+avg_Cdiff = squeeze(nanmean(Cdiff,2));
+avg_Crand = squeeze(nanmean(Crand,2));
+sem_Csame = squeeze(nanstd(Csame,[],2))/sqrt(length(uprobes));
+sem_Cdiff = squeeze(nanstd(Cdiff,[],2))/sqrt(length(uprobes));
+sem_Crand = squeeze(nanstd(Crand,[],2))/sqrt(length(uprobes));
+% avg_Crand_up = squeeze(nanmean(Crand_up,2));
+% avg_Crand_down = squeeze(nanmean(Crand_down,2));
+close all
+for ob = 1:length(poss_OB)
+%     plot(f,avg_Csame(ob,:));
+%     hold on
+%     plot(f,avg_Cdiff(ob,:),'r');
+%     plot(f,avg_Crand(ob,:),'k'); 
+%     plot(f,avg_Crand_up(ob,:),'g'); 
+%     plot(f,avg_Crand_down(ob,:),'c'); 
+    shadedErrorBar(f,avg_Csame(ob,:),sem_Csame(ob,:),{'color','b'});
     hold on
-    plot(f,Csame(cc,:),f,Csameerr,'b--')
-    plot(f,Cdiff(cc,:),'r',f,Cdifferr,'r--')
+    shadedErrorBar(f,avg_Cdiff(ob,:),sem_Cdiff(ob,:),{'color','r'});
+    shadedErrorBar(f,avg_Crand(ob,:),sem_Crand(ob,:),{'color','k'});
+    xlim([0 150]); ylim([0 0.5])
+    pause
+    clf
+end
+
+%%
+avg_S1same = squeeze(nanmean(log10(abs(S1same)),2));
+avg_S1diff = squeeze(nanmean(log10(abs(S1diff)),2));
+avg_S1rand = squeeze(nanmean(log10(abs(S1rand)),2));
+avg_S1rand_up = squeeze(nanmean(log10(abs(S1rand_up)),2));
+avg_S1rand_dn = squeeze(nanmean(log10(abs(S1rand_down)),2));
+sem_S1rand_up = squeeze(nanstd(log10(abs(S1rand_up)),[],2))/sqrt(length(uprobes));
+sem_S1rand_dn = squeeze(nanstd(log10(abs(S1rand_down)),[],2))/sqrt(length(uprobes));
+close all
+for ob = 1:length(poss_OB)
+%     plot(f,avg_S1same(ob,:));
+    hold on
+%     plot(f,avg_S1diff(ob,:),'r');
+%     plot(f,avg_S1rand(ob,:),'k'); 
+%      plot(f,avg_S1rand_up(ob,:),'g'); 
+%       plot(f,avg_S1rand_dn(ob,:),'k'); 
+     shadedErrorBar(f,avg_S1rand_up(ob,:),sem_S1rand_up(ob,:),{'color','r'}); 
+     shadedErrorBar(f,avg_S1rand_dn(ob,:),sem_S1rand_dn(ob,:),{'color','k'}); 
+  xlim([0 150]); ylim([-5.5 -1.5])
+    pause
+    clf
+end

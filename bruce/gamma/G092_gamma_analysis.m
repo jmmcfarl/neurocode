@@ -37,6 +37,7 @@ all_trial_nph = [];
 all_trial_jv = [];
 all_trial_st = [];
 all_trial_sl = [];
+all_trial_se = [];
 all_trial_opt = [];
 all_trial_tf = [];
 for ee = 1:length(cur_expt_set);
@@ -55,6 +56,7 @@ for ee = 1:length(cur_expt_set);
     trial_sl = [Expts{cur_expt}.Trials(:).sl];
     trial_nph = [Expts{cur_expt}.Trials(:).nph];
     trial_tf = [Expts{cur_expt}.Trials(:).tf];
+    trial_se = [Expts{cur_expt}.Trials(:).se];
     
     [un_ids,id_inds] = unique(trial_ids);
     use_trials = id_inds(trial_durs(id_inds) >= min_trial_dur);
@@ -68,6 +70,7 @@ for ee = 1:length(cur_expt_set);
     trial_nph = trial_nph(use_trials);
     trial_st = trial_st(use_trials);
     trial_sl = trial_sl(use_trials);
+    trial_se = trial_se(use_trials);
     
     
     all_trial_start_times = cat(1,all_trial_start_times,trial_start_times');
@@ -78,6 +81,7 @@ for ee = 1:length(cur_expt_set);
     all_trial_jv = cat(1,all_trial_jv,trial_jv');
     all_trial_st = cat(1,all_trial_st,trial_st');
     all_trial_sl = cat(1,all_trial_sl,trial_sl');
+    all_trial_se = cat(1,all_trial_se,trial_se');
     all_trial_opt = cat(1,all_trial_opt,trial_opt');
     
     all_trial_exptvec = cat(1,all_trial_exptvec,ee*ones(length(use_trials),1));
@@ -278,18 +282,18 @@ for cc = 1:length(C)
 %     plot(f,squeeze(mean(log(S_cond(:,1,:)))),'k','linewidth',2);hold on
 %     plot(f,squeeze(mean(log(S_cond(:,cc,:)))),'r')
 
-subplot(2,1,1)
+% subplot(2,1,1)
     pcolor(lags(1:windur)/Fsd,wfreqs,squeeze(avg_trig_spec_win(:,cc,:))');shading flat
 %     caxis([-1 1])
 caxis([0.5 1.7])
 xlim([0 windur/Fsd]);
 xlabel('Time (s)'); ylabel('Frequency (Hz)');
-    subplot(2,1,2)
-shadedErrorBar(lags(1:windur)/Fsd,avg_trig_sig_win(:,cc),sem_trig_sig_win(:,cc));
-xlim([0 windur/Fsd]);
-xlabel('Time (s)'); ylabel('Amplitude (V)');
-xl = xlim();
-line(xl,[0 0],'color','k','linestyle','--');
+%     subplot(2,1,2)
+% shadedErrorBar(lags(1:windur)/Fsd,avg_trig_sig_win(:,cc),sem_trig_sig_win(:,cc));
+% xlim([0 windur/Fsd]);
+% xlabel('Time (s)'); ylabel('Amplitude (V)');
+% xl = xlim();
+% line(xl,[0 0],'color','k','linestyle','--');
 
 % %     pcolor(lags/Fsd,wfreqs,squeeze(avg_trig_spec_cond(cc,:,:))');shading flat
 % %     caxis([-1 1])

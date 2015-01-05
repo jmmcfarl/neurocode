@@ -3,7 +3,7 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-Expt_name = 'M230';
+Expt_name = 'M239';
 
 if strcmp(Expt_name,'M239')
     load('M239/lemM239.image.ORBW.LFP.mat')
@@ -258,8 +258,10 @@ scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
 wfreqs = scal2frq(scales,wavetype,1/LFP_Fsd);
 
 % beg_buffer = round(0.15/dt);
-beg_buffer = round(0/dt);
-R_trial_taxis = (beg_buffer:(NT-1))*dt + dt/2;
+beg_buffer = round(-0.2/dt);
+end_buffer = round(-0.2/dt);
+trial_dur = round(2/dt);
+R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
 TLEN = length(R_trial_taxis);
 
 nprobes = 24;
@@ -268,6 +270,7 @@ all_spk_id = [];
 all_spk_phases = nan(sum(tot_spks_per_trial(:)),length(wfreqs),length(uprobes));
 trial_LFP_phases = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
 trial_LFP_amps = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
+trial_LFP_cwt = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
 trial_LFPs = nan(Ntrials,TLEN,length(uprobes));
 for tr = 1:Ntrials
     fprintf('Trial %d of %d\n',tr,Ntrials);
@@ -288,17 +291,21 @@ for tr = 1:Ntrials
     cur_phasegram(bad_LFPs,:,:) = nan;
     cur_ampgram(bad_LFPs,:,:) = nan;
     cur_LFPs(bad_LFPs,:) = nan;
+    cur_cwt(bad_LFPs,:,:) = nan;
     
     trial_LFP_phases(tr,:,:,:) = mod(interp1(LFP_trial_taxis_ds,cur_phasegram,R_trial_taxis),2*pi)-pi;
     trial_LFP_amps(tr,:,:,:) = interp1(LFP_trial_taxis_ds,cur_ampgram,R_trial_taxis);
+    trial_LFP_cwt(tr,:,:,:) = interp1(LFP_trial_taxis_ds,cur_cwt,R_trial_taxis);
     trial_LFPs(tr,:,:) = interp1(LFP_trial_taxis_ds,cur_LFPs,R_trial_taxis);
 end
 trial_LFP_phases = permute(trial_LFP_phases,[2 1 3 4]);
 trial_LFP_amps = permute(trial_LFP_amps,[2 1 3 4]);
+trial_LFP_cwt = permute(trial_LFP_cwt,[2 1 3 4]);
 trial_LFPs = permute(trial_LFPs,[2 1 3]);
 
 trial_LFP_phases = reshape(trial_LFP_phases,[],length(wfreqs)*length(uprobes));
 trial_LFP_amps = reshape(trial_LFP_amps,[],length(wfreqs)*length(uprobes));
+trial_LFP_cwt = reshape(trial_LFP_cwt,[],length(wfreqs)*length(uprobes));
 trial_LFPs = reshape(trial_LFPs,[],length(uprobes));
 
 trial_LFP_amps = nanzscore(trial_LFP_amps);
@@ -308,7 +315,9 @@ LFP_tbt = reshape(trial_LFP_amps(:,end),[TLEN Ntrials]);
 
 %%
 tbt_LFP_amp = reshape(trial_LFP_amps,[TLEN Ntrials length(wfreqs) length(uprobes)]);
+tbt_LFP_phases = reshape(trial_LFP_phases,[TLEN Ntrials length(wfreqs) length(uprobes)]);
 tbt_LFPs = reshape(trial_LFPs,[TLEN Ntrials length(uprobes)]);
+tbt_LFP_cwt = reshape(trial_LFP_cwt,[TLEN Ntrials length(wfreqs) length(uprobes)]);
 
 %%
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
@@ -319,6 +328,20 @@ resp_down = trialrespDir(test_trials) == -1;
 up_LFP_amp = squeeze(nanmean(tbt_LFP_amp(:,test_trials(resp_up),:,:),2));
 down_LFP_amp = squeeze(nanmean(tbt_LFP_amp(:,test_trials(resp_down),:,:),2));
 choice_LFP_ampdiff = up_LFP_amp - down_LFP_amp;
+
+cur_phase = permute(tbt_LFP_phases(:,test_trials(resp_up),:,:),[2 1 3 4]);
+bad_trials = find(any(isnan(cur_phase(:,:,1,1)),2));
+cur_phase(bad_trials,:,:,:) = [];
+up_LFP_r = squeeze(circ_r(cur_phase));
+% up_LFP_r = squeeze(circ_mean(cur_phase));
+
+cur_phase = permute(tbt_LFP_phases(:,test_trials(resp_down),:,:),[2 1 3 4]);
+bad_trials = find(any(isnan(cur_phase(:,:,1,1)),2));
+cur_phase(bad_trials,:,:,:) = [];
+% down_LFP_r(162:end,:,:,:) = [];
+down_LFP_r = squeeze(circ_r(cur_phase));
+% down_LFP_r = squeeze(circ_mean(cur_phase));
+choice_LFP_rdiff = up_LFP_r - down_LFP_r;
 
 sresp_up = trialrespDir(train_trials) == 1;
 sresp_down = trialrespDir(train_trials) == -1;
@@ -417,21 +440,44 @@ trial_pow_choice_diff = nanmean(tot_trial_powX(resp_up,:)) - nanmean(tot_trial_p
 % end
 
 %%
-LFPmod_choice_prob = nan(Nunits,length(wfreqs));
+beg_buff = 0.5; end_buff = 0.5;
+utimes = find(R_trial_taxis > beg_buff & 2 - R_trial_taxis > end_buff);
+tot_trial_pow = squeeze(nanmean(tbt_LFP_amp(utimes,:,:,:)));
+
+tot_trial_powX = reshape(tot_trial_pow(train_trials,:,:),length(train_trials),[]);
+tot_trial_powX = bsxfun(@minus,tot_trial_powX,nanmean(tot_trial_powX));
+tot_trial_powX = bsxfun(@rdivide,tot_trial_powX,nanstd(tot_trial_powX));
+all_powX_tr = reshape(tot_trial_powX,length(train_trials),length(wfreqs),[]);
+
+tot_trial_powX = reshape(tot_trial_pow(test_trials,:,:),length(test_trials),[]);
+tot_trial_powX = bsxfun(@minus,tot_trial_powX,nanmean(tot_trial_powX));
+tot_trial_powX = bsxfun(@rdivide,tot_trial_powX,nanstd(tot_trial_powX));
 all_powX = reshape(tot_trial_powX,length(test_trials),length(wfreqs),[]);
-% tot_spkY = tot_spks_per_trial_norm(test_trials,:);
+
 tot_spkY = squeeze(nansum(fullRobs(utimes,test_trials,:)));
+tot_spkY_tr = squeeze(nansum(fullRobs(utimes,train_trials,:)));
+
+% ch = 4;
+
+LFPmod_choice_prob = nan(Nunits,length(wfreqs));
+% tot_spkY = tot_spks_per_trial_norm(test_trials,:);
 for ww = 1:length(wfreqs)
 ww
+% LFP_ampX = reshape(all_powX(:,ww,ch),[],1);
 LFP_ampX = reshape(all_powX(:,ww,:),[],length(uprobes));
+LFP_ampX_tr = reshape(all_powX_tr(:,ww,:),[],length(uprobes));
 % LFP_ampX = reshape(tbt_LFP_amp(utimes,test_trials,ww,ch),[],1);
 clear B 
 pred_rate = nan(length(test_trials),Nunits);
 for cc = 1:Nunits
+    cur_Y = squeeze(tot_spkY_tr(:,cc));
+    cur_uset = find(~isnan(cur_Y));
+    B(cc,:) = glmfit(LFP_ampX_tr(cur_uset,:),cur_Y(cur_uset),'poisson');
+%     cur_Y = squeeze(tot_spkY(:,cc));
+%     cur_uset = find(~isnan(cur_Y));
+%     B(cc,:) = glmfit(LFP_ampX(cur_uset,:),cur_Y(cur_uset),'poisson');
     cur_Y = squeeze(tot_spkY(:,cc));
     cur_uset = find(~isnan(cur_Y));
-    B(cc,:) = glmfit(LFP_ampX(cur_uset,:),cur_Y(cur_uset),'poisson');
-%     B(cc,:) = glmfit(LFP_ampX(cur_uset,:),cur_Y(cur_uset),'poisson');
     pred_rate(cur_uset,cc) = glmval(B(cc,:)',LFP_ampX(cur_uset,:),'log');
 end
 tbt_LFP_sumrate = reshape(pred_rate,[length(test_trials) Nunits]);
@@ -460,3 +506,125 @@ for cc = 1:Nunits
     LFPmod_choice_prob(cc,ww) = trapz(false_pos,true_pos);
 end
 end
+
+
+%%
+poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
+un_stim_seeds = unique(trialSe(poss_trials));
+for cc = 1:8;
+cc
+all_cwt_same = zeros(length(R_trial_taxis),length(wfreqs));
+all_cwt_diff = all_cwt_same;
+all_same_cnt = all_cwt_same;
+all_diff_cnt = all_cwt_same;
+all_Acwt_same = zeros(length(R_trial_taxis),length(wfreqs));
+all_Acwt_diff = all_Acwt_same;
+for ss = 1:length(un_stim_seeds)
+    cur_trials = poss_trials(trialSe(poss_trials) == un_stim_seeds(ss));
+    if length(cur_trials) >= 2
+        cur_resp = trialrespDir(cur_trials);
+        [II,JJ] = meshgrid(1:length(cur_trials));
+        cur_Y = squeeze(tbt_LFP_cwt(:,cur_trials,:,cc));
+        
+        cur_Dmat = abs(squareform(pdist(cur_resp')));
+        cur_Dmat(JJ == II) = nan;
+        
+        uset = find(cur_Dmat == 0);
+        temp = cur_Y(:,II(uset),:).*cur_Y(:,JJ(uset),:);
+        tempm = squeeze(nanmean(temp,2));
+        all_cwt_same(~isnan(tempm)) = all_cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
+         tempm = squeeze(nanmean(temp,2));
+        all_Acwt_same(~isnan(tempm)) = all_Acwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        all_same_cnt = all_same_cnt + squeeze(sum(~isnan(temp),2));
+        
+%         uset = find(cur_Dmat ~= 0);
+        uset = find(~isnan(cur_Dmat));
+        temp = cur_Y(:,II(uset),:).*cur_Y(:,JJ(uset),:);
+        tempm = squeeze(nanmean(temp,2));
+        all_cwt_diff(~isnan(tempm)) = all_cwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
+        temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
+        tempm = squeeze(nanmean(temp,2));
+        all_Acwt_diff(~isnan(tempm)) = all_Acwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
+        all_diff_cnt = all_diff_cnt + squeeze(sum(~isnan(temp),2));
+    end
+    
+end
+
+all_cwt_same = abs(all_cwt_same)./all_same_cnt;
+all_cwt_diff = abs(all_cwt_diff)./all_diff_cnt;
+all_Acwt_same = all_Acwt_same./all_same_cnt;
+all_Acwt_diff = all_Acwt_diff./all_diff_cnt;
+
+% all_cwt_choice = all_cwt_same - all_cwt_diff;
+% norm_fac = squeeze(nanvar(abs(tbt_LFP_cwt(:,poss_trials,:,cc)),[],2));
+% all_cwt_corr = all_cwt_choice./norm_fac;
+all_cwt_same_norm = all_cwt_same./all_Acwt_same;
+all_cwt_choice = abs(all_cwt_same) - abs(all_cwt_diff);
+all_cwt_choice_norm(cc,:,:) = all_cwt_choice./(0.5*all_Acwt_same + 0.5*all_Acwt_diff);
+end
+
+%%
+poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
+un_stim_seeds = unique(trialSe(poss_trials));
+for cc = 1:8;
+    cc
+    all_cwt_same = zeros(length(R_trial_taxis),length(wfreqs));
+    all_cwt_diff = all_cwt_same;
+    all_same_cnt = all_cwt_same;
+    all_diff_cnt = all_cwt_same;
+    all_Acwt_same = zeros(length(R_trial_taxis),length(wfreqs));
+    all_Acwt_diff = all_Acwt_same;
+    cur_trials = poss_trials;
+    cur_resp = trialrespDir(cur_trials);
+    [II,JJ] = meshgrid(1:length(cur_trials));
+    cur_Y = squeeze(tbt_LFP_cwt(:,cur_trials,:,cc));
+    
+    cur_Dmat = abs(squareform(pdist(cur_resp')));
+    cur_Dmat(JJ == II) = nan;
+    
+    same_uset = find(cur_Dmat == 0);
+    
+    chunk_size = 1e3;
+    n_chunks = floor(length(same_uset)/chunk_size);
+    for ii = 1:n_chunks
+        fprintf('%d of %d\n',ii,n_chunks);
+        cur_set = (ii-1)*chunk_size + (1:chunk_size);
+        
+        temp = cur_Y(:,II(same_uset(cur_set)),:).*cur_Y(:,JJ(same_uset(cur_set)),:);
+        tempm = squeeze(nanmean(temp,2));
+        all_cwt_same(~isnan(tempm)) = all_cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        temp = abs(cur_Y(:,II(same_uset(cur_set)),:)).*abs(cur_Y(:,JJ(same_uset(cur_set)),:));
+        tempm = squeeze(nanmean(temp,2));
+        all_Acwt_same(~isnan(tempm)) = all_Acwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        all_same_cnt = all_same_cnt + squeeze(sum(~isnan(temp),2));
+    end
+    
+    rand_uset = find(~isnan(cur_Dmat));
+    n_chunks = floor(length(rand_uset)/chunk_size);
+    for ii = 1:n_chunks
+        fprintf('%d of %d\n',ii,n_chunks);
+        cur_set = (ii-1)*chunk_size + (1:chunk_size);
+        
+        temp = cur_Y(:,II(rand_uset(cur_set)),:).*cur_Y(:,JJ(rand_uset(cur_set)),:);
+        tempm = squeeze(nanmean(temp,2));
+        all_cwt_diff(~isnan(tempm)) = all_cwt_diff(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        temp = abs(cur_Y(:,II(rand_uset(cur_set)),:)).*abs(cur_Y(:,JJ(rand_uset(cur_set)),:));
+        tempm = squeeze(nanmean(temp,2));
+        all_Acwt_diff(~isnan(tempm)) = all_Acwt_diff(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        all_diff_cnt = all_diff_cnt + squeeze(sum(~isnan(temp),2));
+    end
+    
+    all_cwt_same = abs(all_cwt_same)./all_same_cnt;
+    all_cwt_diff = abs(all_cwt_diff)./all_diff_cnt;
+    all_Acwt_same = all_Acwt_same./all_same_cnt;
+    all_Acwt_diff = all_Acwt_diff./all_diff_cnt;
+    
+    % all_cwt_choice = all_cwt_same - all_cwt_diff;
+    % norm_fac = squeeze(nanvar(abs(tbt_LFP_cwt(:,poss_trials,:,cc)),[],2));
+    % all_cwt_corr = all_cwt_choice./norm_fac;
+    all_cwt_same_norm = all_cwt_same./all_Acwt_same;
+    all_cwt_choice = abs(all_cwt_same) - abs(all_cwt_diff);
+    all_cwt_choice_norm(cc,:,:) = all_cwt_choice./(0.5*all_Acwt_same + 0.5*all_Acwt_diff);
+end
+
