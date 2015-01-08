@@ -258,8 +258,8 @@ scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
 wfreqs = scal2frq(scales,wavetype,1/LFP_Fsd);
 
 % beg_buffer = round(0.15/dt);
-beg_buffer = round(-0.2/dt);
-end_buffer = round(-0.2/dt);
+beg_buffer = round(0/dt);
+end_buffer = round(0/dt);
 trial_dur = round(2/dt);
 R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
 TLEN = length(R_trial_taxis);
@@ -268,7 +268,9 @@ nprobes = 24;
 uprobes = 1:3:nprobes;
 all_spk_id = [];
 all_spk_phases = nan(sum(tot_spks_per_trial(:)),length(wfreqs),length(uprobes));
-trial_LFP_cwt = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
+% trial_LFP_cwt = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
+trial_LFP_real = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
+trial_LFP_imag = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
 trial_LFPs = nan(Ntrials,TLEN,length(uprobes));
 for tr = 1:Ntrials
     fprintf('Trial %d of %d\n',tr,Ntrials);
@@ -286,48 +288,96 @@ for tr = 1:Ntrials
     
     cur_LFPs(bad_LFPs,:) = nan;
     cur_cwt(bad_LFPs,:,:) = nan;
-    trial_LFP_cwt(tr,:,:,:) = interp1(LFP_trial_taxis_ds,cur_cwt,R_trial_taxis);
+%     trial_LFP_cwt(tr,:,:,:) = interp1(LFP_trial_taxis_ds,cur_cwt,R_trial_taxis);
+    trial_LFP_real(tr,:,:,:) = interp1(LFP_trial_taxis_ds,real(cur_cwt),R_trial_taxis);
+    trial_LFP_imag(tr,:,:,:) = interp1(LFP_trial_taxis_ds,imag(cur_cwt),R_trial_taxis);
     trial_LFPs(tr,:,:) = interp1(LFP_trial_taxis_ds,cur_LFPs,R_trial_taxis);
 end
-trial_LFP_cwt = permute(trial_LFP_cwt,[2 1 3 4]);
+% trial_LFP_cwt = permute(trial_LFP_cwt,[2 1 3 4]);
+trial_LFP_real = permute(trial_LFP_real,[2 1 3 4]);
+trial_LFP_imag = permute(trial_LFP_imag,[2 1 3 4]);
 trial_LFPs = permute(trial_LFPs,[2 1 3]);
 
-trial_LFP_cwt = reshape(trial_LFP_cwt,[],length(wfreqs)*length(uprobes));
+% trial_LFP_cwt = reshape(trial_LFP_cwt,[],length(wfreqs)*length(uprobes));
+trial_LFP_real = reshape(trial_LFP_real,[],length(wfreqs)*length(uprobes));
+trial_LFP_imag = reshape(trial_LFP_imag,[],length(wfreqs)*length(uprobes));
 trial_LFPs = reshape(trial_LFPs,[],length(uprobes));
 
 %%
 trial_LFPs = nanzscore(trial_LFPs);
-trial_LFP_cwt = bsxfun(@rdivide,trial_LFP_cwt,nanstd(abs(trial_LFP_cwt)));
+trial_LFP_mag = sqrt(trial_LFP_real.^2 + trial_LFP_imag.^2);
+
+% trial_LFP_cwt = bsxfun(@rdivide,trial_LFP_cwt,nanstd(abs(trial_LFP_cwt)));
+trial_LFP_real = bsxfun(@rdivide,trial_LFP_real,nanstd(trial_LFP_mag));
+trial_LFP_imag = bsxfun(@rdivide,trial_LFP_imag,nanstd(trial_LFP_mag));
 
 
 %%
 tbt_LFPs = reshape(trial_LFPs,[TLEN Ntrials length(uprobes)]);
-tbt_LFP_cwt = reshape(trial_LFP_cwt,[TLEN Ntrials length(wfreqs) length(uprobes)]);
+% tbt_LFP_cwt = reshape(trial_LFP_cwt,[TLEN Ntrials length(wfreqs) length(uprobes)]);
+tbt_LFP_real = reshape(trial_LFP_real,[TLEN Ntrials length(wfreqs) length(uprobes)]);
+tbt_LFP_imag = reshape(trial_LFP_imag,[TLEN Ntrials length(wfreqs) length(uprobes)]);
 
 %%
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+% test_trials = find(trialrespDir ~= 0);
 un_stim_seeds = unique(trialSe(test_trials));
 
 beg_buff = 0; %number of bins from beginning of trial to exclude
 end_buff = 0;
 
-maxlag_ED = 5;
-ED_space = 0.5;
-ED_bin_edges = 0:ED_space:maxlag_ED;
-ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
+% maxlag_ED = 4;
+% ED_space = 0.2;
+% ED_bin_edges = 0:ED_space:maxlag_ED;
+% ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
 
 %subtract off avg rates for times within this set of trials
 [RR,TT] = meshgrid(1:Ntrials,1:NT);
 istrain = (ismember(RR(:),test_trials)) & (TT(:) > beg_buff);
 fullRobs_resh = reshape(fullRobs,[],Nunits);
 fullRobs_ms = bsxfun(@minus,fullRobs,reshape(nanmean(fullRobs_resh(istrain,:)),[1 1 Nunits]));
+% fullRobs_ms = bsxfun(@minus,fullRobs,nanmean(fullRobs(:,test_trials,:),2));
 tot_var = nanvar(fullRobs_resh(istrain,:));
 fullRobs_ms = fullRobs_ms(:,test_trials,:);
 
-ww = 16;
+u_LFP_chs = [1:8];
+for ww = 1:length(wfreqs)
+ww
+u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
+% tbt_LFP_data = squeeze(tbt_LFP_cwt(u_lfp_times,test_trials,ww,:));
+LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,ww,u_LFP_chs));
+LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,ww,u_LFP_chs));
+LFP_phase = atan2(LFP_imag,LFP_real);
+LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
 
-u_lfp_times = find(R_trial_taxis > beg_buff & R_trial_taxis <= dt*(trial_dur - end_buff));
-tbt_LFP_data = squeeze(tbt_LFP_cwt(u_lfp_times,test_trials,ww,:));
+LFP_real = LFP_real./LFP_amp;
+LFP_imag = LFP_imag./LFP_amp;
+
+%compute bin edge locations for LFP metric
+all_LFP_dists = [];
+for tr = 1:length(un_stim_seeds)
+    cur_tr_set = find(trialSe(test_trials) == un_stim_seeds(tr));
+%     fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
+    [II,JJ] = meshgrid(1:length(cur_tr_set));
+    if length(cur_tr_set) >= 2
+        for tt = (beg_buff+1):(NT-end_buff)
+%             cur_LFP_state = squeeze(tbt_LFP_data(tt,cur_tr_set,:));
+%             cur_LFP_state = cat(2,real(cur_LFP_state),imag(cur_LFP_state));
+            cur_LFP_state = cat(2,squeeze(LFP_real(tt,cur_tr_set,:)),squeeze(LFP_imag(tt,cur_tr_set,:)));
+%             cur_LFP_state = squeeze(LFP_phase(tt,cur_tr_set,:));
+%             cur_LFP_state = squeeze(LFP_amp(tt,cur_tr_set,:));
+
+            cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(uprobes));
+%             cur_Dmat = abs(circ_dist2(cur_LFP_state));
+%             cur_Dmat = squareform(pdist(cur_LFP_state));
+            cur_Dmat(JJ >= II) = nan;
+            all_LFP_dists = cat(1,all_LFP_dists,cur_Dmat(~isnan(cur_Dmat)));
+        end
+    end
+end
+n_LFP_bins = 6;
+ED_bin_edges = prctile(all_LFP_dists,0:100/n_LFP_bins:100);
+ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
 
 LFP_metric_XC = zeros(length(ED_bin_centers),Nunits,Nunits);
 LFP_metric_cnt = zeros(length(ED_bin_centers),Nunits,Nunits);
@@ -336,27 +386,257 @@ rand_cnt = zeros(Nunits,Nunits);
 for tr = 1:length(un_stim_seeds)
     
     cur_tr_set = find(trialSe(test_trials) == un_stim_seeds(tr));
-    fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
+%     fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
     [II,JJ] = meshgrid(1:length(cur_tr_set));
     
+    if length(cur_tr_set) >= 2
     
-    for tt = (beg_buff+1):NT
+    for tt = (beg_buff+1):(NT-end_buff)
         cur_Robs = squeeze(fullRobs_ms(tt,cur_tr_set,:));
         cur_Robs2 = reshape(cur_Robs,[],1,Nunits);
         
-        cur_LFP_state = squeeze(tbt_LFP_data(tt,cur_tr_set,:));
-        cur_LFP_state = cat(2,real(cur_LFP_state),imag(cur_LFP_state));
-        
+%         cur_LFP_state = squeeze(tbt_LFP_data(tt,cur_tr_set,:));
+%         cur_LFP_state = cat(2,real(cur_LFP_state),imag(cur_LFP_state));
+            cur_LFP_state = cat(2,squeeze(LFP_real(tt,cur_tr_set,:)),squeeze(LFP_imag(tt,cur_tr_set,:)));
+%             cur_LFP_state = squeeze(LFP_phase(tt,cur_tr_set,:));
+%             cur_LFP_state = squeeze(LFP_amp(tt,cur_tr_set,:));
+         
         cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(uprobes));
+%             cur_Dmat = abs(circ_dist2(cur_LFP_state));
         cur_Dmat(JJ >= II) = nan;
         for jj = 1:length(ED_bin_centers)
             curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
-            LFP_metric_XC(jj,:,:) = LFP_metric_XC(jj,:,:) + nansum(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1);
+            temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
+            LFP_metric_XC(jj,:,:) = LFP_metric_XC(jj,:,:) + nansum(temp,1);
+            LFP_metric_cnt(jj,:,:) = LFP_metric_cnt(jj,:,:) + sum(~isnan(temp),1);
             %         cur_XC(tt,jj,:,:) = (nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
         end
         curset = ~isnan(cur_Dmat);
-        rand_XC = rand_XC + squeeze(nansum(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+        temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
+        rand_XC = rand_XC + squeeze(nansum(temp,1));
+        rand_cnt = rand_cnt + squeeze(sum(~isnan(temp),1));
         %     rand_XC(tt,:,:) = squeeze(nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
     end
+    end
+end
+
+LFP_metric_XC = LFP_metric_XC./LFP_metric_cnt;
+rand_XC = rand_XC./rand_cnt;
+
+normfac = sqrt(tot_var'*tot_var);
+
+LFP_expl_cov = squeeze(LFP_metric_XC(1,:,:)) - rand_XC;
+LFP_expl_corr = LFP_expl_cov./normfac;
+
+all_test(ww,:,:) = LFP_expl_corr;
+end
+%%
+close all
+for ii = 1:Nunits
+plot(squeeze(LFP_metric_XC(:,ii,ii)),'o-')
+xl = xlim();
+line(xl,rand_XC(ii,ii)+[0 0],'color','r')
+pause
+clf
+end
+
+%%
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+ut = (beg_buff+1):(NT-end_buff);
+
+resh_LFP_real = reshape(tbt_LFP_real(ut,test_trials,:,:),length(ut)*length(test_trials),length(wfreqs),length(uprobes));
+resh_LFP_imag = reshape(tbt_LFP_imag(ut,test_trials,:,:),length(ut)*length(test_trials),length(wfreqs),length(uprobes));
+resh_LFP_phase = atan2(resh_LFP_imag,resh_LFP_real);
+
+for cc = 1:Nunits;
+cur_Robs = reshape(squeeze(fullRobs(ut,test_trials,cc)),[],1);
+uset = find(~isnan(cur_Robs) & ~isnan(resh_LFP_phase(:,1,1)));
+
+cur_spk_inds = convert_to_spikebins(cur_Robs(uset));
+cur_spk_r = squeeze(circ_r(resh_LFP_phase(uset(cur_spk_inds),:,:)));
+all_spk_r(cc,:,:) = cur_spk_r;
+end
+
+%%
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+% test_trials = find(trialrespDir ~= 0);
+
+beg_buff = 0; %number of bins from beginning of trial to exclude
+end_buff = 0;
+
+u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
+LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,:,:));
+LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,:,:));
+LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
+
+LFP_real = reshape(LFP_real,[],length(uprobes)*length(wfreqs));
+LFP_imag = reshape(LFP_imag,[],length(uprobes)*length(wfreqs));
+LFP_amp = reshape(LFP_amp,[],length(uprobes)*length(wfreqs));
+
+LFP_real = bsxfun(@rdivide,LFP_real,nanstd(LFP_amp));
+LFP_imag = bsxfun(@rdivide,LFP_imag,nanstd(LFP_amp));
+
+Robs = fullRobs((1+beg_buff):(NT-end_buff),test_trials,:);
+
+for cc = 1:Nunits
+   
+    cur_Robs = reshape(Robs(:,:,cc),[],1);
+    uset = find(~isnan(cur_Robs));
+    
+    cur_spkbins = convert_to_spikebins(cur_Robs(uset));
+    
+    trig_avg_real = nanmean(LFP_real(uset(cur_spkbins),:));
+    trig_avg_imag = nanmean(LFP_imag(uset(cur_spkbins),:));
+    
+    unit_trig_avg_real(cc,:) = trig_avg_real;
+    unit_trig_avg_imag(cc,:) = trig_avg_imag;
+end
+
+
+LFP_real = reshape(LFP_real,[],length(test_trials),length(wfreqs),length(uprobes));
+LFP_imag = reshape(LFP_imag,[],length(test_trials),length(wfreqs),length(uprobes));
+
+un_stim_seeds = unique(trialSe(test_trials));
+all_LFP_ravgs = zeros(Nunits,length(wfreqs),length(uprobes));
+all_LFP_iavgs = zeros(Nunits,length(wfreqs),length(uprobes));
+all_LFP_cnts = zeros(Nunits,length(wfreqs),length(uprobes));
+for tr = 1:length(un_stim_seeds)
+    cur_tr_set = find(trialSe(test_trials) == un_stim_seeds(tr));
+    
+    if length(cur_tr_set) >= 2
+    [II,JJ] = meshgrid(1:length(cur_tr_set));
+    uset = find(II ~= JJ);
+    
+    cur_LFP_real = LFP_real(:,cur_tr_set,:,:);
+    cur_LFP_imag = LFP_imag(:,cur_tr_set,:,:);
+
+    for cc = 1:Nunits
+        cur_Robs = Robs(:,cur_tr_set,cc);
+        
+        cur_real = squeeze(nanmean(bsxfun(@times,cur_LFP_real,cur_Robs)));
+        cur_imag = squeeze(nanmean(bsxfun(@times,cur_LFP_imag,cur_Robs)));
+        all_LFP_ravgs(cc,:,:) = all_LFP_ravgs(cc,:,:) + nansum(cur_real);
+        all_LFP_iavgs(cc,:,:) = all_LFP_iavgs(cc,:,:) + nansum(cur_imag);
+        all_LFP_cnts(cc,:,:) = all_LFP_cnts(cc,:,:) + sum(~isnan(cur_real));
+    end
+    end
+end
+
+all_LFP_ravgs = all_LFP_ravgs./all_LFP_cnts;
+all_LFP_iavgs = all_LFP_iavgs./all_LFP_cnts;
+
+controlled_ravgs = reshape(unit_trig_avg_real,Nunits,length(wfreqs),length(uprobes)) - all_LFP_ravgs;
+controlled_iavgs = reshape(unit_trig_avg_imag,Nunits,length(wfreqs),length(uprobes)) - all_LFP_iavgs;
+uncontrolled_ravgs = reshape(unit_trig_avg_real,Nunits,length(wfreqs),length(uprobes));
+uncontrolled_iavgs = reshape(unit_trig_avg_imag,Nunits,length(wfreqs),length(uprobes));
+
+
+%%
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+up_trials = trialrespDir(test_trials) == 1;
+down_trials = trialrespDir(test_trials) == -1;
+
+beg_buff = 0; %number of bins from beginning of trial to exclude
+end_buff = 0;
+
+u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
+LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,:,:));
+LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,:,:));
+LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
+
+LFP_real = bsxfun(@rdivide,LFP_real,nanstd(LFP_amp));
+LFP_imag = bsxfun(@rdivide,LFP_imag,nanstd(LFP_amp));
+
+LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,up_trials,:,:),2));
+LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,down_trials,:,:),2));
+
+LFP_real_upavg = squeeze(nanmean(LFP_real(:,up_trials,:,:),2));
+LFP_real_downavg = squeeze(nanmean(LFP_real(:,down_trials,:,:),2));
+LFP_imag_upavg = squeeze(nanmean(LFP_imag(:,up_trials,:,:),2));
+LFP_imag_downavg = squeeze(nanmean(LFP_imag(:,down_trials,:,:),2));
+
+LFP_PC_up = sqrt(LFP_real_upavg.^2 + LFP_imag_upavg.^2);
+LFP_PC_down = sqrt(LFP_real_downavg.^2 + LFP_imag_downavg.^2);
+
+%%
+poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
+un_stim_seeds = unique(trialSe(poss_trials));
+
+beg_buff = 0; %number of bins from beginning of trial to exclude
+end_buff = 0;
+
+u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
+LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,:,:));
+LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,:,:));
+LFP_comp = LFP_real + sqrt(-1)*LFP_imag;
+LFP_comp = bsxfun(@minus,LFP_comp,nanmean(LFP_comp,2));
+LFP_Acomp = abs(LFP_comp);
+LFP_Acomp = bsxfun(@minus,LFP_Acomp,nanmean(LFP_Acomp,2));
+
+for cc = 1:8;
+cc
+all_cwt_same = zeros(length(u_lfp_times),length(wfreqs));
+all_cwt_diff = all_cwt_same;
+all_same_cnt = all_cwt_same;
+all_diff_cnt = all_cwt_same;
+all_Acwt_same = zeros(length(u_lfp_times),length(wfreqs));
+all_Acwt_diff = all_Acwt_same;
+all_A2cwt_same = zeros(length(u_lfp_times),length(wfreqs));
+all_A2cwt_diff = all_A2cwt_same;
+for ss = 1:length(un_stim_seeds)
+    cur_trials = find(trialSe(poss_trials) == un_stim_seeds(ss));
+    if length(cur_trials) >= 2
+        cur_resp = trialrespDir(poss_trials(cur_trials));
+        [II,JJ] = meshgrid(1:length(cur_trials));
+        cur_Y = squeeze(LFP_comp(:,cur_trials,:,cc));
+        cur_AY = squeeze(LFP_Acomp(:,cur_trials,:,cc));
+        
+        cur_Dmat = abs(squareform(pdist(cur_resp')));
+        cur_Dmat(JJ == II) = nan;
+        
+        uset = find(cur_Dmat == 0);
+        temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
+%         temp = cur_Y(:,II(uset),:).*(cur_Y(:,JJ(uset),:));
+        tempm = squeeze(nanmean(temp,2));
+        all_cwt_same(~isnan(tempm)) = all_cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
+         tempm = squeeze(nanmean(temp,2));
+        all_Acwt_same(~isnan(tempm)) = all_Acwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        temp = cur_AY(:,II(uset),:).*cur_AY(:,JJ(uset),:);
+         tempm = squeeze(nanmean(temp,2));
+        all_A2cwt_same(~isnan(tempm)) = all_A2cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+        all_same_cnt = all_same_cnt + squeeze(sum(~isnan(temp),2));
+        
+%         uset = find(cur_Dmat ~= 0);
+        uset = find(~isnan(cur_Dmat));
+        temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
+%         temp = cur_Y(:,II(uset),:).*(cur_Y(:,JJ(uset),:));
+        tempm = squeeze(nanmean(temp,2));
+        all_cwt_diff(~isnan(tempm)) = all_cwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
+        temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
+        tempm = squeeze(nanmean(temp,2));
+        all_Acwt_diff(~isnan(tempm)) = all_Acwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
+        temp = cur_AY(:,II(uset),:).*cur_AY(:,JJ(uset),:);
+        tempm = squeeze(nanmean(temp,2));
+        all_A2cwt_diff(~isnan(tempm)) = all_A2cwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
+        all_diff_cnt = all_diff_cnt + squeeze(sum(~isnan(temp),2));
+    end
+    
+end
+
+all_cwt_same = abs(all_cwt_same)./all_same_cnt;
+all_cwt_diff = abs(all_cwt_diff)./all_diff_cnt;
+all_Acwt_same = all_Acwt_same./all_same_cnt;
+all_Acwt_diff = all_Acwt_diff./all_diff_cnt;
+all_A2cwt_same = all_A2cwt_same./all_same_cnt;
+all_A2cwt_diff = all_A2cwt_diff./all_diff_cnt;
+
+% all_cwt_choice = all_cwt_same - all_cwt_diff;
+% norm_fac = squeeze(nanvar(abs(tbt_LFP_cwt(:,poss_trials,:,cc)),[],2));
+% all_cwt_corr = all_cwt_choice./norm_fac;
+all_cwt_same_norm = all_cwt_same./all_Acwt_same;
+all_cwt_choice = all_cwt_same - all_cwt_diff;
+all_cwt_choice_norm(cc,:,:) = all_cwt_choice./(0.5*all_Acwt_same + 0.5*all_Acwt_diff);
+all_A2cwt_choice(cc,:,:) = (all_A2cwt_same - all_A2cwt_diff)./(0.5*all_Acwt_same + 0.5*all_Acwt_diff);
 end
 

@@ -560,7 +560,7 @@ all_Acwt_diff = all_Acwt_diff./all_diff_cnt;
 % norm_fac = squeeze(nanvar(abs(tbt_LFP_cwt(:,poss_trials,:,cc)),[],2));
 % all_cwt_corr = all_cwt_choice./norm_fac;
 all_cwt_same_norm = all_cwt_same./all_Acwt_same;
-all_cwt_choice = abs(all_cwt_same) - abs(all_cwt_diff);
+all_cwt_choice = all_cwt_same - all_cwt_diff;
 all_cwt_choice_norm(cc,:,:) = all_cwt_choice./(0.5*all_Acwt_same + 0.5*all_Acwt_diff);
 end
 

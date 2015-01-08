@@ -373,7 +373,7 @@ for ob = 1:length(poss_OB)
     hold on
     shadedErrorBar(f,avg_Cdiff(ob,:),sem_Cdiff(ob,:),{'color','r'});
     shadedErrorBar(f,avg_Crand(ob,:),sem_Crand(ob,:),{'color','k'});
-    xlim([0 150]); ylim([0 0.5])
+    xlim([0 70]); ylim([0 0.5])
     pause
     clf
 end
