@@ -45,7 +45,7 @@ n_blocks = size(block_trial_boundaries,1);
 %% Assemble stim, Robs, LFP into trial structure
 Ntrials = length(AllExpt.Expt.Trials);
 LFP_Fs = 1.0 / AllExpt.Expt.Header.LFPsamplerate;  % this is 1 kHz
-dt = 0.01;  % assuming 10 ms frame time exactly
+dt = 0.005;  % assuming 10 ms frame time exactly
 trialDur = 2; %in sec.
 Nframes = 200; %number of video frames (@100Hz) per trial
 NT = ceil(trialDur/dt); %number of time bins per trial
@@ -247,8 +247,8 @@ aa_lcf = 0.5;
 LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
 
 %wavelet parameters
-nwfreqs = 20;
-min_freq = 1.; max_freq = 50;
+nwfreqs = 25;
+min_freq = 1.; max_freq = 100;
 % nwfreqs = 5;
 % min_freq = 1; max_freq = 6;
 min_scale = 1/max_freq*LFP_Fsd;
@@ -265,7 +265,7 @@ R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
 TLEN = length(R_trial_taxis);
 
 nprobes = 24;
-uprobes = 1:3:nprobes;
+uprobes = 1:2:nprobes;
 all_spk_id = [];
 all_spk_phases = nan(sum(tot_spks_per_trial(:)),length(wfreqs),length(uprobes));
 % trial_LFP_cwt = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
@@ -469,9 +469,13 @@ LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,:,:));
 LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,:,:));
 LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
 
+LFP_real = bsxfun(@minus,LFP_real,nanmean(LFP_real,2));
+LFP_imag = bsxfun(@minus,LFP_imag,nanmean(LFP_imag,2));
+LFP_amp = bsxfun(@minus,LFP_amp,nanmean(LFP_amp,2));
+
+LFP_amp = reshape(LFP_amp,[],length(uprobes)*length(wfreqs));
 LFP_real = reshape(LFP_real,[],length(uprobes)*length(wfreqs));
 LFP_imag = reshape(LFP_imag,[],length(uprobes)*length(wfreqs));
-LFP_amp = reshape(LFP_amp,[],length(uprobes)*length(wfreqs));
 
 LFP_real = bsxfun(@rdivide,LFP_real,nanstd(LFP_amp));
 LFP_imag = bsxfun(@rdivide,LFP_imag,nanstd(LFP_amp));
@@ -487,16 +491,20 @@ for cc = 1:Nunits
     
     trig_avg_real = nanmean(LFP_real(uset(cur_spkbins),:));
     trig_avg_imag = nanmean(LFP_imag(uset(cur_spkbins),:));
+    trig_avg_amp = nanmean(LFP_amp(uset(cur_spkbins),:));
     
     unit_trig_avg_real(cc,:) = trig_avg_real;
     unit_trig_avg_imag(cc,:) = trig_avg_imag;
+    unit_trig_avg_amp(cc,:) = trig_avg_amp;
 end
 
 
 LFP_real = reshape(LFP_real,[],length(test_trials),length(wfreqs),length(uprobes));
 LFP_imag = reshape(LFP_imag,[],length(test_trials),length(wfreqs),length(uprobes));
+LFP_amp = reshape(LFP_amp,[],length(test_trials),length(wfreqs),length(uprobes));
 
 un_stim_seeds = unique(trialSe(test_trials));
+all_LFP_Aavgs = zeros(Nunits,length(wfreqs),length(uprobes));
 all_LFP_ravgs = zeros(Nunits,length(wfreqs),length(uprobes));
 all_LFP_iavgs = zeros(Nunits,length(wfreqs),length(uprobes));
 all_LFP_cnts = zeros(Nunits,length(wfreqs),length(uprobes));
@@ -509,14 +517,17 @@ for tr = 1:length(un_stim_seeds)
     
     cur_LFP_real = LFP_real(:,cur_tr_set,:,:);
     cur_LFP_imag = LFP_imag(:,cur_tr_set,:,:);
+    cur_LFP_amp = LFP_amp(:,cur_tr_set,:,:);
 
     for cc = 1:Nunits
         cur_Robs = Robs(:,cur_tr_set,cc);
         
         cur_real = squeeze(nanmean(bsxfun(@times,cur_LFP_real,cur_Robs)));
         cur_imag = squeeze(nanmean(bsxfun(@times,cur_LFP_imag,cur_Robs)));
+        cur_amp = squeeze(nanmean(bsxfun(@times,cur_LFP_amp,cur_Robs)));
         all_LFP_ravgs(cc,:,:) = all_LFP_ravgs(cc,:,:) + nansum(cur_real);
         all_LFP_iavgs(cc,:,:) = all_LFP_iavgs(cc,:,:) + nansum(cur_imag);
+        all_LFP_Aavgs(cc,:,:) = all_LFP_Aavgs(cc,:,:) + nansum(cur_amp);
         all_LFP_cnts(cc,:,:) = all_LFP_cnts(cc,:,:) + sum(~isnan(cur_real));
     end
     end
@@ -524,12 +535,16 @@ end
 
 all_LFP_ravgs = all_LFP_ravgs./all_LFP_cnts;
 all_LFP_iavgs = all_LFP_iavgs./all_LFP_cnts;
+all_LFP_Aavgs = all_LFP_Aavgs./all_LFP_cnts;
 
 controlled_ravgs = reshape(unit_trig_avg_real,Nunits,length(wfreqs),length(uprobes)) - all_LFP_ravgs;
 controlled_iavgs = reshape(unit_trig_avg_imag,Nunits,length(wfreqs),length(uprobes)) - all_LFP_iavgs;
+controlled_Aavgs = reshape(unit_trig_avg_amp,Nunits,length(wfreqs),length(uprobes)) - all_LFP_Aavgs;
 uncontrolled_ravgs = reshape(unit_trig_avg_real,Nunits,length(wfreqs),length(uprobes));
 uncontrolled_iavgs = reshape(unit_trig_avg_imag,Nunits,length(wfreqs),length(uprobes));
+uncontrolled_Aavgs = reshape(unit_trig_avg_amp,Nunits,length(wfreqs),length(uprobes));
 
+%%
 
 %%
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
@@ -558,6 +573,53 @@ LFP_imag_downavg = squeeze(nanmean(LFP_imag(:,down_trials,:,:),2));
 LFP_PC_up = sqrt(LFP_real_upavg.^2 + LFP_imag_upavg.^2);
 LFP_PC_down = sqrt(LFP_real_downavg.^2 + LFP_imag_downavg.^2);
 
+%%
+uu = find(R_trial_taxis(u_lfp_times) > 0.4);
+
+mean_LFP_amp = squeeze(nanmean(LFP_amp,4));
+mean_trial_pow = squeeze(nanmean(mean_LFP_amp(uu,:,:)));
+
+trial_pow = squeeze(nanmean(LFP_amp(uu,:,:,:)));
+
+resp_up = find(trialrespDir(test_trials) == 1);
+resp_down = find(trialrespDir(test_trials) == -1);
+for cc = 1:length(uprobes)
+    for ww = 1:length(wfreqs)
+        cur_resp_ax = prctile(trial_pow(:,ww,cc),[0:5:100]);
+        up_hist = histc(trial_pow(resp_up,ww,cc),cur_resp_ax);
+        down_hist = histc(trial_pow(resp_down,ww,cc),cur_resp_ax);
+        true_pos = cumsum(up_hist)/sum(~isnan(trial_pow(resp_up,ww,cc)));
+        false_pos = cumsum(down_hist)/sum(~isnan(trial_pow(resp_down,ww,cc)));
+        all_LFPpow_CP(ww,cc) = trapz(false_pos,true_pos);
+    end
+end
+
+resp_up = find(trialrespDir(test_trials) == 1);
+resp_down = find(trialrespDir(test_trials) == -1);
+for ww = 1:length(wfreqs)
+    cur_resp_ax = prctile(mean_trial_pow(:,ww),[0:5:100]);
+    up_hist = histc(mean_trial_pow(resp_up,ww),cur_resp_ax);
+    down_hist = histc(mean_trial_pow(resp_down,ww),cur_resp_ax);
+    true_pos = cumsum(up_hist)/sum(~isnan(mean_trial_pow(resp_up,ww)));
+    false_pos = cumsum(down_hist)/sum(~isnan(mean_trial_pow(resp_down,ww)));
+    LFPpow_CP(ww) = trapz(false_pos,true_pos);
+end
+
+n_boot_samps = 1e3;
+for bb = 1:n_boot_samps
+    fprintf('Bott %d of %d\n',bb,n_boot_samps);
+randrespdir = round(rand(length(test_trials),1));
+resp_up = find(randrespdir == 1);
+resp_down = find(randrespdir == 0);
+for ww = 1:length(wfreqs)
+    cur_resp_ax = prctile(mean_trial_pow(:,ww),[0:5:100]);
+    up_hist = histc(mean_trial_pow(resp_up,ww),cur_resp_ax);
+    down_hist = histc(mean_trial_pow(resp_down,ww),cur_resp_ax);
+    true_pos = cumsum(up_hist)/sum(~isnan(mean_trial_pow(resp_up,ww)));
+    false_pos = cumsum(down_hist)/sum(~isnan(mean_trial_pow(resp_down,ww)));
+    rand_LFPpow_CP(ww,bb) = trapz(false_pos,true_pos);
+end
+end
 %%
 poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
 un_stim_seeds = unique(trialSe(poss_trials));
