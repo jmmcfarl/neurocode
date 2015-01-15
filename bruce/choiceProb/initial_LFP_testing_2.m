@@ -547,24 +547,24 @@ for tr = 1:length(un_stim_seeds)
     cur_tr_set = find(trialSe(test_trials) == un_stim_seeds(tr));
     
     if length(cur_tr_set) >= 2
-    [II,JJ] = meshgrid(1:length(cur_tr_set));
-    uset = find(II ~= JJ);
-    
-    cur_LFP_real = LFP_real(:,cur_tr_set,:,:);
-    cur_LFP_imag = LFP_imag(:,cur_tr_set,:,:);
-    cur_LFP_amp = LFP_amp(:,cur_tr_set,:,:);
-
-    for cc = 1:Nunits
-        cur_Robs = Robs(:,cur_tr_set,cc);
+        [II,JJ] = meshgrid(1:length(cur_tr_set));
+        uset = find(II ~= JJ);
         
-        cur_real = squeeze(nanmean(bsxfun(@times,cur_LFP_real,cur_Robs)));
-        cur_imag = squeeze(nanmean(bsxfun(@times,cur_LFP_imag,cur_Robs)));
-        cur_amp = squeeze(nanmean(bsxfun(@times,cur_LFP_amp,cur_Robs)));
-        all_LFP_ravgs(cc,:,:) = all_LFP_ravgs(cc,:,:) + nansum(cur_real);
-        all_LFP_iavgs(cc,:,:) = all_LFP_iavgs(cc,:,:) + nansum(cur_imag);
-        all_LFP_Aavgs(cc,:,:) = all_LFP_Aavgs(cc,:,:) + nansum(cur_amp);
-        all_LFP_cnts(cc,:,:) = all_LFP_cnts(cc,:,:) + sum(~isnan(cur_real));
-    end
+        cur_LFP_real = LFP_real(:,cur_tr_set,:,:);
+        cur_LFP_imag = LFP_imag(:,cur_tr_set,:,:);
+        cur_LFP_amp = LFP_amp(:,cur_tr_set,:,:);
+        
+        for cc = 1:Nunits
+            cur_Robs = Robs(:,cur_tr_set,cc);
+            
+            cur_real = squeeze(nanmean(bsxfun(@times,cur_LFP_real(:,II(uset),:,:),cur_Robs(:,JJ(uset)))));
+            cur_imag = squeeze(nanmean(bsxfun(@times,cur_LFP_imag(:,II(uset),:,:),cur_Robs(:,JJ(uset)))));
+            cur_amp = squeeze(nanmean(bsxfun(@times,cur_LFP_amp(:,II(uset),:,:),cur_Robs(:,JJ(uset)))));
+            all_LFP_ravgs(cc,:,:) = all_LFP_ravgs(cc,:,:) + nansum(cur_real);
+            all_LFP_iavgs(cc,:,:) = all_LFP_iavgs(cc,:,:) + nansum(cur_imag);
+            all_LFP_Aavgs(cc,:,:) = all_LFP_Aavgs(cc,:,:) + nansum(cur_amp);
+            all_LFP_cnts(cc,:,:) = all_LFP_cnts(cc,:,:) + sum(~isnan(cur_real));
+        end
     end
 end
 
@@ -659,42 +659,47 @@ end
 LFPpow_CI = prctile(rand_LFPpow_CP',[5 95]);
 
 %%
+fig_dir = '/home/james/Desktop/CPfigs/';
+close all
+fig_width = 4;
+rel_height = 0.8;
+
+wfreqs_ls = linspace(min(wfreqs),max(wfreqs),1000);
+all_LFPpow_CP_ls = interp1(fliplr(wfreqs),flipud(all_LFPpow_CP),wfreqs_ls);
+
 f1 = figure();
-pcolor(wfreqs,1:24,1-all_LFPpow_CP'); shading flat
+% imagesc(wfreqs_ls,1:24,1-all_LFPpow_CP_ls');
+% imagesc(wfreqs,1:24,1-all_LFPpow_CP');
+pcolor(wfreqs,1:24,1-all_LFPpow_CP');shading interp
 xlim([1.2 100]);
-set(gca,'xscale','log');
 colorbar
+% set(gca,'xticklabel',fliplr(wfreqs));
 caxis([0.35 0.65]);
 xlabel('Frequency (Hz)');
 ylabel('Depth');
+set(gca,'xscale','log');
 figufy(f1);
+fname = [fig_dir sprintf('LFPpow_CP_%s.pdf',Expt_name)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 
 ucells = find(totSpkCnts > 1e4);
+avg_controlled = squeeze(nanmean(controlled_Aavgs(ucells,:,:)));
+
 f2 = figure();
-% for cc = 1:35
-cc = 34
-% f2 = figure();
-subplot(2,1,1)
-% temp = squeeze(nanmean(controlled_Aavgs(ucells,:,:)));
-temp = squeeze((controlled_Aavgs(cc,:,:)));
-pcolor(wfreqs,1:24,temp');shading flat
+% imagescnan(wfreqs,1:24,avg_controlled');shading flat
+pcolor(wfreqs,1:24,avg_controlled');shading interp
 xlim([1.2 100]);
-caxis([-0.001 0.001])
+caxis([-0.005 0.005])
 set(gca,'xscale','log');
 colorbar
+xlabel('Frequency (Hz)');
+ylabel('Depth');
+figufy(f2);
+fname = [fig_dir 'Gsac_GRIM_rates.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
 
-subplot(2,1,2)
-% temp = squeeze(nanmean(uncontrolled_Aavgs(ucells,:,:)));
-temp = squeeze((uncontrolled_Aavgs(cc,:,:)));
-pcolor(wfreqs,1:24,temp');shading flat
-xlim([1.2 100]);
-caxis([-0.0075 0.0075])
-set(gca,'xscale','log');
-colorbar
-
-% pause
-% clf
-% end
 %%
 poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
 un_stim_seeds = unique(trialSe(poss_trials));
