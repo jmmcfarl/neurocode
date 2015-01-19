@@ -247,7 +247,7 @@ aa_lcf = 0.5;
 LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
 
 nprobes = 24;
-uprobes = 1:1:nprobes;
+uprobes = 1:2:nprobes;
 
 %wavelet parameters
 nwfreqs = 30;
@@ -458,7 +458,7 @@ tbt_LFP_imag = reshape(trial_LFP_imag,[TLEN Ntrials length(wfreqs) length(uprobe
 % all_spk_r(cc,:,:) = cur_spk_r;
 % end
 
-%%
+%% compute power-based spike-lfp coupling directly (simultaneous trials)
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
 
 beg_buff = 0; %number of bins from beginning of trial to exclude
@@ -486,7 +486,7 @@ for cc = 1:Nunits
     unit_tot_avg_amp(cc,:,:) = trig_avg_amp;
 end
 
-%%
+%% COMPUTE SPIKE-LFP COUPLING WITH AND WITHOUT CONTROLLING FOR STIM_DEPENDENCE
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
 % test_trials = find(trialrespDir ~= 0);
 
@@ -580,36 +580,155 @@ uncontrolled_iavgs = reshape(unit_trig_avg_imag,Nunits,length(wfreqs),length(upr
 uncontrolled_Aavgs = reshape(unit_trig_avg_amp,Nunits,length(wfreqs),length(uprobes));
 
 %%
-
-%%
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
-up_trials = trialrespDir(test_trials) == 1;
-down_trials = trialrespDir(test_trials) == -1;
 
-beg_buff = 0; %number of bins from beginning of trial to exclude
+up_trials = find(trialrespDir(test_trials) == 1);
+down_trials = find(trialrespDir(test_trials) == -1);
+
+train_trials = find(trialOB ~= 130);
+
+beg_buff = 10; %number of bins from beginning of trial to exclude
 end_buff = 0;
+% beg_buff = 0; %number of bins from beginning of trial to exclude
+% end_buff = 0;
 
+%range of times over which to compute lfp power
+lfp_bt = 0.4;
+lfp_et = 0.2;
 u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
+u_lfp_times = u_lfp_times(R_trial_taxis(u_lfp_times) >= lfp_bt & R_trial_taxis(u_lfp_times) <= (trial_dur-lfp_et));
+LFP_real = squeeze(tbt_LFP_real(u_lfp_times,:,:,:));
+LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,:,:,:));
+LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
+trial_pow = squeeze(nanmean(LFP_amp));
+% trial_pow = bsxfun(@minus,trial_pow,nanmean(trial_pow));
+trial_pow = bsxfun(@rdivide,trial_pow,nanstd(trial_pow));
+
+Robs = fullRobs((1+beg_buff):(NT-end_buff),:,:);
+trial_Robs = squeeze(sum(Robs));
+% trial_Robs = bsxfun(@minus,trial_Robs,nanmean(trial_Robs));
+
+%% DETERMINE THE CP PREDICTION FROM POWER AT EACH INDIVIDUAL FREQ
+uchs = 1:1:length(uprobes);
+reg_params = NMMcreate_reg_params('lambda_L2',50);
+stim_params = NMMcreate_stim_params(length(uchs));
+silent = 1;
+
+trial_pow_train = trial_pow(train_trials,:,uchs);
+trial_pow_test = trial_pow(test_trials,:,uchs);
+trial_Robs_train = trial_Robs(train_trials,:);
+trial_Robs_test = trial_Robs(test_trials,:);
+clear mod_params
+for cc = 1:Nunits
+    cc
+    for ww = 1:length(wfreqs)
+        cur_X = squeeze(trial_pow_train(:,ww,:));
+        cur_Y = trial_Robs_train(:,cc);
+        uindx = find(~isnan(cur_Y) & ~any(isnan(cur_X),2));
+        
+        init_mod = NMMinitialize_model(stim_params,1,{'lin'},reg_params);
+        init_mod = NMMfit_filters(init_mod,cur_Y,cur_X,[],uindx,silent);
+%         B = glmfit(cur_X,trial_Robs_train(:,cc),'poisson');
+        
+        mod_params(cc,ww,:) = init_mod.mods(1).filtK;
+
+        cur_X = squeeze(trial_pow_test(:,ww,:));
+        cur_Y = trial_Robs_test(:,cc);
+        
+        [~,~,Yhat] = NMMeval_model(init_mod,cur_Y,cur_X);
+%         Yhat = glmval(B,cur_X,'log');
+        Yhat(isnan(cur_Y)) = nan;
+        
+        cur_resp_ax = prctile(Yhat,[0:5:100]);
+        up_hist = histc(Yhat(up_trials),cur_resp_ax);
+        down_hist = histc(Yhat(down_trials),cur_resp_ax);
+        true_pos = cumsum(up_hist)/sum(~isnan(Yhat(up_trials)));
+        false_pos = cumsum(down_hist)/sum(~isnan(Yhat(down_trials)));
+        all_LFPpow_pred_CP(cc,ww) = trapz(false_pos,true_pos);
+
+    end
+    
+    test_R = trial_Robs_test(:,cc);
+    cur_resp_ax = 0:(nanmax(test_R));
+    up_hist = histc(test_R(up_trials),cur_resp_ax);
+    down_hist = histc(test_R(down_trials),cur_resp_ax);
+    true_pos = cumsum(up_hist)/sum(~isnan(test_R(up_trials)));
+    false_pos = cumsum(down_hist)/sum(~isnan(test_R(down_trials)));
+    new_choice_prob(cc) = trapz(false_pos,true_pos);
+   
+end
+
+% for ww = 1:length(wfreqs)
+% [tempc(ww),tempp(ww)] = corr(choice_prob(ucells),all_LFPpow_pred_CP(ucells,ww),'type','spearman');
+% end
+
+%% COMPUTE CP PREDICTIONS USING POWER ACROSS A RANGE OF (LOWER) FREQS
+ufreqs = find(wfreqs >= 2 & wfreqs <= 10);
+uchs = 1:1:length(uprobes);
+reg_params = NMMcreate_reg_params('lambda_L2',1,'lambda_d2XT',1);
+stim_params = NMMcreate_stim_params([length(ufreqs) length(uchs)]);
+silent = 1;
+
+for cc = 1:Nunits
+        cur_X = squeeze(trial_pow_train(:,ufreqs,:));
+        cur_Y = trial_Robs_train(:,cc);
+        uindx = find(~isnan(cur_Y) & ~any(isnan(reshape(cur_X,length(train_trials),[])),2));
+    
+        init_mod = NMMinitialize_model(stim_params,1,{'lin'},reg_params);
+        init_mod = NMMfit_filters(init_mod,cur_Y,cur_X,[],uindx,silent);
+        
+        cur_X = squeeze(trial_pow_test(:,ufreqs,:));
+        cur_X = reshape(cur_X,length(test_trials),[]);
+        cur_Y = trial_Robs_test(:,cc);
+        [~,~,Yhat] = NMMeval_model(init_mod,cur_Y,cur_X);
+        Yhat(isnan(cur_Y)) = nan;
+        
+        cur_resp_ax = prctile(Yhat,[0:2:100]);
+        up_hist = histc(Yhat(up_trials),cur_resp_ax);
+        down_hist = histc(Yhat(down_trials),cur_resp_ax);
+        true_pos = cumsum(up_hist)/sum(~isnan(Yhat(up_trials)));
+        false_pos = cumsum(down_hist)/sum(~isnan(Yhat(down_trials)));
+        all_LFPpow_allw_pred_CP(cc) = trapz(false_pos,true_pos);
+end
+
+%% COMPUTE CHOICE_CONDITIONAL TRIALAVG POW SPECTRA
+
+% test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+% up_trials = trialrespDir(test_trials) == 1;
+% down_trials = trialrespDir(test_trials) == -1;
+% 
+% beg_buff = 0; %number of bins from beginning of trial to exclude
+% end_buff = 0;
+% 
+% u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
+% LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,:,:));
+% LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,:,:));
+% LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
+% 
+% LFP_real = bsxfun(@rdivide,LFP_real,nanstd(LFP_amp));
+% LFP_imag = bsxfun(@rdivide,LFP_imag,nanstd(LFP_amp));
+% 
+% LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,up_trials,:,:),2));
+% LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,down_trials,:,:),2));
+% 
+% LFP_real_upavg = squeeze(nanmean(LFP_real(:,up_trials,:,:),2));
+% LFP_real_downavg = squeeze(nanmean(LFP_real(:,down_trials,:,:),2));
+% LFP_imag_upavg = squeeze(nanmean(LFP_imag(:,up_trials,:,:),2));
+% LFP_imag_downavg = squeeze(nanmean(LFP_imag(:,down_trials,:,:),2));
+% 
+% LFP_PC_up = sqrt(LFP_real_upavg.^2 + LFP_imag_upavg.^2);
+% LFP_PC_down = sqrt(LFP_real_downavg.^2 + LFP_imag_downavg.^2);
+% 
+%% COMPUTE CP OF TRIAL_AVG POW SPECTRA
+lfp_bt = 0.4;
+lfp_et = 0.2;
+u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
+u_lfp_times = u_lfp_times(R_trial_taxis(u_lfp_times) >= lfp_bt & R_trial_taxis(u_lfp_times) <= (trial_dur-lfp_et));
+test_trials = find(trialOB == 130 & trialrespDir ~= 0);
+
 LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,:,:));
 LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,:,:));
 LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
-
-LFP_real = bsxfun(@rdivide,LFP_real,nanstd(LFP_amp));
-LFP_imag = bsxfun(@rdivide,LFP_imag,nanstd(LFP_amp));
-
-LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,up_trials,:,:),2));
-LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,down_trials,:,:),2));
-
-LFP_real_upavg = squeeze(nanmean(LFP_real(:,up_trials,:,:),2));
-LFP_real_downavg = squeeze(nanmean(LFP_real(:,down_trials,:,:),2));
-LFP_imag_upavg = squeeze(nanmean(LFP_imag(:,up_trials,:,:),2));
-LFP_imag_downavg = squeeze(nanmean(LFP_imag(:,down_trials,:,:),2));
-
-LFP_PC_up = sqrt(LFP_real_upavg.^2 + LFP_imag_upavg.^2);
-LFP_PC_down = sqrt(LFP_real_downavg.^2 + LFP_imag_downavg.^2);
-
-%%
-uu = find(R_trial_taxis(u_lfp_times) > 0.4);
 
 mean_LFP_amp = squeeze(nanmean(LFP_amp,4));
 mean_trial_pow = squeeze(nanmean(mean_LFP_amp(uu,:,:)));
@@ -640,23 +759,25 @@ for ww = 1:length(wfreqs)
     LFPpow_CP(ww) = trapz(false_pos,true_pos);
 end
 
-n_boot_samps = 1e3;
-for bb = 1:n_boot_samps
-    fprintf('Boot %d of %d\n',bb,n_boot_samps);
-    randrespdir = round(rand(length(test_trials),1));
-    resp_up = find(randrespdir == 1);
-    resp_down = find(randrespdir == 0);
-    for ww = 1:length(wfreqs)
-        cur_resp_ax = prctile(mean_trial_pow(:,ww),[0:5:100]);
-        up_hist = histc(mean_trial_pow(resp_up,ww),cur_resp_ax);
-        down_hist = histc(mean_trial_pow(resp_down,ww),cur_resp_ax);
-        true_pos = cumsum(up_hist)/sum(~isnan(mean_trial_pow(resp_up,ww)));
-        false_pos = cumsum(down_hist)/sum(~isnan(mean_trial_pow(resp_down,ww)));
-        rand_LFPpow_CP(ww,bb) = trapz(false_pos,true_pos);
-    end
-end
+% n_boot_samps = 1e3;
+% for bb = 1:n_boot_samps
+%     fprintf('Boot %d of %d\n',bb,n_boot_samps);
+%     randrespdir = round(rand(length(test_trials),1));
+%     resp_up = find(randrespdir == 1);
+%     resp_down = find(randrespdir == 0);
+%     for ww = 1:length(wfreqs)
+%         cur_resp_ax = prctile(mean_trial_pow(:,ww),[0:5:100]);
+%         up_hist = histc(mean_trial_pow(resp_up,ww),cur_resp_ax);
+%         down_hist = histc(mean_trial_pow(resp_down,ww),cur_resp_ax);
+%         true_pos = cumsum(up_hist)/sum(~isnan(mean_trial_pow(resp_up,ww)));
+%         false_pos = cumsum(down_hist)/sum(~isnan(mean_trial_pow(resp_down,ww)));
+%         rand_LFPpow_CP(ww,bb) = trapz(false_pos,true_pos);
+%     end
+% end
+% 
+% LFPpow_CI = prctile(rand_LFPpow_CP',[5 95]);
 
-LFPpow_CI = prctile(rand_LFPpow_CP',[5 95]);
+%%
 
 %%
 fig_dir = '/home/james/Desktop/CPfigs/';
@@ -664,41 +785,78 @@ close all
 fig_width = 4;
 rel_height = 0.8;
 
+ucells = find(nansum(trial_Robs_test) > 1e3);
+uSUs = ucells(Ucellnumbers(ucells) > 0);
+uMUs = setdiff(ucells,uSUs);
+
 wfreqs_ls = linspace(min(wfreqs),max(wfreqs),1000);
 all_LFPpow_CP_ls = interp1(fliplr(wfreqs),flipud(all_LFPpow_CP),wfreqs_ls);
 
 f1 = figure();
 % imagesc(wfreqs_ls,1:24,1-all_LFPpow_CP_ls');
 % imagesc(wfreqs,1:24,1-all_LFPpow_CP');
-pcolor(wfreqs,1:24,1-all_LFPpow_CP');shading interp
-xlim([1.2 100]);
+pcolor(wfreqs,uprobes,1-all_LFPpow_CP');shading interp
+xlim([1.5 100]);
 colorbar
 % set(gca,'xticklabel',fliplr(wfreqs));
 caxis([0.35 0.65]);
 xlabel('Frequency (Hz)');
 ylabel('Depth');
 set(gca,'xscale','log');
-figufy(f1);
-fname = [fig_dir sprintf('LFPpow_CP_%s.pdf',Expt_name)];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% figufy(f1);
+% fname = [fig_dir sprintf('LFPpow_CP_%s.pdf',Expt_name)];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
-ucells = find(totSpkCnts > 1e4);
 avg_controlled = squeeze(nanmean(controlled_Aavgs(ucells,:,:)));
+avg_uncontrolled = squeeze(nanmean(uncontrolled_Aavgs(ucells,:,:)));
 
 f2 = figure();
 % imagescnan(wfreqs,1:24,avg_controlled');shading flat
-pcolor(wfreqs,1:24,avg_controlled');shading interp
-xlim([1.2 100]);
-caxis([-0.005 0.005])
+pcolor(wfreqs,uprobes,avg_controlled');shading interp
+% pcolor(wfreqs,1:24,avg_uncontrolled');shading interp
+xlim([1.5 100]);
+caxis([-0.0025 0.0025])
 set(gca,'xscale','log');
 colorbar
 xlabel('Frequency (Hz)');
 ylabel('Depth');
-figufy(f2);
-fname = [fig_dir 'Gsac_GRIM_rates.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% figufy(f2);
+% fname = [fig_dir 'Gsac_GRIM_rates.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+
+f3 = figure();
+shadedErrorBar(wfreqs,1-nanmean(all_LFPpow_pred_CP(ucells,:)),nanstd(all_LFPpow_pred_CP(ucells,:))/sqrt(length(ucells)),{'color','k'})
+hold on
+set(gca,'xscale','log');
+xlim([1.5 100])
+ylim([0.35 0.65]);
+line([1.5 100],[0.5 0.5],'color','k');
+xl = xlim();
+xlabel('Frequency (Hz)');
+ylabel('Predicted CP');
+% figufy(f3);
+% fname = [fig_dir 'Freq_pred_CP.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+msize = 4;
+f4 = figure();
+plot(1-new_choice_prob(uMUs),1-all_LFPpow_allw_pred_CP(uMUs),'o','markersize',msize)
+hold on
+plot(1-new_choice_prob(uSUs),1-all_LFPpow_allw_pred_CP(uSUs),'ro','markersize',msize)
+line([0 1],[0 1],'color','k')
+xlim([0.25 0.75]); ylim([0.25 0.75])
+line([0 1],[0.5 0.5],'color','k','linestyle','--')
+line([0.5 0.5],[0 1],'color','k','linestyle','--')
+xlabel('Measured CP');
+ylabel('Predicted CP');
+% figufy(f4);
+% fname = [fig_dir 'Pred_meas_CP_scatter.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
+
 
 %%
 poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
