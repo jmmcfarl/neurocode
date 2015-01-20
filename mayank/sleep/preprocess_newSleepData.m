@@ -5,7 +5,7 @@ addpath('~/Analysis/Mayank/sleep/');
 
 dd = 1;
 %cortical
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-16_12-26-27';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-09-16_12-26-27';
 data(dd).ipsiLFPs = [];
 data(dd).contraLFPs = [2 6 10 14 18 22 26 30];
 data(dd).MPfile = 'CSC33.ncs';
@@ -15,7 +15,7 @@ data(dd).MPloc = 'Ctx';
 
 dd = dd + 1;
 %d2 cortical
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-17_12-45-54';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-09-17_12-45-54';
 data(dd).ipsiLFPs = [2 6 10 14 18 22 26 30];
 data(dd).contraLFPs = [];
 data(dd).MPfile = 'CSC33.ncs';
@@ -27,7 +27,7 @@ data(dd).MPloc = 'Ctx';
 
 dd = dd + 1;
 %d3 cortical
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-09-30_14-18-08';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-09-30_14-18-08';
 data(dd).ipsiLFPs = [];
 data(dd).contraLFPs = [1:16];
 data(dd).MPfile = 'WC.ncs';
@@ -37,7 +37,7 @@ data(dd).MPloc = 'Ctx';
 
 dd = dd + 1;
 %d4 cortical
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-01_13-08-37';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-01_13-08-37';
 data(dd).ipsiLFPs = [];
 data(dd).contraLFPs = [1:16];
 data(dd).MPfile = 'WC.ncs';
@@ -47,7 +47,7 @@ data(dd).MPloc = 'Ctx';
 
 dd = dd + 1;
 %d5 cortical
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-07_12-30-20';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-07_12-30-20';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [1:16];
 data(dd).MPfile = 'WC.ncs';
@@ -58,7 +58,7 @@ data(dd).MPloc = 'Ctx';
 
 dd = dd + 1;
 %d6 cortical
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-09_12-29-04';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-09_12-29-04';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [1:16];
 data(dd).MPfile = 'WC.ncs';
@@ -69,7 +69,7 @@ data(dd).MPloc = 'Ctx';
 
 dd = dd + 1;
 %d7 MEC
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-14_14-04-11';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-14_14-04-11';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [];
 data(dd).MPfile = 'WC.ncs';
@@ -81,7 +81,7 @@ data(dd).MPloc = 'MEC';
 
 dd = dd + 1;
 %d8 MEC
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-22/2014-10-22_11-57-18';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-22/2014-10-22_11-57-18';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [];
 data(dd).MPfile = 'WC.ncs';
@@ -93,7 +93,7 @@ data(dd).MPloc = 'MEC';
 
 dd = dd + 1;
 %d9 MEC
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-10-31_13-43-29';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-31_13-43-29';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [];
 data(dd).MPfile = 'WC.ncs';
@@ -105,7 +105,7 @@ data(dd).MPloc = 'MEC';
 
 dd = dd + 1;
 %d10 MEC. Short, not much cortical UDS. Probably not useful
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-04_12-27-44';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-04_12-27-44';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -116,7 +116,7 @@ data(dd).MPloc = 'MEC';
 dd = dd + 1;
 %d11 MEC. Long enough, with some decent cortical UDS. Wierd MP, dominated by
 %DS, with choppy ups. Maybe some pdowns.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-04_15-31-37';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-04_15-31-37';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -126,7 +126,7 @@ data(dd).MPloc = 'MEC';
 
 dd = dd + 1;
 %c12 MEC. Not much clear UDS in either cortical LFP or MP
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-06_13-41-25';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-06_13-41-25';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -137,7 +137,7 @@ data(dd).MPloc = 'MEC';
 dd = dd + 1;
 %d13 MEC. Nice recording with clear UDS, and nice MP. But very short, so only a
 %few nice examples.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-06_15-20-38';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-06_15-20-38';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -148,7 +148,7 @@ data(dd).MPloc = 'MEC';
 dd = dd + 1;
 %d14 MEC. Pretty good rec. Decent cortical UDS and MP. Some good pups and
 %pdowns.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-08_14-36-03';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-08_14-36-03';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -160,7 +160,7 @@ dd = dd + 1;
 %d15 MEC. Decent rec. Some decent cortical UDS. MP is pretty DS heavy, with
 %choppy UPs. Probably some pers DOWNS. Maybe some pers UPS. Kinda hard to
 %tell though.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-12_10-57-15';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-12_10-57-15';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -171,7 +171,7 @@ data(dd).MPloc = 'MEC';
 dd = dd + 1;
 %d16 MEC. Cortical UDS is pretty good at times. The MP is not really stable,
 %and doesn't have clear UDS. So, very likely not usable.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-13_12-48-52';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-13_12-48-52';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -182,7 +182,7 @@ data(dd).MPloc = 'MEC';
 dd = dd + 1;
 %d17 MEC. Great cortical UDS. MP not really stable, or just not showing clear
 %UDS. So, very likely not usable.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-13_13-25-58';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-13_13-25-58';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -194,7 +194,7 @@ dd = dd + 1;
 %d18 MEC. Nice cortical UDS. MP does not have very clear UDS, but occasionally
 %its decently clear. Probably a few pdowns and pups here, but wont be the
 %best examples. Possibly usable.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-15_12-48-19';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-15_12-48-19';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -207,7 +207,7 @@ dd = dd + 1;
 %nice examples of Pup and Pdown at times. The UDS are a bit strange
 %(changing very often), but should be usable. MP also appears to be
 %degrading slowly towards the end.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-15_13-08-31';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-15_13-08-31';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -218,7 +218,7 @@ data(dd).MPloc = 'MEC';
 dd = dd + 1;
 %d20 MEC. Probably too short to use for much. Decent cortical UDS. MEC MP not
 %too stable. Also has DS-heavy with choppy UPS. Probably not usable.
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-20_12-54-16';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-20_12-54-16';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -230,7 +230,7 @@ dd = dd + 1;
 %d21 MEC. Nice recording. A bit on the short side. Cortical UDS is OK. MEC MP
 %is fantastic! Very clear bimodal UDS. Nice strong PUps. Maybe some PDowns
 %as well
-data(dd).dir = '/Users/james/Analysis/Mayank/sleep/2014-11-20_13-09-58';
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-20_13-09-58';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
 data(dd).MPfile = 'WC.ncs';
@@ -238,11 +238,78 @@ data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
 
-% cd ~/Analysis/Mayank/sleep/
-% save sleep_dirs data
+dd = dd + 1;
+%d22. Maybe MEC or cortical. Short choppy US. Some decent epochs of
+%cortical UDS. Maybe some pers DS, but not the clearest examples.
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-29_13-12-01';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [13];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'unsure'; %prob cortical (POR or visual)
+
+dd = dd + 1;
+%d23 MP has high rate and does not show clear UDS. Cortical LFP shows decent
+%UDS. MIght be interpreted as lots of pers UPs, but that's not really what
+%it looks like
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-12-09_15-04-21';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 1;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx'; 
+
+dd = dd + 1;
+%d24. Some epochs with decent UDS in MP and LFP. Seem pretty synched when
+%both have clear UDS. Should have some usable epochs, though not the best
+%examples.
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-12-09_15-29-56';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'Ctx'; 
+
+dd = dd + 1;
+%d25. Too short of a rec to really be usable. 
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-12-10_11-43-50';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'Ctx'; 
+
+dd = dd + 1;
+%d26. MP not good, with choppy unstable UDS. LFP also doesn't show
+%clear/sustained UDS. Probably not usable.
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-12-11_11-53-25';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'Ctx'; 
+
+dd = dd + 1;
+%d27. MP and LFP both have some OK UDS. Likely some usable epochs, but not
+%very clear, so not good examples.
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-12-11_12-33-16';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'Ctx'; 
+
+cd ~/Analysis/Mayank/sleep/
+save sleep_dirs data
 
 %%
-for dd = 15:length(data);
+for dd = 22:length(data);
     %     dd = 2;
     cd(data(dd).dir);
     

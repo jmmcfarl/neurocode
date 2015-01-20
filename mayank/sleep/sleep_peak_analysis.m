@@ -8,7 +8,7 @@ fig_dir = '/Users/james/Analysis/Mayank/sleep/sleep_figs/';
 addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
 
 %%
-for dd = 1:length(data);
+for dd = 22:length(data);
     
 %%
 cd(data(dd).dir)
