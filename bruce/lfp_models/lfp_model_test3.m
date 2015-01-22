@@ -8,7 +8,7 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-Expt_name = 'M296';
+Expt_name = 'M277';
 % Expt_name = 'G086';
 use_MUA = false;
 bar_ori = 0; %bar orientation to use (only for UA recs)
@@ -57,11 +57,11 @@ if strcmp(rec_type,'LP')
     end
 end
 
-% if Expt_num >= 280
-%     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-% else
+if Expt_num >= 280
+    data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+else
 data_dir = ['~/Data/bruce/' Expt_name];
-% end
+end
 
 cd(data_dir);
 
@@ -630,7 +630,7 @@ if strcmp(rec_type,'LP')
     niqf = Fs/2;
     new_niqf = Fsd/2;
     [bb,aa] = butter(2,0.8*new_niqf/niqf);
-    use_lfps = 1:3:n_probes;
+    use_lfps = 1:2:n_probes;
 elseif strcmp(rec_type,'UA')
     Fs = 400.0032;
     dsf = 2;
@@ -643,8 +643,8 @@ elseif strcmp(rec_type,'UA')
 end
 
 %wavelet parameters
-nwfreqs = 15;
-min_freq = 1.5; max_freq = 40;
+nwfreqs = 25;
+min_freq = 1.5; max_freq = 50;
 min_scale = 1/max_freq*Fsd;
 max_scale = 1/min_freq*Fsd;
 wavetype = 'cmor1-1';
@@ -731,7 +731,7 @@ end
 
 %%
 interp_lfps = interp1(full_lfp_taxis,full_lfps,all_t_axis);
-interp_lfps = interp_lfps(used_inds,:);
+% interp_lfps = interp_lfps(used_inds,:);
 interp_lfps = nanzscore(interp_lfps);
 
 %%
@@ -754,17 +754,35 @@ Nunits = size(Robs_mat,2);
 tbt_Robs = nan(Ntrials,Nframes,Nunits);
 tbt_LFP_real = nan(Ntrials,Nframes,length(wfreqs),length(use_lfps));
 tbt_LFP_imag = nan(Ntrials,Nframes,length(wfreqs),length(use_lfps));
+tbt_LFPs = nan(Ntrials,Nframes,length(use_lfps));
 for ii = 1:Ntrials
    cur_inds = find(all_trialvec(used_inds) == test_trials(ii));
    tbt_Robs(ii,:,:) = fullRobs_ms(cur_inds,:);
    cur_inds = used_inds(all_trialvec(used_inds) == test_trials(ii));
    tbt_LFP_real(ii,:,:,:) = interp_cwt_real(cur_inds,:,:);   
    tbt_LFP_imag(ii,:,:,:) = interp_cwt_imag(cur_inds,:,:);   
+   tbt_LFPs(ii,:,:) = interp_lfps(cur_inds,:);   
 end
+
+% tbt_Robs = bsxfun(@minus,tbt_Robs,nanmean(tbt_Robs));
 
 tbt_LFP_amp = sqrt(tbt_LFP_real.^2 + tbt_LFP_imag.^2);
 tbt_LFP_real = tbt_LFP_real./tbt_LFP_amp;
 tbt_LFP_imag = tbt_LFP_imag./tbt_LFP_amp;
+
+%%
+cur_ch = 1;
+xstart = 0.75;
+xlen = 1;
+trial_t_ax = (1:Nframes)*dt;
+f1 = figure();
+imagesc(trial_t_ax-xstart,1:Ntrials,squeeze(tbt_LFPs(:,:,cur_ch)));
+caxis([-2.5 2.5]);
+xlim([0 xlen]);
+xlabel('Time (s)');
+ylabel('Trial number');
+colorbar
+
 
 %%
 
@@ -773,77 +791,81 @@ tbt_LFP_imag = tbt_LFP_imag./tbt_LFP_amp;
 clear all_LFP_metric all_rand_XC
 for ww = 1:length(wfreqs)
     ww
-% ww =10;
-
-LFP_real = squeeze(tbt_LFP_real(:,:,ww,:));
-LFP_imag = squeeze(tbt_LFP_imag(:,:,ww,:));
-
-%compute bin edge locations for LFP metric
-all_LFP_dists = [];
-for tt = 1:Nframes
-    cur_LFP_state = cat(2,squeeze(LFP_real(:,tt,:)),squeeze(LFP_imag(:,tt,:)));
+    % ww =10;
     
-    cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(use_lfps));
-    cur_Dmat(JJ >= II) = nan;
-    all_LFP_dists = cat(1,all_LFP_dists,cur_Dmat(~isnan(cur_Dmat)));
-end
-n_LFP_bins = 25;
-ED_bin_edges = prctile(all_LFP_dists,0:100/n_LFP_bins:100);
-ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
-
-
-LFP_metric_XC = zeros(length(ED_bin_centers),Nunits);
-LFP_metric_cnt = zeros(length(ED_bin_centers),Nunits);
-rand_XC = zeros(Nunits,1);
-rand_cnt = zeros(Nunits,1);
-
-for tt = 1:Nframes
-    cur_Robs = squeeze(tbt_Robs(:,tt,:));
-    cur_LFP_state = cat(2,squeeze(LFP_real(:,tt,:)),squeeze(LFP_imag(:,tt,:)));
+    LFP_real = squeeze(tbt_LFP_real(:,:,ww,:));
+    LFP_imag = squeeze(tbt_LFP_imag(:,:,ww,:));
     
-    cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(use_lfps));
-    cur_Dmat(JJ == II) = nan;
-    for jj = 1:length(ED_bin_centers)
-        curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
-        %             temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
-        temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
-        LFP_metric_XC(jj,:) = LFP_metric_XC(jj,:,:) + nansum(temp,1);
-        LFP_metric_cnt(jj,:) = LFP_metric_cnt(jj,:,:) + sum(~isnan(temp),1);
-        %         cur_XC(tt,jj,:,:) = (nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+    %compute bin edge locations for LFP metric
+    all_LFP_dists = [];
+    for tt = 1:Nframes
+        cur_LFP_state = cat(2,squeeze(LFP_real(:,tt,:)),squeeze(LFP_imag(:,tt,:)));
+        
+        cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(use_lfps));
+        cur_Dmat(JJ >= II) = nan;
+        all_LFP_dists = cat(1,all_LFP_dists,cur_Dmat(~isnan(cur_Dmat)));
     end
-    curset = ~isnan(cur_Dmat);
-    %         temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
-    temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
-    rand_XC = rand_XC + squeeze(nansum(temp,1))';
-    rand_cnt = rand_cnt + squeeze(sum(~isnan(temp),1))';
-    %     rand_XC(tt,:,:) = squeeze(nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+    n_LFP_bins = 20;
+    ED_bin_edges = prctile(all_LFP_dists,0:100/n_LFP_bins:100);
+    ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
+    
+    
+    LFP_metric_XC = zeros(length(ED_bin_centers),Nunits);
+    LFP_metric_cnt = zeros(length(ED_bin_centers),Nunits);
+    rand_XC = zeros(Nunits,1);
+    rand_cnt = zeros(Nunits,1);
+    
+    LFP_metric_XC = nan(Nframes,n_LFP_bins,Nunits);
+    rand_XC = nan(Nframes,Nunits);
+    for tt = 1:Nframes
+        cur_Robs = squeeze(tbt_Robs(:,tt,:));
+        cur_LFP_state = cat(2,squeeze(LFP_real(:,tt,:)),squeeze(LFP_imag(:,tt,:)));
+        
+        cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(use_lfps));
+        cur_Dmat(JJ == II) = nan;
+        for jj = 1:length(ED_bin_centers)
+            curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
+            %             temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
+            temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
+%             LFP_metric_XC(jj,:) = LFP_metric_XC(jj,:,:) + nansum(temp,1);
+            LFP_metric_XC(tt,jj,:) = nansum(temp,1);
+%             LFP_metric_cnt(jj,:) = LFP_metric_cnt(jj,:,:) + sum(~isnan(temp),1);
+            %         cur_XC(tt,jj,:,:) = (nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+        end
+        curset = ~isnan(cur_Dmat);
+        %         temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
+        temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
+%         rand_XC = rand_XC + squeeze(nansum(temp,1))';
+        rand_XC(tt,:) = squeeze(nansum(temp,1))';
+%         rand_cnt = rand_cnt + squeeze(sum(~isnan(temp),1))';
+        %     rand_XC(tt,:,:) = squeeze(nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+    end
+    
+%     LFP_metric_XC = LFP_metric_XC./LFP_metric_cnt;
+%     rand_XC = rand_XC./rand_cnt;
+LFP_metric_XC = squeeze(nanmean(LFP_metric_XC));
+rand_XC = squeeze(nanmean(rand_XC))';
+
+    tot_var = nanvar(reshape(tbt_Robs,[],Nunits));
+    
+    % normfac = sqrt(tot_var'*tot_var);
+    normfac = tot_var;
+    
+    LFP_expl_cov = squeeze(LFP_metric_XC(1,:)) - rand_XC';
+    LFP_expl_corr = LFP_expl_cov./normfac;
+    
+    all_LFP_metric(ww,:,:) = LFP_metric_XC;
+    all_rand_XC(ww,:) = rand_XC;
 end
 
-LFP_metric_XC = LFP_metric_XC./LFP_metric_cnt;
-rand_XC = rand_XC./rand_cnt;
-
-tot_var = nanvar(reshape(tbt_Robs,[],Nunits));
-
-% normfac = sqrt(tot_var'*tot_var);
-normfac = tot_var;
-
-LFP_expl_cov = squeeze(LFP_metric_XC(1,:)) - rand_XC';
-LFP_expl_corr = LFP_expl_cov./normfac;
-
-all_LFP_metric(ww,:,:) = LFP_metric_XC;
-all_rand_XC(ww,:) = rand_XC;
-
-end
 %%
 close all
-for ii = 1:Nunits
-plot(squeeze(LFP_metric_XC(:,ii)),'o-')
-xl = xlim();
-line(xl,rand_XC(ii)+[0 0],'color','r')
-pause
-clf
+for cc = 1:Nunits
+    pcolor(1:n_LFP_bins,wfreqs,squeeze(all_LFP_metric(:,:,cc)));shading flat
+    colorbar
+    pause
+    clf
 end
-
 %%
 
 [II,JJ] = meshgrid(1:length(test_trials));
@@ -851,7 +873,7 @@ end
 % clear all_LFP_metric all_rand_XC
 % for ww = 1:length(wfreqs)
     ww
-ww =9;
+ww =  2;
 
 LFP_real = squeeze(tbt_LFP_real(:,:,ww,:));
 LFP_imag = squeeze(tbt_LFP_imag(:,:,ww,:));
@@ -909,16 +931,22 @@ normfac = sqrt(tot_var'*tot_var);
 
 % LFP_expl_cov = squeeze(LFP_metric_XC(1,:)) - rand_XC';
 % LFP_expl_corr = LFP_expl_cov./normfac;
-LFP_expl_cov = squeeze(LFP_metric_XC(1,:,:)) - rand_XC;
+% LFP_expl_cov = squeeze(LFP_metric_XC(1,:,:)) - rand_XC;
+LFP_expl_cov = squeeze(LFP_metric_XC(1,:,:));
 LFP_expl_corr = LFP_expl_cov./normfac;
+
+LFP_noise_cov = squeeze(LFP_metric_XC(1,:,:)) - rand_XC;
+LFP_noise_corr = LFP_noise_cov./normfac;
 
 stim_corr = rand_XC./normfac;
 
 temp = reshape(tbt_Robs,[],Nunits);
 noise_cov = squeeze(nanmean(bsxfun(@times,temp,reshape(temp,[],1,Nunits))));
 corrected_noise_cov = noise_cov - LFP_expl_cov;
+scorrected_noise_cov = noise_cov - rand_XC;
 noise_cov = noise_cov./normfac;
 corrected_noise_cov = corrected_noise_cov./normfac;
+scorrected_noise_cov = scorrected_noise_cov./normfac;
 % all_LFP_metric(ww,:,:) = LFP_metric_XC;
 % all_rand_XC(ww,:) = rand_XC;
 
@@ -926,7 +954,7 @@ corrected_noise_cov = corrected_noise_cov./normfac;
 
 %% compute xcorrs as a function of LFP state
 [II,JJ] = meshgrid(1:length(test_trials));
-cur_units = [25 26];
+cur_units = [13 30];
 NcurUnits = length(cur_units);
 
 max_tlag = 20; %max time lag for computing autocorrs
@@ -935,11 +963,13 @@ Robs_shifted = nan(Ntrials,Nframes,NcurUnits,length(tlags));
 for tt = 1:length(tlags)
     Robs_shifted(:,:,:,tt) = shift_matrix_Nd(tbt_Robs(:,:,cur_units),-tlags(tt),2);
 end
+% temp = reshape(Robs_shifted,[],NcurUnits,length(tlags));
+% Robs_shifted = bsxfun(@minus,Robs_shifted,reshape(nanmean(temp),[1 1 NcurUnits length(tlags)]));
 
 clear all_xc all_rxc
-% for ww = 1:length(wfreqs)
+for ww = 1:length(wfreqs)
     ww
-ww =10;
+% ww =9;
 
 LFP_real = squeeze(tbt_LFP_real(:,:,ww,:));
 LFP_imag = squeeze(tbt_LFP_imag(:,:,ww,:));
@@ -953,7 +983,7 @@ for tt = 1:Nframes
     cur_Dmat(JJ >= II) = nan;
     all_LFP_dists = cat(1,all_LFP_dists,cur_Dmat(~isnan(cur_Dmat)));
 end
-n_LFP_bins = 20;
+n_LFP_bins = 15;
 ED_bin_edges = prctile(all_LFP_dists,0:100/n_LFP_bins:100);
 ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
 
@@ -961,6 +991,8 @@ LFP_metric_XC = zeros(length(ED_bin_centers),NcurUnits,NcurUnits,length(tlags));
 LFP_metric_cnt = zeros(length(ED_bin_centers),NcurUnits,NcurUnits,length(tlags));
 rand_XC = zeros(NcurUnits,NcurUnits,length(tlags));
 rand_cnt = zeros(NcurUnits,NcurUnits,length(tlags));
+same_XC = zeros(NcurUnits,NcurUnits,length(tlags));
+same_cnt = zeros(NcurUnits,NcurUnits,length(tlags));
 
 for tt = 1:Nframes
     cur_Robs = squeeze(tbt_Robs(:,tt,cur_units));
@@ -986,10 +1018,16 @@ for tt = 1:Nframes
     rand_XC = rand_XC + squeeze(nansum(temp,1));
     rand_cnt = rand_cnt + squeeze(sum(~isnan(temp),1));
     %     rand_XC(tt,:,:) = squeeze(nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
+
+    curset = isnan(cur_Dmat);
+    temp = bsxfun(@times,cur_Robs2(II(curset),:,:,:),cur_Robs(JJ(curset),:));
+    same_XC = same_XC + squeeze(nansum(temp,1));
+    same_cnt = same_cnt + squeeze(sum(~isnan(temp),1));
 end
 
 LFP_metric_XC = LFP_metric_XC./LFP_metric_cnt;
 rand_XC = rand_XC./rand_cnt;
+same_XC = same_XC./same_cnt;
 
 % tot_var = nanvar(reshape(tbt_Robs(:,:,cur_units),[],NcurUnits));
 % 
@@ -1004,7 +1042,8 @@ rand_XC = rand_XC./rand_cnt;
 
 all_xc(ww,:,:) = squeeze(LFP_metric_XC(:,1,2,:));
 all_rxc(ww,:) = squeeze(rand_XC(1,2,:));
-% end
+all_sxc(ww,:) = squeeze(same_XC(1,2,:));
+end
 
 temp1 = reshape(Robs_shifted(:,:,2,:),[],1,length(tlags));
 temp2 = reshape(tbt_Robs(:,:,cur_units(1)),[],1);
