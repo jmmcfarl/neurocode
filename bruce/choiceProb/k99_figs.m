@@ -3,7 +3,7 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-Expt_name = 'M230';
+Expt_name = 'M239';
 
 if strcmp(Expt_name,'M239')
     load('M239/lemM239.image.ORBW.LFP.mat')
@@ -247,7 +247,7 @@ aa_lcf = 0.5;
 LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
 
 nprobes = 24;
-uprobes = 1:3:nprobes;
+uprobes = 1:1:nprobes;
 
 %wavelet parameters
 nwfreqs = 25;
@@ -318,127 +318,6 @@ tbt_LFPs = reshape(trial_LFPs,[TLEN Ntrials length(uprobes)]);
 % tbt_LFP_cwt = reshape(trial_LFP_cwt,[TLEN Ntrials length(wfreqs) length(uprobes)]);
 tbt_LFP_real = reshape(trial_LFP_real,[TLEN Ntrials length(wfreqs) length(uprobes)]);
 tbt_LFP_imag = reshape(trial_LFP_imag,[TLEN Ntrials length(wfreqs) length(uprobes)]);
-
-%%
-% test_trials = find(trialOB == 130 & trialrespDir ~= 0);
-% % test_trials = find(trialrespDir ~= 0);
-% un_stim_seeds = unique(trialSe(test_trials));
-% 
-% beg_buff = 0; %number of bins from beginning of trial to exclude
-% end_buff = 0;
-% 
-% % maxlag_ED = 4;
-% % ED_space = 0.2;
-% % ED_bin_edges = 0:ED_space:maxlag_ED;
-% % ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
-% 
-% %subtract off avg rates for times within this set of trials
-% [RR,TT] = meshgrid(1:Ntrials,1:NT);
-% istrain = (ismember(RR(:),test_trials)) & (TT(:) > beg_buff);
-% fullRobs_resh = reshape(fullRobs,[],Nunits);
-% fullRobs_ms = bsxfun(@minus,fullRobs,reshape(nanmean(fullRobs_resh(istrain,:)),[1 1 Nunits]));
-% % fullRobs_ms = bsxfun(@minus,fullRobs,nanmean(fullRobs(:,test_trials,:),2));
-% tot_var = nanvar(fullRobs_resh(istrain,:));
-% fullRobs_ms = fullRobs_ms(:,test_trials,:);
-% 
-% u_LFP_chs = [1:8];
-% % for ww = 1:length(wfreqs)
-% ww =10;
-% u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
-% % tbt_LFP_data = squeeze(tbt_LFP_cwt(u_lfp_times,test_trials,ww,:));
-% LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,ww,u_LFP_chs));
-% LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,ww,u_LFP_chs));
-% LFP_phase = atan2(LFP_imag,LFP_real);
-% LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
-% 
-% LFP_real = LFP_real./LFP_amp;
-% LFP_imag = LFP_imag./LFP_amp;
-% 
-% %compute bin edge locations for LFP metric
-% all_LFP_dists = [];
-% for tr = 1:length(un_stim_seeds)
-%     cur_tr_set = find(trialSe(test_trials) == un_stim_seeds(tr));
-% %     fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
-%     [II,JJ] = meshgrid(1:length(cur_tr_set));
-%     if length(cur_tr_set) >= 2
-%         for tt = (beg_buff+1):(NT-end_buff)
-% %             cur_LFP_state = squeeze(tbt_LFP_data(tt,cur_tr_set,:));
-% %             cur_LFP_state = cat(2,real(cur_LFP_state),imag(cur_LFP_state));
-%             cur_LFP_state = cat(2,squeeze(LFP_real(tt,cur_tr_set,:)),squeeze(LFP_imag(tt,cur_tr_set,:)));
-% %             cur_LFP_state = squeeze(LFP_phase(tt,cur_tr_set,:));
-% %             cur_LFP_state = squeeze(LFP_amp(tt,cur_tr_set,:));
-% 
-%             cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(uprobes));
-% %             cur_Dmat = abs(circ_dist2(cur_LFP_state));
-% %             cur_Dmat = squareform(pdist(cur_LFP_state));
-%             cur_Dmat(JJ >= II) = nan;
-%             all_LFP_dists = cat(1,all_LFP_dists,cur_Dmat(~isnan(cur_Dmat)));
-%         end
-%     end
-% end
-% n_LFP_bins = 8;
-% ED_bin_edges = prctile(all_LFP_dists,0:100/n_LFP_bins:100);
-% ED_bin_centers = (ED_bin_edges(1:end-1)+ED_bin_edges(2:end))/2;
-% 
-% LFP_metric_XC = zeros(length(ED_bin_centers),Nunits);
-% LFP_metric_cnt = zeros(length(ED_bin_centers),Nunits);
-% rand_XC = zeros(Nunits,1);
-% rand_cnt = zeros(Nunits,1);
-% for tr = 1:length(un_stim_seeds)
-%     
-%     cur_tr_set = find(trialSe(test_trials) == un_stim_seeds(tr));
-% %     fprintf('Tr %d, %d rpts\n',tr,length(cur_tr_set));
-%     [II,JJ] = meshgrid(1:length(cur_tr_set));
-%     
-%     if length(cur_tr_set) >= 2
-%     
-%     for tt = (beg_buff+1):(NT-end_buff)
-%         cur_Robs = squeeze(fullRobs_ms(tt,cur_tr_set,:));        
-% %         cur_LFP_state = squeeze(tbt_LFP_data(tt,cur_tr_set,:));
-% %         cur_LFP_state = cat(2,real(cur_LFP_state),imag(cur_LFP_state));
-%             cur_LFP_state = cat(2,squeeze(LFP_real(tt,cur_tr_set,:)),squeeze(LFP_imag(tt,cur_tr_set,:)));
-% %             cur_LFP_state = squeeze(LFP_phase(tt,cur_tr_set,:));
-% %             cur_LFP_state = squeeze(LFP_amp(tt,cur_tr_set,:));
-%          
-%         cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(uprobes));
-% %             cur_Dmat = abs(circ_dist2(cur_LFP_state));
-%         cur_Dmat(JJ == II) = nan;
-%         for jj = 1:length(ED_bin_centers)
-%             curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
-% %             temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
-%             temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
-%             LFP_metric_XC(jj,:) = LFP_metric_XC(jj,:,:) + nansum(temp,1);
-%             LFP_metric_cnt(jj,:) = LFP_metric_cnt(jj,:,:) + sum(~isnan(temp),1);
-%             %         cur_XC(tt,jj,:,:) = (nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
-%         end
-%         curset = ~isnan(cur_Dmat);
-% %         temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
-%         temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
-%         rand_XC = rand_XC + squeeze(nansum(temp,1))';
-%         rand_cnt = rand_cnt + squeeze(sum(~isnan(temp),1))';
-%         %     rand_XC(tt,:,:) = squeeze(nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
-%     end
-%     end
-% end
-% 
-% LFP_metric_XC = LFP_metric_XC./LFP_metric_cnt;
-% rand_XC = rand_XC./rand_cnt;
-% 
-% % normfac = sqrt(tot_var'*tot_var);
-% normfac = tot_var;
-% 
-% LFP_expl_cov = squeeze(LFP_metric_XC(1,:)) - rand_XC';
-% LFP_expl_corr = LFP_expl_cov./normfac;
-% 
-% %%
-% close all
-% for ii = 1:Nunits
-% plot(squeeze(LFP_metric_XC(:,ii)),'o-')
-% xl = xlim();
-% line(xl,rand_XC(ii)+[0 0],'color','r')
-% pause
-% clf
-% end
 
 %%
 % test_trials = find(trialOB == 130 & trialrespDir ~= 0);
@@ -812,83 +691,6 @@ end
 
 %%
 
-%%
-fig_dir = '/home/james/Desktop/CPfigs/';
-close all
-fig_width = 4;
-rel_height = 0.8;
-
-ucells = find(nansum(trial_Robs_test) > 1e3);
-% ucells = find(totSpkCnts > 1e4);
-uSUs = ucells(Ucellnumbers(ucells) > 0);
-uMUs = setdiff(ucells,uSUs);
-
-
-f1 = figure();
-% imagesc(wfreqs_ls,1:24,1-all_LFPpow_CP_ls');
-% imagesc(wfreqs,1:24,1-all_LFPpow_CP');
-pcolor(wfreqs,uprobes,1-all_LFPpow_CP');shading interp
-xlim([1.5 80]);
-colorbar
-% set(gca,'xticklabel',fliplr(wfreqs));
-caxis([0.35 0.65]);
-xlabel('Frequency (Hz)');
-ylabel('Depth');
-set(gca,'xscale','log');
-% figufy(f1);
-% fname = [fig_dir sprintf('LFPpow_CP_%s.pdf',Expt_name)];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-
-avg_controlled = squeeze(nanmean(controlled_Aavgs(ucells,:,:)));
-avg_uncontrolled = squeeze(nanmean(uncontrolled_Aavgs(ucells,:,:)));
-
-f2 = figure();
-% imagescnan(wfreqs,1:24,avg_controlled');shading flat
-pcolor(wfreqs,uprobes,avg_controlled');shading interp
-% pcolor(wfreqs,1:24,avg_uncontrolled');shading interp
-xlim([1.5 80]);
-caxis([-0.005 0.005])
-set(gca,'xscale','log');
-colorbar
-xlabel('Frequency (Hz)');
-ylabel('Depth');
-% figufy(f2);
-% fname = [fig_dir 'Gsac_GRIM_rates.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-
-f3 = figure();
-shadedErrorBar(wfreqs,1-nanmean(all_LFPpow_pred_CP(ucells,:)),nanstd(all_LFPpow_pred_CP(ucells,:))/sqrt(length(ucells)),{'color','k'})
-hold on
-set(gca,'xscale','log');
-xlim([1.5 80])
-ylim([0.35 0.65]);
-line([1.5 100],[0.5 0.5],'color','k');
-xl = xlim();
-xlabel('Frequency (Hz)');
-ylabel('Predicted CP');
-% figufy(f3);
-% fname = [fig_dir 'Freq_pred_CP.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
-% 
-msize = 4;
-f4 = figure();
-plot(1-new_choice_prob(uMUs),1-all_LFPpow_allw_pred_CP(uMUs),'o','markersize',msize)
-hold on
-plot(1-new_choice_prob(uSUs),1-all_LFPpow_allw_pred_CP(uSUs),'ro','markersize',msize)
-line([0 1],[0 1],'color','k')
-xlim([0.25 0.75]); ylim([0.25 0.75])
-line([0 1],[0.5 0.5],'color','k','linestyle','--')
-line([0.5 0.5],[0 1],'color','k','linestyle','--')
-xlabel('Measured CP');
-ylabel('Predicted CP');
-% figufy(f4);
-% fname = [fig_dir 'Pred_meas_CP_scatter.pdf'];
-% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f4);
-
 
 %%
 poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
@@ -905,7 +707,7 @@ LFP_comp = bsxfun(@minus,LFP_comp,nanmean(LFP_comp,2));
 LFP_Acomp = abs(LFP_comp);
 LFP_Acomp = bsxfun(@minus,LFP_Acomp,nanmean(LFP_Acomp,2));
 
-for cc = 1:8;
+for cc = 1:length(uprobes);
     cc
     all_cwt_same = zeros(length(u_lfp_times),length(wfreqs));
     all_cwt_diff = all_cwt_same;
@@ -973,57 +775,114 @@ for cc = 1:8;
 end
 
 %%
-LFP_dsf = 4;
-LFP_Fsd = LFP_Fs/LFP_dsf;
-%anti-aliasing filter and high-pass filter
-aa_hcf = LFP_Fsd/2*0.8;
-% [b_aa,a_aa] = butter(4,aa_hcf/(LFP_Fs/2),'low');
-aa_lcf = 1;
-[b_aa,a_aa] = butter(2,[aa_lcf aa_hcf]/(LFP_Fs/2));
+fig_dir = '/home/james/Desktop/CPfigs/';
+close all
+fig_width = 5;
+rel_height = 0.8;
+to_print = true;
 
-LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
+ucells = find(nansum(trial_Robs_test) > 1e3);
+% ucells = find(totSpkCnts > 1e4);
+uSUs = ucells(Ucellnumbers(ucells) > 0);
+uMUs = setdiff(ucells,uSUs);
 
-nprobes = 24;
-uprobes = 1:1:nprobes;
+weval = logspace(log10(2),log10(80.001),500);
+dinterp = 1:0.25:24;
+[Xo,Yo] = meshgrid(wfreqs,uprobes);
+[Xq,Yq] = meshgrid(weval,dinterp);
+interp_CPmap = interp2(Xo,Yo,1-all_LFPpow_CP',Xq,Yq);
 
+freq_markers = [5 10 20 40 80];
+freq_inds = interp1(weval,1:length(weval),freq_markers);
 
-beg_buffer = -round(0.2/dt);
-end_buffer = round(0/dt);
-trial_dur = round(2/dt);
-R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
-TLEN = length(R_trial_taxis);
-
-all_spk_id = [];
-all_spk_phases = nan(sum(tot_spks_per_trial(:)),length(wfreqs),length(uprobes));
-trial_LFPs = nan(Ntrials,TLEN,length(uprobes));
-for tr = 1:Ntrials
-    fprintf('Trial %d of %d\n',tr,Ntrials);
-    cur_LFPs = double(AllExpt.Expt.Trials(tr).LFP(:,uprobes));
-    bad_LFPs = isnan(cur_LFPs(:,1));
-    cur_LFPs(isnan(cur_LFPs)) = 0;
-    cur_LFPs = filtfilt(b_aa,a_aa,cur_LFPs);
-    cur_LFPs = downsample(cur_LFPs,LFP_dsf);
-    bad_LFPs = downsample(bad_LFPs,LFP_dsf);
-
-    cur_LFPs(bad_LFPs,:) = nan;
-    trial_LFPs(tr,:,:) = interp1(LFP_trial_taxis_ds,cur_LFPs,R_trial_taxis);
+f1 = figure();
+imagesc(1:length(weval),(dinterp-1)*0.05,interp_CPmap);
+% xlim([2 80]);
+colorbar
+set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
+caxis([0.35 0.65]);
+xlabel('Frequency (Hz)');
+ylabel('Depth');
+if to_print
+figufy(f1);
+fname = [fig_dir sprintf('%s_LFPpow_CP.pdf',Expt_name)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
 end
-trial_LFPs = permute(trial_LFPs,[2 1 3]);
 
+avg_controlled = squeeze(nanmean(controlled_Aavgs(ucells,:,:)));
+avg_uncontrolled = squeeze(nanmean(uncontrolled_Aavgs(ucells,:,:)));
 
+interp_map = interp2(Xo,Yo,avg_controlled',Xq,Yq);
+
+f2 = figure();
+imagescnan(1:length(weval),(dinterp-1)*0.05,interp_map);
+% xlim([1.5 80]);
+caxis([-0.005 0.005])
+colorbar
+set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
+xlabel('Frequency (Hz)');
+ylabel('Depth');
+if to_print
+figufy(f2);
+fname = [fig_dir sprintf('%s_rate_LFP_dep.pdf',Expt_name)];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+end
+
+f3 = figure();
+shadedErrorBar(wfreqs,1-nanmean(all_LFPpow_pred_CP(ucells,:)),nanstd(all_LFPpow_pred_CP(ucells,:))/sqrt(length(ucells)),{'color','k'})
+hold on
+set(gca,'xscale','log');
+xlim([2 80])
+ylim([0.35 0.65]);
+line([1.5 100],[0.5 0.5],'color','k');
+xl = xlim();
+xlabel('Frequency (Hz)');
+ylabel('Predicted CP');
+if to_print
+figufy(f3);
+fname = [fig_dir sprintf('%s_Freq_pred_CP.pdf,Expt_name')];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
+end
+
+msize = 4;
+f4 = figure();
+plot(1-new_choice_prob(uMUs),1-all_LFPpow_allw_pred_CP(uMUs),'o','markersize',msize)
+hold on
+plot(1-new_choice_prob(uSUs),1-all_LFPpow_allw_pred_CP(uSUs),'ro','markersize',msize)
+line([0 1],[0 1],'color','k')
+xlim([0.25 0.75]); ylim([0.25 0.75])
+line([0 1],[0.5 0.5],'color','k','linestyle','--')
+line([0.5 0.5],[0 1],'color','k','linestyle','--')
+xlabel('Measured CP');
+ylabel('Predicted CP');
+if to_print
+figufy(f4);
+fname = [fig_dir sprintf('%s_Pred_meas_CP_scatter.pdf',Expt_name)];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f4);
+end
+
+tavg_choice_norm = squeeze(nanmean(all_cwt_choice_norm,2));
+f5 = figure();
+shadedErrorBar(wfreqs,nanmean(tavg_choice_norm),nanstd(tavg_choice_norm));
+set(gca,'xscale','log');
+xlim([2 80]);
+if to_print
+figufy(f5);
+fname = [fig_dir sprintf('%s_Phasedep_choiceLFPmod.pdf',Expt_name)];
+exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f5);
+end
 %%
-addpath(genpath('~/James_scripts/iCSD/'))
-
-cur_LFPs = permute(trial_LFPs,[3 1 2]);
-cur_LFPs = cur_LFPs(:,1:150,:);
-csd_params.Fs = LFP_Fsd; %sample freq
-csd_params.BrainBound = 1; %first channel that is in the brain
-csd_params.ChanSep = 0.05; %channel sep in mm
-csd_params.diam = 2; %current disc diameter (in mm)
-csd_method = 'spline';
-
-csd_mat = PettersenCSD(cur_LFPs,csd_method,csd_params);
-avg_csd = squeeze(nanmean(csd_mat,3));
-csd_tax = R_trial_taxis(1:150);
-
-
+data.Expt = Expt_name;
+data.ucells = ucells;
+data.uSUs = uSUs;
+data.uMUs = uMUs;
+data.LFP_pred_CP = 1-all_LFPpow_allw_pred_CP;
+data.actual_CP = 1-new_choice_prob;
+sname = sprintf('%s_tempdata.mat',Expt_name);
+cd ~/Desktop
+save(sname,'data');
