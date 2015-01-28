@@ -3,7 +3,7 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-Expt_name = 'M239';
+Expt_name = 'M230';
 
 if strcmp(Expt_name,'M239')
     load('M239/lemM239.image.ORBW.LFP.mat')
@@ -730,26 +730,27 @@ for cc = 1:length(uprobes);
             
             uset = find(cur_Dmat == 0);
             temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
-            %         temp = cur_Y(:,II(uset),:).*(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_cwt_same(~isnan(tempm)) = all_cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+            
             temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_Acwt_same(~isnan(tempm)) = all_Acwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
+            
             temp = cur_AY(:,II(uset),:).*cur_AY(:,JJ(uset),:);
             tempm = squeeze(nanmean(temp,2));
             all_A2cwt_same(~isnan(tempm)) = all_A2cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
             all_same_cnt = all_same_cnt + squeeze(sum(~isnan(temp),2));
             
-            %         uset = find(cur_Dmat ~= 0);
             uset = find(~isnan(cur_Dmat));
             temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
-            %         temp = cur_Y(:,II(uset),:).*(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_cwt_diff(~isnan(tempm)) = all_cwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
+            
             temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_Acwt_diff(~isnan(tempm)) = all_Acwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
+            
             temp = cur_AY(:,II(uset),:).*cur_AY(:,JJ(uset),:);
             tempm = squeeze(nanmean(temp,2));
             all_A2cwt_diff(~isnan(tempm)) = all_A2cwt_diff(~isnan(tempm)) + tempm(~isnan(tempm));
@@ -779,7 +780,7 @@ fig_dir = '/home/james/Desktop/CPfigs/';
 close all
 fig_width = 5;
 rel_height = 0.8;
-to_print = true;
+to_print = false;
 
 ucells = find(nansum(trial_Robs_test) > 1e3);
 % ucells = find(totSpkCnts > 1e4);
@@ -842,7 +843,7 @@ xlabel('Frequency (Hz)');
 ylabel('Predicted CP');
 if to_print
 figufy(f3);
-fname = [fig_dir sprintf('%s_Freq_pred_CP.pdf,Expt_name')];
+fname = [fig_dir sprintf('%s_Freq_pred_CP.pdf',Expt_name)];
 exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f3);
 end
@@ -877,12 +878,86 @@ exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','s
 close(f5);
 end
 %%
-data.Expt = Expt_name;
-data.ucells = ucells;
-data.uSUs = uSUs;
-data.uMUs = uMUs;
-data.LFP_pred_CP = 1-all_LFPpow_allw_pred_CP;
-data.actual_CP = 1-new_choice_prob;
-sname = sprintf('%s_tempdata.mat',Expt_name);
+% data.Expt = Expt_name;
+% data.ucells = ucells;
+% data.uSUs = uSUs;
+% data.uMUs = uMUs;
+% data.LFP_pred_CP = 1-all_LFPpow_allw_pred_CP;
+% data.actual_CP = 1-new_choice_prob;
+% sname = sprintf('%s_tempdata.mat',Expt_name);
+% cd ~/Desktop
+% save(sname,'data');
+
+%%
+fig_dir = '/home/james/Desktop/CPfigs/';
+close all
+E1_name = 'M230_tempdata.mat';
+E2_name = 'M239_tempdata.mat';
+
 cd ~/Desktop
-save(sname,'data');
+data1 = load(E1_name);
+data2 = load(E2_name);
+all_pred_CP = [data1.data.LFP_pred_CP data2.data.LFP_pred_CP];
+all_act_CP = [data1.data.actual_CP data2.data.actual_CP];
+type1 = zeros(size(data1.data.actual_CP));
+type1(data1.data.uSUs) = 2; type1(data1.data.uMUs) = 1;
+type2 = zeros(size(data2.data.actual_CP));
+type2(data2.data.uSUs) = 2; type2(data2.data.uMUs) = 1;
+
+all_types = [type1 type2];
+
+[a,b] = corr(all_pred_CP(all_types > 0)',all_act_CP(all_types > 0)','type','spearman')
+
+msize = 6;
+f1 = figure(); hold on
+plot(all_act_CP(all_types == 1),all_pred_CP(all_types == 1),'o','markersize',msize);
+plot(all_act_CP(all_types == 2),all_pred_CP(all_types == 2),'ro','markersize',msize);
+line([0 1],[0 1],'color','k')
+xlim([0.25 0.75]); ylim([0.25 0.75])
+line([0 1],[0.5 0.5],'color','k','linestyle','--')
+line([0.5 0.5],[0 1],'color','k','linestyle','--')
+xlabel('Measured CP');
+ylabel('Predicted CP');
+
+fig_width = 4; rel_height = 1;
+figufy(f1);
+fname = [fig_dir 'Combined_predact_CP_scatter.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+
+%%
+close all
+
+fig_dir = '/home/james/Desktop/CPfigs/';
+fig_width = 5;
+rel_height = 0.8;
+
+bt = 0.2;
+et = 1.8;
+uu = find(R_trial_taxis(u_lfp_times) > bt & R_trial_taxis(u_lfp_times) < et);
+ch_avg_coherence = squeeze(nanmean(all_cwt_choice_norm(:,uu,:),2));
+
+weval = logspace(log10(2),log10(80.001),500);
+dinterp = 1:0.25:24;
+[Xo,Yo] = meshgrid(wfreqs,uprobes);
+[Xq,Yq] = meshgrid(weval,dinterp);
+interp_map = interp2(Xo,Yo,ch_avg_coherence,Xq,Yq);
+
+freq_markers = [5 10 20 40 80];
+freq_inds = interp1(weval,1:length(weval),freq_markers);
+
+f1 = figure();
+imagesc(1:length(weval),(dinterp-1)*0.05,interp_map);
+colorbar
+set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
+cam = max(abs(caxis())); caxis([-cam cam]);
+xlabel('Frequency (Hz)');
+ylabel('Depth (mm)');
+
+fig_width = 5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir sprintf('%s_LFPchoice_coherence.pdf',Expt_name)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
