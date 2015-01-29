@@ -875,7 +875,7 @@ if to_print
 figufy(f5);
 fname = [fig_dir sprintf('%s_Phasedep_choiceLFPmod.pdf',Expt_name)];
 exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f5);
+close(f5);o
 end
 %%
 % data.Expt = Expt_name;

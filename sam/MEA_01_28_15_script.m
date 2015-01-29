@@ -208,16 +208,33 @@ lfp_taxis = (1:size(all_lfps,1))/LFP_Fsd;
 %%
 close all
 
+temp = 1:256;
+temp = reshape(temp,16,16);
+temp([1 end],[1 end]) = nan;
+temp = temp(:);
+[~,ord] = sort(temp);
+ord(end-3:end) = [];
+[XX,YY] = meshgrid(1:16);
+probe_X = XX(ord); probe_Y = YY(ord);
+temp = reshape(temp,16,16);
+
 trial_dispid =2;
 trial_dur = 10;
 trial_onset_time = vs.stimTimes(trial_dispid)/1e3;
 use_inds = find(lfp_taxis >= trial_onset_time & lfp_taxis <= trial_onset_time+trial_dur);
 xl = [0 2];
 
+[~,sort_ord] = sort(probe_Y);
+
 f1 = figure();
 imagesc(lfp_taxis(use_inds)-trial_onset_time,1:252,all_lfps(use_inds,:)');
 xlim(xl);
 
+targ_ind = 51;
+cur_mat = nan(16,16);
+cur_mat(~isnan(temp)) = all_lfps(use_inds(targ_ind),:);
+f2 = figure();
+imagesc(cur_mat);
 %%
 
 clear sig_var
