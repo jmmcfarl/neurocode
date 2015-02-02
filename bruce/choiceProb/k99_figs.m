@@ -919,11 +919,11 @@ line([0.5 0.5],[0 1],'color','k','linestyle','--')
 xlabel('Measured CP');
 ylabel('Predicted CP');
 
-fig_width = 4; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Combined_predact_CP_scatter.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Combined_predact_CP_scatter.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 
 %%
@@ -951,13 +951,13 @@ f1 = figure();
 imagesc(1:length(weval),(dinterp-1)*0.05,interp_map);
 colorbar
 set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
-cam = max(abs(caxis())); caxis([-cam cam]);
+cam = max(abs(caxis())); caxis([0 cam]);
 xlabel('Frequency (Hz)');
 ylabel('Depth (mm)');
 
 fig_width = 5; rel_height = 0.8;
 figufy(f1);
-fname = [fig_dir sprintf('%s_LFPchoice_coherence.pdf',Expt_name)];
+fname = [fig_dir sprintf('%s_LFPchoice_coherence2.pdf',Expt_name)];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
 

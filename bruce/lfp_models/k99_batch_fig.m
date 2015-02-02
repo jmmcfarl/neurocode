@@ -155,8 +155,8 @@ line([0 0.45],[0 0.45],'color','k')
 xlabel('Excitatory gain SD');
 ylabel('Inhibitory gain SD');
 
-fname = [fig_dir 'gain_SD_scatter.pdf'];
-fig_width = 4; rel_height = 1;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% fname = [fig_dir 'gain_SD_scatter.pdf'];
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);

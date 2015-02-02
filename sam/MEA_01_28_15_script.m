@@ -76,6 +76,7 @@ n_use_units = length(use_units);
 
 line_height = 1;
 line_width = 0.5;
+line_length = 0.01;
 xl = [0 2];
 trial_offset = 0.1;
 to_print = true;
@@ -96,7 +97,7 @@ for ii = 1:length(trialord)
     cur_spike_cellids = all_spike_cellids(cur_spike_set);
     cur_spike_reltimes = (all_spike_times(cur_spike_set) - vs.stimTimes(trialid))/1e3;
     for jj = 1:length(cur_spike_set)
-        line(cur_spike_reltimes(jj) + [0 0]-trial_offset,cur_spike_cellids(jj)+[0 line_height],'color','r','linewidth',line_width);
+        line(cur_spike_reltimes(jj) + [0 line_length]-trial_offset,cur_spike_cellids(jj)+[0 0],'color','r','linewidth',line_width);
     end
 %     for jj = 1:n_use_units
 %         line(cur_spike_reltimes(jj) + [0 0]-trial_offset,jj+[0 line_height],'color','r','linewidth',line_width);
@@ -182,9 +183,9 @@ tf_nrates = bsxfun(@rdivide,tf_rates,ov_trial_avgs);
 %% LOAD LFP DATA 
 use_chs = 1:1:252;
 lfp_dsf = 6;
-% load('headerInfo')
-% LFP_Fs = hdr.filteredFS;
-LFP_Fs = 1e3;
+load('hdr.mat')
+LFP_Fs = hdr.filteredFS;
+% LFP_Fs = 1e3;
 LFP_Fsd = LFP_Fs/lfp_dsf;
 [bb,aa] = butter(2,[0.1 0.8*LFP_Fsd]/LFP_Fs);
 
@@ -208,33 +209,143 @@ lfp_taxis = (1:size(all_lfps,1))/LFP_Fsd;
 %%
 close all
 
-temp = 1:256;
-temp = reshape(temp,16,16);
-temp([1 end],[1 end]) = nan;
-temp = temp(:);
-[~,ord] = sort(temp);
-ord(end-3:end) = [];
-[XX,YY] = meshgrid(1:16);
-probe_X = XX(ord); probe_Y = YY(ord);
-temp = reshape(temp,16,16);
+fig_dir = '/home/james/Desktop/SamFigs/';
 
+MEA_nums = hdr.MEAlayoutNums;
+
+trial_toffset = 0.1;
 trial_dispid =2;
 trial_dur = 10;
 trial_onset_time = vs.stimTimes(trial_dispid)/1e3;
 use_inds = find(lfp_taxis >= trial_onset_time & lfp_taxis <= trial_onset_time+trial_dur);
-xl = [0 2];
+xl = [0 1];
 
 [~,sort_ord] = sort(probe_Y);
 
+cur_lfp_T = lfp_taxis(use_inds) - trial_onset_time - trial_toffset;
 f1 = figure();
-imagesc(lfp_taxis(use_inds)-trial_onset_time,1:252,all_lfps(use_inds,:)');
+imagesc(cur_lfp_T,1:252,all_lfps(use_inds,:)');
+% imagesc(1:length(use_inds),1:252,all_lfps(use_inds,:)');
 xlim(xl);
+caxis([-13 13]);
+xlabel('Time (s)');
+ylabel('Channel Number');
 
-targ_ind = 51;
-cur_mat = nan(16,16);
-cur_mat(~isnan(temp)) = all_lfps(use_inds(targ_ind),:);
+   
+[Xo,Yo] = meshgrid(1:16);
+[Xq,Yq] = meshgrid(1:0.25:16);
+
+ca = [-14 12];
+
+targ_ind1 = 41;
 f2 = figure();
-imagesc(cur_mat);
+cur_mat = nan(16,16);
+cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(targ_ind1),MEA_nums(~isnan(MEA_nums)));
+% subplot(2,1,1);
+% imagescnan(cur_mat);
+uset = ~isnan(cur_mat);
+F = TriScatteredInterp(Xo(uset),Yo(uset),cur_mat(uset));
+cur_mat_interp = F(Xq,Yq);
+%    caxis(ca);
+% subplot(2,1,2);
+imagescnan(cur_mat_interp);
+%    caxis(ca);
+set(gca,'xtick',[],'ytick',[]);
+
+targ_ind2 = 49;
+f3 = figure();
+cur_mat = nan(16,16);
+cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(targ_ind2),MEA_nums(~isnan(MEA_nums)));
+% subplot(2,1,1);
+% imagescnan(cur_mat);
+uset = ~isnan(cur_mat);
+F = TriScatteredInterp(Xo(uset),Yo(uset),cur_mat(uset));
+cur_mat_interp = F(Xq,Yq);
+%    caxis(ca);
+% subplot(2,1,2);
+imagescnan(cur_mat_interp);
+%    caxis(ca);
+set(gca,'xtick',[],'ytick',[]);
+
+targ_ind3 = 71;
+f4 = figure();
+cur_mat = nan(16,16);
+cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(targ_ind3),MEA_nums(~isnan(MEA_nums)));
+% subplot(2,1,1);
+% imagescnan(cur_mat);
+uset = ~isnan(cur_mat);
+F = TriScatteredInterp(Xo(uset),Yo(uset),cur_mat(uset));
+cur_mat_interp = F(Xq,Yq);
+%    caxis(ca);
+% subplot(2,1,2);
+imagescnan(cur_mat_interp);
+%    caxis(ca);
+set(gca,'xtick',[],'ytick',[]);
+
+% targ_ind = 79;
+% f5 = figure();
+% cur_mat = nan(16,16);
+% cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(targ_ind),MEA_nums(~isnan(MEA_nums)));
+% subplot(2,1,1);
+% imagescnan(cur_mat);
+% uset = ~isnan(cur_mat);
+% F = TriScatteredInterp(Xo(uset),Yo(uset),cur_mat(uset));
+% cur_mat_interp = F(Xq,Yq);
+%    caxis(ca);
+% subplot(2,1,2);
+% imagescnan(cur_mat_interp);
+%    caxis(ca);
+
+figure(f1);
+yl = ylim();
+line(cur_lfp_T(41) + [0 0],yl,'color','w');
+% line(cur_lfp_T(79) + [0 0],yl,'color','w');
+% line(cur_lfp_T(66) + [0 0],yl,'color','w');
+line(cur_lfp_T(71) + [0 0],yl,'color','w');
+line(cur_lfp_T(49) + [0 0],yl,'color','w');
+
+
+fig_width = 4; rel_height = 1.2;
+fig_name = [fig_dir 'Example_LFP_stack.pdf'];
+figufy(f1);
+exportfig(f1,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+fig_width = 3; rel_height = 1;
+fig_name = [fig_dir sprintf('LFP_slice_%d.pdf',targ_ind1)];
+figufy(f2);
+exportfig(f2,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+fig_name = [fig_dir sprintf('LFP_slice_%d.pdf',targ_ind2)];
+figufy(f3);
+exportfig(f3,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3)
+
+fig_name = [fig_dir sprintf('LFP_slice_%d.pdf',targ_ind3)];
+figufy(f4);
+exportfig(f4,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f4)
+
+%%
+use_frames = find(lfp_taxis(use_inds) - trial_onset_time > 0.2 & lfp_taxis(use_inds) - trial_onset_time < 1);
+movie_X = nan(length(use_frames),size(Xq,1),size(Xq,2));
+for ii = 1:length(use_frames)
+    cur_mat = nan(16,16);
+    cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(ii),MEA_nums(~isnan(MEA_nums)));
+    uset = ~isnan(cur_mat);
+    F = TriScatteredInterp(Xo(uset),Yo(uset),cur_mat(uset));
+    movie_X(ii,:,:) = F(Xq,Yq);
+end
+
+%%
+close all
+f1 = figure();
+for ii = 1:length(use_frames)
+   imagescnan(squeeze(movie_X(ii,:,:)));
+   caxis([-12 12]);
+   pause(0.3);   
+end
 %%
 
 clear sig_var
