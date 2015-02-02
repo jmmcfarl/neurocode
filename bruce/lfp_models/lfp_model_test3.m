@@ -922,10 +922,12 @@ state_chs = 1:length(use_lfps);
 % end
 %%
 xeval = 0:eval_spacing:100;
+% xneweval = logspace(log10(0.5),log10(100),100);
+xneweval = 0:0.25:100;
 % weval = logspace(log10(2),log10(50),50);
 weval = linspace(2,50,100);
 [Xo,Yo] = meshgrid(xeval,wfreqs);
-[Xq,Yq] = meshgrid(xeval,weval);
+[Xq,Yq] = meshgrid(xneweval,weval);
 clear interp_phidep
 for cc = 1:Nunits
     interp_phidep(cc,:,:) = interp2(Xo,Yo,squeeze(var_spline_funs(:,cc,:)),Xq,Yq);
@@ -938,9 +940,9 @@ for cc = 25:Nunits
     colorbar
 %      set(gca,'yscale','log');
     subplot(4,1,2)
-    pcolor(xeval,weval,squeeze(interp_phidep(cc,:,:)));shading flat
+    pcolor(xneweval,weval,squeeze(interp_phidep(cc,:,:)));shading flat
      colorbar
-%      set(gca,'yscale','log');
+     set(gca,'xscale','log');
    subplot(4,1,3)
 %     plot(prc_bin_cents,squeeze(var_spline_funs(
     net_added_var = (squeeze(interp_phidep(cc,:,1)) - rand_XC(cc))/rand_XC(cc);
@@ -970,48 +972,50 @@ f1 = figure();
 imagesc(xeval,weval,squeeze(interp_phidep(cc,:,:)));
 
 %% PLOT EXAMPLE FIGS
-% close all
-% cc = 29;
-% 
-% freq_markers = [10:10:50];
-% freq_inds = interp1(weval,1:length(weval),freq_markers);
-% 
-% be_markers = [2 50];
-% be_inds = interp1(weval,1:length(weval),be_markers);
-% f1 = figure();
-% imagesc(xeval,1:length(weval),(squeeze(interp_phidep(cc,:,:))-rand_XC(cc))/rand_XC(cc));
-% set(gca,'ydir','normal');
-% set(gca,'ytick',freq_inds,'yticklabel',freq_markers);
-% xlabel('Delta Psi (percentile)');
-% ylabel('Frequency (Hz)');
-% ylim([be_inds]);
-% 
-% net_added_var = (squeeze(interp_phidep(cc,:,1)) - rand_XC(cc))/rand_XC(cc);
-% [~,peakfreq] = max(net_added_var);
-% 
-% f2 = figure();
-% [~,peakfreq_loc] = min(abs(wfreqs-weval(peakfreq)));
-% plot(prc_bin_cents,squeeze(all_LFP_metric(peakfreq_loc,:,cc)-rand_XC(cc))/rand_XC(cc),'o');
-% hold on
-% plot(spline_eval,squeeze(var_spline_funs(peakfreq_loc,cc,:)-rand_XC(cc))/rand_XC(cc),'r-');
-% xl = xlim();
-% line(xl,[0 0],'color','k');
-% xlabel('Delta Psi (percentile)');
-% ylabel('Relative rate modulation');
-% 
-% f3 = figure();
-% plot(weval,net_added_var);
-% xlabel('Frequency (Hz)');
-% ylabel('Relative rate modulation');
-% xlim([2 50]);
-% 
-% % PRINT PLOTS
-% fig_width = 5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir sprintf('E%d_C%d_freq_LFP_var.pdf',Expt_num,cur_su+n_probes)];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
+close all
+cc = 29;
+
+freq_markers = [10:10:50];
+freq_inds = interp1(weval,1:length(weval),freq_markers);
+
+be_markers = [2 50];
+be_inds = interp1(weval,1:length(weval),be_markers);
+f1 = figure();
+imagesc(xeval,1:length(weval),(squeeze(interp_phidep(cc,:,:)))/rand_XC(cc)); colorbar
+set(gca,'ydir','normal');
+set(gca,'ytick',freq_inds,'yticklabel',freq_markers);
+xlabel('Delta Psi (percentile)');
+ylabel('Frequency (Hz)');
+ylim([be_inds]);
+xlim([0 50])
+caxis([0.9 1.4]);
+
+net_added_var = (squeeze(interp_phidep(cc,:,1)) - rand_XC(cc))/rand_XC(cc);
+[~,peakfreq] = max(net_added_var);
+
+f2 = figure();
+[~,peakfreq_loc] = min(abs(wfreqs-weval(peakfreq)));
+plot(prc_bin_cents,squeeze(all_LFP_metric(peakfreq_loc,:,cc)-rand_XC(cc))/rand_XC(cc),'o');
+hold on
+plot(spline_eval,squeeze(var_spline_funs(peakfreq_loc,cc,:)-rand_XC(cc))/rand_XC(cc),'r-');
+xl = xlim();
+line(xl,[0 0],'color','k');
+xlabel('Delta Psi (percentile)');
+ylabel('Relative rate modulation');
+
+f3 = figure();
+plot(weval,net_added_var);
+xlabel('Frequency (Hz)');
+ylabel('Relative rate modulation');
+xlim([2 50]);
+
+% PRINT PLOTS
+fig_width = 5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir sprintf('E%d_C%d_freq_LFP_var.pdf',Expt_num,cur_su+n_probes)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
 % fig_width = 5; rel_height = 0.8;
 % figufy(f2);
 % fname = [fig_dir sprintf('E%d_C%d_LFP_deltaPsiplot.pdf',Expt_num,cur_su+n_probes)];
@@ -1025,51 +1029,51 @@ imagesc(xeval,weval,squeeze(interp_phidep(cc,:,:)));
 % close(f3);
 
 %%
-% fig_dir = '/home/james/Desktop/K99_figures/';
-% close all
-% cur_su = 5;
-% cur_spk_times = all_su_spk_times{cur_su};
-% cur_spk_trials = round(interp1(all_t_axis,all_trialvec,cur_spk_times));
-% 
-% line_height = 0.9;
-% line_width = 1;
-% % xl = [1.5 2.5];
-% xl = [0.5 1.5];
-% 
-% f1 = figure();
-% subplot(3,1,[1 2])
-% for ii = 1:Ntrials
-%     cur_spks = find(cur_spk_trials == test_trials(ii));
-%     tspk_times = cur_spk_times(cur_spks) - all_trial_start_times(test_trials(ii));
-%     tspk_times(tspk_times < 0 | tspk_times > 4) = [];
-%     for jj = 1:length(tspk_times)
-%        line(tspk_times(jj) + [0 0],ii + [0 line_height],'color','k','linewidth',line_width);
-%     end
-% end
-% xlim(xl);
-% ylim([0 Ntrials]);
-% subplot(3,1,3)
-% orig_tax = (1:Nframes)*dt;
-% new_tax = (1:0.25:Nframes)*dt;
-% interp_rate = interp1(orig_tax,squeeze(nanmean(tbt_Robs(:,:,n_probes + cur_su))),new_tax,'spline') + fullRobs_avgs(cur_su + n_probes);
-% plot(new_tax+beg_buffer,interp_rate/dt)
-% axis tight;xlim(xl); 
-% yl = ylim();
-% ylim([0 yl(2)]);
-% 
-% % PRINT PLOTS
-% fig_width = 5; rel_height = 1.5;
-% figufy(f1);
-% fname = [fig_dir sprintf('E%d_C%d_raster.pdf',Expt_num,cur_su+n_probes)];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
+fig_dir = '/home/james/Desktop/K99_figures/';
+close all
+cur_su = 5;
+cur_spk_times = all_su_spk_times{cur_su};
+cur_spk_trials = round(interp1(all_t_axis,all_trialvec,cur_spk_times));
+
+line_height = 0.9;
+line_width = 0.4;
+% xl = [1.5 2.5];
+xl = [0.5 1.5];
+
+f1 = figure();
+subplot(3,1,[1 2])
+for ii = 1:Ntrials
+    cur_spks = find(cur_spk_trials == test_trials(ii));
+    tspk_times = cur_spk_times(cur_spks) - all_trial_start_times(test_trials(ii));
+    tspk_times(tspk_times < 0 | tspk_times > 4) = [];
+    for jj = 1:length(tspk_times)
+       line(tspk_times(jj) + [0 0],ii + [0 line_height],'color','k','linewidth',line_width);
+    end
+end
+xlim(xl);
+ylim([0 Ntrials]);
+subplot(3,1,3)
+orig_tax = (1:Nframes)*dt;
+new_tax = (1:0.25:Nframes)*dt;
+interp_rate = interp1(orig_tax,squeeze(nanmean(tbt_Robs(:,:,n_probes + cur_su))),new_tax,'spline') + fullRobs_avgs(cur_su + n_probes);
+plot(new_tax+beg_buffer,interp_rate/dt)
+axis tight;xlim(xl); 
+yl = ylim();
+ylim([0 yl(2)]);
+
+% PRINT PLOTS
+fig_width = 5; rel_height = 1.5;
+figufy(f1);
+fname = [fig_dir sprintf('E%d_C%d_raster.pdf',Expt_num,cur_su+n_probes)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
 %%
 
 [II,JJ] = meshgrid(1:length(test_trials));
 
 % clear all_LFP_metric all_rand_XC
-for ww = [3 28]
+for ww = [3 28 36 42]
 % for ww = 1:length(wfreqs)
     ww
     % ww =  2;
@@ -1185,9 +1189,9 @@ end
 % imagescnan(squeeze(all_LFP_cov(ww2,ord,ord) - all_rand_cov(ww2,ord,ord))./normfac(ord,ord));
 % xlim(xr);ylim(xr);
 % cam = max(abs(caxis())); caxis([-cam cam]*0.9); colorbar;
+
 % 
-% 
-% PRINT PLOTS
+% % PRINT PLOTS
 % fig_width = 5; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir sprintf('E%d_w%d_corrmat.pdf',Expt_num,ww1)];
@@ -1198,7 +1202,7 @@ end
 % fname = [fig_dir sprintf('E%d_w%d_corrmat.pdf',Expt_num,ww2)];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
-
+% 
 
 %% compute xcorrs as a function of LFP state
 [II,JJ] = meshgrid(1:length(test_trials));

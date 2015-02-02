@@ -436,8 +436,15 @@ for i = 1:n_blocks
 end
 
 %% PROCESS EYE TRACKING DATA
+if isfield(Expts{cur_block_set(1)}.Header,'exptno')
+    em_block_nums = cellfun(@(X) X.Header.exptno,Expts(cur_block_set),'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
+else
+    em_block_nums = cur_block_set;
+end
+
+[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,em_block_nums,Expt_name,trial_toffset,good_coils);
 % [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset);
-[all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset,good_coils);
+% [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v2(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset,good_coils);
 interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);
 
 %compute corrected eye data in bar-oriented frame
@@ -674,7 +681,7 @@ for ee = ublock_set
     fprintf('Loading LFPs, Expt %d of %d\n',ee,length(cur_block_set));
     
     if strcmp(rec_type,'LP')
-        fname = sprintf('lemM%dA.%d.lfp.mat',Expt_num,cur_block_set(ee));
+        fname = sprintf('lemM%dA.%d.lfp.mat',Expt_num,em_block_nums(ee));
         load(fname);
         
         tlens = arrayfun(@(X) length(X.ftime),LFP.Trials);
@@ -716,7 +723,7 @@ for ee = ublock_set
             expt_cwt(:,:,cc) = cwt(expt_lfps(:,cc),scales,'cmor1-1')';
         end
     else
-        lfp_fname = sprintf('Expt%d_LFP.mat',cur_block_set(ee));
+        lfp_fname = sprintf('Expt%d_LFP.mat',em_block_nums(ee));
         load(lfp_fname);
         
         cur_lfps = bsxfun(@times,double(lfp_mat(:,use_lfps)),lfp_int2V(use_lfps)');
@@ -760,6 +767,9 @@ Ximag = interp_cwt_imag(used_inds,:,:);
 clear interp_cwt*
 Xmag = sqrt(Xreal.^2 + Ximag.^2);
 
+Xreal(isnan(Xreal)) = 0;
+Ximag(isnan(Ximag)) = 0;
+Xmag(isnan(Xmag)) = 0;
 %%
 uwfreqs = find(wfreqs < 50);
 addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
@@ -780,6 +790,7 @@ for cc = (n_probes+1):length(ModData)
     cur_tr_ind_set = find(ismember(cc_all_inds,tr_inds));
     cur_xv_ind_set = find(ismember(cc_all_inds,xv_inds));
     
+    if ~isempty(cur_xv_ind_set)
     if cc > n_probes
         su_ind = find(SU_numbers == all_mod_SUnum(cc));
         [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
@@ -840,10 +851,17 @@ for cc = (n_probes+1):length(ModData)
     gain_mod.mods(2).reg_params = NMMcreate_reg_params();
     gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
     [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
-    [gain_xvLL,nullxvLL] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+    [gain_xvLL,nullxvLL,~,~,gintxv] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
 %     lambda_LL(cc,ll) = gain_xvLL;
 %     end
-    
+  
+    off_mod = NMMinitialize_model(sac_stim_params,[1 1 1 1],{'lin','lin','lin','lin'},sac_reg_params,[1 2 3 4]);
+    off_mod.spk_NL_params = cur_GQM.spk_NL_params;
+    off_mod.mods(1).reg_params = NMMcreate_reg_params();
+    off_mod.mods(2).reg_params = NMMcreate_reg_params();
+    off_mod = NMMfit_filters(off_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
+    [off_xvLL] = NMMeval_model(off_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+
     base_mod = NMMinitialize_model(sac_stim_params(1:2),[1 1],{'lin','lin'},NMMcreate_reg_params(),[1 2]);
     base_mod = NMMfit_filters(base_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
     [base_xvLL] = NMMeval_model(base_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
@@ -863,6 +881,12 @@ for cc = (n_probes+1):length(ModData)
     Igain(isnan(Igain)) = 1;
     Egain(isnan(Egain)) = 1;
     Offset = Oout - nanmean(Oout); 
+    
+    Eoutxv = sum(gintxv(:,[1 5 6]),2);
+    Ioutxv = sum(gintxv(:,[2 7 8]),2);
+    Ooutxv = sum(gintxv(:,[3 4]),2);
+    Egainxv = Eoutxv./E_g(cc_all_inds(cur_xv_ind_set));
+    Igainxv = Ioutxv./I_g(cc_all_inds(cur_xv_ind_set));
     %%
     movingwin = [1.5 1.5];
     params.Fs = 1/dt;
@@ -877,6 +901,8 @@ for cc = (n_probes+1):length(ModData)
     %%
     lfp_models(cc).Egain_SD = nanstd(Egain);
     lfp_models(cc).Igain_SD = nanstd(Igain);
+    lfp_models(cc).Egain_SDxv = nanstd(Egainxv);
+    lfp_models(cc).Igain_SDxv = nanstd(Igainxv);
     lfp_models(cc).pow_spectra = Smm;
     lfp_models(cc).spectra_f = f;
     lfp_models(cc).coherence = Cmn;
@@ -884,7 +910,8 @@ for cc = (n_probes+1):length(ModData)
     lfp_models(cc).lags = lags*dt;
     lfp_models(cc).base_xvImp = (base_xvLL - nullxvLL)/log(2);
     lfp_models(cc).lfp_xvImp = (gain_xvLL - nullxvLL)/log(2);
-
+    lfp_models(cc).off_xvImp = (off_xvLL - nullxvLL)/log(2);
+    end
 end
 
 %%
@@ -908,6 +935,8 @@ for cc = (n_probes+1):length(ModData)
     cur_tr_ind_set = find(ismember(cc_all_inds,tr_inds));
     cur_xv_ind_set = find(ismember(cc_all_inds,xv_inds));
     
+    if ~isempty(cur_xv_ind_set)
+        
     if cc > n_probes
         su_ind = find(SU_numbers == all_mod_SUnum(cc));
         [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
@@ -1001,7 +1030,7 @@ for cc = (n_probes+1):length(ModData)
     lfp_ampmodels(cc).lags = lags*dt;
     lfp_ampmodels(cc).base_xvImp = (base_xvLL - nullxvLL)/log(2);
     lfp_ampmodels(cc).lfp_xvImp = (gain_xvLL - nullxvLL)/log(2);
-
+    end
 end
 
 %%
