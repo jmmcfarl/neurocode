@@ -220,7 +220,7 @@ trial_onset_time = vs.stimTimes(trial_dispid)/1e3;
 use_inds = find(lfp_taxis >= trial_onset_time & lfp_taxis <= trial_onset_time+trial_dur);
 xl = [0 1];
 
-[~,sort_ord] = sort(probe_Y);
+% [~,sort_ord] = sort(probe_Y);
 
 cur_lfp_T = lfp_taxis(use_inds) - trial_onset_time - trial_toffset;
 f1 = figure();
@@ -237,7 +237,7 @@ ylabel('Channel Number');
 
 ca = [-14 12];
 
-targ_ind1 = 41;
+targ_ind1 = 56;
 f2 = figure();
 cur_mat = nan(16,16);
 cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(targ_ind1),MEA_nums(~isnan(MEA_nums)));
@@ -267,20 +267,20 @@ imagescnan(cur_mat_interp);
 %    caxis(ca);
 set(gca,'xtick',[],'ytick',[]);
 
-targ_ind3 = 71;
-f4 = figure();
-cur_mat = nan(16,16);
-cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(targ_ind3),MEA_nums(~isnan(MEA_nums)));
-% subplot(2,1,1);
-% imagescnan(cur_mat);
-uset = ~isnan(cur_mat);
-F = TriScatteredInterp(Xo(uset),Yo(uset),cur_mat(uset));
-cur_mat_interp = F(Xq,Yq);
-%    caxis(ca);
-% subplot(2,1,2);
-imagescnan(cur_mat_interp);
-%    caxis(ca);
-set(gca,'xtick',[],'ytick',[]);
+% targ_ind3 = 71;
+% f4 = figure();
+% cur_mat = nan(16,16);
+% cur_mat(~isnan(MEA_nums)) = all_lfps(use_inds(targ_ind3),MEA_nums(~isnan(MEA_nums)));
+% % subplot(2,1,1);
+% % imagescnan(cur_mat);
+% uset = ~isnan(cur_mat);
+% F = TriScatteredInterp(Xo(uset),Yo(uset),cur_mat(uset));
+% cur_mat_interp = F(Xq,Yq);
+% %    caxis(ca);
+% % subplot(2,1,2);
+% imagescnan(cur_mat_interp);
+% %    caxis(ca);
+% set(gca,'xtick',[],'ytick',[]);
 
 % targ_ind = 79;
 % f5 = figure();
@@ -298,11 +298,9 @@ set(gca,'xtick',[],'ytick',[]);
 
 figure(f1);
 yl = ylim();
-line(cur_lfp_T(41) + [0 0],yl,'color','w');
-% line(cur_lfp_T(79) + [0 0],yl,'color','w');
-% line(cur_lfp_T(66) + [0 0],yl,'color','w');
-line(cur_lfp_T(71) + [0 0],yl,'color','w');
-line(cur_lfp_T(49) + [0 0],yl,'color','w');
+line(cur_lfp_T(targ_ind1) + [0 0],yl,'color','w');
+line(cur_lfp_T(targ_ind2) + [0 0],yl,'color','w');
+% line(cur_lfp_T(targ_ind3) + [0 0],yl,'color','w');
 
 
 fig_width = 4; rel_height = 1.2;
@@ -322,10 +320,10 @@ figufy(f3);
 exportfig(f3,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f3)
 
-fig_name = [fig_dir sprintf('LFP_slice_%d.pdf',targ_ind3)];
-figufy(f4);
-exportfig(f4,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f4)
+% fig_name = [fig_dir sprintf('LFP_slice_%d.pdf',targ_ind3)];
+% figufy(f4);
+% exportfig(f4,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4)
 
 %%
 use_frames = find(lfp_taxis(use_inds) - trial_onset_time > 0.2 & lfp_taxis(use_inds) - trial_onset_time < 1);
