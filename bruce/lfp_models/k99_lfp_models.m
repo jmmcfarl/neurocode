@@ -57,11 +57,11 @@ if strcmp(rec_type,'LP')
     end
 end
 
-if Expt_num >= 280
-    data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-else
+% if Expt_num >= 280
+%     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% else
 data_dir = ['~/Data/bruce/' Expt_name];
-end
+% end
 
 cd(data_dir);
 
@@ -766,126 +766,18 @@ clear interp_cwt*
 Xmag = sqrt(Xreal.^2 + Ximag.^2);
 
 %%
-% %cc = 30 is interesting
-% for cc = [25 30]
-%     %%
-% %     cc = 26
-%     
-%     cur_GQM = ModData(cc).rectGQM;
-%     cur_Robs = Robs_mat(:,cc);
-%     
-%     cc_uinds = find(~isnan(cur_Robs));
-%     cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
-%     cc_xv_inds = cc_uinds(ismember(cc_uinds,xv_inds));
-%     cc_all_inds = union(cc_tr_inds,cc_xv_inds);
-%     
-%     if cc > n_probes
-%         su_ind = find(SU_numbers == all_mod_SUnum(cc));
-%         [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
-%     else
-%         [~,nearest_lfp] = min(abs(use_lfps - cc));
-%     end
-%     
-%     tr_cur_Robs = cur_Robs(cc_all_inds);
-% 
-%     cur_GQM = NMMfit_logexp_spkNL(cur_GQM,tr_cur_Robs,all_Xmat_shift(cc_all_inds,:));
-%     [~, ~, ~, tot_G,ind_Gints,fgint] = NMMmodel_eval(cur_GQM, [], all_Xmat_shift);
-%     modSigns = [cur_GQM.mods(:).sign];
-%     g_tot = sum(bsxfun(@times,fgint,modSigns),2);
-%     E_g = sum(fgint(:,modSigns==1),2);
-%     I_g = sum(fgint(:,modSigns==-1),2);
-%     
-%     Xreal_tot = bsxfun(@times,Xreal(cc_all_inds,:,:),g_tot(cc_all_inds));
-%     Ximag_tot = bsxfun(@times,Ximag(cc_all_inds,:,:),g_tot(cc_all_inds));
-%     Xreal_E = bsxfun(@times,Xreal(cc_all_inds,:,:),E_g(cc_all_inds));
-%     Ximag_E = bsxfun(@times,Ximag(cc_all_inds,:,:),E_g(cc_all_inds));
-%     Xreal_I = bsxfun(@times,Xreal(cc_all_inds,:,:),I_g(cc_all_inds));
-%     Ximag_I = bsxfun(@times,Ximag(cc_all_inds,:,:),I_g(cc_all_inds));
-%     
-%     % sac_stim_params(2:7) = NMMcreate_stim_params(length(cur_uchs));
-%     sac_stim_params(3:8) = NMMcreate_stim_params(1);
-% %     sac_reg_params = NMMcreate_reg_params('lambda_d2T',100);
-% sac_reg_params = NMMcreate_reg_params('lambda_L2',5);
-% NL_types = repmat({'lin'},1,8);
-% mod_signs = [1 1 1 1 1 1 1 1];
-% Xtargets = [1 2 3 4 5 6 7 8];
-% silent = 1;
-%     
-%     cur_uchs = 1:length(use_lfps);
-% %     cur_uchs = 1;
-%     for ww = 1:nwfreqs
-%         ww
-%         tr_stim{1} = [E_g(cc_all_inds)];
-%         tr_stim{2} = [I_g(cc_all_inds)];
-%         sac_stim_params(1:2) = NMMcreate_stim_params(1);
-%         for hh = 1:length(cur_uchs)
-%             tr_stim{3} = squeeze(Xreal(cc_all_inds,ww,cur_uchs(hh)));
-%             tr_stim{4} = squeeze(Ximag(cc_all_inds,ww,cur_uchs(hh)));
-%             tr_stim{5} = squeeze(Xreal_E(:,ww,cur_uchs(hh)));
-%             tr_stim{6} = squeeze(Ximag_E(:,ww,cur_uchs(hh)));
-%             tr_stim{7} = squeeze(Xreal_I(:,ww,cur_uchs(hh)));
-%             tr_stim{8} = squeeze(Ximag_I(:,ww,cur_uchs(hh)));
-% %             tr_stim{2} = squeeze(Xreal(cc_all_inds,ww));
-% %             tr_stim{3} = squeeze(Ximag(cc_all_inds,ww));
-% %             tr_stim{4} = squeeze(Xcos_E(:,ww));
-% %             tr_stim{5} = squeeze(Xsin_E(:,ww));
-% %             tr_stim{6} = squeeze(Xcos_I(:,ww));
-% %             tr_stim{7} = squeeze(Xsin_I(:,ww));
-%             gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
-%             gain_mod.spk_NL_params = cur_GQM.spk_NL_params;
-%             gain_mod.mods(1).reg_params = NMMcreate_reg_params();
-%             gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],[],silent);
-%             [gain_LL,penLL, pred_rate, G, gint] = NMMmodel_eval(gain_mod,tr_cur_Robs,tr_stim);
-%             
-%             all_filts = [gain_mod.mods(3:end).filtK];
-%             
-%             freq_ovEgain(cc,ww,cur_uchs(hh)) = gain_mod.mods(1).filtK;
-%             freq_ovIgain(cc,ww,cur_uchs(hh)) = gain_mod.mods(2).filtK;
-%             
-%             freq_prefphase(cc,ww,cur_uchs(hh)) = atan2(all_filts(:,2),all_filts(:,1));
-%             freq_prefamp(cc,ww,cur_uchs(hh)) = sqrt(sum(all_filts(:,1:2).^2,2));
-%             
-%             freq_gainphase(cc,ww,cur_uchs(hh)) = atan2(all_filts(:,4),all_filts(:,3));
-%             freq_gainamp(cc,ww,cur_uchs(hh)) = sqrt(sum(all_filts(:,3:4).^2,2));
-%             freq_Igainphase(cc,ww,cur_uchs(hh)) = atan2(all_filts(:,6),all_filts(:,5));
-%             freq_Igainamp(cc,ww,cur_uchs(hh)) = sqrt(sum(all_filts(:,5:6).^2,2));
-%             freq_LL(cc,ww) = gain_LL;
-%             %     spkinds = convert_to_spikebins(cur_Robs_us);
-%             %     freq_kappa(cc,ww) = circ_kappa(interp_phasegram(used_inds_us(cc_uinds_us(spkinds)),ww));
-%             
-%             ov_arate = mean(pred_rate);
-%             freq_info(cc,ww) = mean(pred_rate.*log2(pred_rate/ov_arate))/ov_arate;
-%             
-%             Eout = sum(gint(:,[1 5 6]),2);
-%             Iout = sum(gint(:,[2 7 8]),2);
-%             Egain = Eout./E_g(cc_all_inds);
-%             Igain = Iout./I_g(cc_all_inds);
-%             
-%             Egain_direct(cc,ww,cur_uchs(hh)) = std(Egain);
-%             Igain_direct(cc,ww,cur_uchs(hh)) = std(Igain);
-%             
-%         end
-%     end
-% end
-
-%%
-uwfreqs = find(wfreqs < 25);
-
-for cc = [1:33]
+%cc = 30 is interesting
+for cc = [25 30]
     %%
-    cc
-    %     cc = 26
+%     cc = 26
     
     cur_GQM = ModData(cc).rectGQM;
     cur_Robs = Robs_mat(:,cc);
     
     cc_uinds = find(~isnan(cur_Robs));
-%     cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
-%     cc_xv_inds = cc_uinds(ismember(cc_uinds,xv_inds));
-%     cc_all_inds = union(cc_tr_inds,cc_xv_inds);
-    cc_all_inds = cc_uinds(ismember(cc_uinds,all_inds));
-    cur_tr_ind_set = find(ismember(cc_all_inds,tr_inds));
-    cur_xv_ind_set = find(ismember(cc_all_inds,xv_inds));
+    cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
+    cc_xv_inds = cc_uinds(ismember(cc_uinds,xv_inds));
+    cc_all_inds = union(cc_tr_inds,cc_xv_inds);
     
     if cc > n_probes
         su_ind = find(SU_numbers == all_mod_SUnum(cc));
@@ -895,69 +787,191 @@ for cc = [1:33]
     end
     
     tr_cur_Robs = cur_Robs(cc_all_inds);
-    
+
+    %fit spkNL function for current stim-proc model
     cur_GQM = NMMfit_logexp_spkNL(cur_GQM,tr_cur_Robs,all_Xmat_shift(cc_all_inds,:));
+    
+    %get output of subunits from stim model
     [~, ~, ~, tot_G,ind_Gints,fgint] = NMMmodel_eval(cur_GQM, [], all_Xmat_shift);
+    
+    %compute outputs of Exc and Inh subunits
     modSigns = [cur_GQM.mods(:).sign];
-    g_tot = sum(bsxfun(@times,fgint,modSigns),2);
+%     g_tot = sum(bsxfun(@times,fgint,modSigns),2);
     E_g = sum(fgint(:,modSigns==1),2);
     I_g = sum(fgint(:,modSigns==-1),2);
     
-    %     Xreal_tot = bsxfun(@times,Xreal(cc_all_inds,:,:),g_tot(cc_all_inds));
-    %     Ximag_tot = bsxfun(@times,Ximag(cc_all_inds,:,:),g_tot(cc_all_inds));
-    Xreal_E = bsxfun(@times,Xreal(cc_all_inds,uwfreqs,:),E_g(cc_all_inds));
-    Ximag_E = bsxfun(@times,Ximag(cc_all_inds,uwfreqs,:),E_g(cc_all_inds));
-    Xreal_I = bsxfun(@times,Xreal(cc_all_inds,uwfreqs,:),I_g(cc_all_inds));
-    Ximag_I = bsxfun(@times,Ximag(cc_all_inds,uwfreqs,:),I_g(cc_all_inds));
+    %compute products between real and imaginary LFP components and Exc and
+    %Inh generating signals
+%     Xreal_tot = bsxfun(@times,Xreal(cc_all_inds,:,:),g_tot(cc_all_inds));
+%     Ximag_tot = bsxfun(@times,Ximag(cc_all_inds,:,:),g_tot(cc_all_inds));
+    Xreal_E = bsxfun(@times,Xreal(cc_all_inds,:,:),E_g(cc_all_inds));
+    Ximag_E = bsxfun(@times,Ximag(cc_all_inds,:,:),E_g(cc_all_inds));
+    Xreal_I = bsxfun(@times,Xreal(cc_all_inds,:,:),I_g(cc_all_inds));
+    Ximag_I = bsxfun(@times,Ximag(cc_all_inds,:,:),I_g(cc_all_inds));
     
-%     poss_lambda = [10 100 1000 10000];
-%     for ll = 1:length(poss_lambda)
-    % sac_stim_params(2:7) = NMMcreate_stim_params(length(cur_uchs));
-    sac_stim_params(3:8) = NMMcreate_stim_params([length(uwfreqs),length(use_lfps)]);
-    sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',50);
+    sac_stim_params(3:8) = NMMcreate_stim_params(1);
+    sac_reg_params = NMMcreate_reg_params('lambda_L2',5); %just use slight L2 penalty
     NL_types = repmat({'lin'},1,8);
     mod_signs = [1 1 1 1 1 1 1 1];
     Xtargets = [1 2 3 4 5 6 7 8];
-    silent = 0;
+    silent = 1;
     
-    tr_stim{1} = [E_g(cc_all_inds)];
-    tr_stim{2} = [I_g(cc_all_inds)];
-    sac_stim_params(1:2) = NMMcreate_stim_params(1);
-    
-    tr_stim{3} = reshape(Xreal(cc_all_inds,uwfreqs,:),length(cc_all_inds),[]);
-    tr_stim{4} = reshape(Ximag(cc_all_inds,uwfreqs,:),length(cc_all_inds),[]);
-    tr_stim{5} = reshape(Xreal_E,length(cc_all_inds),[]);
-    tr_stim{6} = reshape(Ximag_E,length(cc_all_inds),[]);
-    tr_stim{7} = reshape(Xreal_I,length(cc_all_inds),[]);
-    tr_stim{8} = reshape(Ximag_I,length(cc_all_inds),[]);
-    
-    gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
-    gain_mod.spk_NL_params = cur_GQM.spk_NL_params;
-    gain_mod.mods(1).reg_params = NMMcreate_reg_params();
-    gain_mod.mods(2).reg_params = NMMcreate_reg_params();
-    gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
-    [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
-    [gain_xvLL,nullxvLL] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
-%     lambda_LL(ll) = gain_xvLL;
-%     end
-    
-    base_mod = NMMinitialize_model(sac_stim_params(1:2),[1 1],{'lin','lin'},NMMcreate_reg_params(),[1 2]);
-    base_mod = NMMfit_filters(base_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
-    [base_xvLL] = NMMeval_model(base_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
-    
-    all_filts = [gain_mod.mods(3:end).filtK];
-    
-    ov_arate = mean(pred_rate);
-    
-    Eout = sum(gint(:,[1 5 6]),2);
-    Iout = sum(gint(:,[2 7 8]),2);
-    Egain = Eout./E_g(cc_all_inds(cur_tr_ind_set));
-    Igain = Iout./I_g(cc_all_inds(cur_tr_ind_set));
-    
-    Egain_sigs{cc} = Egain;
-    Igain_sigs{cc} = Igain;
-    
+    %now loop over each individual frequency and channel and compute
+    %separate gain/offset models (to create gain-modulation profiles)
+    cur_uchs = 1:length(use_lfps);
+    for ww = 1:nwfreqs
+        ww
+        %first two X_mat components are just the Exc and Inh inputs
+        tr_stim{1} = [E_g(cc_all_inds)];
+        tr_stim{2} = [I_g(cc_all_inds)];
+        sac_stim_params(1:2) = NMMcreate_stim_params(1); %scalar-valued
+        for hh = 1:length(cur_uchs)
+            %X-mat 3 and 4 are just the LFP components
+            tr_stim{3} = squeeze(Xreal(cc_all_inds,ww,cur_uchs(hh)));
+            tr_stim{4} = squeeze(Ximag(cc_all_inds,ww,cur_uchs(hh)));
+            
+            %5-8 are products of LFP with E and I inputs
+            tr_stim{5} = squeeze(Xreal_E(:,ww,cur_uchs(hh)));
+            tr_stim{6} = squeeze(Ximag_E(:,ww,cur_uchs(hh)));
+            tr_stim{7} = squeeze(Xreal_I(:,ww,cur_uchs(hh)));
+            tr_stim{8} = squeeze(Ximag_I(:,ww,cur_uchs(hh)));
+            
+            gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+            gain_mod.spk_NL_params = cur_GQM.spk_NL_params; %set spkNL to params estimated for stim-only model
+            gain_mod.mods(1).reg_params = NMMcreate_reg_params(); %no reg for stim-only components
+            gain_mod.mods(2).reg_params = NMMcreate_reg_params();
+            gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],[],silent);
+            [gain_LL,penLL, pred_rate, G, gint] = NMMmodel_eval(gain_mod,tr_cur_Robs,tr_stim);
+            
+            all_filts = [gain_mod.mods(3:end).filtK]; %pulls out all LFP filters
+            
+            %scalar E and I gains
+            freq_ovEgain(cc,ww,cur_uchs(hh)) = gain_mod.mods(1).filtK;
+            freq_ovIgain(cc,ww,cur_uchs(hh)) = gain_mod.mods(2).filtK;
+            
+            %phase and amplitudes of offset LFP filters
+            freq_prefphase(cc,ww,cur_uchs(hh)) = atan2(all_filts(:,2),all_filts(:,1));
+            freq_prefamp(cc,ww,cur_uchs(hh)) = sqrt(sum(all_filts(:,1:2).^2,2));
+            
+            %Exc LFP model amp and phase
+            freq_gainphase(cc,ww,cur_uchs(hh)) = atan2(all_filts(:,4),all_filts(:,3));
+            freq_gainamp(cc,ww,cur_uchs(hh)) = sqrt(sum(all_filts(:,3:4).^2,2));
+            
+            %Inh LFP model amp and phase
+            freq_Igainphase(cc,ww,cur_uchs(hh)) = atan2(all_filts(:,6),all_filts(:,5));
+            freq_Igainamp(cc,ww,cur_uchs(hh)) = sqrt(sum(all_filts(:,5:6).^2,2));
+            freq_LL(cc,ww) = gain_LL;
+            
+%             ov_arate = mean(pred_rate);
+%             freq_info(cc,ww) = mean(pred_rate.*log2(pred_rate/ov_arate))/ov_arate;
+            
+            %estimate the LFP-dependent gain time series for Exc and Inh
+            %inputs
+            Eout = sum(gint(:,[1 5 6]),2); %sum LFP-dependent terms with the constant term
+            Iout = sum(gint(:,[2 7 8]),2);
+            %divide the net input by the original stim-dependent inputs to
+            %get gain signals
+            Egain = Eout./E_g(cc_all_inds);
+            Igain = Iout./I_g(cc_all_inds);
+            
+            %compute SD across time
+            Egain_direct(cc,ww,cur_uchs(hh)) = std(Egain);
+            Igain_direct(cc,ww,cur_uchs(hh)) = std(Igain);
+            
+        end
+    end
 end
+
+%%
+% uwfreqs = find(wfreqs < 25);
+% 
+% for cc = [(n_probes+1):33]
+%     %%
+%     cc
+%     %     cc = 26
+%     
+%     cur_GQM = ModData(cc).rectGQM;
+%     cur_Robs = Robs_mat(:,cc);
+%     
+%     cc_uinds = find(~isnan(cur_Robs));
+% %     cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
+% %     cc_xv_inds = cc_uinds(ismember(cc_uinds,xv_inds));
+% %     cc_all_inds = union(cc_tr_inds,cc_xv_inds);
+%     cc_all_inds = cc_uinds(ismember(cc_uinds,all_inds));
+%     cur_tr_ind_set = find(ismember(cc_all_inds,tr_inds));
+%     cur_xv_ind_set = find(ismember(cc_all_inds,xv_inds));
+%     
+%     if cc > n_probes
+%         su_ind = find(SU_numbers == all_mod_SUnum(cc));
+%         [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
+%     else
+%         [~,nearest_lfp] = min(abs(use_lfps - cc));
+%     end
+%     
+%     tr_cur_Robs = cur_Robs(cc_all_inds);
+%     
+%     cur_GQM = NMMfit_logexp_spkNL(cur_GQM,tr_cur_Robs,all_Xmat_shift(cc_all_inds,:));
+%     [~, ~, ~, tot_G,ind_Gints,fgint] = NMMmodel_eval(cur_GQM, [], all_Xmat_shift);
+%     modSigns = [cur_GQM.mods(:).sign];
+%     g_tot = sum(bsxfun(@times,fgint,modSigns),2);
+%     E_g = sum(fgint(:,modSigns==1),2);
+%     I_g = sum(fgint(:,modSigns==-1),2);
+%     
+%     %     Xreal_tot = bsxfun(@times,Xreal(cc_all_inds,:,:),g_tot(cc_all_inds));
+%     %     Ximag_tot = bsxfun(@times,Ximag(cc_all_inds,:,:),g_tot(cc_all_inds));
+%     Xreal_E = bsxfun(@times,Xreal(cc_all_inds,uwfreqs,:),E_g(cc_all_inds));
+%     Ximag_E = bsxfun(@times,Ximag(cc_all_inds,uwfreqs,:),E_g(cc_all_inds));
+%     Xreal_I = bsxfun(@times,Xreal(cc_all_inds,uwfreqs,:),I_g(cc_all_inds));
+%     Ximag_I = bsxfun(@times,Ximag(cc_all_inds,uwfreqs,:),I_g(cc_all_inds));
+%     
+% %     poss_lambda = [10 100 1000 10000];
+% %     for ll = 1:length(poss_lambda)
+%     % sac_stim_params(2:7) = NMMcreate_stim_params(length(cur_uchs));
+%     sac_stim_params(3:8) = NMMcreate_stim_params([length(uwfreqs),length(use_lfps)]);
+%     sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',50);
+%     NL_types = repmat({'lin'},1,8);
+%     mod_signs = [1 1 1 1 1 1 1 1];
+%     Xtargets = [1 2 3 4 5 6 7 8];
+%     silent = 0;
+%     
+%     tr_stim{1} = [E_g(cc_all_inds)];
+%     tr_stim{2} = [I_g(cc_all_inds)];
+%     sac_stim_params(1:2) = NMMcreate_stim_params(1);
+%     
+%     tr_stim{3} = reshape(Xreal(cc_all_inds,uwfreqs,:),length(cc_all_inds),[]);
+%     tr_stim{4} = reshape(Ximag(cc_all_inds,uwfreqs,:),length(cc_all_inds),[]);
+%     tr_stim{5} = reshape(Xreal_E,length(cc_all_inds),[]);
+%     tr_stim{6} = reshape(Ximag_E,length(cc_all_inds),[]);
+%     tr_stim{7} = reshape(Xreal_I,length(cc_all_inds),[]);
+%     tr_stim{8} = reshape(Ximag_I,length(cc_all_inds),[]);
+%     
+%     gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+%     gain_mod.spk_NL_params = cur_GQM.spk_NL_params;
+%     gain_mod.mods(1).reg_params = NMMcreate_reg_params();
+%     gain_mod.mods(2).reg_params = NMMcreate_reg_params();
+%     gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
+%     [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
+%     [gain_xvLL,nullxvLL] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+% %     lambda_LL(ll) = gain_xvLL;
+% %     end
+%     
+%     base_mod = NMMinitialize_model(sac_stim_params(1:2),[1 1],{'lin','lin'},NMMcreate_reg_params(),[1 2]);
+%     base_mod = NMMfit_filters(base_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
+%     [base_xvLL] = NMMeval_model(base_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+%     
+%     all_filts = [gain_mod.mods(3:end).filtK];
+%     
+%     ov_arate = mean(pred_rate);
+%     
+%     Eout = sum(gint(:,[1 5 6]),2);
+%     Iout = sum(gint(:,[2 7 8]),2);
+%     Egain = Eout./E_g(cc_all_inds(cur_tr_ind_set));
+%     Igain = Iout./I_g(cc_all_inds(cur_tr_ind_set));
+%     
+%     Egain_sigs{cc} = Egain;
+%     Igain_sigs{cc} = Igain;
+%     
+% end
 
 %%
 % close all
@@ -1018,47 +1032,50 @@ end
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
-%%
-% close all
-% fig_dir = '/home/james/Desktop/K99_figures/';
-% su_set = find(all_mod_SU > 0);
-% 
-% winterp = logspace(log10(2),log10(max(wfreqs)),100);
-% dinterp = linspace(1,24,100);
-% 
-% cc = 25;
-% su_ind = find(SU_numbers == all_mod_SUnum(cc));
-% su_probe = SU_probes(su_ind);
-% 
-% freq_markers = [2 5 10 20 40];
-% freq_inds = interp1(winterp,1:length(winterp),freq_markers);
-% 
-% [Xo,Yo] = meshgrid(1:24,fliplr(wfreqs));
-% [Xq,Yq] = meshgrid(dinterp,winterp);
-% 
-% cur_gain = squeeze(Egain_direct(cc,:,:));
-% cur_gain_interp = interp2(Xo,Yo,flipud(cur_gain),Xq,Yq);
-% f1 = figure();
-% % imagesc(1:length(winterp),(0:23)*50,cur_gain_interp');
-% imagesc(1:length(winterp),(dinterp-1)*50,cur_gain_interp');
-% set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
-% cm = max(caxis());
-% colorbar;
-% caxis([0 cm]);
-% xlabel('Frequency (Hz)');
-% ylabel('Relative Depth (um)');
-% 
-% cur_gain = squeeze(Igain_direct(cc,:,:));
-% % cur_gain_interp = interp1(fliplr(wfreqs),flipud(cur_gain),winterp);
-% cur_gain_interp = interp2(Xo,Yo,flipud(cur_gain),Xq,Yq);
-% f2 = figure();
-% imagesc(1:length(winterp),(dinterp-1)*50,cur_gain_interp');
-% set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
-% cm = max(caxis());
-% colorbar;
-% caxis([0 cm]);
-% xlabel('Frequency (Hz)');
-% ylabel('Relative Depth (um)');
+%% PLOT EXC AND INH GAIN PROFILES 
+close all
+fig_dir = '/home/james/Desktop/K99_figures/';
+
+%freq and depth vectors for interpolation
+winterp = logspace(log10(2),log10(max(wfreqs)),100);
+dinterp = linspace(1,24,100);
+
+cc = 25; %choose unit num (25 and 30 are most interesting units for M296)
+su_ind = find(SU_numbers == all_mod_SUnum(cc));
+su_probe = SU_probes(su_ind); %probe num for this unit
+
+freq_markers = [2 5 10 20 40]; %freq axis tick marks
+freq_inds = interp1(winterp,1:length(winterp),freq_markers); %index values for tick marks
+
+%interp grid
+[Xo,Yo] = meshgrid(1:24,fliplr(wfreqs));
+[Xq,Yq] = meshgrid(dinterp,winterp);
+
+%plot Exc gain profile
+cur_gain = squeeze(Egain_direct(cc,:,:));
+cur_gain_interp = interp2(Xo,Yo,flipud(cur_gain),Xq,Yq);
+f1 = figure();
+% imagesc(1:length(winterp),(0:23)*50,cur_gain_interp');
+imagesc(1:length(winterp),(dinterp-1)*50,cur_gain_interp');
+set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
+cm = max(caxis());
+colorbar;
+caxis([0 cm]);
+xlabel('Frequency (Hz)');
+ylabel('Relative Depth (um)');
+
+%plot Inh gain profile
+cur_gain = squeeze(Igain_direct(cc,:,:));
+% cur_gain_interp = interp1(fliplr(wfreqs),flipud(cur_gain),winterp);
+cur_gain_interp = interp2(Xo,Yo,flipud(cur_gain),Xq,Yq);
+f2 = figure();
+imagesc(1:length(winterp),(dinterp-1)*50,cur_gain_interp');
+set(gca,'xtick',freq_inds,'xticklabel',freq_markers);
+cm = max(caxis());
+colorbar;
+caxis([0 cm]);
+xlabel('Frequency (Hz)');
+ylabel('Relative Depth (um)');
 % 
 % % PRINT PLOTS
 % fig_width = 5; rel_height = 0.8;
