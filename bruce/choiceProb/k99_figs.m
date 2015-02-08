@@ -542,28 +542,34 @@ end
 % end
 
 %% COMPUTE CP PREDICTIONS USING POWER ACROSS A RANGE OF (LOWER) FREQS
-ufreqs = find(wfreqs >= 1.5 & wfreqs <= 10);
+ufreqs = find(wfreqs >= 1.5 & wfreqs <= 10); %set of frequencies to use in model
 uchs = 1:1:length(uprobes);
-reg_params = NMMcreate_reg_params('lambda_L2',1,'lambda_d2XT',1);
+reg_params = NMMcreate_reg_params('lambda_L2',1,'lambda_d2XT',1); %very slight reg
 stim_params = NMMcreate_stim_params([length(ufreqs) length(uchs)]);
 silent = 1;
 
 for cc = 1:Nunits
+        %training data (OB ~= 130)
         cur_X = squeeze(trial_pow_train(:,ufreqs,:));
         cur_Y = trial_Robs_train(:,cc);
         uindx = find(~isnan(cur_Y) & ~any(isnan(reshape(cur_X,length(train_trials),[])),2));
     
+        %fit model to training data 
         init_mod = NMMinitialize_model(stim_params,1,{'lin'},reg_params);
         init_mod = NMMfit_filters(init_mod,cur_Y,cur_X,[],uindx,silent);
         
+        %test data (OB==130)
         cur_X = squeeze(trial_pow_test(:,ufreqs,:));
         cur_X = reshape(cur_X,length(test_trials),[]);
         cur_Y = trial_Robs_test(:,cc);
+        
+        %get predicted rate on each trial
         [~,~,Yhat] = NMMeval_model(init_mod,cur_Y,cur_X);
         Yhat(isnan(cur_Y)) = nan;
         
         Y_resid = cur_Y - Yhat;
                 
+        %CP using predicted trial spike count based on power model
         cur_resp_ax = prctile(Yhat,[0:5:100]);
         up_hist = histc(Yhat(up_trials),cur_resp_ax);
         down_hist = histc(Yhat(down_trials),cur_resp_ax);
@@ -632,7 +638,7 @@ LFP_PC_up = sqrt(LFP_real_upavg.^2 + LFP_imag_upavg.^2);
 LFP_PC_down = sqrt(LFP_real_downavg.^2 + LFP_imag_downavg.^2);
 
 %% COMPUTE CP OF TRIAL_AVG POW SPECTRA
-lfp_bt = 0.4;
+lfp_bt = 0.4; %buffers at beginning and end of trial to exclude for power calculation
 lfp_et = 0.2;
 u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
 u_lfp_times = u_lfp_times(R_trial_taxis(u_lfp_times) >= lfp_bt & R_trial_taxis(u_lfp_times) <= (trial_dur-lfp_et));
@@ -647,6 +653,7 @@ mean_trial_pow = squeeze(nanmean(mean_LFP_amp));
 
 trial_pow = squeeze(nanmean(LFP_amp));
 
+%compute CP from LFP power at each frequency and channel
 resp_up = find(trialrespDir(test_trials) == 1);
 resp_down = find(trialrespDir(test_trials) == -1);
 for cc = 1:length(uprobes)
@@ -692,7 +699,7 @@ end
 %%
 
 
-%%
+%% COMPUTE LFP VARIANCE ATTRIBUTABLE TO CHOICE
 poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
 un_stim_seeds = unique(trialSe(poss_trials));
 
@@ -718,21 +725,26 @@ for cc = 1:length(uprobes);
     all_A2cwt_same = zeros(length(u_lfp_times),length(wfreqs));
     all_A2cwt_diff = all_A2cwt_same;
     for ss = 1:length(un_stim_seeds)
-        cur_trials = find(trialSe(poss_trials) == un_stim_seeds(ss));
-        if length(cur_trials) >= 2
+        cur_trials = find(trialSe(poss_trials) == un_stim_seeds(ss)); %trials (of test trials) with current stim seed
+        if length(cur_trials) >= 2 %need at least 2
+            
+            %find which trial pairs had same vs opposite choice dirs
             cur_resp = trialrespDir(poss_trials(cur_trials));
             [II,JJ] = meshgrid(1:length(cur_trials));
             cur_Y = squeeze(LFP_comp(:,cur_trials,:,cc));
             cur_AY = squeeze(LFP_Acomp(:,cur_trials,:,cc));
             
+            %difference in choice dir (either 1 or 0)
             cur_Dmat = abs(squareform(pdist(cur_resp')));
-            cur_Dmat(JJ == II) = nan;
+            cur_Dmat(JJ == II) = nan; %unequal trial pairs
             
+            %trial pairs with same choice
             uset = find(cur_Dmat == 0);
             temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_cwt_same(~isnan(tempm)) = all_cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
             
+            %compute avg product of amplitudes for normalization
             temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_Acwt_same(~isnan(tempm)) = all_Acwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
@@ -742,6 +754,7 @@ for cc = 1:length(uprobes);
             all_A2cwt_same(~isnan(tempm)) = all_A2cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
             all_same_cnt = all_same_cnt + squeeze(sum(~isnan(temp),2));
             
+            %this is the marginal (ignoring choice)
             uset = find(~isnan(cur_Dmat));
             temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
@@ -877,7 +890,7 @@ fname = [fig_dir sprintf('%s_Phasedep_choiceLFPmod.pdf',Expt_name)];
 exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f5);o
 end
-%%
+%% SAVE THE POWER CP PREDICTIONS FOR EACH UNIT FROM THIS EXPT
 % data.Expt = Expt_name;
 % data.ucells = ucells;
 % data.uSUs = uSUs;
