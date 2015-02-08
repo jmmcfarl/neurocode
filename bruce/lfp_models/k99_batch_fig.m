@@ -14,7 +14,7 @@ bar_ori = ori_list(enum,ii);
 anal_dir = ['~/Analysis/bruce/' Expt_name '/lfp_models/'];
 cd(anal_dir);
 
-sname = 'lfp_models';
+sname = 'lfp_models2';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
 load(sname);
@@ -89,9 +89,16 @@ all_lfp_imp = [];
 all_off_imp = [];
 all_ESD = [];
 all_ISD = [];
+all_ESDr = [];
+all_ISDr = [];
+all_ESD2 = [];
+all_ISD2 = [];
 all_Epow = [];
 all_Ipow = [];
 all_Opow = [];
+all_Cind = [];
+all_Eind = [];
+all_models = [];
 for enum = 1:10
   enum
   for ii = 1:2
@@ -102,7 +109,7 @@ for enum = 1:10
             anal_dir = ['~/Analysis/bruce/' Expt_name '/lfp_models/'];
             cd(anal_dir);
             
-            sname = 'lfp_models';
+            sname = 'lfp_models2';
             sname = [sname sprintf('_ori%d',bar_ori)];
             
             load(sname);
@@ -119,6 +126,10 @@ for enum = 1:10
                 if ~isempty(lfp_models(cc).Egain_SD)
                    cur_mod = ModData(cc).rectGQM;
                    mod_filt_signs = [cur_mod.mods(:).sign];
+                   all_Cind = cat(1,all_Cind,cc);
+                   all_Eind = cat(1,all_Eind,enum);
+                   all_models = cat(1,all_models,lfp_models(cc).ModData);
+                   
                    all_NEfilts = cat(1,all_NEfilts,sum(mod_filt_signs==1));
                    all_NIfilts = cat(1,all_NIfilts,sum(mod_filt_signs==-1));
                    
@@ -127,6 +138,10 @@ for enum = 1:10
                    all_off_imp = cat(1,all_off_imp,lfp_models(cc).off_xvImp);
                    all_ESD = cat(1,all_ESD,lfp_models(cc).Egain_SDxv);
                    all_ISD = cat(1,all_ISD,lfp_models(cc).Igain_SDxv);
+                   all_ESDr = cat(1,all_ESDr,lfp_models(cc).Egain_SD);
+                   all_ISDr = cat(1,all_ISDr,lfp_models(cc).Igain_SD);
+                   all_ESD2 = cat(1,all_ESD2,lfp_models(cc).Egain_SDxv2);
+                   all_ISD2 = cat(1,all_ISD2,lfp_models(cc).Igain_SDxv2);
                    all_Epow = cat(1,all_Epow,lfp_models(cc).pow_spectra(:,1)');
                    all_Ipow = cat(1,all_Ipow,lfp_models(cc).pow_spectra(:,2)');
                    all_Opow = cat(1,all_Opow,lfp_models(cc).pow_spectra(:,3)');
@@ -135,17 +150,26 @@ for enum = 1:10
         end
     end
 end
-f = lfp_models(25).spectra_f;
+
+C = unique([all_Eind all_Cind],'rows');
+n_un = size(C,1);
+to_use = true(length(all_Eind),1);
+for ii = 1:n_un
+   curset = find(all_Eind == C(ii,1) & all_Cind == C(ii,2));
+   if length(curset) > 1
+       [~,best_loc] = max(all_base_imp(curset));
+       curset(best_loc) = [];
+       to_use(curset) = false;
+   end
+end
+
+all_rates = arrayfun(@(x) x.unit_data.avg_rate,all_models);
+
 rel_lfp_imp = (all_lfp_imp - all_base_imp)./all_base_imp;
 rel_off_imp = (all_off_imp - all_base_imp)./all_base_imp;
 
-all_norm_Epow = bsxfun(@rdivide,all_Epow,nanmean(all_Epow,2));
-all_norm_Ipow = bsxfun(@rdivide,all_Ipow,nanmean(all_Ipow,2));
-all_norm_Opow = bsxfun(@rdivide,all_Opow,nanmean(all_Opow,2));
-
-use_mods = find(all_NEfilts > 1 & all_NIfilts > 1);
-
-use_bmods = find(all_base_imp > 0.05 & all_base_imp < 1 & all_NEfilts > 1);
+use_mods = find(all_NEfilts > 1 & all_NIfilts > 1 & to_use);
+use_bmods = find(all_base_imp > 0.05 & all_rates > 5 & to_use);
 
 close all
 f1 = figure();
@@ -160,3 +184,14 @@ ylabel('Inhibitory gain SD');
 % figufy(f1);
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
+
+
+f = lfp_models(25).spectra_f;
+all_norm_Epow = bsxfun(@rdivide,all_Epow,nanmean(all_Epow,2));
+all_norm_Ipow = bsxfun(@rdivide,all_Ipow,nanmean(all_Ipow,2));
+all_norm_Opow = bsxfun(@rdivide,all_Opow,nanmean(all_Opow,2));
+
+[~,Emaxpowloc] = max(all_Epow,[],2);
+[~,Imaxpowloc] = max(all_Ipow,[],2);
+
+

@@ -8,7 +8,7 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% Expt_name = 'M296';
+% Expt_name = 'M297';
 % Expt_name = 'G093';
 use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
@@ -143,6 +143,9 @@ et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
 et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 mod_data_name = [mod_data_name sprintf('_ori%d',bar_ori)];
 
+if strcmp(Expt_name,'M297') && bar_ori == 0
+   mod_data_name = strcat(mod_data_name,'_old2'); %changed the  
+end
 %%
 
 flen = 15;
@@ -782,6 +785,8 @@ for cc = (n_probes+1):length(ModData)
     
     cur_GQM = ModData(cc).rectGQM;
     cur_Robs = Robs_mat(:,cc);
+    tot_nspks = nansum(cur_Robs);
+    avg_rate = nanmean(cur_Robs)/dt;
     
     cc_uinds = find(~isnan(cur_Robs));
 %     cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
@@ -919,8 +924,22 @@ for cc = (n_probes+1):length(ModData)
     Ooutxv2 = sum(gintxv2(:,[3 4]),2);
     Egainxv2 = Eoutxv2./E_g(cc_all_inds(cur_xv_ind_set));
     Igainxv2 = Ioutxv2./I_g(cc_all_inds(cur_xv_ind_set));
+    
+    lfp_models(cc).Egain_SD = nanstd(Egain);
+    lfp_models(cc).Igain_SD = nanstd(Igain);
+    lfp_models(cc).Egain_SDxv = nanstd(Egainxv);
+    lfp_models(cc).Igain_SDxv = nanstd(Igainxv);
+    lfp_models(cc).Egain_SDxv2 = nanstd(Egainxv2);
+    lfp_models(cc).Igain_SDxv2 = nanstd(Igainxv2);
 
     %% compute power spectra and coherence and xcorr of E and I gain signals
+    
+    Egain(isnan(Egain)) = 1;
+    Igain(isnan(Igain)) = 1;
+    Egain = Egain - nanmean(Egain);
+    Igain = Igain - nanmean(Igain);
+    Offset(isnan(Offset)) = nanmean(Offset);
+    
     movingwin = [1.5 1.5];
     params.Fs = 1/dt;
     params.tapers = [3 5];
@@ -932,12 +951,6 @@ for cc = (n_probes+1):length(ModData)
     
     [xc,lags] = xcov(-Igain(:),Egain(:),round(0.2/dt),'coeff');
     %%
-    lfp_models(cc).Egain_SD = nanstd(Egain);
-    lfp_models(cc).Igain_SD = nanstd(Igain);
-    lfp_models(cc).Egain_SDxv = nanstd(Egainxv);
-    lfp_models(cc).Igain_SDxv = nanstd(Igainxv);
-    lfp_models(cc).Egain_SDxv2 = nanstd(Egainxv2);
-    lfp_models(cc).Igain_SDxv2 = nanstd(Igainxv2);
     lfp_models(cc).pow_spectra = Smm;
     lfp_models(cc).spectra_f = f;
     lfp_models(cc).coherence = Cmn;
@@ -946,6 +959,8 @@ for cc = (n_probes+1):length(ModData)
     lfp_models(cc).base_xvImp = (base_xvLL - nullxvLL)/log(2);
     lfp_models(cc).lfp_xvImp = (gain_xvLL - nullxvLL)/log(2);
     lfp_models(cc).off_xvImp = (off_xvLL - nullxvLL)/log(2);
+    
+    lfp_models(cc).ModData = ModData(cc);
     end
 end
 
