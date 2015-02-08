@@ -902,8 +902,8 @@ for cc = (n_probes+1):length(ModData)
     Igain = Iout./I_g(cc_all_inds);
     Egain = Egain - nanmean(Egain);
     Igain = Igain - nanmean(Igain);
-    Igain(isnan(Igain)) = 1;
-    Egain(isnan(Egain)) = 1;
+%     Igain(isnan(Igain)) = 1;
+%     Egain(isnan(Egain)) = 1;
     Offset = Oout - nanmean(Oout); 
     
     %gains evaluated on xval set
