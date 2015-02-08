@@ -14,8 +14,8 @@ bar_ori = ori_list(enum,ii);
 anal_dir = ['~/Analysis/bruce/' Expt_name '/lfp_models/'];
 cd(anal_dir);
 
-sname = 'lfp_models2';
-sname = [sname sprintf('_ori%d',bar_ori)];
+% sname = 'lfp_models2';
+% sname = [sname sprintf('_ori%d',bar_ori)];
 
 load(sname);
 
@@ -27,61 +27,6 @@ cd(mod_data_dir)
 load(mod_data_name);
 
 %%
-clc
-close all
-for cc = 25:length(lfp_models)
-    cc
-    if ~isempty(lfp_models(cc).Egain_SD)
-    lfp_models(cc)
-    
-    lfp_ampmodels(cc)
-    
-    figure(1)
-    plot(lfp_models(cc).spectra_f,lfp_models(cc).pow_spectra(:,1:2));
-    
-    figure(2)
-    plot(lfp_models(cc).lags,lfp_models(cc).xcov);
-    
-        figure(3)
-    plot(lfp_models(cc).spectra_f,lfp_models(cc).pow_spectra(:,3),'k');
-
-    h = NMMdisplay_model(ModData(cc).rectGQM);
-    
-    pause
-    figure(1);clf;figure(2);clf; figure(3);clf;close(h.stim_filts);
-    end
-end
-
-%%
-lags = lfp_models(25).lags;
-new_lags = -0.2:0.0025:0.2;
-all_xcov = [];
-for cc = 25:length(lfp_models)
-    cur_inter_xc = interp1(lags,lfp_models(cc).xcov,new_lags,'spline');
-    all_xcov = cat(2,all_xcov,cur_inter_xc');
-end
-
-close all
-fig_dir = '/home/james/Desktop/K99_figures/';
-f1 = figure();
-uset = [1 2 3 6];
-cmap = jet(4);
-cmap(3,:) = [0.2 0.8 0.2];
-for ii = 1:4
-    plot(new_lags,all_xcov(:,uset(ii)),'color',cmap(ii,:));
-    hold on
-end
-xlabel('Lag (s)');
-ylabel('Correlation');
-
-fname = [fig_dir 'xcorr_examples.pdf'];
-fig_width = 4; rel_height = 0.8;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-
-
-%%
 all_NEfilts = [];
 all_NIfilts = [];
 all_base_imp = [];
@@ -89,10 +34,6 @@ all_lfp_imp = [];
 all_off_imp = [];
 all_ESD = [];
 all_ISD = [];
-all_ESDr = [];
-all_ISDr = [];
-all_ESD2 = [];
-all_ISD2 = [];
 all_Epow = [];
 all_Ipow = [];
 all_Opow = [];
@@ -109,7 +50,7 @@ for enum = 1:10
             anal_dir = ['~/Analysis/bruce/' Expt_name '/lfp_models/'];
             cd(anal_dir);
             
-            sname = 'lfp_models2';
+            sname = 'lfp_models3';
             sname = [sname sprintf('_ori%d',bar_ori)];
             
             load(sname);
@@ -119,8 +60,7 @@ for enum = 1:10
             fprintf('Loading model fits\n');
             mod_data_name = [mod_data_name sprintf('_ori%d',bar_ori)];
             cd(mod_data_dir)
-            load(mod_data_name);
-            
+            load(mod_data_name);            
             
             for cc = 25:length(lfp_models)
                 if ~isempty(lfp_models(cc).Egain_SD)
@@ -136,12 +76,8 @@ for enum = 1:10
                    all_base_imp = cat(1,all_base_imp,lfp_models(cc).base_xvImp);
                    all_lfp_imp = cat(1,all_lfp_imp,lfp_models(cc).lfp_xvImp);
                    all_off_imp = cat(1,all_off_imp,lfp_models(cc).off_xvImp);
-                   all_ESD = cat(1,all_ESD,lfp_models(cc).Egain_SDxv);
-                   all_ISD = cat(1,all_ISD,lfp_models(cc).Igain_SDxv);
-                   all_ESDr = cat(1,all_ESDr,lfp_models(cc).Egain_SD);
-                   all_ISDr = cat(1,all_ISDr,lfp_models(cc).Igain_SD);
-                   all_ESD2 = cat(1,all_ESD2,lfp_models(cc).Egain_SDxv2);
-                   all_ISD2 = cat(1,all_ISD2,lfp_models(cc).Igain_SDxv2);
+                   all_ESD = cat(1,all_ESD,lfp_models(cc).Egain_SD);
+                   all_ISD = cat(1,all_ISD,lfp_models(cc).Igain_SD);
                    all_Epow = cat(1,all_Epow,lfp_models(cc).pow_spectra(:,1)');
                    all_Ipow = cat(1,all_Ipow,lfp_models(cc).pow_spectra(:,2)');
                    all_Opow = cat(1,all_Opow,lfp_models(cc).pow_spectra(:,3)');
@@ -194,4 +130,63 @@ all_norm_Opow = bsxfun(@rdivide,all_Opow,nanmean(all_Opow,2));
 [~,Emaxpowloc] = max(all_Epow,[],2);
 [~,Imaxpowloc] = max(all_Ipow,[],2);
 
+f2 = figure();
+plot(f(Emaxpowloc(use_bmods)),all_ESD(use_bmods),'o');hold on
+plot(f(Imaxpowloc(use_bmods)),all_ISD(use_bmods),'ro');
+xlim([0 0.45]);
 
+
+%%
+% lags = lfp_models(25).lags;
+% new_lags = -0.2:0.0025:0.2;
+% all_xcov = [];
+% for cc = 25:length(lfp_models)
+%     cur_inter_xc = interp1(lags,lfp_models(cc).xcov,new_lags,'spline');
+%     all_xcov = cat(2,all_xcov,cur_inter_xc');
+% end
+% 
+% close all
+% fig_dir = '/home/james/Desktop/K99_figures/';
+% f1 = figure();
+% uset = [1 2 3 6];
+% cmap = jet(4);
+% cmap(3,:) = [0.2 0.8 0.2];
+% for ii = 1:4
+%     plot(new_lags,all_xcov(:,uset(ii)),'color',cmap(ii,:));
+%     hold on
+% end
+% xlabel('Lag (s)');
+% ylabel('Correlation');
+% 
+% fname = [fig_dir 'xcorr_examples.pdf'];
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
+% 
+% %%
+% clc
+% close all
+% for cc = 25:length(lfp_models)
+%     cc
+%     if ~isempty(lfp_models(cc).Egain_SD)
+%     lfp_models(cc)
+%     
+%     lfp_ampmodels(cc)
+%     
+%     figure(1)
+%     plot(lfp_models(cc).spectra_f,lfp_models(cc).pow_spectra(:,1:2));
+%     
+%     figure(2)
+%     plot(lfp_models(cc).lags,lfp_models(cc).xcov);
+%     
+%         figure(3)
+%     plot(lfp_models(cc).spectra_f,lfp_models(cc).pow_spectra(:,3),'k');
+% 
+%     h = NMMdisplay_model(ModData(cc).rectGQM);
+%     
+%     pause
+%     figure(1);clf;figure(2);clf; figure(3);clf;close(h.stim_filts);
+%     end
+% end
+% 
