@@ -17,7 +17,7 @@ cd(anal_dir);
 % sname = 'lfp_models2';
 % sname = [sname sprintf('_ori%d',bar_ori)];
 
-load(sname);
+% load(sname);
 
 mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
 mod_data_name = 'corrected_models2';
@@ -27,6 +27,10 @@ cd(mod_data_dir)
 load(mod_data_name);
 
 %%
+
+close all
+fig_dir = '/home/james/Desktop/K99_figures/';
+
 all_NEfilts = [];
 all_NIfilts = [];
 all_base_imp = [];
@@ -87,6 +91,20 @@ for enum = 1:10
     end
 end
 
+%%
+[max_Efilt_norm,max_Ifilt_norm,max_Efilt_peak,max_Ifilt_peak] = deal(nan(length(all_Eind),1));
+for ii = 1:length(all_Eind)
+   cur_mod = all_models(ii).rectGQM;
+   cur_mod_signs = [cur_mod.mods(:).sign];
+   cur_filts = [cur_mod.mods(:).filtK];
+   filt_norms = sqrt(sum(cur_filts.^2));
+   filt_peaks = max(abs(cur_filts));
+   max_Efilt_norm(ii) = max(filt_norms(cur_mod_signs == 1));
+   max_Ifilt_norm(ii) = max(filt_norms(cur_mod_signs == -1));
+   max_Efilt_peak(ii) = max(filt_peaks(cur_mod_signs == 1));
+   max_Ifilt_peak(ii) = max(filt_peaks(cur_mod_signs == -1));
+end
+
 C = unique([all_Eind all_Cind],'rows');
 n_un = size(C,1);
 to_use = true(length(all_Eind),1);
@@ -100,25 +118,35 @@ for ii = 1:n_un
 end
 
 all_rates = arrayfun(@(x) x.unit_data.avg_rate,all_models);
+tot_spks = arrayfun(@(x) x.unit_data.tot_spikes,all_models);
 
 rel_lfp_imp = (all_lfp_imp - all_base_imp)./all_base_imp;
 rel_off_imp = (all_off_imp - all_base_imp)./all_base_imp;
 
-use_mods = find(all_NEfilts > 1 & all_NIfilts > 1 & to_use);
-use_bmods = find(all_base_imp > 0.05 & all_rates > 5 & to_use);
+
+% use_mods = find(all_NEfilts > 1 & all_NIfilts > 1 & to_use);
+% use_bmods = find(all_lfp_imp > all_off_imp & all_rates > 5 & to_use);
+% use_bmods = find(max_Efilt_norm > 0.4 & max_Ifilt_norm > 0.4 & to_use);
+
+%select usable units based on a minimum firing rate, as well as a minimum
+%filter amplitude (peak amplitude of biggest E or I filter). This seems to
+%be a reasonable way to weed out cells without a clear E or I filter.
+use_bmods = find(all_rates >= 5 & max_Efilt_peak >= 0.1 & max_Ifilt_peak >= 0.1 & to_use);
+use_Emods = find(all_rates >= 5 & max_Efilt_peak >= 0.1 & to_use);
+use_Imods = find(all_rates >= 5 & max_Ifilt_peak >= 0.1 & to_use);
 
 close all
 f1 = figure();
 plot(all_ESD(use_bmods),all_ISD(use_bmods),'o');
-xlim([0 0.45]); ylim([0 0.45]);
-line([0 0.45],[0 0.45],'color','k')
+xlim([0 0.55]); ylim([0 0.55]);
+line([0 0.55],[0 0.55],'color','k')
 xlabel('Excitatory gain SD');
 ylabel('Inhibitory gain SD');
 
-% fname = [fig_dir 'gain_SD_scatter.pdf'];
-% fig_width = 4; rel_height = 1;
-% figufy(f1);
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+fname = [fig_dir 'gain_SD_scatter.pdf'];
+fig_width = 4; rel_height = 1;
+figufy(f1);
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
 
@@ -131,9 +159,19 @@ all_norm_Opow = bsxfun(@rdivide,all_Opow,nanmean(all_Opow,2));
 [~,Imaxpowloc] = max(all_Ipow,[],2);
 
 f2 = figure();
-plot(f(Emaxpowloc(use_bmods)),all_ESD(use_bmods),'o');hold on
-plot(f(Imaxpowloc(use_bmods)),all_ISD(use_bmods),'ro');
-xlim([0 0.45]);
+plot(f(Emaxpowloc(use_Emods)),all_ESD(use_Emods),'o');hold on
+plot(f(Imaxpowloc(use_Imods)),all_ISD(use_Imods),'ro');
+% xlim([0 0.45]);
+xlim([0 20]);
+ylim([0 0.55]);
+xlabel('Peak frequency (Hz)');
+ylabel('Gain modulation (SD)');
+
+fname = [fig_dir 'gain_freq_scatter.pdf'];
+fig_width = 4; rel_height = 1;
+figufy(f2);
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 
 %%
