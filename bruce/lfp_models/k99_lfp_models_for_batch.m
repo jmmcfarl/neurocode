@@ -8,7 +8,7 @@ addpath('~/James_scripts/TentBasis2D/');
 global Expt_name bar_ori use_MUA
 
 
-% Expt_name = 'M297';
+% Expt_name = 'M296';
 % Expt_name = 'G093';
 use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
@@ -774,24 +774,20 @@ Xmag = sqrt(Xreal.^2 + Ximag.^2);
 Xreal(isnan(Xreal)) = 0;
 Ximag(isnan(Ximag)) = 0;
 Xmag(isnan(Xmag)) = 0;
-%%
+
+%% FIT LFP PHASE-DEPENDENT MODELS
 uwfreqs = find(wfreqs < 50); %use all freqs up to this values
 addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
 % for cc = 26
 for cc = (n_probes+1):length(ModData)
     %%
-    cc
-    %     cc = 26
-    
+    cc    
     cur_GQM = ModData(cc).rectGQM;
     cur_Robs = Robs_mat(:,cc);
     tot_nspks = nansum(cur_Robs);
     avg_rate = nanmean(cur_Robs)/dt;
     
     cc_uinds = find(~isnan(cur_Robs));
-%     cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
-%     cc_xv_inds = cc_uinds(ismember(cc_uinds,xv_inds));
-%     cc_all_inds = union(cc_tr_inds,cc_xv_inds);
     cc_all_inds = cc_uinds(ismember(cc_uinds,all_inds));
     cur_tr_ind_set = find(ismember(cc_all_inds,tr_inds));
     cur_xv_ind_set = find(ismember(cc_all_inds,xv_inds));
@@ -803,17 +799,7 @@ for cc = (n_probes+1):length(ModData)
     else
         [~,nearest_lfp] = min(abs(use_lfps - cc));
     end
-    
-    %these reg values have been ballparked but also roughly checked as
-    %cross-validating well
-    if strcmp(rec_type,'LP')
-        uchs = 1:length(use_lfps);
-        sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',1000); %smoothing reg across freq and depth
-    else
-        uchs = nearest_lfp;
-        sac_reg_params = NMMcreate_reg_params('lambda_d2T',100,'lambda_L2',1000);
-    end
-    
+        
     tr_cur_Robs = cur_Robs(cc_all_inds);
     
     %fit spk NL params of base stim-proc model
@@ -826,6 +812,12 @@ for cc = (n_probes+1):length(ModData)
     E_g = sum(fgint(:,modSigns==1),2);
     I_g = sum(fgint(:,modSigns==-1),2);
     
+    if strcmp(rec_type,'LP')
+        uchs = 1:length(use_lfps);
+    else
+        uchs = nearest_lfp;
+    end
+    
     %compute product of LFP X_mat terms and Exc and Inh inputs.
     %     Xreal_tot = bsxfun(@times,Xreal(cc_all_inds,:,:),g_tot(cc_all_inds));
     %     Ximag_tot = bsxfun(@times,Ximag(cc_all_inds,:,:),g_tot(cc_all_inds));
@@ -833,14 +825,6 @@ for cc = (n_probes+1):length(ModData)
     Ximag_E = bsxfun(@times,Ximag(cc_all_inds,uwfreqs,uchs),E_g(cc_all_inds));
     Xreal_I = bsxfun(@times,Xreal(cc_all_inds,uwfreqs,uchs),I_g(cc_all_inds));
     Ximag_I = bsxfun(@times,Ximag(cc_all_inds,uwfreqs,uchs),I_g(cc_all_inds));
-    
-%     poss_lambda = [1 10 100 1000 10000 1e5];
-%     for ll = 1:length(poss_lambda)
-    sac_stim_params(3:8) = NMMcreate_stim_params([length(uwfreqs),length(uchs)]);
-    NL_types = repmat({'lin'},1,8);
-    mod_signs = [1 1 1 1 1 1 1 1];
-    Xtargets = [1 2 3 4 5 6 7 8];
-    silent = 1;
     
     %just scalar E and I inputs
     tr_stim{1} = [E_g(cc_all_inds)];
@@ -857,29 +841,62 @@ for cc = (n_probes+1):length(ModData)
     tr_stim{7} = reshape(Xreal_I,length(cc_all_inds),[]);
     tr_stim{8} = reshape(Ximag_I,length(cc_all_inds),[]);
     
-    gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
-    gain_mod.spk_NL_params = cur_GQM.spk_NL_params;
-    gain_mod.mods(1).reg_params = NMMcreate_reg_params();
-    gain_mod.mods(2).reg_params = NMMcreate_reg_params();
-    gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
+    poss_lambda = logspace(log10(10),log10(1e4),6);
+%     poss_lambda = [10 100 1000 10000];
+    lambda_xvLLs = nan(length(poss_lambda),1);
+    lambda_models = cell(length(poss_lambda),1);
+    for ll = 1:length(poss_lambda)
+        fprintf('Poss lambda %d/%d\n',ll,length(poss_lambda));
+        %these reg values have been ballparked but also roughly checked as
+        %cross-validating well
+        if strcmp(rec_type,'LP')
+            sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',poss_lambda(ll)); %smoothing reg across freq and depth
+        else
+            sac_reg_params = NMMcreate_reg_params('lambda_d2T',100,'lambda_L2',poss_lambda(ll));
+        end
+        
+        sac_stim_params(3:8) = NMMcreate_stim_params([length(uwfreqs),length(uchs)]);
+        NL_types = repmat({'lin'},1,8);
+        mod_signs = [1 1 1 1 1 1 1 1];
+        Xtargets = [1 2 3 4 5 6 7 8];
+        silent = 1;
+        
+        gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+        gain_mod.spk_NL_params = cur_GQM.spk_NL_params;
+        gain_mod.mods(1).reg_params = NMMcreate_reg_params();
+        gain_mod.mods(2).reg_params = NMMcreate_reg_params();
+        gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
+        [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
+        
+        %output of model on xv set
+        [gain_xvLL,nullxvLL,~,~,gintxv] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);        
+        lambda_LL(cc,ll) = gain_xvLL;
+        lambda_xvLLs(ll) = gain_xvLL;
+        lambda_models{ll} = gain_mod;
+    end
+  
+    [gain_xvLL,best_reg_loc] = max(lambda_xvLLs);
+    gain_mod = lambda_models{best_reg_loc};
     [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
     
-    %output of model on xv set
-    [gain_xvLL,nullxvLL,~,~,gintxv] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
-    
-    %re-estimate the weights of each model component on the xval set
-    xvstim_params(1:8) = NMMcreate_stim_params(1);
-    clear cur_stim
-    for xx = 1:8
-        cur_stim{xx} = gintxv(:,xx);
-    end
-    xvgain_mod = NMMinitialize_model(xvstim_params,ones(1,8),NL_types,NMMcreate_reg_params(),1:8);
-    xvgain_mod = NMMfit_filters(xvgain_mod,tr_cur_Robs(cur_xv_ind_set),cur_stim,[],[],silent);
-    [~,~,~,~,gintxv2] = NMMeval_model(xvgain_mod,tr_cur_Robs(cur_xv_ind_set),cur_stim);
-    
-%     lambda_LL(cc,ll) = gain_xvLL;
+%     [gain_xvLL,nullxvLL,~,~,gintxv] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+%     
+%         %re-estimate the weights of each model component on the xval set
+%     xvstim_params(1:8) = NMMcreate_stim_params(1);
+%     clear cur_stim
+%     for xx = 1:8
+%         cur_stim{xx} = gintxv(:,xx);
 %     end
-  
+%     xvgain_mod = NMMinitialize_model(xvstim_params,ones(1,8),NL_types,NMMcreate_reg_params(),1:8);
+%     xvgain_mod = NMMfit_filters(xvgain_mod,tr_cur_Robs(cur_xv_ind_set),cur_stim,[],[],silent);
+%     [~,~,~,~,gintxv2] = NMMeval_model(xvgain_mod,tr_cur_Robs(cur_xv_ind_set),cur_stim);
+
+if strcmp(rec_type,'LP')
+    sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',poss_lambda(best_reg_loc)); %smoothing reg across freq and depth
+else
+    sac_reg_params = NMMcreate_reg_params('lambda_d2T',100,'lambda_L2',poss_lambda(best_reg_loc));
+end
+
     %for comparison fit a model that just has the additive LFP filter
     off_mod = NMMinitialize_model(sac_stim_params,[1 1 1 1],{'lin','lin','lin','lin'},sac_reg_params,[1 2 3 4]);
     off_mod.spk_NL_params = cur_GQM.spk_NL_params;
@@ -911,27 +928,27 @@ for cc = (n_probes+1):length(ModData)
 %     Egain(isnan(Egain)) = 1;
     Offset = Oout - nanmean(Oout); 
     
-    %gains evaluated on xval set
-    Eoutxv = sum(gintxv(:,[1 5 6]),2);
-    Ioutxv = sum(gintxv(:,[2 7 8]),2);
-    Ooutxv = sum(gintxv(:,[3 4]),2);
-    Egainxv = Eoutxv./E_g(cc_all_inds(cur_xv_ind_set));
-    Igainxv = Ioutxv./I_g(cc_all_inds(cur_xv_ind_set));
-
-    %gains with weights re-estimated on xval set
-    Eoutxv2 = sum(gintxv2(:,[1 5 6]),2);
-    Ioutxv2 = sum(gintxv2(:,[2 7 8]),2);
-    Ooutxv2 = sum(gintxv2(:,[3 4]),2);
-    Egainxv2 = Eoutxv2./E_g(cc_all_inds(cur_xv_ind_set));
-    Igainxv2 = Ioutxv2./I_g(cc_all_inds(cur_xv_ind_set));
+%     %gains evaluated on xval set
+%     Eoutxv = sum(gintxv(:,[1 5 6]),2);
+%     Ioutxv = sum(gintxv(:,[2 7 8]),2);
+%     Ooutxv = sum(gintxv(:,[3 4]),2);
+%     Egainxv = Eoutxv./E_g(cc_all_inds(cur_xv_ind_set));
+%     Igainxv = Ioutxv./I_g(cc_all_inds(cur_xv_ind_set));
+% 
+%     %gains with weights re-estimated on xval set
+%     Eoutxv2 = sum(gintxv2(:,[1 5 6]),2);
+%     Ioutxv2 = sum(gintxv2(:,[2 7 8]),2);
+%     Ooutxv2 = sum(gintxv2(:,[3 4]),2);
+%     Egainxv2 = Eoutxv2./E_g(cc_all_inds(cur_xv_ind_set));
+%     Igainxv2 = Ioutxv2./I_g(cc_all_inds(cur_xv_ind_set));
     
     lfp_models(cc).Egain_SD = nanstd(Egain);
     lfp_models(cc).Igain_SD = nanstd(Igain);
-    lfp_models(cc).Egain_SDxv = nanstd(Egainxv);
-    lfp_models(cc).Igain_SDxv = nanstd(Igainxv);
-    lfp_models(cc).Egain_SDxv2 = nanstd(Egainxv2);
-    lfp_models(cc).Igain_SDxv2 = nanstd(Igainxv2);
-
+%     lfp_models(cc).Egain_SDxv = nanstd(Egainxv);
+%     lfp_models(cc).Igain_SDxv = nanstd(Igainxv);
+%     lfp_models(cc).Egain_SDxv2 = nanstd(Egainxv2);
+%     lfp_models(cc).Igain_SDxv2 = nanstd(Igainxv2);
+% 
     %% compute power spectra and coherence and xcorr of E and I gain signals
     
     Egain(isnan(Egain)) = 1;
@@ -961,127 +978,129 @@ for cc = (n_probes+1):length(ModData)
     lfp_models(cc).off_xvImp = (off_xvLL - nullxvLL)/log(2);
     
     lfp_models(cc).ModData = ModData(cc);
+    lfp_models(cc).best_reg = poss_lambda(best_reg_loc);
+    lfp_models(cc).gain_mod = gain_mod;
     end
 end
 
-%%
-clear tr_stim
-uwfreqs = find(wfreqs < 50);
-addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
-% for cc = 26
-for cc = (n_probes+1):length(ModData)
-    %%
-    cc
-    %     cc = 26
-    
-    cur_GQM = ModData(cc).rectGQM;
-    cur_Robs = Robs_mat(:,cc);
-    
-    cc_uinds = find(~isnan(cur_Robs));
-%     cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
-%     cc_xv_inds = cc_uinds(ismember(cc_uinds,xv_inds));
-%     cc_all_inds = union(cc_tr_inds,cc_xv_inds);
-    cc_all_inds = cc_uinds(ismember(cc_uinds,all_inds));
-    cur_tr_ind_set = find(ismember(cc_all_inds,tr_inds));
-    cur_xv_ind_set = find(ismember(cc_all_inds,xv_inds));
-    
-    if ~isempty(cur_xv_ind_set)
-        
-    if cc > n_probes
-        su_ind = find(SU_numbers == all_mod_SUnum(cc));
-        [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
-    else
-        [~,nearest_lfp] = min(abs(use_lfps - cc));
-    end
-    
-    if strcmp(rec_type,'LP')
-        uchs = 1:length(use_lfps);
-    sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',1000);
-    else
-        uchs = nearest_lfp;
-    sac_reg_params = NMMcreate_reg_params('lambda_d2T',100,'lambda_L2',1000);
-    end
-    
-    tr_cur_Robs = cur_Robs(cc_all_inds);
-    
-    cur_GQM = NMMfit_logexp_spkNL(cur_GQM,tr_cur_Robs,all_Xmat_shift(cc_all_inds,:));
-    [~, ~, ~, tot_G,ind_Gints,fgint] = NMMmodel_eval(cur_GQM, [], all_Xmat_shift);
-    modSigns = [cur_GQM.mods(:).sign];
-    g_tot = sum(bsxfun(@times,fgint,modSigns),2);
-    E_g = sum(fgint(:,modSigns==1),2);
-    I_g = sum(fgint(:,modSigns==-1),2);
-    
-    Xmag_E = bsxfun(@times,Xmag(cc_all_inds,uwfreqs,uchs),E_g(cc_all_inds));
-    Xmag_I = bsxfun(@times,Xmag(cc_all_inds,uwfreqs,uchs),I_g(cc_all_inds));
-    
-    sac_stim_params(3:5) = NMMcreate_stim_params([length(uwfreqs),length(uchs)]);
-%     sac_reg_params = NMMcreate_reg_params('lambda_d2XT',poss_lambda(ll),'lambda_L2',50);
-%     sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',poss_lambda(ll));
-    NL_types = repmat({'lin'},1,5);
-    mod_signs = [1 1 1 1 1];
-    Xtargets = [1 2 3 4 5];
-    silent = 1;
-    
-    tr_stim{1} = [E_g(cc_all_inds)];
-    tr_stim{2} = [I_g(cc_all_inds)];
-    sac_stim_params(1:2) = NMMcreate_stim_params(1);
-    
-    tr_stim{3} = reshape(Xmag(cc_all_inds,uwfreqs,uchs),length(cc_all_inds),[]);
-    tr_stim{4} = reshape(Xmag_E,length(cc_all_inds),[]);
-    tr_stim{5} = reshape(Xmag_I,length(cc_all_inds),[]);
-    
-    gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
-    gain_mod.spk_NL_params = cur_GQM.spk_NL_params;
-    gain_mod.mods(1).reg_params = NMMcreate_reg_params();
-    gain_mod.mods(2).reg_params = NMMcreate_reg_params();
-    gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
-    [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
-    [gain_xvLL,nullxvLL] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
-%     lambda_LL(cc,ll) = gain_xvLL;
+%% FOR FITTING MODELS TO LFP POWER
+% clear tr_stim
+% uwfreqs = find(wfreqs < 50);
+% addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
+% % for cc = 26
+% for cc = (n_probes+1):length(ModData)
+%     %%
+%     cc
+%     %     cc = 26
+%     
+%     cur_GQM = ModData(cc).rectGQM;
+%     cur_Robs = Robs_mat(:,cc);
+%     
+%     cc_uinds = find(~isnan(cur_Robs));
+% %     cc_tr_inds = cc_uinds(ismember(cc_uinds,tr_inds));
+% %     cc_xv_inds = cc_uinds(ismember(cc_uinds,xv_inds));
+% %     cc_all_inds = union(cc_tr_inds,cc_xv_inds);
+%     cc_all_inds = cc_uinds(ismember(cc_uinds,all_inds));
+%     cur_tr_ind_set = find(ismember(cc_all_inds,tr_inds));
+%     cur_xv_ind_set = find(ismember(cc_all_inds,xv_inds));
+%     
+%     if ~isempty(cur_xv_ind_set)
+%         
+%     if cc > n_probes
+%         su_ind = find(SU_numbers == all_mod_SUnum(cc));
+%         [~,nearest_lfp] = min(abs(use_lfps-SU_probes(su_ind)));
+%     else
+%         [~,nearest_lfp] = min(abs(use_lfps - cc));
 %     end
-    
-    base_mod = NMMinitialize_model(sac_stim_params(1:2),[1 1],{'lin','lin'},NMMcreate_reg_params(),[1 2]);
-    base_mod = NMMfit_filters(base_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
-    [base_xvLL] = NMMeval_model(base_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
-    
-    all_filts = [gain_mod.mods(3:end).filtK];
-    
-    ov_arate = mean(pred_rate);
-    
-    [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim);
-    Eout = sum(gint(:,[1 4]),2);
-    Iout = sum(gint(:,[2 5]),2);
-    Oout = sum(gint(:,[3]),2);
-    Egain = Eout./E_g(cc_all_inds);
-    Igain = Iout./I_g(cc_all_inds);
-    Egain = Egain - nanmean(Egain);
-    Igain = Igain - nanmean(Igain);
-    Igain(isnan(Igain)) = 1;
-    Egain(isnan(Egain)) = 1;
-    Offset = Oout - nanmean(Oout); 
-    %%
-    movingwin = [1.5 1.5];
-    params.Fs = 1/dt;
-    params.tapers = [3 5];
-    cur_tvec = all_trialvec(used_inds(cc_all_inds));
-    cur_tstart_inds = [1; find(cur_tvec(2:end) > cur_tvec(1:end-1))]; 
-    cur_tend_inds = [cur_tstart_inds(2:end); length(cur_tvec)];
-    sMarkers = [cur_tstart_inds cur_tend_inds];
-    [Cmn,Phimn,Smn,Smm,f] = coherencyc_unequal_length_trials([Egain(:) Igain(:) Offset(:)], movingwin, params, sMarkers );
-    
-    [xc,lags] = xcov(-Igain(:),Egain(:),round(0.2/dt),'coeff');
-    %%
-    lfp_ampmodels(cc).Egain_SD = nanstd(Egain);
-    lfp_ampmodels(cc).Igain_SD = nanstd(Igain);
-    lfp_ampmodels(cc).pow_spectra = Smm;
-    lfp_ampmodels(cc).spectra_f = f;
-    lfp_ampmodels(cc).coherence = Cmn;
-    lfp_ampmodels(cc).xcov = xc;
-    lfp_ampmodels(cc).lags = lags*dt;
-    lfp_ampmodels(cc).base_xvImp = (base_xvLL - nullxvLL)/log(2);
-    lfp_ampmodels(cc).lfp_xvImp = (gain_xvLL - nullxvLL)/log(2);
-    end
-end
+%     
+%     if strcmp(rec_type,'LP')
+%         uchs = 1:length(use_lfps);
+%     sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',1000);
+%     else
+%         uchs = nearest_lfp;
+%     sac_reg_params = NMMcreate_reg_params('lambda_d2T',100,'lambda_L2',1000);
+%     end
+%     
+%     tr_cur_Robs = cur_Robs(cc_all_inds);
+%     
+%     cur_GQM = NMMfit_logexp_spkNL(cur_GQM,tr_cur_Robs,all_Xmat_shift(cc_all_inds,:));
+%     [~, ~, ~, tot_G,ind_Gints,fgint] = NMMmodel_eval(cur_GQM, [], all_Xmat_shift);
+%     modSigns = [cur_GQM.mods(:).sign];
+%     g_tot = sum(bsxfun(@times,fgint,modSigns),2);
+%     E_g = sum(fgint(:,modSigns==1),2);
+%     I_g = sum(fgint(:,modSigns==-1),2);
+%     
+%     Xmag_E = bsxfun(@times,Xmag(cc_all_inds,uwfreqs,uchs),E_g(cc_all_inds));
+%     Xmag_I = bsxfun(@times,Xmag(cc_all_inds,uwfreqs,uchs),I_g(cc_all_inds));
+%     
+%     sac_stim_params(3:5) = NMMcreate_stim_params([length(uwfreqs),length(uchs)]);
+% %     sac_reg_params = NMMcreate_reg_params('lambda_d2XT',poss_lambda(ll),'lambda_L2',50);
+% %     sac_reg_params = NMMcreate_reg_params('lambda_d2XT',100,'lambda_L2',poss_lambda(ll));
+%     NL_types = repmat({'lin'},1,5);
+%     mod_signs = [1 1 1 1 1];
+%     Xtargets = [1 2 3 4 5];
+%     silent = 1;
+%     
+%     tr_stim{1} = [E_g(cc_all_inds)];
+%     tr_stim{2} = [I_g(cc_all_inds)];
+%     sac_stim_params(1:2) = NMMcreate_stim_params(1);
+%     
+%     tr_stim{3} = reshape(Xmag(cc_all_inds,uwfreqs,uchs),length(cc_all_inds),[]);
+%     tr_stim{4} = reshape(Xmag_E,length(cc_all_inds),[]);
+%     tr_stim{5} = reshape(Xmag_I,length(cc_all_inds),[]);
+%     
+%     gain_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+%     gain_mod.spk_NL_params = cur_GQM.spk_NL_params;
+%     gain_mod.mods(1).reg_params = NMMcreate_reg_params();
+%     gain_mod.mods(2).reg_params = NMMcreate_reg_params();
+%     gain_mod = NMMfit_filters(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
+%     [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
+%     [gain_xvLL,nullxvLL] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+% %     lambda_LL(cc,ll) = gain_xvLL;
+% %     end
+%     
+%     base_mod = NMMinitialize_model(sac_stim_params(1:2),[1 1],{'lin','lin'},NMMcreate_reg_params(),[1 2]);
+%     base_mod = NMMfit_filters(base_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
+%     [base_xvLL] = NMMeval_model(base_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+%     
+%     all_filts = [gain_mod.mods(3:end).filtK];
+%     
+%     ov_arate = mean(pred_rate);
+%     
+%     [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim);
+%     Eout = sum(gint(:,[1 4]),2);
+%     Iout = sum(gint(:,[2 5]),2);
+%     Oout = sum(gint(:,[3]),2);
+%     Egain = Eout./E_g(cc_all_inds);
+%     Igain = Iout./I_g(cc_all_inds);
+%     Egain = Egain - nanmean(Egain);
+%     Igain = Igain - nanmean(Igain);
+%     Igain(isnan(Igain)) = 1;
+%     Egain(isnan(Egain)) = 1;
+%     Offset = Oout - nanmean(Oout); 
+%     %%
+%     movingwin = [1.5 1.5];
+%     params.Fs = 1/dt;
+%     params.tapers = [3 5];
+%     cur_tvec = all_trialvec(used_inds(cc_all_inds));
+%     cur_tstart_inds = [1; find(cur_tvec(2:end) > cur_tvec(1:end-1))]; 
+%     cur_tend_inds = [cur_tstart_inds(2:end); length(cur_tvec)];
+%     sMarkers = [cur_tstart_inds cur_tend_inds];
+%     [Cmn,Phimn,Smn,Smm,f] = coherencyc_unequal_length_trials([Egain(:) Igain(:) Offset(:)], movingwin, params, sMarkers );
+%     
+%     [xc,lags] = xcov(-Igain(:),Egain(:),round(0.2/dt),'coeff');
+%     %%
+%     lfp_ampmodels(cc).Egain_SD = nanstd(Egain);
+%     lfp_ampmodels(cc).Igain_SD = nanstd(Igain);
+%     lfp_ampmodels(cc).pow_spectra = Smm;
+%     lfp_ampmodels(cc).spectra_f = f;
+%     lfp_ampmodels(cc).coherence = Cmn;
+%     lfp_ampmodels(cc).xcov = xc;
+%     lfp_ampmodels(cc).lags = lags*dt;
+%     lfp_ampmodels(cc).base_xvImp = (base_xvLL - nullxvLL)/log(2);
+%     lfp_ampmodels(cc).lfp_xvImp = (gain_xvLL - nullxvLL)/log(2);
+%     end
+% end
 
 %%
 anal_dir = ['~/Analysis/bruce/' Expt_name '/lfp_models/'];
@@ -1090,7 +1109,8 @@ if ~exist(anal_dir)
 end
 cd(anal_dir);
 
-sname = 'lfp_models2';
+sname = 'lfp_models3';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
-save(sname,'targs','lfp_ampmodels','lfp_models');
+% save(sname,'targs','lfp_ampmodels','lfp_models');
+save(sname,'targs','lfp_models');
