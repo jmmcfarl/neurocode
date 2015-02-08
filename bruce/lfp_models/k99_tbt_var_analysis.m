@@ -644,7 +644,7 @@ elseif strcmp(rec_type,'UA')
 end
 
 %wavelet parameters
-nwfreqs = 20; %50
+nwfreqs = 50; %50
 min_freq = 1.5; max_freq = 50;
 min_scale = 1/max_freq*Fsd;
 max_scale = 1/min_freq*Fsd;
@@ -743,7 +743,7 @@ interp_cwt_mag = sqrt(interp_cwt_real.^2 + interp_cwt_imag.^2);
 interp_cwt_real = bsxfun(@rdivide,interp_cwt_real,nanstd(interp_cwt_mag));
 interp_cwt_imag = bsxfun(@rdivide,interp_cwt_imag,nanstd(interp_cwt_mag));
 
-%%
+%% COMPUTE TRIAL-BY-TRIAL REPEAT DATA
 test_trials = find(all_trial_Se == rpt_seed);
 Ntrials = length(test_trials);
 beg_buff = 0; %number of bins from beginning of trial to exclude
@@ -799,17 +799,18 @@ tbt_LFP_imag = tbt_LFP_imag./tbt_LFP_amp;
 
 [II,JJ] = meshgrid(1:length(test_trials));
 clear all_LFP_metric all_rand_XC all_ED_bin_edges LFP_metric_* all_ZPT
-state_chs = 1:length(use_lfps);
+state_chs = 1:length(use_lfps); %channels used to calculate delta Psi
 % for state_chs = 1:length(use_lfps);
     
-    for ww = 1:length(wfreqs)
+    for ww = 1:length(wfreqs) %for each frequency, compute delta-PSI based variance
         ww
         % ww =10;
         
         LFP_real = squeeze(tbt_LFP_real(:,:,ww,state_chs));
         LFP_imag = squeeze(tbt_LFP_imag(:,:,ww,state_chs));
         
-        %compute bin edge locations for LFP metric
+        %compute bin edge locations for LFP metric based on quantiles of
+        %all pairwise distances
         all_LFP_dists = [];
         for tt = 1:Nframes
             cur_LFP_state = cat(2,squeeze(LFP_real(:,tt,:)),squeeze(LFP_imag(:,tt,:)));
@@ -818,7 +819,7 @@ state_chs = 1:length(use_lfps);
             cur_Dmat(JJ >= II) = nan;
             all_LFP_dists = cat(1,all_LFP_dists,cur_Dmat(~isnan(cur_Dmat)));
         end
-        n_LFP_bins = 30;
+        n_LFP_bins = 30; %number of LFP bins
         ED_bin_edges = prctile(all_LFP_dists,0:100/n_LFP_bins:100);
         
         %     ED_bin_edges = linspace(0,2,n_LFP_bins+1);
@@ -827,6 +828,7 @@ state_chs = 1:length(use_lfps);
         
         all_ED_bin_edges(ww,:) = ED_bin_edges;
         
+        %initializations
         LFP_metric_XC = zeros(length(ED_bin_centers),Nunits);
         LFP_metric_cnt = zeros(length(ED_bin_centers),Nunits);
         rand_XC = zeros(Nunits,1);
@@ -834,21 +836,24 @@ state_chs = 1:length(use_lfps);
         
         LFP_metric_XC = nan(Nframes,n_LFP_bins,Nunits);
         rand_XC = nan(Nframes,Nunits);
-        for tt = 1:Nframes
+        for tt = 1:Nframes 
             cur_Robs = squeeze(tbt_Robs(:,tt,:));
             cur_LFP_state = cat(2,squeeze(LFP_real(:,tt,:)),squeeze(LFP_imag(:,tt,:)));
             
             cur_Dmat = squareform(pdist(cur_LFP_state))/sqrt(length(use_lfps));
             cur_Dmat(JJ == II) = nan;
-            for jj = 1:length(ED_bin_centers)
-                curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1));
+            for jj = 1:length(ED_bin_centers) %loop over deltaPsi bins
+                curset = find(cur_Dmat > ED_bin_edges(jj) & cur_Dmat <= ED_bin_edges(jj+1)); %find trial pairs where deltaPsi falls in current bin
                 %             temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
-                temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
+                temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:); %product of trial Robs
                 %             LFP_metric_XC(jj,:) = LFP_metric_XC(jj,:,:) + nansum(temp,1);
-                LFP_metric_XC(tt,jj,:) = nanmean(temp,1);
-                LFP_metric_cnt(jj,:) = LFP_metric_cnt(jj,:,:) + sum(~isnan(temp),1);
+                LFP_metric_XC(tt,jj,:) = nanmean(temp,1); %avg across trial pairs
+                LFP_metric_cnt(jj,:) = LFP_metric_cnt(jj,:,:) + sum(~isnan(temp),1); %count non-nan trial pairs
                 %         cur_XC(tt,jj,:,:) = (nanmean(bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:)),1));
             end
+            
+            %repeat above analysis to get marginals (all non-nan trial
+            %pairs)
             curset = ~isnan(cur_Dmat);
             %         temp = bsxfun(@times,cur_Robs2(II(curset),:,:),cur_Robs(JJ(curset),:));
             temp = cur_Robs(II(curset),:).*cur_Robs(JJ(curset),:);
@@ -860,8 +865,10 @@ state_chs = 1:length(use_lfps);
         
         %         LFP_metric_XC = LFP_metric_XC./LFP_metric_cnt;
         %         rand_XC = rand_XC./rand_cnt;
+        
+        %LFP based variance
         LFP_metric_XC = squeeze(nanmean(LFP_metric_XC));
-        rand_XC = squeeze(nanmean(rand_XC))';
+        rand_XC = squeeze(nanmean(rand_XC))'; %marginal variance
         
         tot_var = nanvar(reshape(tbt_Robs,[],Nunits));
         
@@ -875,14 +882,14 @@ state_chs = 1:length(use_lfps);
         all_rand_XC(ww,:) = rand_XC;
     end
     
-    %%
+    %% slightly smooth the binned LFP-variance maps in frequency and bin (separately for each unit)
     smooth_fac = 0.5;
     clear smoothed_LFP_metrics
     for cc = 1:Nunits
         smoothed_LFP_metrics(:,:,cc) = smoothn(squeeze(all_LFP_metric(:,:,cc)),smooth_fac);
     end
     
-    %% FIT SPLINES TO VAR VS ET FUNCTIONS (again using full et recon)
+    %% FIT SPLINES TO VAR VS LFP FUNCTIONS 
     spline_spacing = 20;
     maxlag_ED = 100;
     nboots = 1;
@@ -920,7 +927,7 @@ state_chs = 1:length(use_lfps);
     end
 %     all_ZPT(state_chs,:,:) = var_spline_ZPT;
 % end
-%%
+%% INTERPOLATE THESE SPLINE-based VARIANCE MAPS FOR EACH UNIT
 xeval = 0:eval_spacing:100;
 % xneweval = logspace(log10(0.5),log10(100),100);
 xneweval = 0:0.25:100;
@@ -933,43 +940,43 @@ for cc = 1:Nunits
     interp_phidep(cc,:,:) = interp2(Xo,Yo,squeeze(var_spline_funs(:,cc,:)),Xq,Yq);
 end
 %%
-close all
-for cc = 25:Nunits
-    subplot(4,1,1)
-    pcolor(1:n_LFP_bins,wfreqs,squeeze(smoothed_LFP_metrics(:,:,cc)));shading flat
-    colorbar
-%      set(gca,'yscale','log');
-    subplot(4,1,2)
-    pcolor(xneweval,weval,squeeze(interp_phidep(cc,:,:)));shading flat
-     colorbar
-     set(gca,'xscale','log');
-   subplot(4,1,3)
-%     plot(prc_bin_cents,squeeze(var_spline_funs(
-    net_added_var = (squeeze(interp_phidep(cc,:,1)) - rand_XC(cc))/rand_XC(cc);
-    [~,peakfreq] = max(net_added_var);
-    plot(weval,net_added_var);
-%     set(gca,'xscale','log'); xlim([2 50]);
-    subplot(4,1,4)
-    [~,peakfreq_loc] = min(abs(wfreqs-weval(peakfreq)));
-    
-    plot(prc_bin_cents,squeeze(all_LFP_metric(peakfreq_loc,:,cc)-rand_XC(cc))/rand_XC(cc),'o');
-    hold on
-    plot(spline_eval,squeeze(var_spline_funs(peakfreq_loc,cc,:)-rand_XC(cc))/rand_XC(cc),'r-');
-    
-%     yl = ylim(); ylim([0 yl(2)]);
-%     xl = xlim();
-%     line(xl,[0 0]+rand_XC(cc),'color','k');
-    pause
-    clf
-end
+% close all
+% for cc = 25:Nunits
+%     subplot(4,1,1)
+%     pcolor(1:n_LFP_bins,wfreqs,squeeze(smoothed_LFP_metrics(:,:,cc)));shading flat
+%     colorbar
+% %      set(gca,'yscale','log');
+%     subplot(4,1,2)
+%     pcolor(xneweval,weval,squeeze(interp_phidep(cc,:,:)));shading flat
+%      colorbar
+%      set(gca,'xscale','log');
+%    subplot(4,1,3)
+% %     plot(prc_bin_cents,squeeze(var_spline_funs(
+%     net_added_var = (squeeze(interp_phidep(cc,:,1)) - rand_XC(cc))/rand_XC(cc);
+%     [~,peakfreq] = max(net_added_var);
+%     plot(weval,net_added_var);
+% %     set(gca,'xscale','log'); xlim([2 50]);
+%     subplot(4,1,4)
+%     [~,peakfreq_loc] = min(abs(wfreqs-weval(peakfreq)));
+%     
+%     plot(prc_bin_cents,squeeze(all_LFP_metric(peakfreq_loc,:,cc)-rand_XC(cc))/rand_XC(cc),'o');
+%     hold on
+%     plot(spline_eval,squeeze(var_spline_funs(peakfreq_loc,cc,:)-rand_XC(cc))/rand_XC(cc),'r-');
+%     
+% %     yl = ylim(); ylim([0 yl(2)]);
+% %     xl = xlim();
+% %     line(xl,[0 0]+rand_XC(cc),'color','k');
+%     pause
+%     clf
+% end
 
 %% PRINT FIGURE SHOWING LFP DEPENDENCE
-cc = 12;
-freq_markers = [2 5 10 20 40];
-freq_inds = interp1(weval,1:length(weval),freq_markers);
-
-f1 = figure();
-imagesc(xeval,weval,squeeze(interp_phidep(cc,:,:)));
+% cc = 12;
+% freq_markers = [2 5 10 20 40];
+% freq_inds = interp1(weval,1:length(weval),freq_markers);
+% 
+% f1 = figure();
+% imagesc(xeval,weval,squeeze(interp_phidep(cc,:,:)));
 
 %% PLOT EXAMPLE FIGS
 close all
@@ -1028,10 +1035,10 @@ close(f1);
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
 
-%%
+%% MAKE RASTER PLOT
 fig_dir = '/home/james/Desktop/K99_figures/';
 close all
-cur_su = 5;
+cur_su = 5; %these are SU nums (not ccs)
 cur_spk_times = all_su_spk_times{cur_su};
 cur_spk_trials = round(interp1(all_t_axis,all_trialvec,cur_spk_times));
 
@@ -1068,7 +1075,7 @@ fname = [fig_dir sprintf('E%d_C%d_raster.pdf',Expt_num,cur_su+n_probes)];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
 
-%%
+%% LOOP OVER FREQUENCIES AND COMPUTE COVARIANCE @ 0 LFP bin
 
 [II,JJ] = meshgrid(1:length(test_trials));
 
@@ -1103,6 +1110,8 @@ for ww = [3 28 36 42]
     LFP_metric_XC = nan(Nframes,length(ED_bin_centers),Nunits,Nunits);
     rand_XC = nan(Nframes,Nunits,Nunits);
     for tt = 1:Nframes
+        
+        %we're computing cross-covariances (0 time lag) here so need to copies of Robs
         cur_Robs = squeeze(tbt_Robs(:,tt,:));
         cur_Robs2 = reshape(cur_Robs,[],1,Nunits);
         
@@ -1136,13 +1145,13 @@ for ww = [3 28 36 42]
 
     tot_var = nanvar(reshape(tbt_Robs,[],Nunits));
     
-    normfac = sqrt(tot_var'*tot_var);
+    normfac = sqrt(tot_var'*tot_var); %normalize by sqrt(product of variances)
     
     % LFP_expl_cov = squeeze(LFP_metric_XC(1,:)) - rand_XC';
     % LFP_expl_corr = LFP_expl_cov./normfac;
     % LFP_expl_cov = squeeze(LFP_metric_XC(1,:,:)) - rand_XC;
-    LFP_expl_cov = squeeze(LFP_metric_XC(1,:,:));
-    LFP_expl_corr = LFP_expl_cov./normfac;
+    LFP_expl_cov = squeeze(LFP_metric_XC(1,:,:)); %cov at 0 DeltaPsi bin
+    LFP_expl_corr = LFP_expl_cov./normfac; %marginal cov
     
     
     temp = reshape(tbt_Robs,[],Nunits);
