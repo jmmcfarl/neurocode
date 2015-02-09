@@ -877,7 +877,7 @@ for cc = (n_probes+1):length(ModData)
   
     [gain_xvLL,best_reg_loc] = max(lambda_xvLLs);
     gain_mod = lambda_models{best_reg_loc};
-    [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
+    [gain_LL,nullLL, gain_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
     
 %     [gain_xvLL,nullxvLL,~,~,gintxv] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
 %     
@@ -909,11 +909,14 @@ end
     base_mod = NMMinitialize_model(sac_stim_params(1:2),[1 1],{'lin','lin'},NMMcreate_reg_params(),[1 2]);
     base_mod = NMMfit_filters(base_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set,silent);
     [base_xvLL] = NMMeval_model(base_mod,tr_cur_Robs,tr_stim,[],cur_xv_ind_set);
+    [~,~,base_rate] = NMMeval_model(base_mod,tr_cur_Robs,tr_stim,[],cur_tr_ind_set);
     
     %these are all the LFP filters
     all_filts = [gain_mod.mods(3:end).filtK];
     
-    ov_arate = mean(pred_rate);
+%     ov_arate = mean(pred_rate);
+    
+    pred_rate_diff = gain_rate - base_rate;
     
     %compute effective gains of the Exc and Inh inputs
     [gain_LL,nullLL, pred_rate, G, gint] = NMMeval_model(gain_mod,tr_cur_Robs,tr_stim);
@@ -944,6 +947,9 @@ end
     
     lfp_models(cc).Egain_SD = nanstd(Egain);
     lfp_models(cc).Igain_SD = nanstd(Igain);
+    lfp_models(cc).gain_rate_diff_SD = nanstd(pred_rate_diff);
+    lfp_models(cc).base_rate_SD = nanstd(base_rate);
+    lfp_models(cc).base_avg_rate = nanmean(base_rate);
 %     lfp_models(cc).Egain_SDxv = nanstd(Egainxv);
 %     lfp_models(cc).Igain_SDxv = nanstd(Igainxv);
 %     lfp_models(cc).Egain_SDxv2 = nanstd(Egainxv2);
@@ -1109,7 +1115,7 @@ if ~exist(anal_dir)
 end
 cd(anal_dir);
 
-sname = 'lfp_models3';
+sname = 'lfp_models4';
 sname = [sname sprintf('_ori%d',bar_ori)];
 
 % save(sname,'targs','lfp_ampmodels','lfp_models');

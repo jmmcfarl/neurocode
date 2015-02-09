@@ -44,6 +44,7 @@ all_Opow = [];
 all_Cind = [];
 all_Eind = [];
 all_models = [];
+all_rate_modfac = [];
 for enum = 1:10
   enum
   for ii = 1:2
@@ -54,7 +55,7 @@ for enum = 1:10
             anal_dir = ['~/Analysis/bruce/' Expt_name '/lfp_models/'];
             cd(anal_dir);
             
-            sname = 'lfp_models3';
+            sname = 'lfp_models4';
             sname = [sname sprintf('_ori%d',bar_ori)];
             
             load(sname);
@@ -69,6 +70,9 @@ for enum = 1:10
             for cc = 25:length(lfp_models)
                 if ~isempty(lfp_models(cc).Egain_SD)
                    cur_mod = ModData(cc).rectGQM;
+                   
+                   cur_rate_modfac = lfp_models(cc).gain_rate_diff_SD/lfp_models(cc).base_rate_SD;
+                   
                    mod_filt_signs = [cur_mod.mods(:).sign];
                    all_Cind = cat(1,all_Cind,cc);
                    all_Eind = cat(1,all_Eind,enum);
@@ -76,7 +80,8 @@ for enum = 1:10
                    
                    all_NEfilts = cat(1,all_NEfilts,sum(mod_filt_signs==1));
                    all_NIfilts = cat(1,all_NIfilts,sum(mod_filt_signs==-1));
-                   
+                                      
+                   all_rate_modfac = cat(1,all_rate_modfac,cur_rate_modfac);
                    all_base_imp = cat(1,all_base_imp,lfp_models(cc).base_xvImp);
                    all_lfp_imp = cat(1,all_lfp_imp,lfp_models(cc).lfp_xvImp);
                    all_off_imp = cat(1,all_off_imp,lfp_models(cc).off_xvImp);
@@ -123,6 +128,7 @@ tot_spks = arrayfun(@(x) x.unit_data.tot_spikes,all_models);
 rel_lfp_imp = (all_lfp_imp - all_base_imp)./all_base_imp;
 rel_off_imp = (all_off_imp - all_base_imp)./all_base_imp;
 
+rel_stim_def = all_base_imp./all_lfp_imp;
 
 % use_mods = find(all_NEfilts > 1 & all_NIfilts > 1 & to_use);
 % use_bmods = find(all_lfp_imp > all_off_imp & all_rates > 5 & to_use);
@@ -131,9 +137,11 @@ rel_off_imp = (all_off_imp - all_base_imp)./all_base_imp;
 %select usable units based on a minimum firing rate, as well as a minimum
 %filter amplitude (peak amplitude of biggest E or I filter). This seems to
 %be a reasonable way to weed out cells without a clear E or I filter.
-use_bmods = find(all_rates >= 5 & max_Efilt_peak >= 0.1 & max_Ifilt_peak >= 0.1 & to_use);
-use_Emods = find(all_rates >= 5 & max_Efilt_peak >= 0.1 & to_use);
-use_Imods = find(all_rates >= 5 & max_Ifilt_peak >= 0.1 & to_use);
+min_rate = 5;
+min_famp = 0.1;
+use_bmods = find(all_rates >= min_rate & max_Efilt_peak >= min_famp & max_Ifilt_peak >= min_famp & to_use);
+use_Emods = find(all_rates >= min_rate & max_Efilt_peak >= min_famp & to_use);
+use_Imods = find(all_rates >= min_rate & max_Ifilt_peak >= min_famp & to_use);
 
 close all
 f1 = figure();
@@ -143,10 +151,10 @@ line([0 0.55],[0 0.55],'color','k')
 xlabel('Excitatory gain SD');
 ylabel('Inhibitory gain SD');
 
-fname = [fig_dir 'gain_SD_scatter.pdf'];
-fig_width = 4; rel_height = 1;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% fname = [fig_dir 'gain_SD_scatter.pdf'];
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
 
@@ -167,11 +175,22 @@ ylim([0 0.55]);
 xlabel('Peak frequency (Hz)');
 ylabel('Gain modulation (SD)');
 
-fname = [fig_dir 'gain_freq_scatter.pdf'];
-fig_width = 4; rel_height = 1;
-figufy(f2);
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% fname = [fig_dir 'gain_freq_scatter.pdf'];
+% fig_width = 4; rel_height = 1;
+% figufy(f2);
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
+
+f3 = figure();
+boxplot(rel_lfp_imp(use_bmods)+1);
+box off
+ylim([1 2.2]);
+ylabel('Relative performance');
+fname = [fig_dir 'xvLL_imp.pdf'];
+fig_width = 4; rel_height = 0.8;
+figufy(f3);
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
 
 
 %%

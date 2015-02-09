@@ -974,3 +974,72 @@ fname = [fig_dir sprintf('%s_LFPchoice_coherence2.pdf',Expt_name)];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
 
+%% COMPUTE TRIAL_BY_TRIAL LFPS
+LFP_trial_taxis = AllExpt.Expt.Header.LFPtimes*1e-4;
+LFP_dsf = 4;
+LFP_Fsd = LFP_Fs/LFP_dsf;
+%anti-aliasing filter and high-pass filter
+aa_hcf = LFP_Fsd/2*0.8;
+% [b_aa,a_aa] = butter(4,aa_hcf/(LFP_Fs/2),'low');
+aa_lcf = 1;
+[b_aa,a_aa] = butter(2,[aa_lcf aa_hcf]/(LFP_Fs/2));
+
+LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
+
+nprobes = 24;
+uprobes = 1:1:nprobes;
+
+
+beg_buffer = -round(0.2/dt);
+end_buffer = round(0/dt);
+trial_dur = round(2/dt);
+R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
+TLEN = length(R_trial_taxis);
+
+trial_LFPs = nan(Ntrials,TLEN,length(uprobes));
+for tr = 1:Ntrials
+    fprintf('Trial %d of %d\n',tr,Ntrials);
+    cur_LFPs = double(AllExpt.Expt.Trials(tr).LFP(:,uprobes));
+    bad_LFPs = isnan(cur_LFPs(:,1));
+    cur_LFPs(isnan(cur_LFPs)) = 0;
+    cur_LFPs = filtfilt(b_aa,a_aa,cur_LFPs);
+    cur_LFPs = downsample(cur_LFPs,LFP_dsf);
+    bad_LFPs = downsample(bad_LFPs,LFP_dsf);
+
+    cur_LFPs(bad_LFPs,:) = nan;
+    trial_LFPs(tr,:,:) = interp1(LFP_trial_taxis_ds,cur_LFPs,R_trial_taxis);
+end
+trial_LFPs = permute(trial_LFPs,[2 1 3]);
+
+
+%% COMPUTE TRIAL ONSET TRIG CSD
+addpath(genpath('~/James_scripts/iCSD/'))
+
+cur_LFPs = permute(trial_LFPs,[3 1 2]);
+cur_LFPs = cur_LFPs(:,1:150,:);
+csd_params.Fs = LFP_Fsd; %sample freq
+csd_params.BrainBound = 1; %first channel that is in the brain
+csd_params.ChanSep = 0.05; %channel sep in mm
+csd_params.diam = 2; %current disc diameter (in mm)
+csd_method = 'spline';
+
+csd_mat = PettersenCSD(cur_LFPs,csd_method,csd_params);
+avg_csd = squeeze(nanmean(csd_mat,3));
+csd_tax = R_trial_taxis(1:150);
+
+%% print csd map
+fig_dir = '/home/james/Desktop/CPfigs/';
+dinterp = 1:0.25:24;
+[Xo,Yo] = meshgrid(csd_tax,uprobes);
+[Xq,Yq] = meshgrid(csd_tax,dinterp);
+interp_map = interp2(Xo,Yo,avg_csd,Xq,Yq);
+
+f1 = figure();
+imagesc(csd_tax,(dinterp-1)*0.05,interp_map);
+
+fig_width = 5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir sprintf('%s_CSDmap.pdf',Expt_name)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
