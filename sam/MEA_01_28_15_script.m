@@ -22,7 +22,7 @@ nStims = 2500;
 trial_bin_edges = vs.stimTimes(1:nStims);
 [trial_totspks,all_spike_trialids] = histc(all_spike_times,trial_bin_edges);
 
-%%
+%% COUNT TOTAL SPIKES IN EACH TRIAL
 count_win = [0 3];
 trial_stimids = vs.imgSequence(vs.order);
 nImages = length(unique(trial_stimids));
@@ -46,6 +46,40 @@ norm_spk_counts = nanzscore(avg_spk_counts')';
 image_norm_spkcounts = nanmean(norm_spk_counts);
 [~,best_image] = nanmax(image_norm_spkcounts);
 neuron_avg_spk_counts = mean(avg_spk_counts,2);
+
+%%
+count_win = [0 3];
+dt = 0.1;
+t_axis_edges = count_win(1):dt:count_win(2);
+t_axis = t_axis_edges(1:end-1)*0.5 + t_axis_edges(2:end)*0.5;
+NT = length(t_axis);
+
+rand_spike_trials = randi(length(trial_stimids),length(all_spike_trialids),1);
+
+Robs_mat = nan(nRpts,nImages,NT,n_units);
+for ii = 1:nImages
+    fprintf('Binning spikes for image number %d/%d\n',ii,nImages);
+    cur_trial_set = find(trial_stimids==ii);
+    for jj = 1:length(cur_trial_set)
+        cur_spike_set = find(all_spike_trialids == cur_trial_set(jj));
+%         cur_spike_set = find(rand_spike_trials == cur_trial_set(jj));
+        cur_spike_reltimes = (all_spike_times(cur_spike_set) - vs.stimTimes(cur_trial_set(jj)))/1e3;
+        cur_spike_cellids = all_spike_cellids(cur_spike_set);
+        
+%         inWindow = cur_spike_reltimes >= count_win(1) & cur_spike_reltimes <= count_win(2);
+        for cc = 1:n_units
+            cur_hist = histc(cur_spike_reltimes(cur_spike_cellids==cc),t_axis_edges);
+         Robs_mat(jj,ii,:,cc) = cur_hist(1:end-1);
+        end
+    end
+end
+
+all_trial_Robs = reshape(Robs_mat,[],NT,n_units);
+trial_shuffle = randperm(nRpts*nImages);
+rand_PSTHs = squeeze(nanmean(reshape(all_trial_Robs(trial_shuffle,:,:),nRpts,nImages,NT,n_units)));
+
+all_PSTHs = squeeze(nanmean(Robs_mat));
+
 %%
 % close all
 % line_height = 0.9;

@@ -3,13 +3,14 @@ clear all
 % cd('/home/james/Data/bruce/ChoiceProb/')
 cd('~/Data/bruce/ChoiceProb/')
 
-Expt_name = 'M230';
+Expt_name = 'G037';
 
-if strcmp(Expt_name,'M239')
-    load('M239/lemM239.image.ORBW.LFP.mat')
-elseif strcmp(Expt_name,'M230')
-    load('M230/lemM230.image.ORBW.LFP.mat')
-end
+% if strcmp(Expt_name,'M239')
+%     load('M239/lemM239.image.ORBW.LFP.mat')
+% elseif strcmp(Expt_name,'M230')
+%     load('M230/lemM230.image.ORBW.LFP.mat')
+% end
+load('G037/jbeG037.Cells.image.ORBW.LFP.mat');
 
 %% SET BLOCK TRIAL RANGES
 if strcmp(Expt_name,'M239')
@@ -39,6 +40,10 @@ elseif strcmp(Expt_name,'M230')
         1416 1480;
         1481 1612;
         1613 1740];
+elseif strcmp(Expt_name,'G037')
+    block_trial_boundaries = [1 148;
+        149 454;
+        455 1361];
 end
 n_blocks = size(block_trial_boundaries,1);
 
@@ -65,11 +70,13 @@ trialSe = [AllExpt.Expt.Trials(:).se];
 
 %% get total trial-by-trial spike counts for each unit
 tot_spks_per_trial = zeros(Ntrials,Nunits);
+spk_delay_buff = 0.05;
 for tr = 1:Ntrials
     for nn = 1:Nunits
         trindx = find( AllExpt.Spikes{nn}.Trial == trialNums(tr));
         if ~isempty(trindx)
-            tot_spks_per_trial(tr,nn) = sum(AllExpt.Spikes{nn}.Spikes{trindx} <= trialDur/1e-4 & AllExpt.Spikes{nn}.Spikes{trindx} >= 0);
+            tot_spks_per_trial(tr,nn) = sum(AllExpt.Spikes{nn}.Spikes{trindx}*1e-4 <= (trialDur + spk_delay_buff) & ...
+                (AllExpt.Spikes{nn}.Spikes{trindx}*1e-4 >= spk_delay_buff));
         end
     end
 end
@@ -112,7 +119,7 @@ avg_spk_rates = nanmean(reshape(fullRobs,[],Nunits));
 tot_spks_per_trial_norm = tot_spks_per_trial;
 tot_spks_per_trial_norm(tot_spks_per_trial == 0) = nan;
 
-sig_trials = find(trialOB < 130);
+sig_trials = find(abs(trialOB) < 80);
 stim_up = sig_trials(trialrwDir(sig_trials)==1);
 stim_down = sig_trials(trialrwDir(sig_trials)==-1);
 sig_prob = nan(Nunits,1);
@@ -138,10 +145,11 @@ for cc = 1:Nunits
     true_pos = cumsum(up_hist)/sum(~isnan(tot_spks_per_trial_norm(resp_up,cc)));
     false_pos = cumsum(down_hist)/sum(~isnan(tot_spks_per_trial_norm(resp_down,cc)));
     choice_prob(cc) = trapz(false_pos,true_pos);
+    [~,~,~,CP_Neuron(cc)]=perfcurve(trialrespDir(test_trials), tot_spks_per_trial_norm(test_trials,cc),1);
     [~,cp_pval(cc)] = ttest2(tot_spks_per_trial_norm(resp_up,cc),tot_spks_per_trial_norm(resp_down,cc));
 end
 
-nboot = 500;
+nboot = 1000;
 boot_sig_prob = nan(Nunits,nboot);
 boot_choice_prob = nan(Nunits,nboot);
 for nn = 1:nboot
@@ -168,8 +176,8 @@ for nn = 1:nboot
         boot_choice_prob(cc,nn) = trapz(fract_incor,fract_cor);
     end
 end
-choice_prob_ci = prctile(boot_choice_prob',[5 95]);
-sig_prob_ci = prctile(boot_sig_prob',[5 95]);
+choice_prob_ci = prctile(boot_choice_prob',[1 99]);
+sig_prob_ci = prctile(boot_sig_prob',[1 99]);
 choice_prob_z = (choice_prob - nanmean(boot_choice_prob,2))./nanstd(boot_choice_prob,[],2);
 sig_prob_z = (sig_prob - nanmean(boot_sig_prob,2))./nanstd(boot_sig_prob,[],2);
 
@@ -234,7 +242,10 @@ noise_corrmat = noise_covmat./normfac;
 
 
 %% USE WAVELET ANALYSIS TO COMPUTE PHASE-LOCKING SPECTRA FOR EACH UNIT
-LFP_trial_taxis = AllExpt.Expt.Header.LFPtimes*1e-4;
+% LFP_trial_taxis = AllExpt.Expt.Header.LFPtimes*1e-4;
+LFP_Fs = 1/AllExpt.Expt.Header.LFPsamplerate;
+LFP_offset = AllExpt.Expt.Header.preperiod/1e4;
+LFP_trial_taxis = (1:length(AllExpt.Expt.Header.LFPtimes))/LFP_Fs - LFP_offset;
 
 LFP_dsf = 2;
 LFP_Fsd = LFP_Fs/LFP_dsf;
@@ -246,12 +257,12 @@ aa_lcf = 0.5;
 
 LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
 
-nprobes = 24;
-uprobes = 1:1:nprobes;
+nprobes = 96;
+uprobes = 1:4:nprobes;
 
 %wavelet parameters
 nwfreqs = 25;
-min_freq = 1.; max_freq = 80;
+min_freq = 1.5; max_freq = 100;
 % nwfreqs = 5;
 % min_freq = 1; max_freq = 6;
 min_scale = 1/max_freq*LFP_Fsd;
@@ -542,34 +553,28 @@ end
 % end
 
 %% COMPUTE CP PREDICTIONS USING POWER ACROSS A RANGE OF (LOWER) FREQS
-ufreqs = find(wfreqs >= 1.5 & wfreqs <= 10); %set of frequencies to use in model
+ufreqs = find(wfreqs >= 1.5 & wfreqs <= 10);
 uchs = 1:1:length(uprobes);
-reg_params = NMMcreate_reg_params('lambda_L2',1,'lambda_d2XT',1); %very slight reg
+reg_params = NMMcreate_reg_params('lambda_L2',1,'lambda_d2XT',1);
 stim_params = NMMcreate_stim_params([length(ufreqs) length(uchs)]);
 silent = 1;
 
 for cc = 1:Nunits
-        %training data (OB ~= 130)
         cur_X = squeeze(trial_pow_train(:,ufreqs,:));
         cur_Y = trial_Robs_train(:,cc);
         uindx = find(~isnan(cur_Y) & ~any(isnan(reshape(cur_X,length(train_trials),[])),2));
     
-        %fit model to training data 
         init_mod = NMMinitialize_model(stim_params,1,{'lin'},reg_params);
         init_mod = NMMfit_filters(init_mod,cur_Y,cur_X,[],uindx,silent);
         
-        %test data (OB==130)
         cur_X = squeeze(trial_pow_test(:,ufreqs,:));
         cur_X = reshape(cur_X,length(test_trials),[]);
         cur_Y = trial_Robs_test(:,cc);
-        
-        %get predicted rate on each trial
         [~,~,Yhat] = NMMeval_model(init_mod,cur_Y,cur_X);
         Yhat(isnan(cur_Y)) = nan;
         
         Y_resid = cur_Y - Yhat;
                 
-        %CP using predicted trial spike count based on power model
         cur_resp_ax = prctile(Yhat,[0:5:100]);
         up_hist = histc(Yhat(up_trials),cur_resp_ax);
         down_hist = histc(Yhat(down_trials),cur_resp_ax);
@@ -638,8 +643,8 @@ LFP_PC_up = sqrt(LFP_real_upavg.^2 + LFP_imag_upavg.^2);
 LFP_PC_down = sqrt(LFP_real_downavg.^2 + LFP_imag_downavg.^2);
 
 %% COMPUTE CP OF TRIAL_AVG POW SPECTRA
-lfp_bt = 0.4; %buffers at beginning and end of trial to exclude for power calculation
-lfp_et = 0.2;
+lfp_bt = 0.3;
+lfp_et = 0.3;
 u_lfp_times = find(R_trial_taxis > 0 & R_trial_taxis <= (trial_dur)*dt);
 u_lfp_times = u_lfp_times(R_trial_taxis(u_lfp_times) >= lfp_bt & R_trial_taxis(u_lfp_times) <= (trial_dur-lfp_et));
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
@@ -653,7 +658,6 @@ mean_trial_pow = squeeze(nanmean(mean_LFP_amp));
 
 trial_pow = squeeze(nanmean(LFP_amp));
 
-%compute CP from LFP power at each frequency and channel
 resp_up = find(trialrespDir(test_trials) == 1);
 resp_down = find(trialrespDir(test_trials) == -1);
 for cc = 1:length(uprobes)
@@ -699,7 +703,7 @@ end
 %%
 
 
-%% COMPUTE LFP VARIANCE ATTRIBUTABLE TO CHOICE
+%%
 poss_trials = find(trialOB == 130 & trialrespDir ~= 0);
 un_stim_seeds = unique(trialSe(poss_trials));
 
@@ -725,26 +729,21 @@ for cc = 1:length(uprobes);
     all_A2cwt_same = zeros(length(u_lfp_times),length(wfreqs));
     all_A2cwt_diff = all_A2cwt_same;
     for ss = 1:length(un_stim_seeds)
-        cur_trials = find(trialSe(poss_trials) == un_stim_seeds(ss)); %trials (of test trials) with current stim seed
-        if length(cur_trials) >= 2 %need at least 2
-            
-            %find which trial pairs had same vs opposite choice dirs
+        cur_trials = find(trialSe(poss_trials) == un_stim_seeds(ss));
+        if length(cur_trials) >= 2
             cur_resp = trialrespDir(poss_trials(cur_trials));
             [II,JJ] = meshgrid(1:length(cur_trials));
             cur_Y = squeeze(LFP_comp(:,cur_trials,:,cc));
             cur_AY = squeeze(LFP_Acomp(:,cur_trials,:,cc));
             
-            %difference in choice dir (either 1 or 0)
             cur_Dmat = abs(squareform(pdist(cur_resp')));
-            cur_Dmat(JJ == II) = nan; %unequal trial pairs
+            cur_Dmat(JJ == II) = nan;
             
-            %trial pairs with same choice
             uset = find(cur_Dmat == 0);
             temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_cwt_same(~isnan(tempm)) = all_cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
             
-            %compute avg product of amplitudes for normalization
             temp = abs(cur_Y(:,II(uset),:)).*abs(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
             all_Acwt_same(~isnan(tempm)) = all_Acwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
@@ -754,7 +753,6 @@ for cc = 1:length(uprobes);
             all_A2cwt_same(~isnan(tempm)) = all_A2cwt_same(~isnan(tempm))  + tempm(~isnan(tempm)) ;
             all_same_cnt = all_same_cnt + squeeze(sum(~isnan(temp),2));
             
-            %this is the marginal (ignoring choice)
             uset = find(~isnan(cur_Dmat));
             temp = cur_Y(:,II(uset),:).*conj(cur_Y(:,JJ(uset),:));
             tempm = squeeze(nanmean(temp,2));
@@ -890,7 +888,7 @@ fname = [fig_dir sprintf('%s_Phasedep_choiceLFPmod.pdf',Expt_name)];
 exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f5);o
 end
-%% SAVE THE POWER CP PREDICTIONS FOR EACH UNIT FROM THIS EXPT
+%%
 % data.Expt = Expt_name;
 % data.ucells = ucells;
 % data.uSUs = uSUs;
@@ -973,85 +971,4 @@ figufy(f1);
 fname = [fig_dir sprintf('%s_LFPchoice_coherence2.pdf',Expt_name)];
 exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 close(f1);
-
-%% COMPUTE TRIAL_BY_TRIAL LFPS
-LFP_trial_taxis = AllExpt.Expt.Header.LFPtimes*1e-4;
-LFP_dsf = 4;
-LFP_Fsd = LFP_Fs/LFP_dsf;
-%anti-aliasing filter and high-pass filter
-aa_hcf = LFP_Fsd/2*0.8;
-% [b_aa,a_aa] = butter(4,aa_hcf/(LFP_Fs/2),'low');
-aa_lcf = 1;
-[b_aa,a_aa] = butter(2,[aa_lcf aa_hcf]/(LFP_Fs/2));
-
-LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
-
-nprobes = 24;
-uprobes = 1:1:nprobes;
-
-
-beg_buffer = -round(0.2/dt);
-end_buffer = round(0/dt);
-trial_dur = round(2/dt);
-R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
-TLEN = length(R_trial_taxis);
-
-trial_LFPs = nan(Ntrials,TLEN,length(uprobes));
-for tr = 1:Ntrials
-    fprintf('Trial %d of %d\n',tr,Ntrials);
-    cur_LFPs = double(AllExpt.Expt.Trials(tr).LFP(:,uprobes));
-    bad_LFPs = isnan(cur_LFPs(:,1));
-    cur_LFPs(isnan(cur_LFPs)) = 0;
-    cur_LFPs = filtfilt(b_aa,a_aa,cur_LFPs);
-    cur_LFPs = downsample(cur_LFPs,LFP_dsf);
-    bad_LFPs = downsample(bad_LFPs,LFP_dsf);
-
-    cur_LFPs(bad_LFPs,:) = nan;
-    trial_LFPs(tr,:,:) = interp1(LFP_trial_taxis_ds,cur_LFPs,R_trial_taxis);
-end
-trial_LFPs = permute(trial_LFPs,[2 1 3]);
-
-%%
-trial_LFPs(isnan(trial_LFPs)) = 0;
-
-params.tapers = [2 3];
-params.trialave = 1;
-params.Fs = 1/dt;
-
-for ii = 1:length(uprobes)
-    ii
-[S,f] = mtspectrumc(squeeze(trial_LFPs(:,:,ii)),params);
-pow_spec(ii,:) = log10(abs(S));
-end
-pow_spec = zscore(pow_spec);
-%% COMPUTE TRIAL ONSET TRIG CSD
-addpath(genpath('~/James_scripts/iCSD/'))
-
-cur_LFPs = permute(trial_LFPs,[3 1 2]);
-cur_LFPs = cur_LFPs(:,1:150,:);
-csd_params.Fs = LFP_Fsd; %sample freq
-csd_params.BrainBound = 1; %first channel that is in the brain
-csd_params.ChanSep = 0.05; %channel sep in mm
-csd_params.diam = 2; %current disc diameter (in mm)
-csd_method = 'spline';
-
-csd_mat = PettersenCSD(cur_LFPs,csd_method,csd_params);
-avg_csd = squeeze(nanmean(csd_mat,3));
-csd_tax = R_trial_taxis(1:150);
-
-%% print csd map
-fig_dir = '/home/james/Desktop/CPfigs/';
-dinterp = 1:0.25:24;
-[Xo,Yo] = meshgrid(csd_tax,uprobes);
-[Xq,Yq] = meshgrid(csd_tax,dinterp);
-interp_map = interp2(Xo,Yo,avg_csd,Xq,Yq);
-
-f1 = figure();
-imagesc(csd_tax,(dinterp-1)*0.05,interp_map);
-
-% fig_width = 5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir sprintf('%s_CSDmap.pdf',Expt_name)];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
 
