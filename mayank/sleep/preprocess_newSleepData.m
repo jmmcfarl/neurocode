@@ -12,6 +12,7 @@ data(dd).MPfile = 'CSC33.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'Ctx';
+data(dd).good_bounds = [0 Inf];
 
 dd = dd + 1;
 %d2 cortical
@@ -22,6 +23,7 @@ data(dd).MPfile = 'CSC33.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'Ctx';
+data(dd).good_bounds = [0 290];
 %some decent epochs of cortical UDS. The MP is a bit wierd though and
 %doesnt have too clear of UDS. Not sure if usable or not...
 
@@ -34,6 +36,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'Ctx';
+data(dd).good_bounds = [0 124];
 
 dd = dd + 1;
 %d4 cortical
@@ -44,6 +47,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'Ctx';
+data(dd).good_bounds = [0 546];
 
 dd = dd + 1;
 %d5 cortical
@@ -54,6 +58,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 1;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'Ctx';
+data(dd).good_bounds = [0 800];
 %some pretty good UDS towards the beginning. Probably usable but not great
 
 dd = dd + 1;
@@ -65,10 +70,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'Ctx';
+data(dd).good_bounds = [0 Inf];
 %great UDS, especially at the beginning. Both MP and LFP are great.
 
 dd = dd + 1;
-%d7 MEC
+%d7 MEC [probable L3MEC. can see large prolonged UPs at time with robust
+%spk rates. also lower freq uds].
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-14_14-04-11';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [];
@@ -76,11 +83,13 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 609];
 %not great UDS in LFP or MP. Some brief epochs with decent UDS. Might be
 %able to see some examples of pers ups. Not pers downs.
 
 dd = dd + 1;
-%d8 MEC
+%d8 MEC [cell type somewhat unclear. I'd guess L2MEC based on small peak in
+%theta band, and somewhat weaker US and low spk rates]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-22/2014-10-22_11-57-18';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [];
@@ -88,11 +97,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 417];
 %not really clear UDS. I would say not usable, but there might be some
 %instances that could be argued for pers states.
 
 dd = dd + 1;
-%d9 MEC
+%d9 MEC [clear L3MEC. high rate, large US, low-freq]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-10-31_13-43-29';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [];
@@ -100,11 +110,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 Inf];
 %great MEC example. Long rec. Good cortical UDS towards the end. Very clear
 %MEC MP UDS, with nice pups and pdowns.
 
 dd = dd + 1;
-%d10 MEC. Short, not much cortical UDS. Probably not useful
+%d10 MEC. [probably L3MEC. high rate, large US, and low-freq]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-04_12-27-44';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -112,10 +123,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 95];
+%Short, not much cortical UDS. Probably not useful
 
 dd = dd + 1;
-%d11 MEC. Long enough, with some decent cortical UDS. Wierd MP, dominated by
-%DS, with choppy ups. Maybe some pdowns.
+%d11 MEC. [very likely L2 stellate. weaker 'humped' us, lower rate, and
+%clear theta peak]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-04_15-31-37';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -123,9 +136,13 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 468];
+%Long enough, with some decent cortical UDS. Wierd MP, dominated by
+%DS, with choppy ups. Maybe some pdowns.
 
 dd = dd + 1;
-%c12 MEC. Not much clear UDS in either cortical LFP or MP
+%d12 MEC. [probably L2. Not that clear though. slight theta peak, and
+%humped US]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-06_13-41-25';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -133,10 +150,11 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 400];
+%Not much clear UDS in either cortical LFP or MP
 
 dd = dd + 1;
-%d13 MEC. Nice recording with clear UDS, and nice MP. But very short, so only a
-%few nice examples.
+%d13 MEC. [not clear, but L3 if had to guess]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-06_15-20-38';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -144,10 +162,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 75];
+%Nice recording with clear UDS, and nice MP. But very short, so only a
+%few nice examples.
 
 dd = dd + 1;
-%d14 MEC. Pretty good rec. Decent cortical UDS and MP. Some good pups and
-%pdowns.
+%d14 MEC. [clear L3. large US, high rate, low-freq]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-08_14-36-03';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -155,11 +175,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 510];
+%Pretty good rec. Decent cortical UDS and MP. Some good pups and
+%pdowns.
 
 dd = dd + 1;
-%d15 MEC. Decent rec. Some decent cortical UDS. MP is pretty DS heavy, with
-%choppy UPs. Probably some pers DOWNS. Maybe some pers UPS. Kinda hard to
-%tell though.
+%d15 MEC. [pretty clear L2. Weak US, low rate, maybe a hint of theta]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-12_10-57-15';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -167,10 +188,13 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 242];
+%Decent rec. Some decent cortical UDS. MP is pretty DS heavy, with
+%choppy UPs. Probably some pers DOWNS. Maybe some pers UPS. Kinda hard to
+%tell though.
 
 dd = dd + 1;
-%d16 MEC. Cortical UDS is pretty good at times. The MP is not really stable,
-%and doesn't have clear UDS. So, very likely not usable.
+%d16 MEC. [unclear]. Sven says probably cortical neuron
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-13_12-48-52';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -178,10 +202,13 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 310];
+%Cortical UDS is pretty good at times. The MP is not really stable,
+%and doesn't have clear UDS. So, very likely not usable.
 
 dd = dd + 1;
-%d17 MEC. Great cortical UDS. MP not really stable, or just not showing clear
-%UDS. So, very likely not usable.
+%d17 MEC. [either bad MP rec or maybe an L2 cell, not clear though]. Sven
+%says probably cortical neuron
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-13_13-25-58';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -189,11 +216,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 540];
+%Great cortical UDS. MP not really stable, or just not showing clear
+%UDS. So, very likely not usable.
 
 dd = dd + 1;
-%d18 MEC. Nice cortical UDS. MP does not have very clear UDS, but occasionally
-%its decently clear. Probably a few pdowns and pups here, but wont be the
-%best examples. Possibly usable.
+%d18 MEC. [probably L2, but not that clear. weak US, low rate, not much of a clear theta peak though]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-15_12-48-19';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -201,12 +229,14 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 780];
+%Nice cortical UDS. MP does not have very clear UDS, but occasionally
+%its decently clear. Probably a few pdowns and pups here, but wont be the
+%best examples. Possibly usable.
 
 dd = dd + 1;
-%d19 MEC. Very nice long rec. Good cortical UDS. MEC MP pretty good, with some
-%nice examples of Pup and Pdown at times. The UDS are a bit strange
-%(changing very often), but should be usable. MP also appears to be
-%degrading slowly towards the end.
+%d19 MEC. [likely an L2 because of weak US, somewhat sparser rate, and a
+%hint of theta]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-15_13-08-31';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -214,10 +244,14 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 1094];
+%Very nice long rec. Good cortical UDS. MEC MP pretty good, with some
+%nice examples of Pup and Pdown at times. The UDS are a bit strange
+%(changing very often), but should be usable. MP also appears to be
+%degrading slowly towards the end.
 
 dd = dd + 1;
-%d20 MEC. Probably too short to use for much. Decent cortical UDS. MEC MP not
-%too stable. Also has DS-heavy with choppy UPS. Probably not usable.
+%d20 MEC. [almost certainly not L3. weak US, low rate, theta peak]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-20_12-54-16';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -225,11 +259,12 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 226];
+%Probably too short to use for much. Decent cortical UDS. MEC MP not
+%too stable. Also has DS-heavy with choppy UPS. Probably not usable.
 
 dd = dd + 1;
-%d21 MEC. Nice recording. A bit on the short side. Cortical UDS is OK. MEC MP
-%is fantastic! Very clear bimodal UDS. Nice strong PUps. Maybe some PDowns
-%as well
+%d21 MEC. [obvious L3. huge US, high rate, low-freq]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-20_13-09-58';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -237,10 +272,14 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
+data(dd).good_bounds = [0 284];
+%Nice recording. A bit on the short side. Cortical UDS is OK. MEC MP
+%is fantastic! Very clear bimodal UDS. Nice strong PUps. Maybe some PDowns
+%as well
 
 dd = dd + 1;
-%d22. Maybe MEC or cortical. Short choppy US. Some decent epochs of
-%cortical UDS. Maybe some pers DS, but not the clearest examples.
+%d22. [not L3. Weak US, low rate. not an obvious theta peak, so maybe
+%cortical]
 data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-29_13-12-01';
 data(dd).ipsiLFPs = [1:16];
 data(dd).contraLFPs = [13];
@@ -248,6 +287,9 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'unsure'; %prob cortical (POR or visual)
+data(dd).good_bounds = [0 882];
+%Maybe MEC or cortical. Short choppy US. Some decent epochs of
+%cortical UDS. Maybe some pers DS, but not the clearest examples.
 
 dd = dd + 1;
 %d23 MP has high rate and does not show clear UDS. Cortical LFP shows decent
@@ -260,6 +302,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 1;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 779];
 
 dd = dd + 1;
 %d24. Some epochs with decent UDS in MP and LFP. Seem pretty synched when
@@ -272,6 +315,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 579];
 
 dd = dd + 1;
 %d25. Too short of a rec to really be usable. 
@@ -282,6 +326,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 144];
 
 dd = dd + 1;
 %d26. MP not good, with choppy unstable UDS. LFP also doesn't show
@@ -293,6 +338,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 532];
 
 dd = dd + 1;
 %d27. MP and LFP both have some OK UDS. Likely some usable epochs, but not
@@ -304,6 +350,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 359];
 
 cd ~/Analysis/Mayank/sleep/
 save sleep_dirs data
