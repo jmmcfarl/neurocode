@@ -6,10 +6,14 @@ cd(data_dir);
 %%
 load spikeSorting.mat
 load Images1_visStimInfo.mat
+load('hdr.mat')
+
+MEA_nums = hdr.MEAlayoutNums;
 
 all_spike_times = t;
 clear t
-%%
+
+%% PARSE SPIKE TIMES
 n_units = size(ic,2);
 all_spike_cellids = nan(size(all_spike_times));
 for cc = 1:n_units
@@ -21,6 +25,17 @@ end
 nStims = 2500;
 trial_bin_edges = vs.stimTimes(1:nStims);
 [trial_totspks,all_spike_trialids] = histc(all_spike_times,trial_bin_edges);
+
+%% DETERMINE SPATIAL FOOTPRINT OF EACH UNIT
+waveform_SDs = squeeze(nanstd(allWaveforms));
+
+footprints = nan(n_units,16,16);
+footprints(:,~isnan(MEA_nums)) = waveform_SDs(:,MEA_nums(~isnan(MEA_nums)));
+
+[XX,YY] = meshgrid(1:16); XX = XX(:); YY = YY(:);
+[peak_amp,peak_loc] = max(reshape(footprints,n_units,[]),[],2);
+peak_loc_xy = [XX(peak_loc) YY(peak_loc)];
+peak_loc_ind = MEA_nums(peak_loc);
 
 %% COUNT TOTAL SPIKES IN EACH TRIAL
 count_win = [0 3];
@@ -48,38 +63,63 @@ image_norm_spkcounts = nanmean(norm_spk_counts);
 neuron_avg_spk_counts = mean(avg_spk_counts,2);
 
 %%
-count_win = [0 3];
-dt = 0.1;
-t_axis_edges = count_win(1):dt:count_win(2);
+dt = 0.005;
+
+trial_stimids = vs.imgSequence(vs.order);
+rand_spike_trials = randi(length(trial_stimids),length(all_spike_trialids),1);
+
+n_use_trials = 250;
+
+t_axis_edges = 0:dt:n_use_trials*10;
 t_axis = t_axis_edges(1:end-1)*0.5 + t_axis_edges(2:end)*0.5;
 NT = length(t_axis);
 
-rand_spike_trials = randi(length(trial_stimids),length(all_spike_trialids),1);
-
-Robs_mat = nan(nRpts,nImages,NT,n_units);
-for ii = 1:nImages
-    fprintf('Binning spikes for image number %d/%d\n',ii,nImages);
-    cur_trial_set = find(trial_stimids==ii);
-    for jj = 1:length(cur_trial_set)
-        cur_spike_set = find(all_spike_trialids == cur_trial_set(jj));
-%         cur_spike_set = find(rand_spike_trials == cur_trial_set(jj));
-        cur_spike_reltimes = (all_spike_times(cur_spike_set) - vs.stimTimes(cur_trial_set(jj)))/1e3;
-        cur_spike_cellids = all_spike_cellids(cur_spike_set);
-        
-%         inWindow = cur_spike_reltimes >= count_win(1) & cur_spike_reltimes <= count_win(2);
-        for cc = 1:n_units
-            cur_hist = histc(cur_spike_reltimes(cur_spike_cellids==cc),t_axis_edges);
-         Robs_mat(jj,ii,:,cc) = cur_hist(1:end-1);
-        end
-    end
+Robs_mat = nan(NT,n_units);
+for ii = 1:n_units
+    cur_spike_set = all_spike_cellids == ii;
+    cur_spike_times = (all_spike_times(cur_spike_set))/1e3;
+    
+    cur_hist = histc(cur_spike_times,t_axis_edges);
+    Robs_mat(:,ii) = cur_hist(1:end-1);
 end
 
-all_trial_Robs = reshape(Robs_mat,[],NT,n_units);
-trial_shuffle = randperm(nRpts*nImages);
-rand_PSTHs = squeeze(nanmean(reshape(all_trial_Robs(trial_shuffle,:,:),nRpts,nImages,NT,n_units)));
-
-all_PSTHs = squeeze(nanmean(Robs_mat));
-
+tot_spike_count = nansum(Robs_mat,2);
+avg_spike_rate = nanmean(Robs_mat,2);
+avg_spike_rate = zscore(jmm_smooth_1d_cor(avg_spike_rate,1));
+%%
+% count_win = [0 10];
+% dt = 0.01;
+% t_axis_edges = count_win(1):dt:count_win(2);
+% t_axis = t_axis_edges(1:end-1)*0.5 + t_axis_edges(2:end)*0.5;
+% NT = length(t_axis);
+% 
+% rand_spike_trials = randi(length(trial_stimids),length(all_spike_trialids),1);
+% 
+% Robs_mat = nan(nRpts,nImages,NT,n_units);
+% for ii = 1:nImages
+%     fprintf('Binning spikes for image number %d/%d\n',ii,nImages);
+%     cur_trial_set = find(trial_stimids==ii);
+%     for jj = 1:length(cur_trial_set)
+%         cur_spike_set = find(all_spike_trialids == cur_trial_set(jj));
+% %         cur_spike_set = find(rand_spike_trials == cur_trial_set(jj));
+%         cur_spike_reltimes = (all_spike_times(cur_spike_set) - vs.stimTimes(cur_trial_set(jj)))/1e3;
+%         cur_spike_cellids = all_spike_cellids(cur_spike_set);
+%         
+% %         inWindow = cur_spike_reltimes >= count_win(1) & cur_spike_reltimes <= count_win(2);
+%         for cc = 1:n_units
+%             cur_hist = histc(cur_spike_reltimes(cur_spike_cellids==cc),t_axis_edges);
+%          Robs_mat(jj,ii,:,cc) = cur_hist(1:end-1);
+%         end
+%     end
+% end
+% 
+% all_PSTHs = squeeze(nanmean(Robs_mat));
+% 
+% Robs_mat = reshape(Robs_mat,[],NT,n_units);
+% trial_shuffle = randperm(nRpts*nImages);
+% rand_PSTHs = squeeze(nanmean(reshape(Robs_mat(trial_shuffle,:,:),nRpts,nImages,NT,n_units)));
+% 
+% Robs_mat = reshape(Robs_mat,[],n_units);
 %%
 % close all
 % line_height = 0.9;
@@ -215,23 +255,28 @@ end
 tf_nrates = bsxfun(@rdivide,tf_rates,ov_trial_avgs);
 
 %% LOAD LFP DATA 
-use_chs = 1:1:252;
-lfp_dsf = 6;
-load('hdr.mat')
+cd(data_dir);
+use_chs = 1:32:252;
+lfp_dsf = 4;
 LFP_Fs = hdr.filteredFS;
+
+cd /home/Sam/Data/
+
 % LFP_Fs = 1e3;
 LFP_Fsd = LFP_Fs/lfp_dsf;
 [bb,aa] = butter(2,[0.1 0.8*LFP_Fsd]/LFP_Fs);
 
 lfp_files = dir('chunk*.mat');
 n_lfp_files = length(lfp_files);
-n_use_files = 4;
 all_lfps = [];
-for ii = 1:n_use_files
+% for ii = 1:n_lfp_files
+for ii = 1:50
     cur_fname = sprintf('chunk%d.mat',ii);
     fprintf('Loading %s\n',cur_fname);
     load(cur_fname);
     lfp = squeeze(lfp);
+    
+    
     cur_lfps = double(lfp(use_chs,:)');
     cur_lfps = filtfilt(bb,aa,cur_lfps);
     all_lfps = cat(1,all_lfps,downsample(cur_lfps,lfp_dsf));
@@ -239,6 +284,55 @@ end
 all_lfps = zscore(all_lfps);
 
 lfp_taxis = (1:size(all_lfps,1))/LFP_Fsd;
+
+%%
+rel_taxis = nan(size(t_axis));
+for ii = 1:n_use_trials
+   cur_range = find(t_axis >= vs.stimTimes(ii)/1e3 & t_axis <= vs.stimTimes(ii+1)/1e3); 
+   rel_taxis(cur_range) = t_axis(cur_range) - vs.stimTimes(ii)/1e3;
+end
+
+urange = [0 2];
+uset = find(rel_taxis >= urange(1) & rel_taxis <= urange(2));
+
+%%
+interp_lfps = interp1(lfp_taxis,all_lfps,t_axis);
+
+%wavelet parameters
+nwfreqs = 35;
+min_freq = 2; max_freq = 90;
+min_scale = 1/max_freq*(1/dt);
+max_scale = 1/min_freq*(1/dt);
+wavetype = 'cmor1-1';
+scales = logspace(log10(min_scale),log10(max_scale),nwfreqs);
+wfreqs = scal2frq(scales,wavetype,1/(1/dt));
+
+cc = 1;
+cur_lfp_ch = use_chs(cc);
+% for ii = 1:size(interp_lfps,2)
+%     lfp_cwt = cwt(interp_lfps(:,cc),scales,'cmor1-1')';
+    lfp_cwt = cwt(mean(interp_lfps,2),scales,'cmor1-1')';
+    lfp_cwt_real = real(lfp_cwt(uset,:));
+    lfp_cwt_imag = imag(lfp_cwt(uset,:));
+    
+    
+    
+%     lfp_cwt = bsxfun(@minus,lfp_cwt,nanmean(lfp_cwt));
+    lfp_cwt_real = bsxfun(@rdivide,lfp_cwt_real,nanstd(lfp_cwt_real));
+    lfp_cwt_imag = bsxfun(@rdivide,lfp_cwt_imag,nanstd(lfp_cwt_imag));
+    
+%     trig_avg_cwt_real = nanmean(bsxfun(@times,lfp_cwt_real,tot_spike_count(uset)));
+%     trig_avg_cwt_imag = nanmean(bsxfun(@times,lfp_cwt_imag,tot_spike_count(uset)));
+    
+pl_spec = nan(n_units,length(wfreqs));
+for cc = 1:n_units
+    cc
+trig_avg_cwt_real = nanmean(bsxfun(@times,lfp_cwt_real,Robs_mat(uset,cc)))/mean(Robs_mat(uset,cc));
+    trig_avg_cwt_imag = nanmean(bsxfun(@times,lfp_cwt_imag,Robs_mat(uset,cc)))/mean(Robs_mat(uset,cc));
+    pl_spec(cc,:) = sqrt(trig_avg_cwt_real.^2 + trig_avg_cwt_imag.^2);
+end
+    
+% end
 
 %%
 close all

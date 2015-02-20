@@ -115,14 +115,34 @@ trialSpkCnts = squeeze(nansum(fullRobs,1));
 totSpkCnts = squeeze(nansum(trialSpkCnts,1));
 avg_spk_rates = nanmean(reshape(fullRobs,[],Nunits));
 
+%%
+un_OB = unique(trialOB);
+psths = nan(NT,Nunits,length(un_OB));
+for ii = 1:length(un_OB)
+   cur_trials = find(trialOB == un_OB(ii));
+   psths(:,:,ii) = squeeze(nanmean(fullRobs(:,cur_trials,:),2));
+end
+
+close all
+sm_win = 2;
+t_axis = (1:NT)*dt;
+for ii = 1:Nunits
+   plot(t_axis,jmm_smooth_1d_cor(squeeze(psths(:,ii,3)),sm_win));
+   hold on
+   plot(t_axis,jmm_smooth_1d_cor(squeeze(psths(:,ii,4)),sm_win),'r');
+   ii
+   pause
+   clf
+end
 %% CALCULATE CHOICE PROBS
 tot_spks_per_trial_norm = tot_spks_per_trial;
 tot_spks_per_trial_norm(tot_spks_per_trial == 0) = nan;
 
-sig_trials = find(abs(trialOB) < 80);
+sig_trials = find(abs(trialOB) == 60);
 stim_up = sig_trials(trialrwDir(sig_trials)==1);
 stim_down = sig_trials(trialrwDir(sig_trials)==-1);
 sig_prob = nan(Nunits,1);
+sp_pval = nan(Nunits,1);
 for cc = 1:Nunits
     cur_resp_ax = 0:(nanmax(tot_spks_per_trial_norm(sig_trials,cc)));
     up_hist = histc(tot_spks_per_trial_norm(stim_up,cc),cur_resp_ax);
@@ -130,6 +150,7 @@ for cc = 1:Nunits
     fract_cor = cumsum(up_hist)/sum(~isnan(tot_spks_per_trial_norm(stim_up,cc)));
     fract_incor = cumsum(down_hist)/sum(~isnan(tot_spks_per_trial_norm(stim_down,cc)));
     sig_prob(cc) = trapz(fract_incor,fract_cor);
+    [~,sp_pval(cc)] = ttest2(tot_spks_per_trial_norm(stim_up,cc),tot_spks_per_trial_norm(stim_down,cc));
 end
 
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
@@ -176,10 +197,13 @@ for nn = 1:nboot
         boot_choice_prob(cc,nn) = trapz(fract_incor,fract_cor);
     end
 end
-choice_prob_ci = prctile(boot_choice_prob',[1 99]);
-sig_prob_ci = prctile(boot_sig_prob',[1 99]);
+choice_prob_ci = prctile(boot_choice_prob',[2.5 97.5]);
+sig_prob_ci = prctile(boot_sig_prob',[2.5 97.5]);
 choice_prob_z = (choice_prob - nanmean(boot_choice_prob,2))./nanstd(boot_choice_prob,[],2);
 sig_prob_z = (sig_prob - nanmean(boot_sig_prob,2))./nanstd(boot_sig_prob,[],2);
+
+boot_sig_sig = find(sig_prob > sig_prob_ci(2,:)' | sig_prob < sig_prob_ci(1,:)');
+boot_choice_sig = find(choice_prob > choice_prob_ci(2,:)' | choice_prob < choice_prob_ci(1,:)');
 
 %% USE WITHIN-CHOICE AVGS
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
@@ -258,7 +282,7 @@ aa_lcf = 0.5;
 LFP_trial_taxis_ds = downsample(LFP_trial_taxis,LFP_dsf);
 
 nprobes = 96;
-uprobes = 1:4:nprobes;
+uprobes = 1:2:nprobes;
 
 %wavelet parameters
 nwfreqs = 25;
@@ -279,7 +303,7 @@ R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
 TLEN = length(R_trial_taxis);
 
 all_spk_id = [];
-all_spk_phases = nan(sum(tot_spks_per_trial(:)),length(wfreqs),length(uprobes));
+% all_spk_phases = nan(sum(tot_spks_per_trial(:)),length(wfreqs),length(uprobes));
 % trial_LFP_cwt = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
 trial_LFP_real = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
 trial_LFP_imag = nan(Ntrials,TLEN,length(wfreqs),length(uprobes));
@@ -613,34 +637,95 @@ end
 %% COMPUTE CHOICE_CONDITIONAL TRIALAVG POW SPECTRA
 
 test_trials = find(trialOB == 130 & trialrespDir ~= 0);
-% test_trials = find(trialOB <130 & trialrespDir ~= 0);
-up_trials = trialrespDir(test_trials) == 1;
-down_trials = trialrespDir(test_trials) == -1;
-% up_trials = trialrwDir(test_trials) == 1;
-% down_trials = trialrwDir(test_trials) == -1;
+sig_trials = find(abs(trialOB) == 60 & trialrespDir ~= 0);
+cup_trials = trialrespDir(test_trials) == 1;
+cdown_trials = trialrespDir(test_trials) == -1;
+sup_trials = trialrwDir(sig_trials) == 1;
+sdown_trials = trialrwDir(sig_trials) == -1;
 
 bt = 0;
 et = 0;
 
 u_lfp_times = find(R_trial_taxis > bt & R_trial_taxis <= (trial_dur)*dt-et);
-LFP_real = squeeze(tbt_LFP_real(u_lfp_times,test_trials,:,:));
-LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,test_trials,:,:));
+LFP_real = squeeze(tbt_LFP_real(u_lfp_times,:,:,:));
+LFP_imag = squeeze(tbt_LFP_imag(u_lfp_times,:,:,:));
 LFP_amp = sqrt(LFP_imag.^2 + LFP_real.^2);
+% amp_SDs = nanstd(reshape(LFP_amp,[],length(wfreqs),length(uprobes)));
+% LFP_amp = bsxfun(@rdivide,LFP_amp,reshape(amp_SDs,1,1,length(wfreqs),length(uprobes)));
 
-% LFP_real = bsxfun(@rdivide,LFP_real,nanstd(LFP_amp));
-% LFP_imag = bsxfun(@rdivide,LFP_imag,nanstd(LFP_amp));
+LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,test_trials(cup_trials),:,:),2));
+LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,test_trials(cdown_trials),:,:),2));
+LFP_choice_powdiff = LFP_amp_upavg - LFP_amp_downavg;
 
-LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,up_trials,:,:),2));
-LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,down_trials,:,:),2));
-LFP_choice_powdiff = squeeze(nanmean(LFP_amp_upavg,3) - nanmean(LFP_amp_downavg,3));
+LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,sig_trials(sup_trials),:,:),2));
+LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,sig_trials(sdown_trials),:,:),2));
+LFP_sig_powdiff = LFP_amp_upavg - LFP_amp_downavg;
 
-LFP_real_upavg = squeeze(nanmean(LFP_real(:,up_trials,:,:),2));
-LFP_real_downavg = squeeze(nanmean(LFP_real(:,down_trials,:,:),2));
-LFP_imag_upavg = squeeze(nanmean(LFP_imag(:,up_trials,:,:),2));
-LFP_imag_downavg = squeeze(nanmean(LFP_imag(:,down_trials,:,:),2));
+avg_choice_specdiff = squeeze(nanmean(LFP_choice_powdiff));
+avg_sig_specdiff = squeeze(nanmean(LFP_sig_powdiff));
 
-LFP_PC_up = sqrt(LFP_real_upavg.^2 + LFP_imag_upavg.^2);
-LFP_PC_down = sqrt(LFP_real_downavg.^2 + LFP_imag_downavg.^2);
+raw_LFP_upavg = squeeze(nanmean(tbt_LFPs(u_lfp_times,test_trials(cup_trials),:),2));
+raw_LFP_downavg = squeeze(nanmean(tbt_LFPs(u_lfp_times,test_trials(cdown_trials),:),2));
+raw_LFP_choicediff = raw_LFP_upavg - raw_LFP_downavg;
+
+raw_LFP_upavg = squeeze(nanmean(tbt_LFPs(u_lfp_times,sig_trials(sup_trials),:),2));
+raw_LFP_downavg = squeeze(nanmean(tbt_LFPs(u_lfp_times,sig_trials(sdown_trials),:),2));
+raw_LFP_sigdiff = raw_LFP_upavg - raw_LFP_downavg;
+
+nboots = 500;
+boot_samps = nan(nboots,length(wfreqs));
+boot_amp_samps = nan(nboots,length(wfreqs));
+for ii = 1:nboots
+    ii
+rr = rand(length(test_trials),1) > 0.5;
+% raw_LFP_rupavg = squeeze(nanmean(tbt_LFPs(u_lfp_times,test_trials(rr),:),2));
+% raw_LFP_rdownavg = squeeze(nanmean(tbt_LFPs(u_lfp_times,test_trials(~rr),:),2));
+% raw_LFP_rchoicediff = raw_LFP_rupavg - raw_LFP_rdownavg;
+LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,test_trials(rr),:,:),2));
+LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,test_trials(~rr),:,:),2));
+LFP_rchoice_powdiff = LFP_amp_upavg - LFP_amp_downavg;
+avg_rchoice_specdiff = squeeze(nanmean(LFP_rchoice_powdiff));
+boot_samps(ii,:) = nanmean(avg_rchoice_specdiff,2);
+boot_amp_samps(ii,:) = nanmean(abs(avg_rchoice_specdiff),2);
+end
+boot_CI = prctile(boot_samps,[2.5 97.5]);
+amp_boot_CI = prctile(boot_amp_samps,[2.5 97.5]);
+
+nboots = 500;
+rboot_samps = nan(nboots,length(wfreqs));
+rboot_amp_samps = nan(nboots,length(wfreqs));
+for ii = 1:nboots
+    ii
+rr = randperm(length(sig_trials));
+LFP_amp_upavg = squeeze(nanmean(LFP_amp(:,sig_trials(rr(1:sum(sup_trials))),:,:),2));
+LFP_amp_downavg = squeeze(nanmean(LFP_amp(:,sig_trials(rr((sum(sup_trials)+1):end)),:,:),2));
+LFP_rchoice_powdiff = LFP_amp_upavg - LFP_amp_downavg;
+avg_rchoice_specdiff = squeeze(nanmean(LFP_rchoice_powdiff));
+rboot_samps(ii,:) = nanmean(avg_rchoice_specdiff,2);
+rboot_amp_samps(ii,:) = nanmean(abs(avg_rchoice_specdiff),2);
+end
+sig_boot_CI = prctile(rboot_samps,[2.5 97.5]);
+sig_amp_boot_CI = prctile(rboot_amp_samps,[2.5 97.5]);
+
+%%
+close all
+for cc = 1:length(uprobes)
+   cc
+%    subplot(2,1,1);
+%    pcolor(R_trial_taxis(u_lfp_times),wfreqs,squeeze(LFP_choice_powdiff(:,:,cc))');shading flat
+%     caxis([-0.4 0.4])
+%     set(gca,'yscale','log')
+%    subplot(2,1,2);
+%    pcolor(R_trial_taxis(u_lfp_times),wfreqs,squeeze(LFP_sig_powdiff(:,:,cc))');shading flat
+%     caxis([-0.4 0.4])
+%     set(gca,'yscale','log')
+    plot(wfreqs,avg_choice_specdiff(:,cc),wfreqs,avg_sig_specdiff(:,cc),'r')
+    set(gca,'xscale','log'); axis tight
+    ylim([-0.2 0.2]);
+    xl = xlim(); line(xl,[0 0],'color','k');
+     pause
+   clf
+end
 
 %% COMPUTE CP OF TRIAL_AVG POW SPECTRA
 lfp_bt = 0.3;
