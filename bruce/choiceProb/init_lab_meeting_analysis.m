@@ -489,7 +489,7 @@ nprobes = 96;
 uprobes = 1:4:nprobes;
 else
 nprobes = 24;
-uprobes = 1:1:nprobes;
+uprobes = 1:2:nprobes;
 end
 
 %wavelet parameters
@@ -507,7 +507,7 @@ wfreqs = scal2frq(scales,wavetype,1/LFP_Fsd);
 beg_buffer = round(0/dt);
 end_buffer = round(0/dt);
 trial_dur = round(2/dt);
-R_trial_taxis = (beg_buffer:(trial_dur - end_buffer))*dt;
+R_trial_taxis = (1+beg_buffer:(trial_dur - end_buffer))*dt;
 TLEN = length(R_trial_taxis);
 
 all_spk_id = [];

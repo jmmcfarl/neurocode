@@ -4,13 +4,15 @@
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G085';
-% bar_ori = 90;
+Expt_name = 'G086';
+bar_ori = 0;
 
 include_bursts = 0;
-nboot = 5000; %number of bootstrap samples for computing trig-avg SD
+% nboot = 5000; %number of bootstrap samples for computing trig-avg SD
+nboot = 0;
 
-sname = 'sac_trig_avg_data4';
+% sname = 'sac_trig_avg_data4';
+sname = 'sac_trig_avg_data_test';
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -527,6 +529,9 @@ end
 %saccade amplitude along parallel axis
 sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
 
+%saccade amplitude along orthogonal axis
+sac_deltaY = sac_postpos(2,:) - sac_prepos(2,:);
+
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks
 sac_durs = [saccades(:).duration];
@@ -541,6 +546,14 @@ out_pos_sacs = intersect(outsacs,possacs);
 out_neg_sacs = intersect(outsacs,negsacs);
 in_pos_sacs = intersect(insacs,possacs);
 in_neg_sacs = intersect(insacs,negsacs);
+
+%classify guided saccades as having large or small orthogonal component
+med_ocomp = nanmedian(abs(sac_deltaY(gsac_set)));
+large_ocomp = gsac_set(abs(sac_deltaY(gsac_set)) > med_ocomp);
+small_ocomp = gsac_set(abs(sac_deltaY(gsac_set)) < med_ocomp);
+
+avg_locomp = nanmean(abs(sac_deltaY(large_ocomp)));
+avg_socomp = nanmean(abs(sac_deltaY(small_ocomp)));
 
 %compile indices of simulated saccades
 all_sim_sacs = [];
@@ -705,6 +718,10 @@ fprintf('Computing trig avgs for MUA\n');
 [mua_data.large_msac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(large_msacs),backlag,forwardlag,[],used_trialvec,0);
 [mua_data.small_msac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(small_msacs),backlag,forwardlag,[],used_trialvec,0);
 
+%ocomp dependent
+[mua_data.large_ocomp_gsac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(large_ocomp),backlag,forwardlag,[],used_trialvec,0);
+[mua_data.small_ocomp_gsac_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(small_ocomp),backlag,forwardlag,[],used_trialvec,0);
+
 %sac-direction dependent
 [mua_data.msac_towards_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_towards),backlag,forwardlag,[],used_trialvec,0);
 [mua_data.msac_away_avg,lags] = get_event_trig_avg_v3(all_mua_rate_norm,sac_start_inds(msac_aways),backlag,forwardlag,[],used_trialvec,0);
@@ -776,6 +793,17 @@ for ss = 1:length(SU_numbers)
     sua_data(ss).N_msacs_Orth = sum(~isnan(all_binned_sua(sac_start_inds(msac_Orth),ss)));
     sua_data(ss).N_msacs_Par_sub = sum(~isnan(all_binned_sua(sac_start_inds(msac_Par_sub),ss)));
     sua_data(ss).N_msacs_Orth_sub = sum(~isnan(all_binned_sua(sac_start_inds(msac_Orth_sub),ss)));
+    sua_data(ss).avg_locomp = avg_locomp;
+    sua_data(ss).avg_socomp = avg_socomp;
+    
+    if ~is_TBT_expt
+        sua_data(ss).grayback_avg_rate = nanmean(block_SU_rates(grayback_gs_expts,ss));
+        sua_data(ss).imback_avg_rate = nanmean(block_SU_rates(imback_gs_expts,ss));
+    else
+        sua_data(ss).grayback_avg_rate = nanmean(all_binned_sua(grayback_trial_inds,ss));
+        sua_data(ss).imback_avg_rate = nanmean(all_binned_sua(imback_trial_inds,ss));
+    end
+    sua_data(ss).is_TBT = is_TBT_expt;
     
     %general averages
     [sua_data(ss).msac_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(micro_set),backlag,forwardlag,[],used_trialvec,0);
@@ -843,7 +871,11 @@ for ss = 1:length(SU_numbers)
     [sua_data(ss).gsac_inpos_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(in_pos_sacs),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).gsac_outneg_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(out_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).gsac_inneg_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(in_neg_sacs),backlag,forwardlag,[],used_trialvec,0);
-    
+
+    %ocomp size
+    [sua_data(ss).gsac_large_ocomp,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(large_ocomp),backlag,forwardlag,[],used_trialvec,0);
+    [sua_data(ss).gsac_small_ocomp,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(small_ocomp),backlag,forwardlag,[],used_trialvec,0);
+
     %msac-direction dependent
     [sua_data(ss).msac_towards_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_towards),backlag,forwardlag,[],used_trialvec,0);
     [sua_data(ss).msac_away_avg,lags] = get_event_trig_avg_v3(all_sua_rate_norm(:,ss),sac_start_inds(msac_aways),backlag,forwardlag,[],used_trialvec,0);

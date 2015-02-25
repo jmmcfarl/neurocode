@@ -120,7 +120,6 @@ for cc = 1:n_probes
 end
 
 %%
-SU_allBlock_Data = SU_allBlock_Data(:,cur_block_set);
 
 Clust_data.SU_block_probes = SU_block_probes;
 Clust_data.SU_numbers = SU_numbers;
@@ -128,9 +127,21 @@ Clust_data.SU_ID_mat = SU_ID_mat;
 Clust_data.cluster_stats = SU_clust_data;
 Clust_data.SU_probes = su_probes;
 
+if exist('SU_allBlock_Data','var')
+SU_allBlock_Data = SU_allBlock_Data(:,cur_block_set);
+
 Clust_data.SU_Lratios = reshape([SU_allBlock_Data.Lratios],length(SU_numbers),[]);
 Clust_data.SU_isodists = reshape([SU_allBlock_Data.isoDists],length(SU_numbers),[]);
 Clust_data.SU_isoRel = reshape([SU_allBlock_Data.isoReliable],length(SU_numbers),[]);
 Clust_data.SU_dprimes = reshape([SU_allBlock_Data.dprimes],length(SU_numbers),[]);
 Clust_data.SU_refract = reshape([SU_allBlock_Data.refract],length(SU_numbers),[]);
+
+else
+    fprintf('NO SU_allBlock_Data, Ignoring!!\n');
+    Clust_data.SU_Lratios = nan;
+    Clust_data.SU_isodists = nan;
+    Clust_data.SU_isoRel = nan;
+    Clust_data.SU_dprimes = nan;
+    Clust_data.SU_refract = nan;
+end
 

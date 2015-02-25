@@ -5,11 +5,12 @@ clc
 fit_unCor = 0;
 include_bursts = 0;
 
-% fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
-fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
+% fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
 % base_tname = 'sac_trig_avg_data3test';
-base_tname = 'sac_trig_avg_data4';
+% base_tname = 'sac_trig_avg_data4';
+base_tname = 'sac_trig_avg_data_test';
 base_yname = 'sacTypeDep_noXV';
 base_iname = 'sac_info_timing_noXV3';
 
@@ -2153,6 +2154,51 @@ ylabel('Relative rate');
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 % 
+%% PARALLEL VS ORTHOGANOL GSACS
+
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > min_xvLLimp);
+
+%par and orth msac trig avgs, using matched sample sizes
+all_gsac_par = cell2mat(arrayfun(@(x) x.trig_avg.gsac_small_ocomp', all_SU_data(cur_SUs),'uniformoutput',0));
+all_gsac_orth = cell2mat(arrayfun(@(x) x.trig_avg.gsac_large_ocomp', all_SU_data(cur_SUs),'uniformoutput',0));
+
+%spline interpolate
+tlags_up = linspace(tlags(1),tlags(end),500);
+all_gsac_par_up = spline(tlags,all_gsac_par,tlags_up);
+all_gsac_orth_up = spline(tlags,all_gsac_orth,tlags_up);
+
+%find suppression peaks
+search_range = [0 0.3];
+[par_Ifact,par_inhtime] = get_tavg_peaks(-(all_gsac_par_up-1),tlags_up,search_range);
+[orth_Ifact,orth_inhtime] = get_tavg_peaks(-(all_gsac_orth_up-1),tlags_up,search_range);
+
+%find excitation peaks
+search_range = [0 0.3];
+[par_Efact,par_exctime] = get_tavg_peaks((all_gsac_par_up-1),tlags_up,search_range);
+[orth_Efact,orth_exctime] = get_tavg_peaks((all_gsac_orth_up-1),tlags_up,search_range);
+
+xl = [-0.1 0.3];
+
+close all
+%COMBINED MONKEYS WITH SEPARATE TRACE FOR SUB_POP
+f1 = figure(); hold on
+h1=shadedErrorBar(tlags,nanmean(all_gsac_par),nanstd(all_gsac_par)/sqrt(length(cur_SUs)),{'color','b'});
+h2=shadedErrorBar(tlags,nanmean(all_gsac_orth),nanstd(all_gsac_orth)/sqrt(length(cur_SUs)),{'color','k'});
+xlim(xl);
+ylim([0.7 1.25]);
+line(xl,[1 1],'color','k');
+line([0 0],ylim(),'color','k');
+xlabel('Time (s)');
+ylabel('Relative rate');
+
+% % %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'GSAC_OCOMP.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+
+
 %% STA ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs);
 
