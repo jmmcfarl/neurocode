@@ -204,9 +204,21 @@ elseif ~isfield(Expt.Trials(1),code)
         eval(['[Expt.Trials(idx).' code '] = deal(Expt.Stimvals.' code ');']);
     elseif strcmp(code,'dO')
         if isfield(Expt.Trials,'dy')
+            for j = 1:length(Expt.Trials)
+                op = hv2op([Expt.Trials(j).dx Expt.Trials(j).dy],Expt.Stimvals.Ro);
+
+                Expt.Trials(j).dO = op(1);
+            end
         else
             for j = 1:length(Expt.Trials)
                 Expt.Trials(j).dO = Expt.Trials(j).dx;
+            end
+        end
+    elseif strcmp(code,'dP')
+        if isfield(Expt.Trials,'dy')
+            for j = 1:length(Expt.Trials)
+                op = hv2op([Expt.Trials(j).dx Expt.Trials(j).dy],Expt.Stimvals.Ro);
+                Expt.Trials(j).dP = op(2);
             end
         end
     elseif strmatch(code,'rndphase')
@@ -227,7 +239,8 @@ elseif ~isfield(Expt.Trials(1),code)
 end
 
 
-if isfield(Expt.Trials,code)
+if isfield(Expt.Trials,code) && ~sum(strcmp(code,{'mtFl' 'mtFi' 'mtFn'}))
+        
 if length(cat(1,Expt.Trials.(code))) < length(Expt.Trials)
     val = eval(['mode([Expt.Trials.' code '])']);
     for j = 1:length(Expt.Trials)

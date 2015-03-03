@@ -34,5 +34,9 @@ end
 if strcmp(type,'bgcmatlab')
     path = [prefix '/bgc/matlab'];
 end
+if strcmp(type,'arrays')
+    path = [prefix '/group/Arrays'];
+end
+
 
 path = CheckNameBug(path);

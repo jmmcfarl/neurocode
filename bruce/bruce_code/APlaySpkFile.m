@@ -10,6 +10,12 @@ function [Expt, Expts, AllData, Raw] = APlaySpkFile(name, varargin)
 % APlaySpkFile(name, 'usealltrials') includes bad fix trials too
 % APlaySpkFile(name, 'expts') Just loads Expts file if available
 %
+% APlaySpkFile(name, 'rfs') rebulds .ufl file which record penetration
+% info
+%
+% APlaySpkFile(..., 'makebnc') forces re-reading of a any .bnc file (online text
+% made by manual expts). 
+
 %Errors:  Can add txt lines post hoc in a file nameAdd.txt (i.e. jbeG044.mat -> jbeG044Add.txt)
 %If it exists is read in and adds lines to the text stream.
 %A file nameStimon.mat  can be used to replace missing stimon/off pulses
@@ -65,6 +71,8 @@ state.alltrials = 0;
 state.profiling = 0;
 state.resort = 0; %generate expt liat again. Else read from disk if there
 state.buildbnc = 0;
+state.autoinit = 0;
+state.online = 0;
 verstr = '$Revision: 1.17 $';
 state.version = sscanf(verstr(12:end),'%f');
 
@@ -81,12 +89,14 @@ end
 j = 1;
 while j <= length(varargin)
     vg = varargin{j};
-    if strncmpi(vg,'alltrials',4)
+    if iscellstr(vg) %must be for someone else. Can't parse cell arrays here
+    elseif strncmpi(vg,'alltrials',4)
         onlinedata = 1;
     elseif ischar(vg) & strncmpi(vg,'expts',4)
         exptsonly = 1;
     elseif ischar(vg) & strncmpi(vg,'online',4)
         onlinedata = 1;
+        state.online = 1;
     elseif ischar(vg) & strncmpi(vg,'setprobe',4)
         j = j+1;
         setprobe = varargin{j};
@@ -95,6 +105,8 @@ while j <= length(varargin)
        setprobe = -1; %force relisting of probes
     elseif strncmpi(vg,'noerrs',5)
         state.showerrs = 0;
+    elseif strncmpi(vg,'autoinit',5)
+        state.autoinit = 1;
     elseif strncmpi(vg,'nospikes',5)
         state.nospikes = 1;
     elseif strncmpi(vg,'rfs',3)
@@ -106,6 +118,7 @@ while j <= length(varargin)
         state.method = varargin{j};
     elseif strncmpi(vg,'noframes',6)
         state.needframes = 0;
+
     elseif strncmpi(vg,'profile',6)
         state.profiling = 1;
     elseif sum(strncmpi(vg,{'quicksuffix' 'quickload'},9))
@@ -142,6 +155,8 @@ end
 clusterdate = now;
 thecluster = 1;
 state.tt = TimeMark(state.tt,'Start');
+
+
 if ischar(name)
     if ~exist(name,'file')
         fprintf('No file %s\n',name);
@@ -196,6 +211,12 @@ if ischar(name)
        if exist(oname,'file')
            af = load(oname);
            f = fields(af);
+           if state.autoinit
+               AllData.Spike2ChA = af;
+               AllData.Spike2ChA.filename = oname;
+               AllData.Spike2ChA.source = 2;;
+           end
+               
        else
            f = {};
        end
@@ -245,7 +266,7 @@ if ischar(name)
 %    fprintf('Reading %s\n',name);
    mkmatver = 0;
 
- 
+
    if ignoreSpikeO == NaN % don't need this any more, for online at least
        oname = regexprep(name,'.([0-9]*.mat)','A.$1');
        if exist(oname,'file')
@@ -259,8 +280,9 @@ if ischar(name)
 
    end
 
+   ts = now;
    load(name);
-   
+   Expt.loaddur(1) = mytoc(ts);
     
     if exist('SMRFiles','var') %% Concatentae existing files
         toff = 0;
@@ -305,9 +327,14 @@ if ischar(name)
     if exist('Ch30','var') & strncmp(Ch30.comment,'GridData',8) 
         state.nospikes = 1; %Don't try to load up all spike files if its Utah Array
     end
-
+    Spkerrs = [];;
     vars = who('Ch*');
     for j = 1:length(vars)
+        if state.autoinit
+            AllData.Spike2Ch.(vars{j}) = eval(vars{j});
+            AllData.Spike2Ch.filename = name;
+            AllData.Spike2Ch.source = 1;
+        end
         if ~isempty(regexp(vars{j},'Ch[0-9][0-9]*'))
             eval(['ch = ' vars{j} ';']);
             chn = sscanf(vars{j},'Ch%d');
@@ -595,6 +622,11 @@ if ischar(name)
                                     a.Clusters{k}.xy = b.ClusterDetails{k}.xy;
                                     a.Clusters{k}.clst = b.ClusterDetails{k}.clst;
                                     %                            a.Clusters{k}.Evec = b.ClusterDetails{k}.Evec;
+                                    for c = 1:size(b.ClusterDetails{k}.next);
+                                        if isfield(b.ClusterDetails{k}.next{c},'xy')
+                                            a.Clusters{k}.next{c}.xy = b.ClusterDetails{k}.next{c}.xy;
+                                        end
+                                    end
                                 else
                                     gotempty = gotempty+1;
                                 end
@@ -805,6 +837,8 @@ if ischar(name)
                 Spks{j}.codes = [];
                 Spks{j}.cx = [];
                 Spks{j}.cy = [];
+                Spks{j}.errs = {};
+                Spks{j}.savetime = [];
             end
             for k = 1:length(EClusters)
                 Clusters = EClusters{k};
@@ -816,15 +850,20 @@ if ischar(name)
                 if ~isfield(Clusters{j},'sign') || Clusters{j}.sign == 0
                     Clusters{j}.sign = 1;
                 end
+                if isfield(Clusters{j},'savetime')
+                    Spks{j}.savetime = Clusters{j}.savetime(end);
+                end
                 if isfield(Clusters{j},'times')
                     probes(j).probe = j;
                     if isfield(Clusters{j},'errs')
                         Spks{j}.errs = Clusters{j}.errs;
                         for k = 1:length(Clusters{j}.errs)
-                            fprintf('P%d:  %s\n',j,Clusters{j}.errs{k});
+                            Spkerrs(end+1).s = sprintf('%s',deblank(Clusters{j}.errs{k}));
+                            Spkerrs(end).p = Clusters{j}.probe(1);
+                            Spkerrs(end).exptno = Clusters{j}.exptno;
                         end
                     else
-                        Spke{j}.errs = {};
+                        Spks{j}.errs = {};
                     end
                     if isempty(Clusters{j}.times)
                         Spks{j}.times = [];
@@ -886,6 +925,10 @@ if ischar(name)
                             if isfield(Clusters{j}.next{k},'dropi')
                                 Spks{j}.next{k}.dropi = Clusters{j}.next{k}.dropi(3);
                             end
+                            if isfield(Clusters{j}.next{k},'shape')
+                                Spks{j}.next{k}.shape = Clusters{j}.next{k}.shape;
+                                Spks{j}.next{k} = CopyFields(Spks{j}.next{k},Clusters{j}.next{k},{'xy' 'xyr' 'angle' 'shape'});
+                            end
                         end
                     end
                     Spks{j}.mahal = [Clusters{j}.mahal(1) Clusters{j}.mahal(2)];
@@ -920,11 +963,16 @@ if ischar(name)
         mkidx = 0;
     elseif idxfile % idx file must exist - check its date
             d = dir(idxfile);
-            dd = datenum(d.date);
-            d = dir(name);
-            if datenum(d.date) > dd % Expt file newer - rebuild
-                fprintf('Rebuilding index: %s newer than %s\n',name,idxfile);
+            if isempty(d)
+                fprintf('Dir is Missing exisitng index file %s!!!!!!!\n',name,idxfile);
                 mkidx = 1;
+            else
+                dd = datenum(d.date);
+                d = dir(name);
+                if datenum(d.date) > dd % Expt file newer - rebuild
+                    fprintf('Rebuilding index: %s newer than %s\n',name,idxfile);
+                    mkidx = 1;
+                end
             end
     end
   
@@ -1034,6 +1082,11 @@ while j <= nargin-1
     j = j+1;
 end
 
+
+
+ if isfield(defaults,'toplevel')
+    state.toplevel = defaults.toplevel;
+ end
 Header.Name = BuildName(name);
 Header.loadname = name; 
 
@@ -1061,6 +1114,7 @@ else
     Expt.DataType = 'Spike2';
 end
 Expt.Header.DataType = Expt.DataType;
+Expt = ShowErrors(Expt, Spkerrs); %Add in errors from ClusterFiles
 
 if ~mkidx
     load(idxfile);
@@ -1111,6 +1165,9 @@ if ~mkidx
                 if size(Spks{j}.times,1) == 1
                     Spks{j}.times = Spks{j}.times';
                 end
+                if ~isfield(Spks{j},'errs')
+                    Spks{j}.errs = {};
+                end
                 AllData.AllClusters(j) = Spks{j};
                 for k = 1:nspkt
                     if isfield(SpkTimes,'FullVData') && ~isempty(SpkTimes(k).FullVData)
@@ -1121,7 +1178,7 @@ if ~mkidx
         end
         
         if isfield(SpkTimes,'loadname')
-            AllData.loadname = SpkTimes.loadname;
+            AllData.loadname = SpkTimes(1).loadname;
         end
         AllData.datenum = clusterdate;
         AllData.quickload = quickload;
@@ -1392,7 +1449,9 @@ else
     end
 end
 
-ids = find(strncmp('nf',aText.text,2));
+
+%only read nfxx made by binoc internally, not nf=xxx by user
+ids = find(strncmp('nf',aText.text,2) & ~strncmp('nf=',aText.text,3));
 for j = 1:length(ids)
     fzs(j) = sscanf(aText.text{ids(j)},'nf%d');
 end
@@ -1855,6 +1914,7 @@ if length(fsid) == length(bsid)
           else
               Trials.FalseStart(j) = 1;
               Trials.delay(j) = NaN;
+              last = nf;
           end
           id = find(frametimes(ff:last)> Trials.End(j),1)+ff-1;
           if ~isempty(id) & frametimes(id(1))-Trials.End(j) < 500
@@ -2172,7 +2232,7 @@ nx = 1;
 
 
 nmiss = sum(Trials.FalseStart ==1);
-if nmiss > 0
+if nmiss > sum(tstore ==0)
     Expt = AddError(Expt,'Missing Frame time for %d trials',nmiss);
 end    
 %kludge. Should fill esstimes with when the badfix happened.
@@ -2252,8 +2312,8 @@ Stimulus.id = 0;
 StimTypes.num.id = 1;
 StimTypes.num.SpikeGain = 1;
 StimTypes.num.CorLoop = 1;
-
-
+Stimulus.vs=0;
+Stimulus.sq=0;
 
 gotend = 0;
 txtid = [];
@@ -2282,11 +2342,13 @@ codes = zeros(1,length(aText.text));
 findstrs = {'puA' 'puF' 'USd' 'USp' 'USf' 'nph' 'ijump' 'mixac' 'baddir' ...
     'e1max' 'backMov' 'FakeSig' 'pBlack' 'aOp' 'aPp' 'seof' 'serange' ...
     'nimplaces' 'usenewdirs' 'choicedur' 'cha' 'imi' 'choicedur' 'ePr' ...
-    'coarsemm' 'psyv' 'imi' 'nbars' 'imY' 'imX' 'bjv' 'imx'  'imy' 'bpos'};
+    'coarsemm' 'psyv' 'imi' 'nbars' 'imY' 'imX' 'bjv' 'imx'  'imy' 'bpos' };
+%charstrs are character variables that might be needed trial by tial
 charstrs = {'Covariate'  'hxtype' 'cx' 'adapter' 'exp' 'et' 'e2' 'e3' 'exptlabel' 'exptvars' 'imprefix' 'stimtag' 've' 'Bs' 'cmdfile'};
+%extrastrs at variabes we wno't want trial by trial
 extrastrs = {'StartDepth' 'Electrode' 'Write' ' Electrode' 'Experiment' 'Off at' 'CLOOP' 'cm=' ...
     'mt' 'fx' 'fy' 'rw' 'st' 'fl+' 'Nf' 'dx:' 'EndExpt' 'sonull' 'NewConnect' 'BGCS Version' 'rptframes' ...
-    'expname' 'immode' ...
+    'expname' 'immode' 'VisualArea' ...
     'seof' '/local' 'imve' 'Sa:' 'op' 'annTyp' 'uf' 'lo' 'vve' 'testflag' 'Hemisphere' 'Reopened' 'monitor' 'RightHemi' 'ui' 'xvals'};
 %really need to order these ny length, logest last, so that long matches
 %take preceendnce
@@ -2359,10 +2421,12 @@ acodes = aText.codes(:,1);
 acodes(find(tendid)) = 100;
 newstarts = acodes == FRAMESIGNAL;
 
+%Anything added to  StimTypes here must exist in Stimulsu
 StimTypes.char.OptionCode = 1;
+Stimulus.OptionCode = '+se';
+
 
 inexpt = 0;
-Stimulus.OptionCode = '+se';
 
 
 
@@ -2484,6 +2548,15 @@ for j = 1:length(aText.text)
                 if length(txt) > 5
                     Stimulus.mtFl = sscanf(txt(6:end),'%d');
                     StimTypes.cell.mtFl = 1;
+                end
+            elseif strncmp(txt,'mtFi',5) && length(txt) > 50 %in earler versions, this is more reliable
+%Becuase char buffer length was running out for mtFn
+                Stimulus.mtFi = sscanf(txt(6:end),'%d');
+                StimTypes.cell.mtFi = 1;
+                skipframes = CheckFrameDiffs(Stimulus.mtFi);
+                if ~isempty(skipframes)
+                        Trials.rptframes{trial-1} = id;
+                        Trials.ndrop(trial-1) = length(id);
                 end
             elseif strncmp(txt,'mtFn=',5) && length(txt) > 50
                 framets = sscanf(txt(6:end),'%f');
@@ -2790,7 +2863,9 @@ for j = 1:length(aText.text)
             if isfield(Stimulus,'et')
                 Stimulus.(Stimulus.et) = a(1);
             end
-            if isfield(Stimulus,'e2')
+            if length(a) < 2
+                fprintf('Only 1 expt val in %s\n',txt);
+            elseif isfield(Stimulus,'e2') 
                 if sum(strcmp(Stimulus.e2,{'backMov' 'Dc'}))
                     Stimulus.(Stimulus.e2) = a(2);
                 end
@@ -3062,11 +3137,18 @@ for j = 1:length(fn)
         end
     end
 end
-[Trials, H] = AddNetFileData(name, Trials, state.buildbnc);
+[Trials, H] = AddNetFileData(name, Trials, state);
 for j = 1:length(H.errors)
     Expt = AddError(Expt,'-noshow',H.errors{j});
 end
 
+if isfield(Trials,'mtFi') && H.fixedrpt == 0 %from .bnc file
+    for j = 1:length(Trials.Start)
+        if j < length(Trials.mtFi) && ~isempty(Trials.mtFi{j})
+            Trials.rptframes{j} = CheckFrameDiffs(Trials.mtFi{j});
+        end
+    end    
+end
 for j = 1:length(Trials.Start)
     for k = 1:length(cellids)
         if isempty(Trials.(cellids{k}){j})
@@ -3240,6 +3322,9 @@ Expt.ExptList = Expts;
 if exist('mainsch','var') && isfield(mainsch,'times')
     Expt.mainstimes = mainsch.times * 10000;
 end
+if exist('framech','var') && isfield(framech,'times')
+    Expt.frametimes = framech.times * 10000;
+end
 
 Header.Name = BuildName(name);
 Header.Spike2Version = version;
@@ -3381,19 +3466,51 @@ end
 
 
 
-function [T, H] = AddNetFileData(name, T, recalc)
+function [T, H] = AddNetFileData(name, T, state)
 
+recalc = state.buildbnc;
 H.params = {};
 H.errors = {};
+H.fixedrpt =0;
 BinocFile = regexprep(name,'\.[0-9]*.mat','.bnc');
+BinocFile = regexprep(BinocFile,'([0-9]*).mat','$1.bnc');
+BinocBFile = regexprep(name,'\.[0-9]*.mat','.bno'); %manually created version from online
+BinocBFile = regexprep(BinocBFile,'([0-9]*).mat','$1.bno'); %manually created version from online
 if ~exist(BinocFile)
-    BinocFile = regexprep(name,'\.[0-9]*.mat','.bno'); %manually created version from online
+    BinocFile = BinocBFile;
+    
 end
 BinocMatFile = regexprep(name,'\.[0-9]*.mat','.bnc.mat');
+BinocMatFile = regexprep(BinocMatFile,'([0-9]+).mat','$1.bnc.mat');
 if isempty(strfind(BinocMatFile,'.bnc')) %failed to make name - probably online. Don't overwrite!
     return;
 end
-if exist(BinocFile) && (~exist(BinocMatFile) || recalc == 1)
+
+if state.online
+    [a,b,c,d] = GetMonkeyName(BinocFile);
+    BinocFile = strrep(BinocFile,'\','/');
+    x = regexprep(BinocFile,'online/.*','');
+    trueBinocFile = sprintf('%s/data/%s/%s/%s%s.bnc',x,a,c,a,c);
+    if exist(trueBinocFile)
+        BinocFile = trueBinocFile;
+    end
+end
+
+%of BinocExpt is stored in the app data, then its date should be the same
+%ad the .mat file (BinocFile), so just test that
+
+if exist(BinocFile) %check for changes in .bnc after making .mat
+    d = dir(BinocFile);
+    a = dir(BinocMatFile);
+    if length(a) ~= 1 || length(d) ~= 1  || d.datenum > a.datenum
+        fprintf('Re-Reading %s\n',BinocFile);
+        recalc = 1;
+    end
+end
+if isfield(state,'toplevel') && isfigure(state.toplevel) && isappdata(state.toplevel,'BinocExpt') && recalc == 0
+    BinocExpt = getappdata(state.toplevel,'BinocExpt');
+    fprintf('Using cached BinocExpt (%s)\n',datestr(BinocExpt.readdate));
+elseif exist(BinocFile) && (~exist(BinocMatFile) || recalc == 1)
     BinocExpt = ReadSerialTrials(BinocFile);
     save(BinocMatFile,'BinocExpt');
 elseif exist(BinocMatFile)
@@ -3402,6 +3519,45 @@ elseif exist(BinocMatFile)
     BinocFile =  BinocMatFile;
 else 
     return;
+end
+
+if ~isempty(strfind(BinocBFile,'.bno')) && exist(BinocBFile) && ~isfield(BinocExpt,'bnofile') %botha .bnc and a .bno.  Used to fix missing things like mtFl    
+    BinocBExpt = ReadSerialTrials(BinocBFile);
+    f = setdiff(fields(BinocBExpt.Trials),fields(BinocExpt.Trials));
+    for j = 1:length(BinocExpt.Trials)
+        tid = find([BinocBExpt.Trials.id]== BinocExpt.Trials(j).id);
+        Tr = BinocBExpt.Trials(tid);
+        if isempty(tid)
+            for k = 1:length(f)
+                BinocExpt.Trials(j).(f{k}) = Tr.(f{k});
+            end
+        end
+        
+    end
+    newid = setdiff([BinocBExpt.Trials.id],[BinocExpt.Trials.id]);
+    newt = find(ismember([BinocBExpt.Trials.id],newid));
+    for j = 1:length(newt)
+        BinocExpt.Trials = CopySFields(BinocExpt.Trials,0,BinocBExpt.Trials(newt(j)));
+    end
+    if ~isempty(BinocBExpt.cellfields)
+        f = fields(BinocBExpt.cellfields);
+        for j = 1:length(f)
+            BinocExpt.cellfields.(f{j}) = 2;
+        end
+    end
+    if ~isempty(BinocBExpt.vectorfields)
+        f = fields(BinocBExpt.vectorfields);
+        for j = 1:length(f)
+            BinocExpt.vectorfields.(f{j}) = 2;
+        end
+    end
+    BinocExpt.bnofile = BinocBFile;
+    BinocExpt.bnofields = f;
+    save(BinocMatFile,'BinocExpt');
+    if isfield(state,'toplevel') && isfigure(state.toplevel)
+        setappdata(state.toplevel,'BinocExpt',BinocExpt);
+    end
+
 end
 
 name = GetFileName(BinocFile);
@@ -3413,37 +3569,107 @@ smrid = T.id;
 bT = BinocExpt.Trials;
 netid = [bT.id];
 [id, sid, nid]  = intersect(smrid, netid);
+
+if isfield(state,'toplevel') && isfigure(state.toplevel)
+    setappdata(state.toplevel,'BinocExpt',BinocExpt);
+end
+
 if ~isempty(BinocExpt.cellfields)
 cf = fields(BinocExpt.cellfields);
 H.params = {H.params{:} cf};
+
+
 for j = 1:length(cf)
-    if isfield(T,cf{j}) && ~iscell(T.(cf{j}))
-        x = T.(cf{j});
-        T.(cf{j}) = {};
-        for k = 1:length(x) %first convert existing field to cell
-            T.(cf{j}){k} = x(k);
-        end
-    end
+    nx = [];
     for k = 1:length(nid)
-        nf = T.nf(sid(k))+1;
-        if isfield(T,'Fn') & T.Fn(sid(k)) > 1
-            Fn = T.Fn(sid(k));
-            nf = ceil(nf/Fn) .* Fn;
-        end
-        x = bT(nid(k)).(cf{j});
-        if length(x) > nf
-            H.errors{end+1} = sprintf('%d Frames in %s, but only %d shown',length(x),name,nf);
-            x = x(1:nf);
-            errortype(length(H.errors)) = 1;
-        end
-        T.(cf{j}){sid(k)} = x;
+        nx(k) = length(bT(nid(k)).(cf{j}));
     end
-    if max(sid) < length(T.Start)
-        T.(cf{j}){length(T.Start)} = [];
+    if max(nx) > 1 %only convert ->cell array if there are mulitple values for this expt
+        if isfield(T,cf{j}) && ~iscell(T.(cf{j}))
+            x = T.(cf{j});
+            T.(cf{j}) = {};
+            for k = 1:length(x) %first convert existing field to cell
+                T.(cf{j}){k} = x(k);
+            end
+        end
+        for k = 1:length(nid)
+            
+            nf = T.nf(sid(k))+1;
+            if isfield(bT,'Nf') && ~isempty(bT(nid(k)).Nf);
+                nf = bT(nid(k)).Nf; %actuall number painted
+            end
+            if isfield(T,'Fn') & T.Fn(sid(k)) > 1
+                Fn = T.Fn(sid(k));
+                nf = ceil(nf/Fn) .* Fn;
+            end
+            x = bT(nid(k)).(cf{j});
+            xf = 0;
+            if length(x) > nf && T.Result(sid(k)) > 0
+                if length(x) > nf+xf
+                    H.errors{end+1} = sprintf('%d Frames in %s, but only %d shown id%d',length(x),name,nf,id(k));
+                    x = x(1:nf);
+                    errortype(length(H.errors)) = 1;
+                end
+            end
+            T.(cf{j}){sid(k)} = x;
+        end
+        if max(sid) < length(T.Start)
+            T.(cf{j}){length(T.Start)} = [];
+        end
     end
 end
 T.netfields = {T.netfields{:} cf{:}};
+
+%now check for dropped frames
+for k = 1:length(nid)
+        xf = 0;
+        if isfield(bT,'mtFn')
+            if ~isempty(strfind(T.OptionCode{sid(k)},'+FN'))
+                H.fixedrpt = H.fixedrpt+1;
+                T.rptframes{sid(k)} = bT(nid(k)).mtFl;
+                skips = bT(nid(k)).mtFl;
+                xf = length(skips);
+                
+%nskip should report how many fraems the skipped frame was up for
+
+                [skipframes, errval, nskip] = CheckFrameDiffs(diff(bT(nid(k)).mtFn),'frameperiod',1);
+                skipid = skipframes < length(bT(nid(k)).mtFn)-1;
+                T.skipframes{sid(k)} = skipframes(skipid);
+                T.nskipped{sid(k)} = nskip;
+                skipid = find(skipid);
+                if xf == 1 && ~isempty(skipframes) && skipframes(1) - skips(1) > 100
+                    T.rptframes{sid(k)} = []; %no real skips
+                    xf = 0;
+                elseif xf > 0 && ~isempty(skipframes)
+                    fprintf('Frame Skip %d,%d    ',skips(1),skipframes(1));
+                    rptf = [];
+                    for f = 1:length(skipid)
+                        ns = nskip(skipid(f));
+                        rptf(end+1:end+ns) = skipframes(skipid(f));
+                    end
+                    T.rptframes{sid(k)} = rptf;
+                elseif ~isempty(T.skipframes{sid(k)})
+                    fprintf('Frame Skip at %d (not mtFl)',T.skipframes{sid(k)}(1));
+                    T.rptframes{sid(k)} = skipframes;
+                end
+            else
+                T.rptframes{sid(k)} = bT(nid(k)).mtFn;
+                xf = length(bT(nid(k)).mtFn);
+            end
+        end
+        if xf> 0
+            fprintf('Dropped %d frames id%d\n',xf,id(k));
+        end
+    end
 end
+
+checkf = intersect({'skipframes' 'nskipped'},fields(T));
+for j = 1:length(checkf)
+    if length(T.(checkf{j})) < length(T.Start)
+        T.(checkf{j}){length(T.Start)} = [];
+    end
+end
+
 if ~isempty(BinocExpt.vectorfields)
 cf = fields(BinocExpt.vectorfields);
 H.params = {H.params{:} cf};
@@ -3461,6 +3687,7 @@ end
 if ~isempty(H.errors)
     H.errors = unique(H.errors);
 end
+fprintf('Finished Reading %s\n',BinocFile);
 
 function str = BuildProbeString(P)
 
@@ -3645,9 +3872,8 @@ for j = 1:length(Expt.Comments.times)
     end
 end
 
-
+ts = 0;
     for j = 1:length(Expts)
-        ts = Expts{j}.Header.trange(1)-10000;
         te = Expts{j}.Header.trange(2)+100000;
         if j > 1
             ts = min([ ts Expts{j-1}.Header.trange(2)]);
@@ -3667,7 +3893,7 @@ end
             end
         end
         Expts{j}.Comments.text = {Expt.Comments.text{cid}};
-        Expts{j}.Comments.times = {Expt.Comments.times(cid)};
+        Expts{j}.Comments.times = [Expt.Comments.times(cid)];
         cid = find(strncmp('cm=VisualArea',Expt.Comments.text,12));
         for k = 1:length(cid)
             Expts{j}.Header.Area{k} = Expt.Comments.text{cid(k)}(15:end);
@@ -3675,6 +3901,7 @@ end
         if isfield(Expt.Comments,'Peninfo')
             Expts{j}.Comments.Peninfo = Expt.Comments.Peninfo;
         end
+        ts = te;
     end
 end
 
@@ -3888,6 +4115,10 @@ ids = [ids find(strcmp('explabel',fn))];
 ids = [ids find(strcmp('exptvars',fn))];
 ids = [ids find(strcmp('imprefix',fn))];
 ids = [ids find(strcmp('netfields',fn))];
+ids = [ids find(strcmp('pe',fn))];
+ids = [ids find(strcmp('psychfile',fn))];
+ids = [ids find(strcmp('VisualArea',fn))];
+ids = [ids find(strcmp('mo',fn))];
 
 ids = [ids find(strcmp('Trw',fn))];
 ids = [ids find(strcmp('uf',fn))];
@@ -3898,7 +4129,7 @@ state.tt = TimeMark(state.tt,'Set Fields');
 
 %do not include PhaseSeq here - has special cases
 seqstrs = {'dxvals' 'cevals'};
-cf = {'rwtimes' 'nsf' 'ntf'};
+cf = {'rwtimes' 'nsf' 'ntf' 'skipframes'};
     cellfields = {};
 for j = 1:length(cf)
     f = cf{j};
@@ -4013,6 +4244,7 @@ for nx = 1:length(AllExpts)
     if ngood> 3 & igood(1) < length(AllTrials.Start) & ismember(AllExpts(nx).result,[2 0])
        spkids = [];
        needfields = {};
+       allframes = [];
        if isempty(AllExpts(nx).e3)
            fprintf('Empty Type Expt %d, trials %d - %d\n',nx, AllExpts(nx).firsttrial, AllExpts(nx).lasttrial)
        elseif sum(strcmp(AllExpts(nx).e3,'ar'))
@@ -4056,7 +4288,10 @@ for nx = 1:length(AllExpts)
             if iscellstr(AllTrials.(cellfields{nf}))
                 nv = unique({AllTrials.(cellfields{nf}){igood}});
             else
-                [x, nv] = Counts(AllTrials.(cellfields{nf}){igood});
+                if length(AllTrials.(cellfields{nf})) < max(igood)
+                    AllTrials.(cellfields{nf}){max(igood)} = [];
+                end
+                [x, nv] = Counts(AllTrials.(cellfields{nf})(igood));
             end
             if length(nv) > 1
                 needcellfield(j) = 1;
@@ -4235,7 +4470,7 @@ for nx = 1:length(AllExpts)
     seqtrial = 0;
     crtrial = 0; %count # with contrast reversal
 %Count trials with these options set and set a flag in header if its moat    
-    checkoptions = {'+cr' '+x2' '+exm'};  
+    checkoptions = {'+cr' '+x2' '+exm' '+FN'};  
     optioncounts = zeros(1,length(checkoptions));
     timesexpt = 0;
     nu = 0; %count trials with uStimt;
@@ -4272,6 +4507,12 @@ for nx = 1:length(AllExpts)
         elseif bitand(Trials(k).op,PSYCHBIT)
             psychtrial = psychtrial+1;
         end
+        if strfind(Trials(k).OptionCode,'+FN')
+            allframes(k) = 1;
+        else
+            allframes(k) = 0;
+        end
+
         if isfield(AllTrials,'Dc')
             Dcval = AllTrials.Dc(igood(k));
         else
@@ -4281,15 +4522,18 @@ for nx = 1:length(AllExpts)
         if strfind(Trials(k).OptionCode,'+fS') & Dcval < 1
             seqtrial = seqtrial+1;
             fastseq = 1;
+            manseq = 0;
         elseif isfield(Trials,et) && length(Trials(k).(et)) > Expt.Stimvals.nf/2 %Manual Fast seq
             seqtrial = seqtrial+1;
+            manseq = 1;
             fastseq = length(Trials(k).(et));
 %If  set manual  sequence longer than nf, then it stops at nf.            
             if fastseq > stimframes +1 && stimframes > 1
-                Idx = AddError(Idx, '-noshow', 'Frame Sequence %d, nf only %d at %.2f\n',fastseq,stimframes,Trials(k).Start(1));
+                Idx = AddError(Idx, '-noshow', 'Frame Sequence %d, nf only %d at %.2f id%d\n',fastseq,stimframes,Trials(k).Start(1),Trials(k).id);
             end
         else
             fastseq = 0;
+            manseq = 0;
         end
         for c = 1:length(checkoptions)
             if strfind(Trials(k).OptionCode,checkoptions{c})
@@ -4475,7 +4719,7 @@ for nx = 1:length(AllExpts)
         end
         
         durs(k) = Trials(k).End(end) - Trials(k).Start(1);
-        if fastseq %count #stim in manual fast seqs
+        if fastseq && manseq %count #stim in manual fast seqs
             nframes(k) = fastseq;
         else
             nframes(k) = length(Trials(k).Start);
@@ -4540,7 +4784,6 @@ for nx = 1:length(AllExpts)
             Trials = rmfield(Trials,'uStim');
     end
     Header.idrange = minmax([AllTrials.id(igood)]);
-
     if isfield(Trials,'inexpt') && sum([Trials.inexpt] ==0 > 0)
        bid = find([Trials.inexpt] == 0);
        Header.excluded.noexpt = [Trials(bid).id];
@@ -4563,11 +4806,14 @@ for nx = 1:length(AllExpts)
     end
     if length(id) > length(Trials)/2
         nid = find(isnan([Trials.delay]));
-        if ~isempty(nid)
-            Header.excluded.delay = [Trials(nid).id];
+        if isfield(Idx,'frametimes')
+            for j = 1:length(nid)
+                nft = sum(Idx.frametimes > Trials(nid(j)).Start(1) & Idx.frametimes < Trials(nid(j)).End(end)); 
+                if nft == 0
+                    cprintf('red','No Frame Signals for Trial Id %d - storge probably off\n',Trials(nid(j)).id);
+                end
+            end
         end
-        Expt.Trials = Trials(id);
-        durs = durs(id);
         if length(nid)
             if isfield(Trials,'FalseStart')
             fprintf('Delay Nan at %.2f(%.2f), id%.0f\n',Trials(nid(1)).Start(1),Trials(nid(1)).FalseStart, Trials(nid(1)).id);
@@ -4575,14 +4821,15 @@ for nx = 1:length(AllExpts)
             fprintf('Delay Nan at %.2f, id%.0f\n',Trials(nid(1)).Start, Trials(nid(1)).id);
             end
         end
-    else
-        Expt.Trials = Trials;
+        if ~isempty(nid)
+            Header.excluded.delay = [Trials(nid).id];
+        end
+        Trials = Trials(id);
+        durs = durs(id);
     end
+    Expt.Trials = Trials;
     Expt.Header = Header;
     Expt.Header.trange(1) = AllExpts(nx).start;
-    if fastseq
-        Expt = SetExptRC(Expt);
-    end
     if isfield(AllExpts,'end')  && ~isempty(AllExpts(nx).end)
 % If reaal End of expt is long time after last trial, probabaly means user did
 % EndExpt. Still want to record real time of endexpt
@@ -4613,7 +4860,7 @@ for nx = 1:length(AllExpts)
             Expt.DigMark.codes = Idx.DigMark.codes(id,1);
         end
     end
-    if psychtrial > nt/2
+    if psychtrial > nt/2 && sum(ismember(fields(Expt.Trials),{'sq' 'vs' 'sa' }))
         Expt.Header.psych = 1;
     else
         Expt.Header.psych = 0;
@@ -4636,7 +4883,14 @@ for nx = 1:length(AllExpts)
     for c = 1:length(checkoptions)
         if optioncounts(c) > nt/2
             Expt.Header.Options = [Expt.Header.Options checkoptions{c}];
+        else
+            Expt.Header.Options = [Expt.Header.Options strrep(checkoptions{c},'+','-')];
         end
+    end
+    if fastseq
+        Expt = SetExptRC(Expt);
+    elseif isfield(Expt.Trials,'rptframes')
+        Expt.Trials = rmfields(Expt.Trials,{'mtFn' 'mtFl' 'mtFi'});
     end
 
     
@@ -4660,7 +4914,29 @@ for nx = 1:length(AllExpts)
     end
     if min(durs) < 0
         id = find(durs < 0);
-        err = sprintf('Expt %d at %.2f(id%d) has (%d) negative durations',nexpts,Expt.Trials(id(1)).Start(1),Expt.Trials(id(1)).id,length(id));
+        nmiss = 0;
+        xstr = '';
+        if isfield(Idx,'frametimes') && isfield(Trials,'bstimes')
+            gf = [0 0 ];
+            for j = 1:length(id)
+%Trials.Start is messed up by missing frametime, so use bstimes - the DIO time                
+                nft = sum(Idx.frametimes > Trials(id(j)).bstimes(1) & Idx.frametimes < Trials(id(j)).End(end));
+                if nft == 0
+                    if gf(1) == 0
+                        xid = find(Idx.frametimes < Trials(id(j)).bstimes(1));
+                        gf(1) = Idx.frametimes(xid(end));
+                    end
+                    xid = find(Idx.frametimes > Trials(id(j)).End(1));
+                    gf(2) = Idx.frametimes(xid(1));
+                    nmiss = nmiss+1;
+                    cprintf('red','No Frame Signals for Trial Id %d - storge probably off\n',Trials(id(j)).id);
+                end
+            end
+            if nmiss > length(id)/2;
+                xstr = sprintf(': Storage off %.0f-%.0f',gf);
+            end
+        end
+        err = sprintf('Expt %d at %.2f(id%d) has (%d) negative durations%s',nexpts,Expt.Trials(id(1)).Start(1),Expt.Trials(id(1)).id,length(id),xstr);
         Idx = AddError(Idx, err);
         id = find(durs > 0);
         Expt.Trials = Trials(id);
@@ -4706,7 +4982,7 @@ for nx = 1:length(AllExpts)
     if isfield(Idx,'errexpt')
         id = find(Idx.errexpt == nexpts);
         if ~isempty(id)
-            Expt.errs.msg = Idx.errs(id);
+            Expt.errs.errmsg = Idx.errs(id);
             if isfield(Idx,'errimtes')
                 Expt.errs.t = Idx.errtimes(id);
             else
@@ -4916,10 +5192,30 @@ else
     questdlg(sprintf('Can''t Write %s',ufl),'test','OK','OK');
 end
 
+function Idx = ShowErrors(Idx, Spkerrs)
+
+if isempty(Spkerrs)
+    return;
+end
+errstr = {Spkerrs.s};
+strs = unique(errstr);
+for j = 1:length(strs)
+    id = find(strcmp(strs{j},errstr));
+    pstr = sprintf('%d,',unique([Spkerrs(id).p]));
+    pstr(end) = ':';
+    strs{j}(strs{j} < 12) = []; %remove non-printing
+    if strfind(strs{j},':Not Applying')
+        show = '-silent';
+    else
+        show = '-noshow';
+    end
+    Idx = AddError(Idx,show,'P%s %s',pstr,deblank(strs{j}));
+end
 
 function Idx = AddError(err, varargin)
 %Idx = AddError(Idx, varargin)
 % or Idx = AddError(err, Idx, show) old style
+silent = 0;
 if ischar(err) %% old style
     Idx = varargin{1};
     show = varargin{2};
@@ -4932,6 +5228,9 @@ else
     end
     if sum(strncmp(varargin{1},{'-noshow' '-silent'},6)) %log error, but don't pop warning
         show = 0;
+        if strcmp(varargin{1},'-silent')
+            silent = 1; %don't print these
+        end
         varargin = varargin(2:end);
     elseif strncmp(varargin{1},'-nonmodal',6) %don't pop modal warning
         show = 2;
@@ -4946,7 +5245,9 @@ if ~isfield(Idx,'errs') | sum(strncmp(err,Idx.errs,length(err))) == 0
     elseif show == 1
         msgbox(err,'APlaySpkFile Error!!','modal');
     end
-    mycprintf('errors',[err '\n']);
+    if silent == 0
+        mycprintf('errors',[err '\n']);
+    end
     if ~isfield(Idx,'errs')
         Idx.errs{1} = err;
     else
@@ -4959,7 +5260,9 @@ if ~isfield(Idx,'errs') | sum(strncmp(err,Idx.errs,length(err))) == 0
     if isfield(Idx,'exptno')
         Idx.errexpt(nerr) = Idx.exptno;
     end
-    Idx.newerrs = Idx.newerrs+1;
+    if isfield(Idx,'newerrs')
+        Idx.newerrs = Idx.newerrs+1;
+    end
 else
     mycprintf('errors',[err '\n']);
 end

@@ -5,10 +5,14 @@ function [C, errs] = FixCluster(C, varargin)
 errs = {};
 nerr = 0;
 DATA = [];
+oldcluster = [];
+checkoldfields = {'strictscaling'};
 
 j = 1;
 while j <=length(varargin)
-    if isfield(varargin{j},'chspk')
+    if isfield(varargin{j},'space') %a default clsuter
+        oldcluster = varargin{j};
+    elseif isfield(varargin{j},'chspk') || isfield(varargin{j},'progname')
         DATA = varargin{j};
     end
     j = j+1;
@@ -44,8 +48,12 @@ if ~isfield(C,'auto')
     errs{nerr} = 'missingauto';
     C.auto = 0;
 end
-if ~isfield(C,'automode')
-    C.automode = 'mahal';
+if ~isfield(C,'autocutmode')
+    if isfield(C,'automode')
+        C.autocutmode = C.automode;
+    else
+        C.autocutmode = 'mahal';
+    end
 end
 if ~isfield(C,'quick')
     C.quick = 0;
@@ -86,7 +94,7 @@ elseif ~iscell(C.next)
     end
 end
 for j = 1:length(C.next)
-    if isfield(C.next{j},'shape') && ~isfield(C.next{j},'triggerset')
+    if isfield(C.next{j},'space') && ~isfield(C.next{j},'triggerset')
         C.next{j}.triggerset = 0;
     end
 end
@@ -107,5 +115,14 @@ if ~isfield(C,'crit')
         C.crit = NaN;
     end
 end
-
 C = rmfields(C,'pcplot');
+for j = 1:length(checkoldfields)
+    f = checkoldfields{j};
+    if isfield(DATA,f) && ~isfield(C,f)
+        C.(f) = DATA.(f);
+    end
+end
+
+if ~isfield(C,'strictscaling')
+    C.strictscaling = 0;
+end

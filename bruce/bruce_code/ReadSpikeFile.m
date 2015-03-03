@@ -103,3 +103,4 @@ if loadallspikes
     end
 end
 Spikes.Header.loaddur = mytoc(ts);
+Spikes.Header.loadtime = ts;

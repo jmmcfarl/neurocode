@@ -17,8 +17,10 @@ addtime = 0;
 convert = 1;
 silent = 0;
 toint = 0;
-
+loadmean = 0;
 FullV = [];
+meandata = [];
+loadmeanfile = [];
 if ~exist(name,'file')
     fprintf('%s Does not exist\n',name);
     return;
@@ -36,6 +38,13 @@ while j <= length(varargin)
         toint = 3;
     elseif strncmpi(varargin{j},'converttoint',5)
         toint = 1;
+    elseif strncmpi(varargin{j},'meanfile',5)
+        j = j+1;
+        loadmean = 1;
+        meandata = varargin{j};
+        if isfield(meandata,'name')
+            loadmeanname = meandata.name;
+        end
     elseif strncmpi(varargin{j},'saveint',5)
         toint = 2;
     elseif strncmpi(varargin{j},'silent',5)
@@ -56,6 +65,22 @@ FullV.loadname = name;
 if ~isfield(FullV,'V')
   cprintf('red','Error loading %s no V data\n', name);
   return
+end
+
+if loadmean && isfield(FullV,'sumscale') %A Utah file with means removed
+    mname = regexprep(name,'\.p[0-9]+FullV.mat','FullVmean.mat');
+    if ~strcmp(loadmeanfile,mname)
+        if exist(mname)
+            load(mname);
+            FullV.meandata.meanV = sumv;
+            FullV.meandata.name = mname;
+            if ~isfield(MeanV,'probes')
+                FullV.meandata.probes = 1:96;
+            else
+                FullV.meandata.probes = MeanV.probes;
+            end
+        end
+    end
 end
 if toint && isfloat(FullV.V)
     if isinteger(FullV.V) %alreay i sint

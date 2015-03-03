@@ -3,12 +3,23 @@ function [M, details] = CellToMat(C, f, varargin)
 %takes the field f from each element of C, and puts into
 % a matrix. Only works for cell arrays with 1 or 2 dimensions
 %
+% CellToMat(C, f, 'pad') forces the length of M to match the length of C
 % if the field is omitted, then CellToMat returns a matrix of size(C)
 % elements that contain the length of C{i,j};
 M = [];
+padlength = 0;
 if nargin < 2
     f = '';
 end
+
+j = 1;
+while j <= length(varargin)
+    if strncmpi(varargin{j},'pad',3)
+        padlength = 1;
+    end
+    j = j+1;
+end
+
 dot = strfind(f,'.');
 if ~isempty(dot)
     fa = f(dot+1:end);
@@ -45,12 +56,21 @@ if size(C,1) == 1 && size(C,2) > 1
             elseif ischar(x)
                 M{k} = x;
            else
-            M(k,1:length(x)) = x;
+               if iscell(M)
+                   M{k} = x;
+               elseif sum(size(x)>1) ==2
+                   M(k,:,:) = x;
+               else
+                   M(k,1:length(x)) = x;
+               end
            end
            details.found(k) = 1;
         else
            details.found(k) = 0;
         end
+    end
+    if padlength && details.found(end) == 0
+        M(k) = NaN;
     end
 else
     if ~isempty(C) && iscell(C{1})

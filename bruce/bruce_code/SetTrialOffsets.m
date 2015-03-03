@@ -8,6 +8,7 @@ function Expts = SetTrialOffsets(Expts, varargin)
 Trialids = [];
 for nexp = 1:length(Expts)
     E = Expts{nexp};
+    if ~isempty(E)
     if isempty(Trialids)
         trialoffset = 0;
     else
@@ -26,4 +27,7 @@ for nexp = 1:length(Expts)
     newt = [E.Trials.Trial];
     Trialids = [Trialids newt];
     Expts{nexp} = E;
+    end
+    trialoffsets(nexp) = trialoffset;
 end
+find(diff(Trialids) < 0);

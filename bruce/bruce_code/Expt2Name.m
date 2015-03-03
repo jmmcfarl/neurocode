@@ -27,6 +27,10 @@ while j <= length(varargin)
 end
 
 
+if ~isfield(Expt,'Stimvals')
+    expname = 'Unknown';
+    return;
+end
 if isfield(Expt.Stimvals,'st')
     if ischar(Expt.Stimvals.st)
     stimname = Expt.Stimvals.st;
@@ -110,7 +114,7 @@ end
     if strncmp(exptypename,'dxXce',5)
         if isfield(Expt.Stimvals,'n2') && Expt.Stimvals.n2 > 2
             exptypename = strrep(exptypename,'dxXce','dxXces');
-        elseif Expt.Stimvals.i2 < 2 %not +- 1
+        elseif isfield(Expt.Stimvals,'i2') && Expt.Stimvals.i2 < 2 %not +- 1
             exptypename = strrep(exptypename,'dxXce','dxXces');
         end
     end

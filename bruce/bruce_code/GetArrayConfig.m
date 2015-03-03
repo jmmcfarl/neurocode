@@ -7,6 +7,7 @@ function ArrayConfig = GetArrayConfig(name,varargin)
 %
 %GetArrayConfig(dirname,'markbad',p)  cd ../../matlab
 %  records that probe p is bad. 
+%GetArrayConfig('list')  lists known configurations
 
 rebuild = 0;
 markprobe = 0;
@@ -42,7 +43,10 @@ ArrayConfig = [];
 aname = [];
 badprobes = [];
 badexpts = [];
-if isfield(name,'MetaTags')
+if strcmp(name,'list')
+    ListArrays(GetFilePath('arrays'));
+    return;
+elseif isfield(name,'MetaTags')
     nsx = name;
 elseif iscellstr(name) %Cell arary of strings - do all
     for j = 1:length(name)
@@ -95,7 +99,7 @@ elseif isdir(name)
     end
     if exist(aname,'file') && rebuild == 0
         load(aname);
-        ArrayConfig.type = SetArrayType(ArrayConfig);
+        ArrayConfig = CheckArray(ArrayConfig);
         if ~isfield(ArrayConfig,'spacing')
             if strcmp(ArrayConfig.type,'Utah1')
                 ArrayConfig.spacing = 400;
@@ -186,6 +190,31 @@ if ~isempty(aname) && ~isempty(ArrayConfig)
     save(aname,'ArrayConfig');
 end
 
+function Array = CheckArray(Array)
+
+     Array.type = SetArrayType(Array);
+     if ~isfield(Array,'spacing')
+         Array.spacing = NaN;
+     end
+
+function ListArrays(path, varargin)
+
+d = mydir([path '/*.mat']);
+for j = 1:length(d)
+    x = load(d(j).name);
+    A = CheckArray(x.ArrayConfig);
+    fprintf('%s %s:%.0fuM ',d(j).filename,A.label,A.spacing);
+    if isfield(A,'type')
+    fprintf('%s',A.type);
+    end
+    if isfield(A,'notes')
+    for k = 1:length(A.notes)
+        fprintf(' %s',A.notes{k});
+    end
+end
+    fprintf('\n');
+end
+
 function type = SetArrayType(Array)
 reset = 0;
 type = 'unknown';
@@ -195,11 +224,14 @@ if isfield(Array,'type')
 elseif ~isfield(Array,'X')
     type = 'unknown';
 elseif length(Array.X) == 24 && length(unique(Array.X)) == 2
-    type = '12x2';
+    type = 'uprobe12x2';
 elseif length(Array.X) == 96
     type = 'Utah1';
 else
-    type = '24';
+    type = 'uprobe24';
+end
+if strcmp(type,'24')  %old Spike2s
+    type = 'uprobe24(assumed)';
 end
 
 function Array = ReadArrayConfig(nsx)
@@ -254,7 +286,9 @@ Array = [];
                 etext = txt{k};
             end
         end
-        allpen = [allpen unique(pen(pen>0))];
+        if sum(pen)
+            allpen = [allpen unique(pen(pen>0))];
+        end
     end
     if isempty(allpen)
         cprintf('red','No pen in UFL files 9n %s\n',name);
@@ -273,11 +307,16 @@ Array = [];
     else
         return;
     end
-    if strfind(txt{id(end)},'24Contact')
-        Array = GetArrayByName('24probe');
+    arrayname = txt{id(end)};
+    arrayname = regexprep(arrayname,'Electrode\s+','');
+    if strfind(arrayname,'24Contact')
+        Array = GetArrayByName('24probe', arrayname);
         Array.idstr = txt{id(end)};
-    elseif strfind(txt{id(end)},'8Contact')
-        Array = GetArrayByName('8probe');
+    elseif strfind(arrayname,'16Contact')
+        Array = GetArrayByName('16probe', arrayname);
+        Array.idstr = txt{id(end)};
+    elseif strfind(arrayname,'8Contact')
+        Array = GetArrayByName('8probe', arrayname);
         Array.idstr = txt{id(end)};
     end
     if strfind(txt{id(end)},' 100u')
@@ -292,8 +331,10 @@ Array = [];
         Array.spacing = 50;
     end
     Array.src = 'penlog';
-
-function Array = GetArrayByName(name)
+    Array = CheckArray(Array);
+        
+    
+function Array = GetArrayByName(name, txt)
 
 Array = [];
 labels = {};
@@ -310,6 +351,8 @@ for j = 1:length(d)
             aid(24) = j;
         elseif strncmp(labels{j},'8 probe',6)
             aid(8) = j;
+        elseif strncmp(labels{j},'16 probe',6)
+            aid(16) = j;
         elseif strncmp(labels{j},'Utah96',6)
             aid(96) = j;
         end 
@@ -332,6 +375,7 @@ if isdir(name)
     match = [];
     id = find(~(strcmp('FileIdx.mat',{d.name})));
     d = d(id);
+    arrayname = '';
     for j = 1:length(d)
         load([name '/' d(j).name]);
         if exist('Expt','var') && isfield(Expt,'Comments') && isfield(Expt.Comments,'Peninfo')

@@ -1,12 +1,16 @@
 function varargout = AllVPcs(varargin)
 %AllVPcs(V, ...)  Extract and Classify Spikes from continuous voltage record
+%
+%Now just a wrapper for AllV.AllVpcs, Use help AllV.AllVPcs for up to date info
+%
+%
+
 %Takes an MxN matrix (electrode by voltage) of continuous
 %voltages, extracts segments triggered off one row, and plots PCS.
 %  V can also be a filename of a FullV file.  Will only load if new. 
 %
 %AllVPcs(V,'tchan',c,..    uses Channel c to find trigger points.
-%AllVPcs(V,'tchan',c,'reclassify')  uses saved clustering and exaclty
-%recaptiulates
+%AllVPcs(V,'tchan',c,'reclassify')  uses saved clustering and exaclty recaptiulates
 %AllVPcs(V,'tchan',c,'reapply')  uses saved clustering parameters, but
 %appies them to new data (e.g. changes in trigger, new probe).
 %AllVPcs(V,'tchan',c,'reapply', Clusters{p}) uses cluster given 
@@ -17,8 +21,13 @@ function varargout = AllVPcs(varargin)
 %        force.tid gives time indices
 %        force.clst gives classification
 %
+%AllVPcs(V,'tchan',probelist,'reclassifyall') runs reclassify on all probes in probelist
+%AllVPcs(V,'tchan',probelist,'quantifyall') runs reclassify on all probes
+%                                   in probelist, only if anything need updating
 %AllVPcs(name, 'tchan', c, 'refcut')    Applies the cluster defined in RefClusters.mat, if no cluster is yet defined
 %AllVPcs(name, 'tchan', c, 'refclusterforce') forces application of cluster defined in RefClusters.mat;
+
+%                         
 %
 %AllVPcs(V, ..., 'spkrate', R) sets the threshold (what evet type) to
 %produce a mean of R events per second
@@ -54,5 +63,9 @@ function varargout = AllVPcs(varargin)
 %...,'usealltrials') includes trials terminated by badfix etc
 %...,'allspikes')  includes all spikes, ignoring teh expt
 %       (But be sure teh FullV has everything , ProcessGridFullV(...,'nochopfile'
-
+%
+%....,'autocutall') run automatic cut on all probes named in 'tchan'
+%....,'automode','ecker') use ecker Method
+%....,'automode','james') use James' method
+%
 varargout{:} = AllV.AllVPcs(varargin{:});
