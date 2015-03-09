@@ -72,6 +72,7 @@ data(5).contra_L = 0;
 data(5).heka_dir = '/Users/james/Data/Mayank/sleep/2012-7-13#2/2012_07_13_sleep_6.mat';
 data(5).celltype = 'MECL3';
 data(5).MPloc = 'MEC';
+data(5).good_bounds = [0 Inf];
 %not much clear UDS (a few good brief epochs). MP is pretty wierd though.
 %Probably not usable. Not really clear examples of pers.
 

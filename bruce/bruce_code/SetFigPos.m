@@ -1,6 +1,6 @@
 function SetFigPos(Figpos, tag)
 %SetFigPos(X, tag)
-%Sets figure size an location for figure whose tag is tag
+%Sets figure size and location for figure whose tag is tag
 %Data used to determine figure pos depends on X
 %If X is a figure, getappdata(X,'Figpos');
 %If X is strucutre with a field name matching tag, then 
@@ -20,17 +20,18 @@ end
     if isempty(it)
         return;
     end
-if isfield(Figpos,tag)
+f = genvarname(tag);
+if isfield(Figpos,f)
     go = 1;
-    if length(Figpos.(tag)) > 4 && Figpos.(tag)(5) == 1 %already set once - user mmay have moved
+    if length(Figpos.(f)) > 4 && Figpos.(f)(5) == 1 %already set once - user mmay have moved
         go = forcepos;
     end
     if length(it) == 1 && go
-        set(it,'position',Figpos.(tag)(1:4));
-        Figpos.(tag)(5) = 1;
+        set(it,'position',Figpos.(f)(1:4));
+        Figpos.(f)(5) = 1;
     end
 else
-   Figpos.(tag)  = get(it(1),'position');
+   Figpos.(f)  = get(it(1),'position');
 end
 if isfigure(toplevel)
     setappdata(toplevel,'Figpos',Figpos);
