@@ -4,8 +4,8 @@
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'G086';
-bar_ori = 0;
+% Expt_name = 'G086';
+% bar_ori = 0;
 
 include_bursts = 0;
 % nboot = 5000; %number of bootstrap samples for computing trig-avg SD
@@ -795,6 +795,7 @@ for ss = 1:length(SU_numbers)
     sua_data(ss).N_msacs_Orth_sub = sum(~isnan(all_binned_sua(sac_start_inds(msac_Orth_sub),ss)));
     sua_data(ss).avg_locomp = avg_locomp;
     sua_data(ss).avg_socomp = avg_socomp;
+    sua_data(ss).gsac_ocomp_err = sac_deltaY(gsac_set);
     
     if ~is_TBT_expt
         sua_data(ss).grayback_avg_rate = nanmean(block_SU_rates(grayback_gs_expts,ss));
