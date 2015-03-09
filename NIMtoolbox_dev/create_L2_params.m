@@ -8,7 +8,7 @@ function L2_params = create_L2_params(prev_struct,krange,kdims,deriv_order,direc
 % kdims: specifies size of the predictor matrix
 % deriv_order: order of derivative to regularize
 % direction: dimension along which to regularize [1 = first dim, 2 = second dim, 3 = mixed]
-% boundaries: boundary conditions on derivative reg. (0 for smoothing towards 0 and Inf for free boundaries)
+% boundaries: boundary conditions on derivative reg. (0 for smoothing towards 0 and Inf for free boundaries, -1 for circular bcs)
 % mix_prop: for mixed derivatives, this determines the relative weight of regularization along each dimension
 %OUTPUTS:
 % L2_params: structure storing specified regularization params.
