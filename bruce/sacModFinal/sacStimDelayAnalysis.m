@@ -1,6 +1,6 @@
 
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,9 +9,9 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'G093';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'G086';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 fit_unCor = false;
 fit_subMod = true;
@@ -833,9 +833,6 @@ for cc = targs
         
         %% FOR GSACS
         cur_Xsac = Xsac(cc_uinds,:); %saccade indicator Xmat
-        colorbar
-        caxis([-2 2])
-        shg
         
         %only use indices within lagrange of a saccade
         any_sac_inds = find(any(cur_Xsac > 0,2));
@@ -862,7 +859,7 @@ for cc = targs
             [~,Tinds] = meshgrid(1:use_nPix_us,1:flen);
             cur_mod_signs = [cur_rGQM.mods(:).sign];
             cur_NL_types = {cur_rGQM.mods(:).NLtype};
-            
+            cur_stim_params = NMMcreate_stim_params([1 use_nPix_us]);
             all_filts = [cur_rGQM.mods(:).filtK];
             
             %loop over all stimulus latencies and fit gain kernel models
@@ -923,7 +920,7 @@ for cc = targs
                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
                 %     cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
                 cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
-                cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',5,'lambda_L2',0.1); %temporal smoothness reg for gain filter
+                cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
                 cur_mod = NMMfit_filters(cur_mod,cur_Robs,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
                 gain_filts(ff,:) = cur_mod.mods(3).filtK;
                 offset_filts(ff,:) = cur_mod.mods(2).filtK;
@@ -943,12 +940,12 @@ for cc = targs
 end
 
 %%
-% anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
-% 
-% sname = [sname sprintf('_ori%d',bar_ori)];
-% if fit_unCor
-%     sname = [sname '_unCor'];
-% end
-% cd(anal_dir)
-% save(sname,'targs','slags','dt','sacDelay');
+anal_dir = ['/home/james/Analysis/bruce/' Expt_name '/FINsac_mod/'];
+
+sname = [sname sprintf('_ori%d',bar_ori)];
+if fit_unCor
+    sname = [sname '_unCor'];
+end
+cd(anal_dir)
+save(sname,'targs','slags','dt','sacDelay');
 
