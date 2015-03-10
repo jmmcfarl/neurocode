@@ -193,6 +193,11 @@ clust_dprime = arrayfun(@(x) x.sacStimProc.ModData.unit_data.SU_dprime,all_SU_da
 rate_stability_cv = arrayfun(@(x) x.sacStimProc.ModData.unit_data.rate_stability_cv,all_SU_data);
 dprime_stability_cv = arrayfun(@(x) x.sacStimProc.ModData.unit_data.dprime_stability_cv,all_SU_data);
 
+RF_ecc = arrayfun(@(x) x.sacStimProc.ModData.tune_props.RF_ecc,all_SU_data);
+RF_sigma = arrayfun(@(x) x.sacStimProc.ModData.tune_props.RF_sigma,all_SU_data);
+RF_gSF = arrayfun(@(x) x.sacStimProc.ModData.tune_props.RF_gSF,all_SU_data);
+RF_FSF = arrayfun(@(x) x.sacStimProc.ModData.tune_props.RF_FSF,all_SU_data);
+
 %cell rec props
 jbe_SUs = find(strcmp('jbe',{all_SU_data(:).animal}));
 lem_SUs = find(strcmp('lem',{all_SU_data(:).animal}));
@@ -1412,7 +1417,7 @@ search_range = [0 0.3];
 
 %only use units where rate suppression comes before rate enhancement
 include = find(gsac_inhtime < gsac_exctime);
-
+opp_pol = find(gsac_exctime <= gsac_inhtime);
 
 % [earlier_timing,peak_earlier] = min([gsac_inhtime gsac_exctime],[],2);
 
@@ -1443,12 +1448,18 @@ yl = [0.02 0.16];
 mS = 3;
 f1 = figure(); hold on
 plot(Ekern_time(include),gsac_inhtime(include),'b.','markersize',12);
+% plot(Ekern_time(opp_pol),gsac_exctime(opp_pol),'ro');
 xlim(xl); ylim(yl);
 r = robustfit(Ekern_time,gsac_inhtime);
+% r = robustfit(Ekern_time(include),gsac_inhtime(include));
 xx = linspace(xl(1),xl(2),50);
 plot(xx,r(1)+r(2)*xx,'r')
 xlabel('Stim latency (s)');
 ylabel('Suppression timing (s)');
+
+SU_exptnums = [all_SU_data(cur_SUs).expt_num];
+[H,ATAB,CTAB,STATS]=aoctool(Ekern_time(include),gsac_inhtime(include),SU_exptnums(include)',0.05,'stim-response','sac-sup','rec_num','off',4);
+
 
 % f2 = figure(); hold on
 % plot(Ekern_time,gsac_exctime,'.')
@@ -2463,7 +2474,7 @@ ylabel('Relative stim info');
 % plot(info_lags,norm_Binfo_before(exCell,:),'r--','linewidth',1);
 % plot(info_lags,norm_Binfo_after(exCell,:),'b--','linewidth',1);
 % plot(info_lags,norm_Binfo_during(exCell,:),'k--','linewidth',1);
-% xlim([-0.2 0.2]);
+% xlim([-0.2 0.2]);o
 % ylim([0 1.2])
 % line([0 0],[0 1.2],'color','k')
 % xlabel('Time since fixation onset (s)');
@@ -2480,3 +2491,124 @@ ylabel('Relative stim info');
 % fname = [fig_dir 'msac_info_supp.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
+
+%% PLOTS COMPARING SACCADE MODULATION AND RF PROPS
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp); 
+base_lags = find(slags <= 0);
+
+lambda_ii = 4; %reg hyper selection
+xl = [-0.1 0.3];
+
+TB_Xtick = all_SU_data(1).sacStimProc.gsac_TBmod{lambda_ii}.lagX*dt; %TB time axis
+TBbase_lags = find(TB_Xtick <= 0);
+
+%sac-trig avg firing rate
+all_gsac_tavg = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(cur_SUs),'uniformoutput',0));
+search_range = [0 0.3];
+[gsac_Ifact,gsac_inhtime] = get_tavg_peaks(-(all_gsac_tavg-1),tlags,search_range);
+[gsac_Efact,gsac_exctime] = get_tavg_peaks(all_gsac_tavg-1,tlags,search_range);
+
+%get normalized TB-model SSI (computing using standard t-axis)
+TB_SSI = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_modinfo',all_SU_data(cur_SUs),'uniformoutput',0));
+TB_ovinfos = arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.ovInfo,all_SU_data(cur_SUs)); %overall TB model infos
+TB_NSSI = bsxfun(@rdivide,TB_SSI,TB_ovinfos); %normalize TB SSI by overall model info
+TB_NSSI = bsxfun(@rdivide,TB_NSSI,mean(TB_NSSI(:,base_lags),2));
+
+%get normalized TB-model gain and offset (computed using TB-taxis)
+TB_gains = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_gain',all_SU_data(cur_SUs),'uniformoutput',0));
+TB_offset = cell2mat(arrayfun(@(x) x.sacStimProc.gsac_TBmod{lambda_ii}.sac_offset',all_SU_data(cur_SUs),'uniformoutput',0));
+gsac_ov_rates = arrayfun(@(x) x.sacStimProc.gsac_ovavg_rate,all_SU_data(cur_SUs)); %overall average rates
+TB_Noffset = bsxfun(@rdivide,TB_offset,gsac_ov_rates); %normalize offset by overall avg rates
+% TB_Noffset = bsxfun(@rdivide,TB_Noffset,TB_gains); %normalize by gain
+TB_Noffset = bsxfun(@minus,TB_Noffset,mean(TB_Noffset(:,TBbase_lags),2));
+TB_gains = bsxfun(@rdivide,TB_gains,mean(TB_gains(:,TBbase_lags),2));
+
+%find timing and magnitude of TB-model SSI suppression peaks
+search_range = [0 0.15]; %search range for TB SSI suppression peaks
+[SSI_Ifact,SSI_inhtime] = get_tavg_peaks(-(TB_NSSI-1),slags*dt,search_range);
+[Gain_Ifact,GAIN_inhtime] = get_tavg_peaks(-(TB_gains-1),TB_Xtick,search_range);
+
+cur_jbe = find(ismember(cur_SUs,jbe_SUs));
+cur_lem = find(ismember(cur_SUs,lem_SUs));
+
+
+f1 = figure();
+plot(RF_sigma(cur_SUs(cur_jbe))*2,gsac_Ifact(cur_jbe),'o');
+hold on
+plot(RF_sigma(cur_SUs(cur_lem))*2,gsac_Ifact(cur_lem),'ro');
+set(gca,'xscale','log');
+
+[a,b] = corr(RF_sigma(cur_SUs),gsac_Ifact,'type','spearman');
+[aj,bj] = corr(RF_sigma(cur_SUs(cur_jbe)),gsac_Ifact(cur_jbe),'type','spearman');
+[al,bl] = corr(RF_sigma(cur_SUs(cur_lem)),gsac_Ifact(cur_lem),'type','spearman');
+fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);
+
+
+f2 = figure();
+plot(RF_sigma(cur_SUs(cur_jbe))*2,gsac_Efact(cur_jbe),'o');
+hold on
+plot(RF_sigma(cur_SUs(cur_lem))*2,gsac_Efact(cur_lem),'ro');
+set(gca,'xscale','log');
+
+[a,b] = corr(RF_sigma(cur_SUs),gsac_Efact,'type','spearman');
+[aj,bj] = corr(RF_sigma(cur_SUs(cur_jbe)),gsac_Efact(cur_jbe),'type','spearman');
+[al,bl] = corr(RF_sigma(cur_SUs(cur_lem)),gsac_Efact(cur_lem),'type','spearman');
+fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);
+
+f3 = figure();
+plot(RF_sigma(cur_SUs(cur_jbe))*2,SSI_Ifact(cur_jbe),'o');
+hold on
+plot(RF_sigma(cur_SUs(cur_lem))*2,SSI_Ifact(cur_lem),'ro');
+set(gca,'xscale','log');
+
+[a,b] = corr(RF_sigma(cur_SUs),SSI_Ifact,'type','spearman');
+[aj,bj] = corr(RF_sigma(cur_SUs(cur_jbe)),SSI_Ifact(cur_jbe),'type','spearman');
+[al,bl] = corr(RF_sigma(cur_SUs(cur_lem)),SSI_Ifact(cur_lem),'type','spearman');
+fprintf('overall p=%.4e. JBE p=%.4g. LEM p=%.4g\n',b,bj,bl);
+
+% 
+% f4 = figure();
+% plot(RF_sigma(cur_SUs(cur_jbe))*2,gsac_inhtime(cur_jbe),'o');
+% hold on
+% plot(RF_sigma(cur_SUs(cur_lem))*2,gsac_inhtime(cur_lem),'ro');
+% set(gca,'xscale','log');
+% 
+% [a,b] = corr(RF_sigma(cur_SUs),gsac_inhtime,'type','spearman');
+% [aj,bj] = corr(RF_sigma(cur_SUs(cur_jbe)),gsac_inhtime(cur_jbe),'type','spearman');
+% [al,bl] = corr(RF_sigma(cur_SUs(cur_lem)),gsac_inhtime(cur_lem),'type','spearman');
+% fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);
+% 
+% 
+% f5 = figure();
+% plot(RF_sigma(cur_SUs(cur_jbe))*2,gsac_exctime(cur_jbe),'o');
+% hold on
+% plot(RF_sigma(cur_SUs(cur_lem))*2,gsac_exctime(cur_lem),'ro');
+% set(gca,'xscale','log');
+% 
+% [a,b] = corr(RF_sigma(cur_SUs),gsac_exctime,'type','spearman');
+% [aj,bj] = corr(RF_sigma(cur_SUs(cur_jbe)),gsac_exctime(cur_jbe),'type','spearman');
+% [al,bl] = corr(RF_sigma(cur_SUs(cur_lem)),gsac_exctime(cur_lem),'type','spearman');
+% fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);
+
+% f3 = figure();
+% plot(RF_ecc(cur_SUs(cur_jbe)),gsac_Ifact(cur_jbe),'o');
+% hold on
+% plot(RF_ecc(cur_SUs(cur_lem)),gsac_Ifact(cur_lem),'ro');
+% set(gca,'xscale','log');
+% 
+% [a,b] = corr(RF_ecc(cur_SUs),gsac_Ifact,'type','spearman');
+% [aj,bj] = corr(RF_ecc(cur_SUs(cur_jbe)),gsac_Ifact(cur_jbe),'type','spearman');
+% [al,bl] = corr(RF_ecc(cur_SUs(cur_lem)),gsac_Ifact(cur_lem),'type','spearman');
+% fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);
+% 
+% 
+% f4 = figure();
+% plot(RF_ecc(cur_SUs(cur_jbe)),gsac_Efact(cur_jbe),'o');
+% hold on
+% plot(RF_ecc(cur_SUs(cur_lem)),gsac_Efact(cur_lem),'ro');
+% set(gca,'xscale','log');
+% 
+% [a,b] = corr(RF_ecc(cur_SUs),gsac_Efact,'type','spearman');
+% [aj,bj] = corr(RF_ecc(cur_SUs(cur_jbe)),gsac_Efact(cur_jbe),'type','spearman');
+% [al,bl] = corr(RF_ecc(cur_SUs(cur_lem)),gsac_Efact(cur_lem),'type','spearman');
+% fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);

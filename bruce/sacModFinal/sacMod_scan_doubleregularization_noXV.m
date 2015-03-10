@@ -38,6 +38,7 @@ else
     Xtargets = [1 2];
     NL_types = {'lin','lin'};
 end
+silent = 1;
 sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(mod_signs),1));
 
 %%
@@ -49,12 +50,12 @@ sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(m
                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
                 cur_mod.spk_NL_params = base_mod.spk_NL_params;
-                cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',poss_d2T_off(jj));
+                cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',poss_d2T_off(jj)); %temporal smoothness reg for offset filter
                 if ~off_only
-                    cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',poss_d2T_gain(ii),'lambda_L2',poss_L2_gain(kk));
-                    cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],fit_inds,1,[],[],[2 3]);
+                    cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',poss_d2T_gain(ii),'lambda_L2',poss_L2_gain(kk)); %temporal smoothness reg for gain filter
+                    cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],fit_inds,silent,[],[],[2 3]); %estimate saccade filters
                 else
-                    cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],fit_inds,1);
+                    cur_mod = NMMfit_filters(cur_mod,Robs,tr_stim,[],fit_inds,silent);
                 end
                 cur_mod = NMMfit_logexp_spkNL(cur_mod,Robs,tr_stim,[],fit_inds);
                 
