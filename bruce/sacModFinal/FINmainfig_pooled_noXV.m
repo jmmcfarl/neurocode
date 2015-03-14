@@ -9,7 +9,7 @@ fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 % fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV';
 % base_tname = 'sac_trig_avg_data4'; %this data set has all the bootsrap an
-base_tname = 'sac_trig_avg_data_test';
+base_tname = 'sac_trig_avg_data5';
 base_yname = 'sacTypeDep_noXV';
 base_iname = 'sac_info_timing_noXV3';
 base_dname = 'sacStimDelay_noXV';
@@ -2549,12 +2549,13 @@ cur_jbe = include(ismember(cur_SUs(include),jbe_SUs));
 cur_lem = include(ismember(cur_SUs(include),lem_SUs));
 
 rf_ticks = [0.1:0.1:1]; %make ticks at these RF size locations in log space
+msize = 4;
 
 %plot RF size vs rate suppression strength
 f1 = figure();
-plot(log10(RF_sigma(cur_SUs(cur_jbe))*2),gsac_Ifact(cur_jbe),'o');
+plot(log10(RF_sigma(cur_SUs(cur_jbe))*2),gsac_Ifact(cur_jbe),'o','markersize',msize);
 hold on
-plot(log10(RF_sigma(cur_SUs(cur_lem))*2),gsac_Ifact(cur_lem),'ro');
+plot(log10(RF_sigma(cur_SUs(cur_lem))*2),gsac_Ifact(cur_lem),'ro','markersize',msize);
 set(gca,'xtick',log10(rf_ticks),'xticklabel',rf_ticks)
 xlabel('RF size (deg)');
 ylabel('Rate suppression strength');
@@ -2566,9 +2567,9 @@ fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);
 
 %plot RF size vs enhancement strength
 f2 = figure();
-plot(log10(RF_sigma(cur_SUs(cur_jbe))*2),gsac_Efact(cur_jbe),'o');
+plot(log10(RF_sigma(cur_SUs(cur_jbe))*2),gsac_Efact(cur_jbe),'o','markersize',msize);
 hold on
-plot(log10(RF_sigma(cur_SUs(cur_lem))*2),gsac_Efact(cur_lem),'ro');
+plot(log10(RF_sigma(cur_SUs(cur_lem))*2),gsac_Efact(cur_lem),'ro','markersize',msize);
 set(gca,'xtick',log10(rf_ticks),'xticklabel',rf_ticks)
 xlabel('RF size (deg)');
 ylabel('Rate enhancement strength');
@@ -2580,9 +2581,9 @@ fprintf('overall p=%.4f. JBE p=%.4f. LEM p=%.4f\n',b,bj,bl);
 
 % plot RF size vs SSI suppression strength
 f3 = figure();
-plot(log10(RF_sigma(cur_SUs(cur_jbe))*2),SSI_Ifact(cur_jbe),'o');
+plot(log10(RF_sigma(cur_SUs(cur_jbe))*2),SSI_Ifact(cur_jbe),'o','markersize',msize);
 hold on
-plot(log10(RF_sigma(cur_SUs(cur_lem))*2),SSI_Ifact(cur_lem),'ro');
+plot(log10(RF_sigma(cur_SUs(cur_lem))*2),SSI_Ifact(cur_lem),'ro','markersize',msize);
 set(gca,'xtick',log10(rf_ticks),'xticklabel',rf_ticks)
 xlabel('RF size (deg)');
 ylabel('SSI suppression strength');
@@ -2609,9 +2610,9 @@ cur_lem = include(ismember(cur_SUs(include),lem_SUs));
 ecc_ticks = [0.5:0.5:5]; %make ticks at these RF size locations in log space
 %now plot SSI suppression vs eccentricity
 f4 = figure();
-plot(log10(RF_ecc(cur_SUs(cur_jbe))),SSI_Ifact(cur_jbe),'o');
+plot(log10(RF_ecc(cur_SUs(cur_jbe))),SSI_Ifact(cur_jbe),'o','markersize',msize);
 hold on
-plot(log10(RF_ecc(cur_SUs(cur_lem))),SSI_Ifact(cur_lem),'ro');
+plot(log10(RF_ecc(cur_SUs(cur_lem))),SSI_Ifact(cur_lem),'ro','markersize',msize);
 xlabel('RF eccentricity (deg)');
 ylabel('SSI suppression strength');
 set(gca,'xtick',log10(ecc_ticks),'xticklabel',ecc_ticks)
@@ -2622,27 +2623,27 @@ xeval = log10(logspace(log10(0.3),log10(5),100));
 % plot(xeval,xeval*r_JBE(2)+r_JBE(1),'b');
 % plot(xeval,xeval*r_LEM(2)+r_LEM(1),'r');
 
-% % PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'RFsigma_vs_ratesup.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-% 
-% figufy(f2);
-% fname = [fig_dir 'RFsigma_vs_rateenh.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f2);
-% 
-% figufy(f3);
-% fname = [fig_dir 'RFsigma_vs_SSIsup.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
-% 
-% figufy(f4);
-% fname = [fig_dir 'RFecc_vs_SSIsup.pdf'];
-% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f4);
+% PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'RFsigma_vs_ratesup.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+figufy(f2);
+fname = [fig_dir 'RFsigma_vs_rateenh.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+figufy(f3);
+fname = [fig_dir 'RFsigma_vs_SSIsup.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
+
+figufy(f4);
+fname = [fig_dir 'RFecc_vs_SSIsup.pdf'];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f4);
 
 %% SACCADE GAIN TIMING ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);

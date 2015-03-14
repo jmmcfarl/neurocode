@@ -9,7 +9,7 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'G086';
+% Expt_name = 'G093';
 % use_MUA = false;
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 
@@ -805,31 +805,31 @@ for cc = targs
         sacDelay(cc).ModData = ModData(cc);
         sacDelay(cc).used = true;
         
-%         fprintf('Reconstructing retinal stim for unit %d\n',cc);
-%         if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
-%             cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-%             cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-%             cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-%             cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-%             [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-%                 cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-%             
-%             fin_shift_cor = round(fin_tot_corr);
-%             
-%             %RECOMPUTE XMAT
-%             all_shift_stimmat_up = all_stimmat_up;
-%             if ~fit_unCor
-%                 for i=1:NT
-%                     all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-%                 end
-%             end
-%             all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
-%             all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-%             
-%         else %otherwise use overall EP sequence
+        fprintf('Reconstructing retinal stim for unit %d\n',cc);
+        if ismember(cc,loo_set) %if unit is member of LOOXV set, use its unique EP sequence
+            cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
+            cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
+            cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
+            cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
+            [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+                cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+            
+            fin_shift_cor = round(fin_tot_corr);
+            
+            %RECOMPUTE XMAT
+            all_shift_stimmat_up = all_stimmat_up;
+            if ~fit_unCor
+                for i=1:NT
+                    all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+                end
+            end
+            all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_us);
+            all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
+            
+        else %otherwise use overall EP sequence
             all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_us);
             all_Xmat_shift = all_Xmat_shift(used_inds(cc_uinds),use_kInds_up);
-%         end
+        end
         
         %% FOR GSACS
         cur_Xsac = Xsac(cc_uinds,:); %saccade indicator Xmat
@@ -867,6 +867,7 @@ for cc = targs
             [gain_filts,offset_filts,out_gain,out_offset] = deal(nan(flen,length(slags)));
             single_mod_filts = nan(flen,use_nPix_us,length(cur_mod_signs));
             [base_gweights, single_gSD] = deal(nan(flen,1));
+            [all_flen_stas,all_high_avgs,all_low_avgs] = deal(nan(flen,length(slags)));
             for ff = 1:flen
                 fprintf('fitting single-latency model %d/%d\n',ff,flen);
                 cur_kInds = find(Tinds(:) == ff); %stimulus indices with this time lag
@@ -895,6 +896,25 @@ for cc = targs
                 %output of stim model
                 stimG = sum(fgint,2);
                 single_gSD(ff) = std(stimG(any_sac_inds)); %SD of generating signal as measure of modulation by stimuli at this latency
+                
+                %%
+                normStimG = zscore(stimG);
+                mdpt = nanmedian(normStimG);
+                [slag_stas,high_avg,low_avg] = deal(nan(length(slags),1));
+                ov_sac_rate = nan(length(slags),1);
+                for ss = 1:length(slags)
+                    cur_tp = find(cur_Xsac(:,ss) == 1);
+                    slag_stas(ss) = mean(cur_Robs(cur_tp).*normStimG(cur_tp));
+                    ov_sac_rate(ss) = mean(cur_Robs(cur_tp));
+                    
+                    high_pts = cur_tp(normStimG(cur_tp) > mdpt);
+                    low_pts = cur_tp(normStimG(cur_tp) < mdpt);
+                    high_avg(ss) = mean(cur_Robs(high_pts));
+                    low_avg(ss) = mean(cur_Robs(low_pts));
+                end
+                all_flen_stas(ff,:) = slag_stas;
+                all_high_avgs(ff,:) = high_avg;
+                all_low_avgs(ff,:) = low_avg;
                 
                 %%
                 n_slags = size(cur_Xsac,2);
@@ -933,6 +953,11 @@ for cc = targs
             sacDelay(cc).offset_filts = offset_filts;
             sacDelay(cc).single_gSD = single_gSD;
             sacDelay(cc).base_gweights = base_gweights;
+            
+            sacDelay(cc).flen_stas = all_flen_stas;
+            sacDelay(cc).high_avgs = all_high_avgs;
+            sacDelay(cc).low_avgs = all_low_avgs;
+            sacDelay(cc).raw_sac_rate = ov_sac_rate;
         end
     else
         sacDelay(cc).used = false;
