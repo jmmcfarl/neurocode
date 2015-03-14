@@ -4,7 +4,7 @@ load sleep_dirs
 % load sleep_dirs_old
 
 %%
-dd = 1;
+dd = 28;
 cd(data(dd).dir)
 load procData
 

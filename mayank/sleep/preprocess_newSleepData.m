@@ -352,11 +352,34 @@ data(dd).contra_L = 1;
 data(dd).MPloc = 'Ctx'; 
 data(dd).good_bounds = [0 359];
 
+dd = dd + 1;
+%d28. UDS not very clear.
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-04_13-08-16';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC'; 
+data(dd).good_bounds = [0 155];
+
+dd = dd + 1;
+%d29. Pretty good UDS in LFP, and MP. Looks like some pers UPs. Not many
+%(if any) clear pers downs
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2014-11-06_14-08-44';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'MEC'; 
+data(dd).good_bounds = [0 235];
+
 cd ~/Analysis/Mayank/sleep/
 save sleep_dirs data
 
 %%
-for dd = 22:length(data);
+for dd = 28:length(data);
     %     dd = 2;
     cd(data(dd).dir);
     

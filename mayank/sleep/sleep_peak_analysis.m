@@ -14,7 +14,7 @@ lf_range = [0 0.25];
 use_range = [2 50];
 dens_smth_sig = 3;
 
-to_print = false;
+to_print = true;
 
 %for normalized LFP power
 % lfp_uds_thresh = -2.5;
@@ -27,7 +27,7 @@ lfp_lf_max = 2;
 % lfp_lf_max = -6;
 
 %%
-for dd = 1:length(data);
+for dd = 29:length(data);
     
     %%
     cd(data(dd).dir)

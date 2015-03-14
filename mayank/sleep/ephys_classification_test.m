@@ -1,12 +1,12 @@
 clear all
 close all
 cd ~/Analysis/Mayank/sleep/
-% load sleep_dirs data
-load sleep_dirs_old
+load sleep_dirs data
+% load sleep_dirs_old
 
 % spike_thresh = 10;
 %%
-dd =5;
+dd =29;
 % for dd = 1:length(data);
 cd(data(dd).dir)
 pwd
