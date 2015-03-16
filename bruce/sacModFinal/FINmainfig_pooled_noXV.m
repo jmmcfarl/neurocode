@@ -2654,11 +2654,15 @@ all_SDs = bsxfun(@rdivide,all_SDs,max(all_SDs,[],2));
 min_SD_frac = 0.2;
 
 flen = 15;
+mod_dt = 0.01;
 gsac_gain = nan(length(cur_SUs),flen,length(slags));
 % gsac_gain_sig = nan(length(cur_SUs),flen,length(slags));
 % n_use_cells = nan(flen,1);
 for ff = 1:flen;
     cur_gains = 1+cell2mat(arrayfun(@(x) x.sac_delay.gain_filts(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
+%     cur_gains = 1+cell2mat(arrayfun(@(x) x.sac_delay.presim_gain_filts(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
+%     cur_gains = 1+cell2mat(arrayfun(@(x) x.sac_delay.postsim_gain_filts(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
+    
     cur_gains = bsxfun(@rdivide,cur_gains,mean(cur_gains(:,base_lags),2)); %normalize by pre-sac gain strength
     gsac_gain(:,ff,:) = cur_gains;
     
@@ -2743,7 +2747,7 @@ end
 
 all_preds = bsxfun(@times,cell_slope,tax) + nanmean(cell_offset);
 
-min_used_units = 10;
+min_used_units = 20;
 n_used_units = sum(~isnan(gkern_times));
 gkern_times(:,n_used_units < min_used_units) = nan;
 all_preds(:,n_used_units < min_used_units) = nan;
@@ -2800,11 +2804,54 @@ colorbar
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
 
-fig_width = 3.5; rel_height = 0.8;
-figufy(f4);
-fname = [fig_dir sprintf('gsac_stimlatency_excell%d.pdf',ex_cell)];
-exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f4);
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f4);
+% fname = [fig_dir sprintf('gsac_stimlatency_excell%d.pdf',ex_cell)];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
+
+%%
+sm_win = 1;
+flen = 15;
+high_avgs = nan(length(cur_SUs),flen,length(slags));
+low_avgs = nan(length(cur_SUs),flen,length(slags));
+raw_rates = cell2mat(arrayfun(@(x) x.sac_delay.raw_sac_rate',all_SU_data(cur_SUs),'uniformoutput',0));
+for ff = 1:flen;
+    cur_high_avgs = cell2mat(arrayfun(@(x) x.sac_delay.high_avgs(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
+    cur_low_avgs = cell2mat(arrayfun(@(x) x.sac_delay.low_avgs(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
+    cur_high_avgs = bsxfun(@rdivide,cur_high_avgs,raw_rates);
+    cur_low_avgs = bsxfun(@rdivide,cur_low_avgs,raw_rates);
+    
+    for cc = 1:length(cur_SUs)
+       cur_low_avgs(cc,:) = jmm_smooth_1d_cor(cur_low_avgs(cc,:),sm_win);
+       cur_high_avgs(cc,:) = jmm_smooth_1d_cor(cur_high_avgs(cc,:),sm_win);
+    end
+    
+    high_avgs(:,ff,:) = cur_high_avgs;
+    low_avgs(:,ff,:) = cur_low_avgs;
+end
+high_norm = mean(high_avgs(:,:,base_lags),3);
+low_norm = mean(low_avgs(:,:,base_lags),3);
+high_avgs = bsxfun(@rdivide,high_avgs,high_norm);
+low_avgs = bsxfun(@rdivide,low_avgs,low_norm);
+% mod_avgs = high_avgs - low_avgs;
+% pre_norm = mean(mod_avgs(:,:,base_lags),3);
+% mod_avgs = bsxfun(@rdivide,mod_avgs,pre_norm);
+
+ov_high_avgs = squeeze(nanmean(high_avgs));
+% yr = [0.6 1.1];
+ulag_range = 3:10;
+cmap = jet(length(ulag_range));
+f1 = figure(); hold on
+for ii = 1:length(ulag_range)
+    plot(slags*dt,ov_high_avgs(ulag_range(ii),:),'color',cmap(ii,:),'linewidth',1);
+end
+xlim([-0.05 0.2])
+% ylim(yr);
+% line([0 0],yr,'color','k','linestyle','--');
+% line([-0.1 0.3],[1 1],'color','k','linestyle','--');
+xlabel('Time (s)');
+ylabel('Gain');
 
 %%
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);

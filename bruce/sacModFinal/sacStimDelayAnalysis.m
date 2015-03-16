@@ -28,6 +28,7 @@ if include_bursts
 end
 
 mod_data_name = 'corrected_models2';
+base_sname = 'sacStimProcFin_noXV'; %base datat file name for full sacmod analysis
 
 %%
 % poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for post-gain models
@@ -64,6 +65,10 @@ sac_burst_isi = 0.15; %minimum inter-saccade interval for micros (to eliminate '
 max_gsac_dur = 0.1; %maximum saccade duration before we call it a likely blink
 
 xv_frac = 0.2; %fraction of trials to use for cross-validation
+
+post_lambda_off = 4; %offset d2T lambda for post-model
+pre_lambda = 3; %this is just the gain kernel lambda, the offset kernel lambda is fixed equal to post-model (4)
+post_lambda_gain = 3; %gain d2T for post model
 
 %%
 
@@ -766,8 +771,12 @@ for i=1:NT
     end
 end
 
-%% MAIN ANALYSIS LOOP
+%% LOAD IN FULL SACMOD DATA STRUCTURE
 cd(anal_dir)
+data_name = [base_sname sprintf('_ori%d',bar_ori)];
+load(data_name,'sacStimProc')
+
+%% MAIN ANALYSIS LOOP
 silent = 1;
 for cc = targs
     
@@ -854,8 +863,25 @@ for cc = targs
             [baseLL,~,~,~,~,~,base_nullLL] = NMMmodel_eval(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             sacDelay(cc).gsac_base_LLimp = (baseLL-base_nullLL)/log(2);
             
-
- %%            
+            %% CREATE SIMULATED SPIKE TRAINS USING THE PRE AND POST-FILTERING MODELS
+            post_mod = sacStimProc(cc).gsac_post_mod{post_lambda_off,post_lambda_gain};
+            pre_gain_mod = sacStimProc(cc).gsacPreGainMod{pre_lambda};
+            
+            %get predicted rate from the post-filtering model
+            stimG = sum(fgint,2);
+            trX{1} = stimG;
+            trX{2} = cur_Xsac;
+            trX{3} = bsxfun(@times,cur_Xsac,stimG);
+            [~,~,sim_prate] = NMMmodel_eval(post_mod,cur_Robs,trX);
+            
+            %get predicted rate from the pre-filtering model
+            [~,pre_pred_rate] = eval_pre_gainmodel( pre_gain_mod, cur_Robs, all_Xmat_shift, cur_Xsac);
+            
+            %get simulated binned spike responses
+            postsim_spikes = poissrnd(sim_prate);
+            presim_spikes = poissrnd(pre_pred_rate);
+            
+            %%
             [~,Tinds] = meshgrid(1:use_nPix_us,1:flen);
             cur_mod_signs = [cur_rGQM.mods(:).sign];
             cur_NL_types = {cur_rGQM.mods(:).NLtype};
@@ -865,6 +891,7 @@ for cc = targs
             %loop over all stimulus latencies and fit gain kernel models
             %using only that latency
             [gain_filts,offset_filts,out_gain,out_offset] = deal(nan(flen,length(slags)));
+            [presim_gain_filts,presim_offset_filts,postsim_gain_filts,postsim_offset_filts] = deal(nan(flen,length(slags)));
             single_mod_filts = nan(flen,use_nPix_us,length(cur_mod_signs));
             [base_gweights, single_gSD] = deal(nan(flen,1));
             [all_flen_stas,all_high_avgs,all_low_avgs] = deal(nan(flen,length(slags)));
@@ -932,21 +959,51 @@ for cc = targs
                 Xtargets = [1 2 3];
                 NL_types = {'lin','lin','lin'};
                 silent =1;
-                optim_params.optTol = 1e-7;
-                optim_params.progTol = 1e-10;
+                optim_params.optTol = 1e-8;
+                optim_params.progTol = 1e-11;
                 sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(mod_signs),1));
                 
-                cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+                %initialize sacmod filter to zeros. This ensures that we
+                %get the exact same estimates every time, even for the
+                %estimates for lags with minimal stim response (where the
+                %likelihood surface is extremely flat).
+                clear init_filts
+                init_filts{1} = 1;
+                init_filts{2} = zeros(length(slags),1);
+                init_filts{3} = zeros(length(slags),1);
+                
+                %estimates for the real data
+                cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
-                %     cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+                cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
                 cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
                 cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
                 cur_mod = NMMfit_filters(cur_mod,cur_Robs,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
                 gain_filts(ff,:) = cur_mod.mods(3).filtK;
                 offset_filts(ff,:) = cur_mod.mods(2).filtK;
                 base_gweights(ff) = cur_mod.mods(1).filtK;
-                modmods{ff} = cur_mod;
+%                 modmods{ff} = cur_mod;
                 
+                %now for post-filtering sim spikes
+                cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
+                cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
+                cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+                cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
+                cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
+                cur_mod = NMMfit_filters(cur_mod,postsim_spikes,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
+                postsim_gain_filts(ff,:) = cur_mod.mods(3).filtK;
+                postsim_offset_filts(ff,:) = cur_mod.mods(2).filtK;
+
+                %now for pre-filtering sim spikes
+                cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
+                cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
+                cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+                cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
+                cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
+                cur_mod = NMMfit_filters(cur_mod,presim_spikes,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
+                presim_gain_filts(ff,:) = cur_mod.mods(3).filtK;
+                presim_offset_filts(ff,:) = cur_mod.mods(2).filtK;
+
             end
             sacDelay(cc).single_mod_filts = single_mod_filts;
             sacDelay(cc).gain_filts = gain_filts;
@@ -958,6 +1015,11 @@ for cc = targs
             sacDelay(cc).high_avgs = all_high_avgs;
             sacDelay(cc).low_avgs = all_low_avgs;
             sacDelay(cc).raw_sac_rate = ov_sac_rate;
+            
+            sacDelay(cc).presim_gain_filts = presim_gain_filts;
+            sacDelay(cc).presim_offset_filts = presim_offset_filts;
+            sacDelay(cc).postsim_gain_filts = postsim_gain_filts;
+            sacDelay(cc).postsim_offset_filts = postsim_offset_filts;
         end
     else
         sacDelay(cc).used = false;

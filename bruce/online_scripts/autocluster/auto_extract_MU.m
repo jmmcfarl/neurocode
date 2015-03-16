@@ -3,9 +3,9 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData
-Expt_name = 'G099';
+Expt_name = 'M006';
 
-data_loc = '/media/NTlab_data2/Data/bruce/';
+data_loc = '/media/NTlab_data3/Data/bruce/';
 % data_loc = '/home/james/Data/bruce/';
 
 base_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
@@ -23,18 +23,19 @@ data_dir = [data_loc Expt_name];
 
 %location of Expts.mat files
 % data_dir2 = ['~/Data/bruce/' Expt_name];
-data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
+data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 
 Vloaded = nan;
 
 cd(data_dir2);
-if Expt_name(1) == 'G';
+% if Expt_name(1) == 'G';
+%     load(sprintf('jbe%sExpts.mat',Expt_name));
+%     n_probes = 96;
+% elseif Expt_name(1) == 'M'
+%     load(sprintf('lem%sExpts.mat',Expt_name));
     load(sprintf('jbe%sExpts.mat',Expt_name));
-    n_probes = 96;
-elseif Expt_name(1) == 'M'
-    load(sprintf('lem%sExpts.mat',Expt_name));
     n_probes = 24;
-end
+% end
 
 %%
 poss_base_blocks = [2]; %set of blocks to try fitting initial models on
@@ -91,7 +92,7 @@ rclust_dat_name = [base_save_dir '/Ref_Clusters.mat'];
 save(rclust_dat_name,'RefClusters');
 
 %%
-target_blocks = [1:8];
+target_blocks = [1:48];
 force_new_clusters = false;
 
 fprintf('Loading RefClusters\n');
