@@ -3,7 +3,7 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData
-Expt_name = 'M006';
+Expt_name = 'M0050';
 
 data_loc = '/media/NTlab_data3/Data/bruce/';
 % data_loc = '/home/james/Data/bruce/';

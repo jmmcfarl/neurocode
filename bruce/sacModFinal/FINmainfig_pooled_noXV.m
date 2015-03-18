@@ -1346,6 +1346,44 @@ xlim([-0.9 0.9]);
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
 
+%% make figure showing consistency of the timing of pre-filtering suppression
+
+slags_up = linspace(slags(1)*dt,slags(end)*dt,500); %up-sampled taxis
+gsac_pre_gain_up = spline(slags*dt,gsac_pre_gain,slags_up); %spline interpolate
+search_range = [-0.1 0.1]; %use a symmetric search range here so no bias is introduced
+[supmag,suptime] = get_tavg_peaks(-(gsac_pre_gain_up - 1),slags_up,search_range);
+
+%plot suppression magnitude vs suppression timing
+f1 = figure();
+plot(suptime,supmag,'b.','markersize',12)
+xlim([-0.05 0.05]);
+set(gca,'xtick',[-0.05:0.025:0.05]);
+yl = ylim(); line([0 0],yl,'color','k'); 
+xlabel('Suppression timing (s)'); 
+ylabel('Suppression magnitude');
+
+%plot all pre-filtering gain kernels
+f2 = figure();hold on
+plot(slags_up,gsac_pre_gain_up,'b','linewidth',0.5);
+plot(slags_up,mean(gsac_pre_gain_up),'r','linewidth',2);
+xlabel('Time (s)');
+ylabel('Relative gain');
+xlim([-0.1 0.1])
+ylim([0.2 1.4])
+yl = ylim(); line([0 0],yl,'color','k'); 
+
+% %PRINT PLOTS
+fig_width = 3.5; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'presup_timing_scatter.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'presup_timing_all.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+
 %% COMPARE GSAC AND MSAC PRE MODELS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & N_msacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= -0.025); %again, use slightly earlier definition of backgnd time points to handle upstream gain kernel timing

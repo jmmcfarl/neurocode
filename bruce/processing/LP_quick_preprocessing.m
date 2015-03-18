@@ -1,46 +1,53 @@
 clear all
 close all
 
+addpath(genpath('~/Bruce_matlab'));
+
 Expt_name = 'M005';
 monName = 'jbe';
 data_dir = '/media/NTlab_data3/Data/bruce/';
+stim_dir = strcat(data_dir,Expt_name,'/stims');
 
 cd([data_dir Expt_name]);
 
 matfiles = what; matfiles = matfiles.mat;
 [startinds,~,token,expt_chunk,tokenname] = regexp(matfiles,sprintf('%s%s.([0-9]{1,3}).mat',monName,Expt_name));
 is_match = cellfun(@(x) ~isempty(x),startinds);
-expt_nums = cellfun(@(x) str2num(cell2mat((x{1}))),tokenname(is_match));
+block_nums = cellfun(@(x) str2num(cell2mat((x{1}))),tokenname(is_match));
+block_nums = sort(block_nums);
 
-fprintf('Found %d expts ranging from %d to %d\n',length(unique(expt_nums)),min(expt_nums),max(expt_nums));
+fprintf('Found %d blocks ranging from %d to %d\n',length(unique(block_nums)),min(block_nums),max(block_nums));
+
 %%
+ExptFileName = strcat(monName,Expt_name,'Expts.mat');
+if ~exist(ExptFileName);
+    [Expts,Ex] = ReadExptDir_jmm([data_dir Expt_name],monName);
+    fprintf('Saving file %s\n',ExptFileName);
+    save(ExptFileName,Expts);
+else
+   fprintf('Loading existing file %s\n',ExptFileName);
+   load(ExptFileName);
+end
 
-
-
-block_nums = [3 4 5];
+%%
 force_rls_process = true;
-rls_list = 1:12;
+
+cd(stim_dir);
+
+cur_files = dir('*.rc*'); 
+cur_file_names = arrayfun(@(x) x.name,cur_files,'uniformoutput',0);
+[startinds,~,token,expt_chunk,tokenname] = regexp(cur_file_names,'rls.rc([0-9]{1,3})');
+rls_list = cellfun(@(x) str2num(cell2mat((x{1}))),tokenname);
+
+process_rls_files(stim_dir,rls_list);
+
+%%
+cd(stim_dir);
 force_rls_align = true;
 
-n_probes = 24;
+align_rls_data(stim_dir,Expts,block_nums);
 
-Expts = {};
-for bb = 1:length(block_nums)
-    dat_name = [pwd sprintf('/%s%s.%d.mat',monName,exp_name,block_nums(bb))];
-    [a,cur_Expt] = APlaySpkFile(dat_name,'nospikes','noerrs');
-    Expts = {Expts{:} cur_Expt{:}};
-end
+%%
+rmpath(genpath('~/Bruce_matlab'));
 
-if ~exist([pwd '/stim_data.mat'],'file') || force_rls_process
-    process_rls_files(pwd,rls_list);
-else
-    fprintf('Load stim_data.mat\n');
-    load('./stim_data.mat');
-end
-
-if ~exist([pwd '/expt_data.mat'],'file') || force_rls_align
-    align_rls_data(pwd,Expts,block_nums);
-end
-fprintf('Loading expt_data.mat\n');
-load('./expt_data.mat');
 

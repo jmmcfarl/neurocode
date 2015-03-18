@@ -209,9 +209,9 @@ stim_values = [all_trial_tf(base_gratings) all_trial_sf(base_gratings)];
 n_types = size(C,1);
 
 params.Fs = Fsd;
-params.tapers = [3 5];
+params.tapers = [2 3];
 params.fpass = [0 125];
-movingwin = [1.5 1.5];
+movingwin = [2 2];
 sMarkers = [all_trial_start_inds(base_gratings)+start_buffer all_trial_end_inds(base_gratings)];
 used_trial_durs = (sMarkers(:,2) - sMarkers(:,1))/Fsd;
 params.err = [0];
@@ -270,8 +270,8 @@ figufy(gcf);
 % cur_fname = '/home/james/Desktop/gamma_sf_tf';
 % print(gcf,'-dpdf',cur_fname);
 
-cur_fname = '/home/james/Desktop/gamma_sf4_tf';
-print(gcf,'-dpdf',cur_fname);
+% cur_fname = '/home/james/Desktop/gamma_sf4_tf';
+% print(gcf,'-dpdf',cur_fname);
 
 %% GRATINGS VS RLS
 base_rls = find(all_trial_st == 15);
