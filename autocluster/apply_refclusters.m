@@ -115,7 +115,7 @@ all_clust_means = cell(n_probes,1);
 all_clust_stds = cell(n_probes,1);
 for bb = target_blocks
     %for LP load all Voltage signals for this block
-    if Expt_name(1) == 'M'
+    if strcmp(rec_type,'LP')
         sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
         if Vloaded ~= raw_block_nums(bb)
             fprintf('Loading data file %s\n',sfile_name);
@@ -136,7 +136,7 @@ for bb = target_blocks
     
     for probe_num = target_probes
         fprintf('Applying clustering for probe %d\n',probe_num);
-        if Expt_name(1) == 'G'
+        if strcmp(rec_type,'UA')
             loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(bb),probe_num)];
         end
         

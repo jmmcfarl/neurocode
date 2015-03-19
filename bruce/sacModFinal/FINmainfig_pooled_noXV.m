@@ -12,7 +12,7 @@ base_sname = 'sacStimProcFin_noXV';
 base_tname = 'sac_trig_avg_data5';
 base_yname = 'sacTypeDep_noXV';
 base_iname = 'sac_info_timing_noXV3';
-base_dname = 'sacStimDelay_noXV';
+base_dname = 'sacStimDelay_noXV2';
 
 if include_bursts
     base_tname = strcat(base_tname,'_withbursts');
@@ -2685,17 +2685,22 @@ close(f4);
 
 %% SACCADE GAIN TIMING ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
-base_lags = find(slags <= 0); %use slightly earlier def of backgnd time points since the upstream kernels start slightly earlier
+base_lags = find(slags <= 0); 
 
+%get the SD of the generating signal for models at each latency
 all_SDs = cell2mat(arrayfun(@(x) x.sac_delay.single_gSD',all_SU_data(cur_SUs),'uniformoutput',0));
 all_SDs = bsxfun(@rdivide,all_SDs,max(all_SDs,[],2));
 min_SD_frac = 0.2;
 
+%get the model-predicted firing rate CV for each latency
+all_CVs = cell2mat(arrayfun(@(x) x.sac_delay.single_rCV',all_SU_data(cur_SUs),'uniformoutput',0));
+min_CV = 0.05;
+
+uset = all_CVs > min_CV;
+
 flen = 15;
 mod_dt = 0.01;
 gsac_gain = nan(length(cur_SUs),flen,length(slags));
-% gsac_gain_sig = nan(length(cur_SUs),flen,length(slags));
-% n_use_cells = nan(flen,1);
 for ff = 1:flen;
     cur_gains = 1+cell2mat(arrayfun(@(x) x.sac_delay.gain_filts(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
 %     cur_gains = 1+cell2mat(arrayfun(@(x) x.sac_delay.presim_gain_filts(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
@@ -2703,16 +2708,13 @@ for ff = 1:flen;
     
     cur_gains = bsxfun(@rdivide,cur_gains,mean(cur_gains(:,base_lags),2)); %normalize by pre-sac gain strength
     gsac_gain(:,ff,:) = cur_gains;
-    
-%     cur_use_cells = all_SDs(:,ff) >= min_SD_frac;
-%     cur_gains(~cur_use_cells,:) = nan;
-%     n_use_cells(ff) = sum(cur_use_cells);
-%     gsac_gain_sig(:,ff,:) = cur_gains;
 end
+uset_full = repmat(uset,[1 1 length(slags)]);
+% gsac_gain(~uset_full) = nan;
 
 %population avgs
 avg_gains = squeeze(nanmean(gsac_gain));
-sem_gains = squeeze(nanstd(gsac_gain))/sqrt(length(cur_SUs));
+sem_gains = squeeze(nanstd(gsac_gain)./sqrt(sum(~isnan(gsac_gain))));
 
 %interpolate onto finer temporal grid
 slags_up = linspace(slags(1),slags(end),200);
@@ -2762,7 +2764,8 @@ for ff = 1:flen
     gkern_amps(:,ff) = cur_gkern_max;
     gkern_times(:,ff) = cur_gkern_time;
 end
-uset = all_SDs > min_SD_frac;
+% uset = all_SDs > min_SD_frac;
+uset = all_CVs > min_CV;
 gkern_times(~uset) = nan;
 noise_SDs = squeeze(std(gsac_gain(:,:,base_lags),[],3));
 min_SNR = 0;
@@ -2794,7 +2797,7 @@ f2 = figure(); hold on
 % shadedErrorBar(tax,nanmean(all_preds),nanstd(all_preds)./sqrt(n_used_units),{'color','r'});
 shadedErrorBar(tax,nanmean(gkern_times),nanstd(gkern_times)./sqrt(n_used_units),{'color','b'});
 % plot(1:flen,gkern_times,'k.')
-line([0 0.14],[0 0.14]+0.04,'color','k');
+line([0 0.14],[0 0.14]+0.0,'color','k');
 xlim([0 0.12]);
 xlabel('Stimulus latency (s)');
 ylabel('Suppression timing (s)');
@@ -2853,36 +2856,90 @@ sm_win = 1;
 flen = 15;
 high_avgs = nan(length(cur_SUs),flen,length(slags));
 low_avgs = nan(length(cur_SUs),flen,length(slags));
+mod_avgs = nan(length(cur_SUs),flen,length(slags));
 raw_rates = cell2mat(arrayfun(@(x) x.sac_delay.raw_sac_rate',all_SU_data(cur_SUs),'uniformoutput',0));
 for ff = 1:flen;
     cur_high_avgs = cell2mat(arrayfun(@(x) x.sac_delay.high_avgs(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
     cur_low_avgs = cell2mat(arrayfun(@(x) x.sac_delay.low_avgs(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
-    cur_high_avgs = bsxfun(@rdivide,cur_high_avgs,raw_rates);
-    cur_low_avgs = bsxfun(@rdivide,cur_low_avgs,raw_rates);
+%     cur_high_avgs = cell2mat(arrayfun(@(x) x.sac_delay.hq_avgs(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
+%     cur_low_avgs = cell2mat(arrayfun(@(x) x.sac_delay.lq_avgs(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
+    cur_mod_avgs = cur_high_avgs - cur_low_avgs;
+    
+%     cur_mod_avgs = bsxfun(@rdivide,cur_mod_avgs,raw_rates);
+%     cur_high_avgs = bsxfun(@rdivide,cur_high_avgs,raw_rates);
+%     cur_low_avgs = bsxfun(@rdivide,cur_low_avgs,raw_rates);
+    cur_mod_avgs = cur_mod_avgs./raw_rates;
+    cur_high_avgs = cur_high_avgs./raw_rates;
+    cur_low_avgs = cur_low_avgs./raw_rates;
     
     for cc = 1:length(cur_SUs)
        cur_low_avgs(cc,:) = jmm_smooth_1d_cor(cur_low_avgs(cc,:),sm_win);
        cur_high_avgs(cc,:) = jmm_smooth_1d_cor(cur_high_avgs(cc,:),sm_win);
+       cur_mod_avgs(cc,:) = jmm_smooth_1d_cor(cur_mod_avgs(cc,:),sm_win);
     end
     
     high_avgs(:,ff,:) = cur_high_avgs;
     low_avgs(:,ff,:) = cur_low_avgs;
+    mod_avgs(:,ff,:) = cur_mod_avgs;
 end
-high_norm = mean(high_avgs(:,:,base_lags),3);
-low_norm = mean(low_avgs(:,:,base_lags),3);
-high_avgs = bsxfun(@rdivide,high_avgs,high_norm);
-low_avgs = bsxfun(@rdivide,low_avgs,low_norm);
+% high_norm = mean(high_avgs(:,:,base_lags),3);
+% low_norm = mean(low_avgs(:,:,base_lags),3);
+% high_avgs = bsxfun(@rdivide,high_avgs,high_norm);
+% low_avgs = bsxfun(@rdivide,low_avgs,low_norm);
 % mod_avgs = high_avgs - low_avgs;
-% pre_norm = mean(mod_avgs(:,:,base_lags),3);
-% mod_avgs = bsxfun(@rdivide,mod_avgs,pre_norm);
+% mod_avgs = bsxfun(@rdivide,mod_avgs,reshape(raw_rates,length(cur_SUs),1,length(slags)));
+pre_norm = mean(mod_avgs(:,:,base_lags),3);
+mod_avgs = bsxfun(@minus,mod_avgs,pre_norm);
 
-ov_high_avgs = squeeze(nanmean(high_avgs));
+search_range = [0. 0.2];
+resh_mod_avgs = reshape(permute(mod_avgs,[3 1 2]),length(slags),[]);
+%spline interpolate all gain kernels and find peaks
+mod_avgs_up = spline(slags',resh_mod_avgs',slags_up');
+mod_avgs_up = reshape(mod_avgs_up',length(slags_up),length(cur_SUs),flen);
+
+[gkern_amps,gkern_times] = deal(nan(length(cur_SUs),flen));
+for ff = 1:flen
+    [cur_gkern_max,cur_gkern_time] = get_tavg_peaks(-(squeeze(mod_avgs_up(:,:,ff))'-1),slags_up*dt,search_range);
+    gkern_amps(:,ff) = cur_gkern_max;
+    gkern_times(:,ff) = cur_gkern_time;
+end
+% uset = pre_norm > 0.1;
+uset = all_CVs > min_CV;
+gkern_times(~uset) = nan;
+min_used_units = 20;
+n_used_units = sum(~isnan(gkern_times));
+gkern_times(:,n_used_units < min_used_units) = nan;
+
+f2 = figure(); hold on
+% shadedErrorBar(1:flen,nanmedian(gkern_times),iqr(gkern_times),{'color','r'});
+% shadedErrorBar(tax,nanmean(all_preds),nanstd(all_preds)./sqrt(n_used_units),{'color','r'});
+shadedErrorBar(tax,nanmean(gkern_times),nanstd(gkern_times)./sqrt(n_used_units),{'color','b'});
+% plot(1:flen,gkern_times,'k.')
+line([0 0.14],[0 0.14]+0.04,'color','k');
+xlim([0 0.12]);
+xlabel('Stimulus latency (s)');
+ylabel('Suppression timing (s)');
+
+min_pts = 5;
+[cell_corr ,cell_slope,cell_offset] = deal(nan(length(cur_SUs),1));
+for ii = 1:length(cur_SUs)
+    curset = find(~isnan(gkern_times(ii,:)));
+    if length(curset) >= min_pts
+        cell_corr(ii) = corr((1:length(curset))',gkern_times(ii,curset)','type','spearman');
+        temp = robustfit(tax(curset),gkern_times(ii,curset)');
+%         temp = regress(gkern_times(ii,curset)',[ones(length(curset),1) tax(curset)']);
+        cell_slope(ii) = temp(2); cell_offset(ii) = temp(1);
+    end
+end
+
+ov_high_avgs = squeeze(nanmean(mod_avgs));
+% ov_high_avgs = squeeze(nanmedian(mod_avgs));
 % yr = [0.6 1.1];
 ulag_range = 3:10;
 cmap = jet(length(ulag_range));
 f1 = figure(); hold on
 for ii = 1:length(ulag_range)
-    plot(slags*dt,ov_high_avgs(ulag_range(ii),:),'color',cmap(ii,:),'linewidth',1);
+    plot(slags*dt,ov_high_avgs(ulag_range(ii),:),'color',cmap(ii,:),'linewidth',2);
 end
 xlim([-0.05 0.2])
 % ylim(yr);

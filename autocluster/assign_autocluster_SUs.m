@@ -2,31 +2,28 @@ clear all
 close all
 addpath('~/James_scripts/autocluster/');
 
-global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M294';
+global data_dir base_save_dir init_save_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
+Expt_name = 'M005';
+monk_name = 'jbe';
+rec_type = 'LP';
 
 Expt_num = str2num(Expt_name(2:end));
-if Expt_name(1) == 'M'
-    rec_type = 'LP';
-elseif Expt_name(1) == 'G'
-    rec_type = 'UA';
-end
 
-if Expt_num >= 280
+% if Expt_num >= 280
     data_loc = '/media/NTlab_data3/Data/bruce/';
-elseif Expt_num == 99
-    data_loc = '/media/NTlab_data2/Data/bruce/';
-else
-    data_loc = '/home/james/Data/bruce/';
-end
+% elseif Expt_num == 99
+%     data_loc = '/media/NTlab_data2/Data/bruce/';
+% else
+%     data_loc = '/home/james/Data/bruce/';
+% end
 
-if Expt_num >= 281
+% if Expt_num >= 281
     data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-elseif Expt_num == 99
-    data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
-else
-    data_dir2 = ['/home/james/Data/bruce/' Expt_name];
-end
+% elseif Expt_num == 99
+%     data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
+% else
+%     data_dir2 = ['/home/james/Data/bruce/' Expt_name];
+% end
 
 base_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
 init_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering/init'];
@@ -45,15 +42,14 @@ data_dir = [data_loc Expt_name];
 
 Vloaded = nan;
 cd(data_dir2);
-if Expt_name(1) == 'G';
-    if strcmp(Expt_name,'G029')
-        load('G029Expts.mat');
-    else
-        load(sprintf('jbe%sExpts.mat',Expt_name));
-    end
+if strcmp(Expt_name,'G029')
+    load('G029Expts.mat');
+else
+    load(sprintf('%s%sExpts.mat',monk_name,Expt_name));
+end
+if strcmp(rec_type,'UA')
     n_probes = 96;
-elseif Expt_name(1) == 'M'
-    load(sprintf('lem%sExpts.mat',Expt_name));
+elseif strcmp(rec_type,'LP')
     n_probes = 24;
 end
 
@@ -89,9 +85,9 @@ end
 %don't apply to blocks where we dont have the FullV data
 missing_Vdata = [];
 for bb = target_blocks
-    if Expt_name(1) == 'M'
+    if strcmp(rec_type,'LP')
         check_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
-    else
+    elseif strcmp(rec_type,'UA')
         check_name = [data_dir sprintf('/Expt%d.p1FullV.mat',raw_block_nums(bb))];
     end
     if ~exist(check_name,'file')
@@ -228,13 +224,13 @@ end
 % caxis([2 ca(2)]);
 
 %% CHECK SPIKE CORRELATIONS
-block_num = 15;
+block_num = 40;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
-if Expt_name(1) == 'G'
+if strcmp(rec_type,'UA')
     sfile = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(block_num),1)];
     [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile, false, [100 nan],1);
-else
+elseif strcmp(rec_type,'LP')
     sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(block_num))];
     if Vloaded ~= raw_block_nums(block_num)
         fprintf('Loading data file %s\n',sfile_name);
@@ -296,16 +292,16 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-block_num = 15;
-pair = [11 13];
+block_num = 40;
+pair = [19 20];
 spk_pts = [-12:27];
 
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
-if Expt_name(1) == 'G'
+if strcmp(rec_type,'UA')
     sfile = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(block_num),1)];
     [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile, false, [100 nan],1);
-else
+elseif strcmp(rec_type,'LP')
     sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(block_num))];
     if Vloaded ~= raw_block_nums(block_num)
         fprintf('Loading data file %s\n',sfile_name);
@@ -381,6 +377,9 @@ switch Expt_name
 %         init_use_SUs = [1 2 4 6 10 11 14 19 21 22 23 28 29];
        init_use_SUs = [1 2 4 6 9 11 14 19 21 22 23 28 29];
 
+    case 'M005'
+        init_use_SUs = [9 10 11 20 21 24];
+       
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
     case 'G081'
@@ -544,6 +543,12 @@ switch Expt_name
         SU_ID_mat([1:10],28) = nan;
         SU_ID_mat([11:end],29) = nan;
         SU_ID_mat(~isnan(SU_ID_mat(:,29)),29) = SU_ID_mat(find(~isnan(SU_ID_mat(:,28)),1),28); %units 28 and 29 are the same
+
+    case 'M005'
+        SU_ID_mat([3 5],10) = nan;
+        SU_ID_mat([1 3 4 11 12],11) = nan;
+        SU_ID_mat([3],20) = nan;
+        SU_ID_mat([4 5 6],21) = nan;
 end
 
 % figure;
@@ -685,7 +690,7 @@ for cc = 1:length(final_SU_set)
 end
 
 
-%%
+%% CREATE PLOT SHOWING ISOLATION QUALITY FOR EACH BLOCK
 fin_save_dir = [base_save_dir '/final'];
 if ~exist(fin_save_dir,'dir')
     mkdir(fin_save_dir);
@@ -745,7 +750,7 @@ for cc = 1:length(final_SU_set)
     close(cur_fig);    
 
 end
-%%
+%% LOAD IN WAVEFORM DATA
 spkdata_dir = [data_loc Expt_name '/spikes/'];
 blocks_with_clusters = find(any(~isnan(SU_ID_mat),2));
 %     spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',cur_probe_num,bb)];
@@ -765,9 +770,9 @@ for bb = blocks_with_clusters'
         cur_Cluster = Clusters{cur_probe_num};
         
         
-        if Expt_name(1) == 'G'
+        if strcmp(rec_type,'UA')
             loadedData = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(bb),probe_num)];
-        else
+        elseif strcmp(rec_type,'LP')
             sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
             if Vloaded ~= raw_block_nums(bb)
                 fprintf('Loading data file %s\n',sfile_name);
@@ -804,7 +809,7 @@ for bb = blocks_with_clusters'
     end
 end
 
-%%
+%% PLOT WAVEFORM DATA
 fin_save_dir = [base_save_dir '/final'];
 if ~exist(fin_save_dir,'dir')
     mkdir(fin_save_dir);
@@ -840,10 +845,12 @@ for cc = 1:length(final_SU_set);
             end
             title(sprintf('Block %d',target_blocks(bb)));
             axis off
+            axis tight
         end
     end
     
     pfname = [fin_save_dir sprintf('/Unit%d_Probe%d_wvfrm',cur_SU_num,best_probe)];
+    set(full_wvfrm_fig,'papersize',[20 20]);
     print(full_wvfrm_fig,pfname,'-dpng');
     close(full_wvfrm_fig);
 end

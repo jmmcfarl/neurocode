@@ -4,6 +4,7 @@ close all
 
 data_dir = '/media/NTlab_data3/Data/bruce/CPdata/';
 fig_dir = '/home/james/Analysis/bruce/ChoiceProb/';
+addpath('~/James_scripts/bruce/bruce_code');
 
 data_sets = what(data_dir);data_sets = data_sets.mat;
 
@@ -158,7 +159,7 @@ for eee = 1:length(data_sets)
     close(gcf);
     
     %%
-    un_OBs = [-60 -70 -80 msOB 80 70 60];
+    un_OBs = [-60 -70 -80 zsOB 80 70 60];
     OB_x = [-3 -2 -1 0 1 2 3];
     trialOB_prime = trialOB;
     if min(trialOB) > 0
@@ -217,18 +218,25 @@ for eee = 1:length(data_sets)
     
     resp_up_trials = find(trialrespDir == 1);
     resp_down_trials = find(trialrespDir == -1);
-    ET_data_up = double(cat(3,AllExpt.Expt.Trials(resp_up_trials).EyeData));
-    ET_data_down = double(cat(3,AllExpt.Expt.Trials(resp_down_trials).EyeData));
+    ET_data_up = cat(3,AllExpt.Expt.Trials(resp_up_trials).EyeData);
+    ET_data_down = cat(3,AllExpt.Expt.Trials(resp_down_trials).EyeData);
+    
+    ET_data_up = int2double(ET_data_up, AllExpt.Expt.Header.emscale);
+    ET_data_down = int2double(ET_data_down, AllExpt.Expt.Header.emscale);
+    
     trange = (size(ET_data_up,1)-110):(size(ET_data_up,1)-10);
     ET_data_up = permute(ET_data_up,[1 3 2]); ET_data_down = permute(ET_data_down,[1 3 2]);
     
     ET_data_up = bsxfun(@minus,ET_data_up,reshape(nanmedian(reshape(ET_data_up,[],4)),1,1,4));
     ET_data_down = bsxfun(@minus,ET_data_down,reshape(nanmedian(reshape(ET_data_down,[],4)),1,1,4));
 
+    em_r = [-8 8];
     subplot(2,2,4); hold on
-    plot(squeeze(ET_data_up(trange,:,3)),squeeze(ET_data_up(trange,:,4)),'b.','markersize',1);
-    plot(squeeze(ET_data_down(trange,:,3)),squeeze(ET_data_down(trange,:,4)),'r.','markersize',1);
-    xlim([-2.5 2.5]*1e4); ylim([-2.5 2.5]*1e4); line([-2.5 2.5]*1e4,[0 0],'color','k'); line([0 0],[-2.5 2.5]*1e4,'color','k');
+    plot(squeeze(ET_data_up(:,:,3)),squeeze(ET_data_up(:,:,4)),'b.','markersize',1);
+    plot(squeeze(ET_data_down(:,:,3)),squeeze(ET_data_down(:,:,4)),'r.','markersize',1);
+    plot(squeeze(ET_data_up(:,:,1)),squeeze(ET_data_up(:,:,2)),'k.','markersize',1);
+    plot(squeeze(ET_data_down(:,:,1)),squeeze(ET_data_down(:,:,2)),'g.','markersize',1);
+    xlim(em_r); ylim(em_r); line(em_r,[0 0],'color','k'); line([0 0],em_r,'color','k');
     fig_width = 8; rel_height = 1;
     fig_name = [fig_dir sprintf('%s_ratecurves.pdf',Expt_name)];
     figufy(f1);
