@@ -3,10 +3,12 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'G099';
+Expt_name = 'M005';
+monk_name = 'jbe';
+rec_type = 'LP'; %or UA
 
-data_loc = '/media/NTlab_data2/Data/bruce/';
-% data_loc = '/media/NTlab_data3/Data/bruce/';
+% data_loc = '/media/NTlab_data2/Data/bruce/';
+data_loc = '/media/NTlab_data3/Data/bruce/';
 % data_loc = '/home/james/Data/bruce/';
 
 base_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
@@ -24,23 +26,23 @@ data_dir = [data_loc Expt_name];
 
 %location of Expts.mat files
 % data_dir2 = ['~/Data/bruce/' Expt_name];
-% data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
+data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
 
 Vloaded = nan;
 %% LOOK AT DURATION OF EACH EXPERIMENT BLOCK AS A WAY TO PICK A SET OF BASE BLOCKS FOR INITIAL CLUSTERING
 cd(data_dir2);
-if Expt_name(1) == 'G';
-    if strcmp(Expt_name,'G029')
-        load('G029Expts.mat');
-    else
-    load(sprintf('jbe%sExpts.mat',Expt_name));
-    end
-    n_probes = 96;
-elseif Expt_name(1) == 'M'
-    load(sprintf('lem%sExpts.mat',Expt_name));
-    n_probes = 24;    
+if strcmp(Expt_name,'G029')
+    load('G029Expts.mat');
+else
+    load(sprintf('%s%sExpts.mat',monk_name,Expt_name));
 end
+if strcmp(rec_type,'UA')
+    n_probes = 96;
+elseif strcmp(rec_type,'LP')
+    n_probes = 24;
+end
+
 n_blocks = length(Expts);
 block_durs = nan(n_blocks,1);
 for ii = 1:n_blocks
@@ -56,7 +58,7 @@ plot(expt_durs,'o-');
 hold on
 plot(sum_trial_durs,'ro-');
 %%
-poss_base_blocks = [2]; %set of blocks to try fitting initial models on
+poss_base_blocks = [7 19 40]; %set of blocks to try fitting initial models on
 target_probes = 1:n_probes;
 if isfield(Expts{1}.Header,'exptno')
 raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct

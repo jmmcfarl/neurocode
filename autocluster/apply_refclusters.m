@@ -2,18 +2,20 @@ clear all
 close all
 addpath('~/James_scripts/autocluster/');
 
-global data_dir base_save_dir init_save_dir spkdata_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'G099';
+global data_dir base_save_dir init_save_dir spkdata_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
+Expt_name = 'M005';
+monk_name = 'jbe';
+rec_type = 'LP';
 
 Expt_num = str2num(Expt_name(2:end));
 
-if Expt_num > 280 
+% if Expt_num > 280 
     data_loc = '/media/NTlab_data3/Data/bruce/';
-elseif Expt_num == 99
-    data_loc = '/media/NTlab_data2/Data/bruce/';
-else
-    data_loc = '/home/james/Data/bruce/';
-end
+% elseif Expt_num == 99
+%     data_loc = '/media/NTlab_data2/Data/bruce/';
+% else
+%     data_loc = '/home/james/Data/bruce/';
+% end
 
 %location of Expts.mat files
 data_dir2 = [data_loc Expt_name];
@@ -37,18 +39,18 @@ end
 %location of FullV files
 data_dir = [data_loc Expt_name];
 
-
 Vloaded = nan;
 cd(data_dir2);
-if Expt_name(1) == 'G';
-    if strcmp(Expt_name,'G029')
-        load('G029Expts.mat');
-    else
-        load(sprintf('jbe%sExpts.mat',Expt_name));
-    end
+if strcmp(Expt_name,'G029')
+    load('G029Expts.mat');
+else
+    load(sprintf('%s%sExpts.mat',monk_name,Expt_name));
+end
+
+
+if strcmp(rec_type,'UA')
     n_probes = 96;
-elseif Expt_name(1) == 'M'
-    load(sprintf('lem%sExpts.mat',Expt_name));
+elseif strcmp(rec_type,'LP')
     n_probes = 24;
 end
 
@@ -66,9 +68,9 @@ end
 %don't apply to blocks where we dont have the FullV data
 missing_Vdata = [];
 for bb = target_blocks
-    if Expt_name(1) == 'M'
+    if strcmp(rec_type,'LP')
         check_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(bb))];
-    else
+    elseif strcmp(rec_type,'UA')
         check_name = [data_dir sprintf('/Expt%d.p1FullV.mat',raw_block_nums(bb))];
     end
     if ~exist(check_name,'file')

@@ -22,7 +22,8 @@ fitFullPostMod = true;
 
 include_bursts = 0;
 
-sname = 'sacStimDelay_noXV';
+% sname = 'sacStimDelay_noXV';
+sname = 'sacStimDelay_noXV2';
 if include_bursts
     sname = [sname '_withbursts'];
 end
@@ -893,47 +894,48 @@ for cc = targs
             [gain_filts,offset_filts,out_gain,out_offset] = deal(nan(flen,length(slags)));
             [presim_gain_filts,presim_offset_filts,postsim_gain_filts,postsim_offset_filts] = deal(nan(flen,length(slags)));
             single_mod_filts = nan(flen,use_nPix_us,length(cur_mod_signs));
-            [base_gweights, single_gSD] = deal(nan(flen,1));
+            [base_gweights, single_gSD,single_rCV] = deal(nan(flen,1));
             [all_flen_stas,all_high_avgs,all_low_avgs,all_hq_avgs,all_lq_avgs] = deal(nan(flen,length(slags)));
             for ff = 1:flen
                 fprintf('fitting single-latency model %d/%d\n',ff,flen);
                 cur_kInds = find(Tinds(:) == ff); %stimulus indices with this time lag
                 
-                cur_filts = all_filts(cur_kInds,:);
-                single_mod = NMMinitialize_model(cur_stim_params,cur_mod_signs,cur_NL_types,[],ones(length(cur_mod_signs),1));
-                for ii = 1:length(cur_mod_signs)
-                    single_mod.mods(ii).filtK = cur_filts(:,ii); %initialize filters to be slices from the original ST filters
-                    single_mod.mods(ii).reg_params.lambda_d2X = cur_rGQM.mods(ii).reg_params.lambda_d2XT; 
-                    single_mod.mods(ii).reg_params.lambda_L1 = cur_rGQM.mods(ii).reg_params.lambda_L1/10; %decrease sparsity penalty so we dont get so many 0-filters
-                end
-                single_mod = NMMfit_filters(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds),[],[],silent);
-                [~,~,basemod_pred_rate,cur_gint,~,fgint] = NMMeval_model(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds));
-                single_mod_filts(ff,:,:) = [single_mod.mods(:).filtK];
-
                 %                 cur_filts = all_filts(cur_kInds,:);
-%                 init_filts = cell(length(cur_mod_signs),1);
-%                 for ii = 1:length(cur_mod_signs)
-%                     init_filts{ii} = cur_filts(:,ii);
-%                 end
-%                 single_mod = NMMinitialize_model(cur_stim_params,cur_mod_signs,cur_NL_types,[],ones(length(cur_mod_signs),1),init_filts);
-%                 single_mod_filts(ff,:,:) = [single_mod.mods(:).filtK];
-%                 [~, ~, ~, ~, ~,fgint] = NMMmodel_eval(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds));
-%                 temp_sp(1:length(cur_mod_signs)) = NMMcreate_stim_params([1 1]);
-%                 fout = cell(length(cur_mod_signs),1);
-%                 for ii = 1:length(cur_mod_signs)
-%                     fout{ii} = fgint(:,ii);
-%                 end
-%                 single_mod = NMMinitialize_model(temp_sp,cur_mod_signs,repmat({'lin'},length(cur_mod_signs),1),[],1:length(cur_mod_signs));
-%                 single_mod.spk_NL_params = cur_rGQM.spk_NL_params;
-%                 single_mod = NMMfit_filters(single_mod,cur_Robs,fout,[],[],silent);
-%                 [~,~,basemod_pred_rate,cur_gint,~,fgint] = NMMeval_model(single_mod,cur_Robs,fout);
+                %                 single_mod = NMMinitialize_model(cur_stim_params,cur_mod_signs,cur_NL_types,[],ones(length(cur_mod_signs),1));
+                %                 for ii = 1:length(cur_mod_signs)
+                %                     single_mod.mods(ii).filtK = cur_filts(:,ii); %initialize filters to be slices from the original ST filters
+                %                     single_mod.mods(ii).reg_params.lambda_d2X = cur_rGQM.mods(ii).reg_params.lambda_d2XT;
+                %                     single_mod.mods(ii).reg_params.lambda_L1 = cur_rGQM.mods(ii).reg_params.lambda_L1/10; %decrease sparsity penalty so we dont get so many 0-filters
+                %                 end
+                %                 single_mod = NMMfit_filters(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds),[],[],silent);
+                %                 [~,~,basemod_pred_rate,cur_gint,~,fgint] = NMMeval_model(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds));
+                %                 single_mod_filts(ff,:,:) = [single_mod.mods(:).filtK];
+                %
+                cur_filts = all_filts(cur_kInds,:);
+                init_filts = cell(length(cur_mod_signs),1);
+                for ii = 1:length(cur_mod_signs)
+                    init_filts{ii} = cur_filts(:,ii);
+                end
+                single_mod = NMMinitialize_model(cur_stim_params,cur_mod_signs,cur_NL_types,[],ones(length(cur_mod_signs),1),init_filts);
+                single_mod_filts(ff,:,:) = [single_mod.mods(:).filtK];
+                [~, ~, ~, ~, ~,fgint] = NMMmodel_eval(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds));
+                temp_sp(1:length(cur_mod_signs)) = NMMcreate_stim_params([1 1]);
+                fout = cell(length(cur_mod_signs),1);
+                for ii = 1:length(cur_mod_signs)
+                    fout{ii} = fgint(:,ii);
+                end
+                single_mod = NMMinitialize_model(temp_sp,cur_mod_signs,repmat({'lin'},length(cur_mod_signs),1),[],1:length(cur_mod_signs));
+                single_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+                single_mod = NMMfit_filters(single_mod,cur_Robs,fout,[],[],silent);
+                [~,~,basemod_pred_rate,cur_gint,~,fgint] = NMMeval_model(single_mod,cur_Robs,fout);
                 
                 fgint = bsxfun(@times,fgint,cur_mod_signs);
                 
                 %output of stim model
                 stimG = sum(fgint,2);
-                single_gSD(ff) = std(stimG(any_sac_inds)); %SD of generating signal as measure of modulation by stimuli at this latency
-                
+                single_gSD(ff) = std(stimG); %SD of generating signal as measure of modulation by stimuli at this latency
+                single_rCV(ff) = std(basemod_pred_rate)/mean(basemod_pred_rate); %CV of firing rate as a measure of modulation by stimuli at this latency
+
                 %%
                 normStimG = nanzscore(stimG);
                 mdpt = nanmedian(normStimG); %median of gen signal
@@ -951,14 +953,39 @@ for cc = targs
                     low_avg(ss) = mean(cur_Robs(low_pts)); %avg rate with bad stims
                     uq_pts = cur_tp(normStimG(cur_tp) > quarts(2)); %good stims at this latency
                     lq_pts = cur_tp(normStimG(cur_tp) < quarts(1)); %bad stims at this latency
-                    hq_avg(ss) = mean(cur_Robs(high_pts)); %avg rate with good stims
-                    lq_avg(ss) = mean(cur_Robs(low_pts)); %avg rate with bad stims
+                    hq_avg(ss) = mean(cur_Robs(uq_pts)); %avg rate with good stims
+                    lq_avg(ss) = mean(cur_Robs(lq_pts)); %avg rate with bad stims
                 end
                 all_flen_stas(ff,:) = slag_stas;
                 all_high_avgs(ff,:) = high_avg;
                 all_low_avgs(ff,:) = low_avg;
                 all_hq_avgs(ff,:) = hq_avg;
                 all_lq_avgs(ff,:) = lq_avg;
+                
+                
+                %% GET PIXEL TRIG AVGS
+                sac_trg_avg = nan(length(slags),1);
+                [white_avg,black_avg] = deal(nan(length(cur_kInds),1));
+                [white_savg,black_savg] = deal(nan(length(cur_kInds),length(slags)));
+                for ii = 1:length(cur_kInds)
+                    curwhite = all_Xmat_shift(:,cur_kInds(ii)) == 1;
+                    curblack = all_Xmat_shift(:,cur_kInds(ii)) == -1;
+                    white_avg(ii) = mean(cur_Robs(curwhite));
+                    black_avg(ii) = mean(cur_Robs(curblack));
+                    
+                    for ss = 1:length(slags)
+                        cur_tp = find(cur_Xsac(:,ss) == 1); %all times when there was a saccade at latency tau
+                        ccwhite = cur_tp(curwhite(cur_tp));
+                        ccblack = cur_tp(curblack(cur_tp));
+                        white_savg(ii,ss) = mean(cur_Robs(ccwhite));
+                        black_savg(ii,ss) = mean(cur_Robs(ccblack));
+                        
+                    end
+                end
+                sacDelay(cc).white_savg(ff,:,:) = white_savg;
+                sacDelay(cc).black_savg(ff,:,:) = black_savg;
+                sacDelay(cc).white_avg(ff,:) = white_avg;
+                sacDelay(cc).black_avg(ff,:) = black_avg;
                 
                 %%
                 n_slags = size(cur_Xsac,2);
@@ -999,33 +1026,34 @@ for cc = targs
                 gain_filts(ff,:) = cur_mod.mods(3).filtK;
                 offset_filts(ff,:) = cur_mod.mods(2).filtK;
                 base_gweights(ff) = cur_mod.mods(1).filtK;
-%                 modmods{ff} = cur_mod;
+                %                 modmods{ff} = cur_mod;
                 
-%                 %now for post-filtering sim spikes
-%                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
-%                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
-%                 cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
-%                 cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
-%                 cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
-%                 cur_mod = NMMfit_filters(cur_mod,postsim_spikes,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
-%                 postsim_gain_filts(ff,:) = cur_mod.mods(3).filtK;
-%                 postsim_offset_filts(ff,:) = cur_mod.mods(2).filtK;
-% 
-%                 %now for pre-filtering sim spikes
-%                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
-%                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
-%                 cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
-%                 cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
-%                 cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
-%                 cur_mod = NMMfit_filters(cur_mod,presim_spikes,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
-%                 presim_gain_filts(ff,:) = cur_mod.mods(3).filtK;
-%                 presim_offset_filts(ff,:) = cur_mod.mods(2).filtK;
-
+                %                 %now for post-filtering sim spikes
+                %                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
+                %                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
+                %                 cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+                %                 cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
+                %                 cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
+                %                 cur_mod = NMMfit_filters(cur_mod,postsim_spikes,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
+                %                 postsim_gain_filts(ff,:) = cur_mod.mods(3).filtK;
+                %                 postsim_offset_filts(ff,:) = cur_mod.mods(2).filtK;
+                %
+                %                 %now for pre-filtering sim spikes
+                %                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
+                %                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
+                %                 cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+                %                 cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_off_d2T); %temporal smoothness reg for offset filter
+                %                 cur_mod = NMMadjust_regularization(cur_mod,[3],'lambda_d2T',10,'lambda_L2',1); %temporal smoothness reg for gain filter
+                %                 cur_mod = NMMfit_filters(cur_mod,presim_spikes,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
+                %                 presim_gain_filts(ff,:) = cur_mod.mods(3).filtK;
+                %                 presim_offset_filts(ff,:) = cur_mod.mods(2).filtK;
+                
             end
             sacDelay(cc).single_mod_filts = single_mod_filts;
             sacDelay(cc).gain_filts = gain_filts;
             sacDelay(cc).offset_filts = offset_filts;
             sacDelay(cc).single_gSD = single_gSD;
+            sacDelay(cc).single_rCV = single_rCV;
             sacDelay(cc).base_gweights = base_gweights;
             
             sacDelay(cc).flen_stas = all_flen_stas;
@@ -1035,10 +1063,10 @@ for cc = targs
             sacDelay(cc).lq_avgs = all_lq_avgs;
             sacDelay(cc).raw_sac_rate = ov_sac_rate;
             
-%             sacDelay(cc).presim_gain_filts = presim_gain_filts;
-%             sacDelay(cc).presim_offset_filts = presim_offset_filts;
-%             sacDelay(cc).postsim_gain_filts = postsim_gain_filts;
-%             sacDelay(cc).postsim_offset_filts = postsim_offset_filts;
+            %             sacDelay(cc).presim_gain_filts = presim_gain_filts;
+            %             sacDelay(cc).presim_offset_filts = presim_offset_filts;
+            %             sacDelay(cc).postsim_gain_filts = postsim_gain_filts;
+            %             sacDelay(cc).postsim_offset_filts = postsim_offset_filts;
         end
     else
         sacDelay(cc).used = false;
