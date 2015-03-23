@@ -3,7 +3,7 @@ close all
 
 addpath(genpath('~/Bruce_matlab'));
 
-Expt_name = 'M005';
+Expt_name = 'M008';
 monName = 'jbe';
 data_dir = '/media/NTlab_data3/Data/bruce/';
 stim_dir = strcat(data_dir,Expt_name,'/stims');
@@ -37,9 +37,10 @@ cd(stim_dir);
 cur_files = dir('*.rc*'); 
 cur_file_names = arrayfun(@(x) x.name,cur_files,'uniformoutput',0);
 [startinds,~,token,expt_chunk,tokenname] = regexp(cur_file_names,'rls.rc([0-9]{1,3})');
-rls_list = cellfun(@(x) str2num(cell2mat((x{1}))),tokenname);
+rls_list = sort(cellfun(@(x) str2num(cell2mat((x{1}))),tokenname));
 
-process_rls_files(stim_dir,rls_list);
+disparity_flag = true;
+process_rls_files(stim_dir,rls_list,disparity_flag);
 
 %%
 cd(stim_dir);

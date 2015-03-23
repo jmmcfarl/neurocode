@@ -30,7 +30,7 @@ end
 mod_data_name = 'corrected_models2';
 
 %%
-
+%temporal smoothness reg params used in final analysis
 cent_off_d2T = 100;
 cent_gain_d2T = 50; 
 
@@ -760,6 +760,7 @@ for cc = targs
     use_trials = unique(all_trialvec(used_inds(cc_uinds))); %unique trials for this unit
     use_trials(ismember(use_trials,rpt_trials)) = []; %DONT USE REPEAT TRIALS!
     
+    %create training and xval trial sets
     nuse_trials = length(use_trials);
     n_xv_trials = round(xv_frac*nuse_trials);
     xv_trials = randperm(nuse_trials);
@@ -838,7 +839,7 @@ for cc = targs
             [baseLL,~,~,~,~,~,base_nullLL] = NMMmodel_eval(cur_rGQM,cur_Robs(any_sac_inds),all_Xmat_shift(any_sac_inds,:));
             sacStimProc(cc).gsac_base_LLimp = (baseLL-base_nullLL)/log(2);
             
-            %% FOR SIMPLE POST_GAIN MODEL, SCAN RANGE OF L2s AND SELECT BEST USING XVAL LL
+            %% FOR OFFSET-ONLY MODEL
             %fit offset-only model            
             n_slags = size(cur_Xsac,2);
             n_gains = size(stimG,2);
@@ -854,6 +855,7 @@ for cc = targs
             NL_types = {'lin','lin'};
             sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(mod_signs),1));
             
+            %fit sac-mod on training trials
             cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
             cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
             cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
@@ -861,12 +863,13 @@ for cc = targs
             cur_mod = NMMfit_filters(cur_mod,cur_Robs,tr_stim,[],tr_sac_inds,1);
             cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs,tr_stim,[],tr_sac_inds);
             
+            %get LL using xval trials
             [LL, nullLL, pred_rate] = NMMeval_model( cur_mod, cur_Robs, tr_stim, [], xv_sac_inds);
             offset_xvLLimp = (LL-nullLL)/log(2);
             cur_mod.xvLLimp = offset_xvLLimp;
             sacStimProc(cc).offset_mod = cur_mod;
             
-            %%
+            %% NOW FIT GAIN + OFFSET MODEL
             tr_stim{3} = reshape(bsxfun(@times,cur_Xsac,reshape(stimG,[],1,n_gains)), size(stimG,1),[]);
             sac_stim_params(3) = NMMcreate_stim_params([n_slags n_gains]);
             

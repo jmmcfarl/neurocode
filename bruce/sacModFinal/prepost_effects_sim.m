@@ -33,7 +33,7 @@ stimX = bsxfun(@times,stimX,post_sup_kern');
 postStimR = bsxfun(@times,stimX,base_tkern);
 
 %%
-NT = 50;
+NT = length(sac_lags);
 testStim = randn(NT,1);
 testStimX = create_time_embedding(testStim,sparams);
 testStimFilt = testStimX*base_tkern';
@@ -67,16 +67,16 @@ xlim([-0.25 0.25]);
 % 
 %%
 f3 = figure();
-plot(-lag_tax,base_tkern,'o-');
+plot(-lag_tax,base_tkern,'-');
 xlabel('Time lag (s)');
 ylabel('Filter amp');
 xlim([-0.15 0]);
 
-% fig_width = 4; rel_height = 0.8;
-% figufy(f3);
-% fname = [fig_dir 'ppsim_filter.pdf'];
-% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f3);
+fig_width = 4; rel_height = 0.8;
+figufy(f3);
+fname = [fig_dir 'ppsim_filter.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f3);
 
 %%
 xr = [-0.05 0.2];
@@ -109,6 +109,20 @@ xlabel('Time since saccade (s)');
 ylabel('Stimulus latency (s)');
 
 
+f6 = figure();
+subplot(3,1,1);
+plot(sac_lags,testStim);
+xlim(xr);
+ylim([-3 3]);
+subplot(3,1,[2 3]);
+imagesc(sac_lags,-lag_tax,testStimX');
+xlim(xr); colormap(gray)
+caxis([-2.5 2.5]);
+
+f7 = figure();
+plot(-lag_tax,prestimR(46,:),'r-');
+xlim([-0.15 0]);
+
 % fig_width = 4; rel_height = 1.6;
 % figufy(f4);
 % fname = [fig_dir 'ppsim_effK.pdf'];
@@ -119,3 +133,15 @@ ylabel('Stimulus latency (s)');
 % fname = [fig_dir 'ppsim_effg.pdf'];
 % exportfig(f5,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f5);
+
+% fig_width = 4; rel_height = 2;
+% figufy(f6);
+% fname = [fig_dir 'ppsim_testStim.pdf'];
+% exportfig(f6,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f6);
+
+fig_width = 4; rel_height = 0.8;
+figufy(f7);
+fname = [fig_dir 'prestim_exampekern.pdf'];
+exportfig(f7,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f6);

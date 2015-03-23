@@ -1,7 +1,10 @@
-function [] = process_rls_files(dat_dir,rls_list)
+function [] = process_rls_files(dat_dir,rls_list,disparity_flag)
 
 if nargin < 2
     rls_list = nan;
+end
+if nargin < 3
+    disparity_flag = false; %use for new disparity expts that need to be parsed differently
 end
 
 cd(dat_dir);
@@ -36,8 +39,14 @@ for i = 1:n_rc_files
     if any(isnan(rls_list)) || ismember(rls_num,rls_list)
         fprintf('Parsing file %d of %d. Name: %s\n',i,n_rc_files,file_names(i).name);
         
+        if disparity_flag
+            fprintf('Using disparity-stim parsing\n');
+        [trial_ids,seed_ids,cur_frame_trial_nums,cur_frame_nums,left_pix,right_pix,trial_ds,rc_has_mtrS(i)] = ...
+            parse_random_bar_file_dispExpt(file_names(i).name);
+        else
         [trial_ids,seed_ids,cur_frame_trial_nums,cur_frame_nums,left_pix,right_pix,trial_ds,rc_has_mtrS(i)] = ...
             parse_random_bar_file(file_names(i).name);
+        end
         
         trial_trial_ids = [trial_trial_ids; trial_ids];
         trial_seed_nums = [trial_seed_nums; seed_ids];

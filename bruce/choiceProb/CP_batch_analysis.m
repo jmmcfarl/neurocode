@@ -107,7 +107,7 @@ for eee = 1:length(data_sets)
     tot_spks_per_trial_norm = tot_spks_per_trial;
     tot_spks_per_trial_norm(tot_spks_per_trial == 0) = nan;
     
-    sig_trials = find(abs(trialOB) == msOB);
+    sig_trials = find(abs(trialOB) == msOB & trialrespDir ~= 0);
     stim_up = sig_trials(trialrwDir(sig_trials)==1);
     stim_down = sig_trials(trialrwDir(sig_trials)==-1);
     sig_prob = nan(Nunits,1);
@@ -144,8 +144,51 @@ for eee = 1:length(data_sets)
     end
     
     %%
+    fullRobs_norm = bsxfun(@rdivide,fullRobs,reshape(avg_spk_rates,[1 1 Nunits]));
+    avg_rup = squeeze(nanmean(fullRobs_norm(:,resp_up,:),2));
+    avg_rdown = squeeze(nanmean(fullRobs_norm(:,resp_down,:),2));
+    avg_sup = squeeze(nanmean(fullRobs_norm(:,stim_up,:),2));
+    avg_sdown = squeeze(nanmean(fullRobs_norm(:,stim_down,:),2));
+    
+    sm_win = round(0.025/dt);
+    for ii = 1:Nunits
+        avg_rup(:,ii) = jmm_smooth_1d_cor(avg_rup(:,ii),sm_win);
+        avg_rdown(:,ii) = jmm_smooth_1d_cor(avg_rdown(:,ii),sm_win);
+        avg_sup(:,ii) = jmm_smooth_1d_cor(avg_sup(:,ii),sm_win);
+        avg_sdown(:,ii) = jmm_smooth_1d_cor(avg_sdown(:,ii),sm_win);
+    end
+    
+    
+    tax = (1:NT)*dt;
+    f1 = figure('visible','off'); 
+    subplot(2,1,1);
+    hold on;
+    plot(tax,nanmean(avg_rup,2),'b',tax,nanmean(avg_rdown,2),'r',tax,nanmean(avg_sup,2),'k',tax,nanmean(avg_sdown,2),'g');
+    legend('Chose up','Chose down','Stim up','Stim down','Location','Southeast');
+    shadedErrorBar(tax,nanmean(avg_rup,2),nanstd(avg_rup,[],2)/sqrt(Nunits),{'color','b'});
+    shadedErrorBar(tax,nanmean(avg_rdown,2),nanstd(avg_rdown,[],2)/sqrt(Nunits),{'color','r'});
+    shadedErrorBar(tax,nanmean(avg_sup,2),nanstd(avg_sup,[],2)/sqrt(Nunits),{'color','k'});
+    shadedErrorBar(tax,nanmean(avg_sdown,2),nanstd(avg_sdown,[],2)/sqrt(Nunits),{'color','g'});
+    line(tax([1 end]),[1 1],'color','k');
+    
+     subplot(2,1,2);
+    hold on
+    plot(tax,nanmean(avg_rup-avg_rdown,2),'b',tax,nanmean(avg_sup-avg_sdown,2),'k');
+    legend('Choice up-down','Stim up-down','Location','Southeast');
+    shadedErrorBar(tax,nanmean(avg_rup-avg_rdown,2),nanstd(avg_rup-avg_rdown,[],2)/sqrt(Nunits),{'color','b'});
+    shadedErrorBar(tax,nanmean(avg_sup-avg_sdown,2),nanstd(avg_sup-avg_sdown,[],2)/sqrt(Nunits),{'color','k'});
+    line(tax([1 end]),[0 0],'color','k');
+   
+    fig_width = 6; rel_height = 1.6;
+    fig_name = [fig_dir sprintf('%s_CPSP_PSTHcompare.pdf',Expt_name)];
+    figufy(f1);
+    exportfig(f1,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+    close(f1);
+
+    %%
     xr = [0.3 0.7]; yr = [0 1];
     h = scatterhist(choice_prob,sig_prob,'nbins',50);
+    set(gcf,'visible','off');
     hold on
     plot(choice_prob(Ucellnumbers > 0),sig_prob(Ucellnumbers > 0),'r.');
     line(xr,[0.5 0.5],'color','k'); line([0.5 0.5],yr,'color','k');
@@ -167,12 +210,21 @@ for eee = 1:length(data_sets)
     end
     
     fract_one = nan(length(un_OBs),1);
+    fract_one_uci = nan(length(un_OBs),1);
+    fract_one_lci = nan(length(un_OBs),1);
+    zval = 1.96;
     for ss = 1:length(un_OBs)
         cur_OB_neg = find(trialOB_prime == un_OBs(ss) & trialrespDir ~= 0);
-        fract_one(ss) = sum(trialrespDir(cur_OB_neg) == 1)/length(cur_OB_neg);
+        curN = length(cur_OB_neg);
+        fract_one(ss) = sum(trialrespDir(cur_OB_neg) == 1)/curN;
+        
+        %uncertainty estimates based on Wilson score interval formula (this
+        %gives better approx of 95% CI
+        fract_one_uci(ss) = 1/(1+zval^2/curN)*(fract_one(ss) + zval^2/(2*curN) + zval*sqrt(fract_one(ss)/curN*(1-fract_one(ss)) + zval^2/(4*curN^2)));
+        fract_one_lci(ss) = 1/(1+zval^2/curN)*(fract_one(ss) + zval^2/(2*curN) - zval*sqrt(fract_one(ss)/curN*(1-fract_one(ss)) + zval^2/(4*curN^2)));
     end
     
-    sig_strengths = [msOB 80 70 60];
+    sig_strengths = [zsOB 80 70 60];
     cmet_avgs = nan(Nunits,length(sig_strengths));
     nmet_avgs = nan(Nunits,length(sig_strengths));
     for ss = 1:length(sig_strengths)
@@ -189,9 +241,9 @@ for eee = 1:length(data_sets)
     cmet_avgs = bsxfun(@rdivide,cmet_avgs,nanstd(tot_spks_per_trial_norm)');
     nmet_avgs = bsxfun(@rdivide,nmet_avgs,nanstd(tot_spks_per_trial_norm)');
     
-    f1 = figure();
+    f1 = figure('visible','off'); 
     subplot(2,2,1);
-    plot(OB_x,fract_one,'o-');
+    errorbar(OB_x,fract_one,fract_one-fract_one_lci,fract_one_uci-fract_one);
     xlabel('Signal strength');
     ylabel('Fraction chose pos');
     ylim([0 1]);
@@ -224,7 +276,7 @@ for eee = 1:length(data_sets)
     ET_data_up = int2double(ET_data_up, AllExpt.Expt.Header.emscale);
     ET_data_down = int2double(ET_data_down, AllExpt.Expt.Header.emscale);
     
-    trange = (size(ET_data_up,1)-110):(size(ET_data_up,1)-10);
+    trange = (size(ET_data_up,1)-200):(size(ET_data_up,1)-10);
     ET_data_up = permute(ET_data_up,[1 3 2]); ET_data_down = permute(ET_data_down,[1 3 2]);
     
     ET_data_up = bsxfun(@minus,ET_data_up,reshape(nanmedian(reshape(ET_data_up,[],4)),1,1,4));
@@ -232,10 +284,10 @@ for eee = 1:length(data_sets)
 
     em_r = [-8 8];
     subplot(2,2,4); hold on
-    plot(squeeze(ET_data_up(:,:,3)),squeeze(ET_data_up(:,:,4)),'b.','markersize',1);
-    plot(squeeze(ET_data_down(:,:,3)),squeeze(ET_data_down(:,:,4)),'r.','markersize',1);
-    plot(squeeze(ET_data_up(:,:,1)),squeeze(ET_data_up(:,:,2)),'k.','markersize',1);
-    plot(squeeze(ET_data_down(:,:,1)),squeeze(ET_data_down(:,:,2)),'g.','markersize',1);
+    plot(squeeze(ET_data_up(trange,:,3)),squeeze(ET_data_up(trange,:,4)),'b.','markersize',1);
+    plot(squeeze(ET_data_down(trange,:,3)),squeeze(ET_data_down(trange,:,4)),'r.','markersize',1);
+    plot(squeeze(ET_data_up(trange,:,1)),squeeze(ET_data_up(trange,:,2)),'k.','markersize',1);
+    plot(squeeze(ET_data_down(trange,:,1)),squeeze(ET_data_down(trange,:,2)),'g.','markersize',1);
     xlim(em_r); ylim(em_r); line(em_r,[0 0],'color','k'); line([0 0],em_r,'color','k');
     fig_width = 8; rel_height = 1;
     fig_name = [fig_dir sprintf('%s_ratecurves.pdf',Expt_name)];

@@ -76,11 +76,11 @@ elseif strcmp(rec_type,'UA')
 end
 if strcmp(monk_name,'jbe')
     params.good_coils = [1 0];
-    if strcmp(rec_type,'UA')
+%     if strcmp(rec_type,'UA')
         params.use_coils = [0 0];
-    elseif strcmp(rec_type,'LP')
-        params.use_coils = [1 0];
-    end
+%     elseif strcmp(rec_type,'LP')
+%         params.use_coils = [1 0];
+%     end
 elseif strcmp(monk_name,'lem');
     params.good_coils = [1 1];
     params.use_coils = [1 1];
@@ -409,6 +409,9 @@ if params.is_TBT_expt
     end
 end
 
+if max(all_trial_rptframes) > 0
+    warning('Some rpt frames detected');
+end
 %% BIN SPIKES FOR MU AND SU
 clust_params.n_probes = params.n_probes;
 if strcmp(rec_type,'LP')

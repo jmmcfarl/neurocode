@@ -2,7 +2,8 @@ clear all
 close all
 
 monName = 'jbe';
-Expt_name = 'M005';
+Expt_name = 'M008';
+rec_type = 'LP';
 data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
 
@@ -17,7 +18,6 @@ flen = 12;
 Fr = 1;
 n_probes = 24;
 spatial_usfac = 1;
-rec_type = 'LP';
 %%
 cd(data_dir);
 ExptFileName = strcat(monName,Expt_name,'Expts.mat');
@@ -28,7 +28,7 @@ load('./stim_data.mat');
 load('./expt_data.mat');
 
 %%
-include_expts = {'rls.froNoise'};
+include_expts = {'rls.dpXceXFrRC'};
 usable_expts = find(cellfun(@(x) ~isempty(x),Expts));
 expt_names = cellfun(@(x) x.Header.expname,Expts(usable_expts),'uniformoutput',0);
         
@@ -39,6 +39,11 @@ full_nPix = unique(expt_npix(cur_block_set));
 if length(full_nPix) > 1
     warning('multiple npix detected');
 end
+
+%%
+load([data_dir '/CellList']);
+good_sus = find(all(CellList(cur_block_set,:,1) > 0));
+
 %% Spatial resolution
 all_dws = cellfun(@(x) x.Stimvals.dw,Expts(cur_block_set));
 base_sp_dx = mode(all_dws);
@@ -55,15 +60,20 @@ fprintf('Computing prep data\n');
 trial_cnt = 0;
 
 all_stim_times = [];
-all_stim_mat = [];
+all_Lstim_mat = [];
+all_Rstim_mat = [];
+all_frame_ce = [];
+all_frame_dp = [];
 all_t_axis = [];
 all_t_bin_edges = [];
 all_tsince_start = [];
 all_blockvec = [];
 all_trialvec = [];
 all_trial_Se = [];
-all_trial_wi = [];
 all_trial_blk = [];
+all_trial_Fr = [];
+all_nframes = [];
+all_nstims = [];
 all_trial_blocknums = [];
 all_trial_start_times = [];
 all_trial_end_times = [];
@@ -80,12 +90,12 @@ for ee = 1:n_blocks;
     fprintf('Block %d of %d;  UNMATCHED EXPT TYPE\n',ee,n_blocks);
     cur_block = cur_block_set(ee);
     
-    fname = [cluster_dir sprintf('/Block%d_Clusters.mat',cur_block)];
-    load(fname,'Clusters');
+    fname = sprintf('Expt%dClusterTimes.mat',cur_block_set(ee));
+    load(fname);
     for cc = 1:n_probes
-        all_spk_times{cc} = cat(1,all_spk_times{cc},Clusters{cc}.times + cur_toffset);
-        all_spk_inds{cc} = cat(1,all_spk_inds{cc},Clusters{cc}.spk_inds + cur_spkind_offset);
-        all_clust_ids{cc} = cat(1,all_clust_ids{cc},Clusters{cc}.spike_clusts);
+        all_spk_times{cc} = cat(1,all_spk_times{cc},Clusters{cc}.times' + cur_toffset);
+%         all_spk_inds{cc} = cat(1,all_spk_inds{cc},Clusters{cc}.spk_inds + cur_spkind_offset);
+        all_clust_ids{cc} = cat(1,all_clust_ids{cc},ones(size(Clusters{cc}.times')));
     end
     
     trial_start_times = [Expts{cur_block}.Trials(:).TrialStart]/1e4;
@@ -108,25 +118,44 @@ for ee = 1:n_blocks;
     
     trial_Se = [Expts{cur_block}.Trials(:).se];
     trial_Se = trial_Se(id_inds);
+    trial_Fr = [Expts{cur_block}.Trials(:).Fr];
+    trial_Fr = trial_Fr(id_inds);
     all_trial_Se = cat(1,all_trial_Se,trial_Se(use_trials)');
+    all_trial_Fr = cat(1,all_trial_Fr,trial_Fr(use_trials)');
     all_trial_blk = cat(1,all_trial_blk,ones(length(use_trials),1)*ee);
         
     fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
     load(fname);
     buffer_pix = floor((expt_npix(cur_block) - full_nPix)/2);
-    if buffer_pix == -1
-        for ii = 1:length(left_stim_mats)
-            left_stim_mats{ii} = [zeros(size(left_stim_mats{ii},1),1) left_stim_mats{ii} zeros(size(left_stim_mats{ii},1),1)];
-        end
-        buffer_pix = 0;
-    end
+%     if buffer_pix == -1
+%         for ii = 1:length(left_stim_mats)
+%             left_stim_mats{ii} = [zeros(size(left_stim_mats{ii},1),1) left_stim_mats{ii} zeros(size(left_stim_mats{ii},1),1)];
+%         end
+%         buffer_pix = 0;
+%     end
     cur_use_pix = (1:full_nPix) + buffer_pix;
     
     n_trials = length(use_trials);
     cur_nrpt_frames = zeros(n_trials,1);
+    [trial_nframes,trial_nstims] = deal(nan(n_trials,1));
     for tt = 1:n_trials
         cur_stim_times = Expts{cur_block}.Trials(use_trials(tt)).Start'/1e4;
+        cur_stim_ce = Expts{cur_block}.Trials(use_trials(tt)).ce;
+        cur_stim_dp = Expts{cur_block}.Trials(use_trials(tt)).dp;
+        
+        if trial_Fr(use_trials(tt)) == 3
+           cur_stim_times = repmat(cur_stim_times,[3 1]);
+           cur_stim_times = cur_stim_times(:); cur_stim_times = cur_stim_times(1:301)';
+           cur_stim_ce = repmat(cur_stim_ce',[3 1]);
+           cur_stim_ce = cur_stim_ce(:); cur_stim_ce = cur_stim_ce(1:301);
+           cur_stim_dp = repmat(cur_stim_dp',[3 1]);
+           cur_stim_dp = cur_stim_dp(:); cur_stim_dp = cur_stim_dp(1:301); 
+        end
+        
+        
         n_frames = size(left_stim_mats{use_trials(tt)},1);
+        trial_nframes(tt) = n_frames;
+        trial_nstims(tt) = length(cur_stim_times);
         if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes')
             cur_nrpt_frames(tt) = length(Expts{cur_block}.Trials(use_trials(tt)).rptframes);
         end
@@ -134,27 +163,33 @@ for ee = 1:n_blocks;
             if length(cur_stim_times) == 1
                 cur_stim_times = (cur_stim_times:dt*Fr:(cur_stim_times + (n_frames-1)*dt*Fr))';
                 cur_stim_times(cur_stim_times > trial_end_times(use_trials(tt))) = [];
-                cur_t_edges = [cur_stim_times; cur_stim_times(end) + dt*Fr];
             end
+            cur_t_edges = [cur_stim_times'; cur_stim_times(end) + dt*Fr];
         end
         cur_t_axis = 0.5*cur_t_edges(1:end-1) + 0.5*cur_t_edges(2:end);
         
         cur_tsince_start = cur_t_axis - trial_start_times(use_trials(tt));
         
-        if ~any(isnan(left_stim_mats{use_trials(tt)}(:))) && n_frames > min_trial_dur/dt
+        if ~any(isnan(left_stim_mats{use_trials(tt)}(:))) && n_frames > min_trial_dur/dt & trial_nframes(tt) == trial_nstims(tt)
             use_frames = min(length(cur_stim_times),n_frames);
-            cur_stim_mat = double(left_stim_mats{use_trials(tt)}(1:use_frames,cur_use_pix));
+            cur_Lstim_mat = double(left_stim_mats{use_trials(tt)}(1:use_frames,cur_use_pix));
+            cur_Rstim_mat = double(right_stim_mats{use_trials(tt)}(1:use_frames,cur_use_pix));
             
             if ~isempty(all_stim_times)
                 if any(cur_stim_times+cur_toffset < all_stim_times(end))
                     fprintf('Warn trial %d\n',tt);
                 end
             end
-            all_stim_times = [all_stim_times; cur_stim_times + cur_toffset];
+            all_nframes = [all_nframes; trial_nframes(:)];
+            all_nstims = [all_nstims; trial_nstims(:)];
+            all_stim_times = [all_stim_times; cur_stim_times' + cur_toffset];
             all_t_axis = [all_t_axis; cur_t_axis + cur_toffset];
             all_t_bin_edges = [all_t_bin_edges; cur_t_edges + cur_toffset];
-            all_stim_mat = [all_stim_mat; cur_stim_mat];
+            all_Lstim_mat = [all_Lstim_mat; cur_Lstim_mat];
+            all_Rstim_mat = [all_Rstim_mat; cur_Rstim_mat];
             all_tsince_start = [all_tsince_start; cur_tsince_start];
+            all_frame_ce = [all_frame_ce; cur_stim_ce];
+            all_frame_dp = [all_frame_dp; cur_stim_dp];
             all_blockvec = [all_blockvec; ones(size(cur_t_axis))*ee];
             all_trialvec = [all_trialvec; ones(size(cur_t_axis))*(tt + trial_cnt)];
             all_bin_edge_pts = [all_bin_edge_pts; length(all_t_bin_edges)];
@@ -177,79 +212,85 @@ all_binned_mua = get_quickbinned_mu(all_spk_times,all_clust_ids,all_t_axis,all_t
 
 %%
 full_nPix_us = spatial_usfac*full_nPix;
-if spatial_usfac > 1
-    all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
-    for ii = 1:size(all_stim_mat,2)
-        for jj = 1:spatial_usfac
-            all_stimmat_up(:,spatial_usfac*(ii-1)+jj) = all_stim_mat(:,ii);
-        end
-    end
-elseif spatial_usfac == 1
-    all_stimmat_up = all_stim_mat;
-end
+% if spatial_usfac > 1
+%     all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
+%     for ii = 1:size(all_stim_mat,2)
+%         for jj = 1:spatial_usfac
+%             all_stimmat_up(:,spatial_usfac*(ii-1)+jj) = all_stim_mat(:,ii);
+%         end
+%     end
+% elseif spatial_usfac == 1
+%     all_stimmat_up = all_stim_mat;
+% end
 
-%select subset of pixels used for model fitting
-buffer_pix = floor((full_nPix - use_nPix)/2);
-[Xinds_up,~] = meshgrid(1/spatial_usfac:1/spatial_usfac:full_nPix,1:flen);
-cur_use_pix = (1/spatial_usfac:1/spatial_usfac:use_nPix) + buffer_pix;
-use_kInds_up = find(ismember(Xinds_up(:),cur_use_pix));
 
-stim_params_us = NMMcreate_stim_params([flen full_nPix_us],dt);
-
-%% CREATE STIMULUS MATRIX
-stim_params = NIMcreate_stim_params([flen full_nPix_us],dt);
-all_Xmat = create_time_embedding(all_stimmat_up,stim_params);
-all_Xmat = all_Xmat(:,use_kInds_up);
+stim_params_us = NMMcreate_stim_params([flen full_nPix_us*2],dt);
 
 %%
+flip_frames = all_frame_ce == -1;
+all_Rstim_mat(flip_frames,:) = -all_Rstim_mat(flip_frames,:);
+% all_Lstim_mat(flip_frames,:) = -all_Lstim_mat(flip_frames,:);
+
+%%
+blank_frames = all_frame_ce == -1009;
+all_Rstim_mat(blank_frames,:) = 0;
+all_Lstim_mat(blank_frames,:) = 0;
+%% CREATE STIMULUS MATRIX
+stim_params = NIMcreate_stim_params([flen full_nPix_us*2],dt);
+all_Xmat = create_time_embedding([all_Lstim_mat all_Rstim_mat],stim_params);
+
+%%
+all_Xmat(all_Xmat == -128) = nan;
+bad_trials = [];
+good_inds = [];
+un_trials = unique(all_trialvec);
+for tt = 1:length(un_trials)
+    cur_set = find(all_trialvec == un_trials(tt));
+    if any(isnan(reshape(all_Xmat(cur_set,:),[],1)))
+        bad_trials = [bad_trials un_trials(tt)];
+    else
+        good_inds = [good_inds; cur_set(:)];
+    end
+end
+%%
+
+
 % DEFINE DATA USED FOR ANALYSIS
-beg_buffer = 0.2;
-end_buffer = 0.1;
+beg_buffer = 0.15;
+end_buffer = 0.05;
 used_inds = find(all_tsince_start >= beg_buffer & (trial_dur-all_tsince_start) >= end_buffer);
 NT = length(used_inds);
 
-% Create set of TR and XV trials
-use_trials = unique(all_trialvec(used_inds));
-nuse_trials = length(use_trials);
+used_inds(ismember(all_trialvec(used_inds),bad_trials)) = [];
 
 %%
-tr_X{1} = abs(all_Xmat(used_inds,:));
-tr_X{2} = all_Xmat(used_inds,:);
+silent = 0;
+base_lambda_d2XT = 100;
+base_lambda_L1 = 1;
 
-%%
-init_stim_params(1) = NMMcreate_stim_params([flen use_nPix],dt);
-init_stim_params(2) = NMMcreate_stim_params([flen use_nPix],dt);
-silent = 1;
-base_lambda_d2XT = 5;
-base_lambda_L1 = 0;
-init_optim_p.optTol = 1e-5; init_optim_p.progTol = 1e-9;
-
-n_stim_filts = 2;
+n_stim_filts = 3;
 mod_signs = ones(1,n_stim_filts);
-% NL_types = [{'lin'} repmat({'quad'},1,n_stim_filts-1)];
-NL_types = [{'lin' 'lin'}];
+NL_types = [{'lin' 'quad','quad'}];
 init_d2XT = [ones(n_stim_filts,1)];
 init_L2 = [zeros(n_stim_filts,1);];
-init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT);
-init_Xtargs = [1; 2];
+init_reg_params = NMMcreate_reg_params('lambda_d2XT',base_lambda_d2XT,'lambda_L1',base_lambda_L1,'boundary_conds',[0 0 0]);
 
-for ss = 1:n_probes;
+for ss = 22
     fprintf('Fitting model for MU %d of %d\n',ss,n_probes);
     Robs = all_binned_mua(used_inds,ss);
-            
-    gqm1 = NMMinitialize_model(init_stim_params,mod_signs,NL_types,init_reg_params,init_Xtargs);
-    gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],[],silent,init_optim_p);
-
-    [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(gqm1,Robs,tr_X);
-    gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./var(gint)');
-    gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_L1',base_lambda_L1./std(gint)');
-    gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],[],silent);
     
-    all_mod_fits(ss) = gqm1;
-    
-    [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMmodel_eval(all_mod_fits(ss),Robs,tr_X);
-    all_mod_LLimp(ss) = (LL-nullLL)/log(2);
+    if sum(Robs) > 0
+        gqm1 = NMMinitialize_model(stim_params,mod_signs,NL_types,init_reg_params);
+%         for ii = 1:length(gqm1.mods)
+%             gqm1.mods(ii).filtK(:) = 0;
+%         end
+        gqm1 = NMMfit_filters(gqm1,Robs,all_Xmat(used_inds,:),[],[],silent);
         
+        all_mod_fits(ss) = gqm1;
+        
+        [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMmodel_eval(all_mod_fits(ss),Robs,all_Xmat(used_inds,:));
+        all_mod_LLimp(ss) = (LL-nullLL)/log(2);
+    end
 end
 
 %%

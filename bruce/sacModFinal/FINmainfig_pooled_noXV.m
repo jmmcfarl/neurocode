@@ -13,12 +13,14 @@ base_tname = 'sac_trig_avg_data5';
 base_yname = 'sacTypeDep_noXV';
 base_iname = 'sac_info_timing_noXV3';
 base_dname = 'sacStimDelay_noXV2';
+base_xname = 'sacStimProcFin_XVTEST'; %analysis of xv LL for gain vs gain+offset models
 
 if include_bursts
     base_tname = strcat(base_tname,'_withbursts');
     base_sname = strcat(base_sname,'_withbursts');
     base_yname = strcat(base_yname,'_withbursts');
     base_dname = strcat(base_dname,'_withbursts');
+    base_xname = strcat(base_xname,'_withbursts');
 end
 
 all_SU_data = [];
@@ -61,6 +63,9 @@ for ee = 1:length(Expt_list)
             dname = strcat(sac_dir,base_dname,sprintf('_ori%d',ori_list(ee,ii)));
             load(dname);
             
+            xname = strcat(sac_dir,base_xname,sprintf('_ori%d',ori_list(ee,ii)));
+            xvdat = load(xname);
+
             su_range = (n_probes+1):length(sacStimProc);
             clear SU_data
             for jj = 1:length(su_range)
@@ -69,6 +74,7 @@ for ee = 1:length(Expt_list)
                 SU_data(jj).type_dep = sacTypeDep(su_range(jj));
                 SU_data(jj).info_time = sacInfoTiming(su_range(jj));
                 SU_data(jj).sac_delay = sacDelay(su_range(jj));
+                SU_data(jj).xvData = xvdat.sacStimProc(su_range(jj));
             end
             [SU_data.expt_num] = deal(Expt_num);
             [SU_data.bar_ori] = deal(ori_list(ee,ii));
@@ -135,6 +141,9 @@ for ee = 1:length(Expt_list)
             dname = strcat(sac_dir,base_dname,sprintf('_ori%d',ori_list(ee,ii)));
             load(dname);
             
+            xname = strcat(sac_dir,base_xname,sprintf('_ori%d',ori_list(ee,ii)));
+            xvdat = load(xname);
+
             su_range = (n_probes+1):length(sacStimProc);
             clear SU_data
             for jj = 1:length(su_range)
@@ -147,6 +156,7 @@ for ee = 1:length(Expt_list)
                 end
                 SU_data(jj).info_time = sacInfoTiming(su_range(jj));
                 SU_data(jj).sac_delay = sacDelay(su_range(jj));
+                SU_data(jj).xvData = xvdat.sacStimProc(su_range(jj));
             end
             [SU_data.expt_num] = deal(Expt_num);
             [SU_data.bar_ori] = deal(ori_list(ee,ii));
@@ -2223,6 +2233,10 @@ cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_TA_Nsacs & mod_xvLLimps > 
 all_gsac_par = cell2mat(arrayfun(@(x) x.trig_avg.gsac_small_ocomp', all_SU_data(cur_SUs),'uniformoutput',0));
 all_gsac_orth = cell2mat(arrayfun(@(x) x.trig_avg.gsac_large_ocomp', all_SU_data(cur_SUs),'uniformoutput',0));
 
+all_avg_LOcomp = arrayfun(@(x) x.trig_avg.avg_locomp,all_SU_data(cur_SUs)); %avg orth displacement of 'orth' set
+all_avg_SOcomp = arrayfun(@(x) x.trig_avg.avg_socomp,all_SU_data(cur_SUs)); %avg orth displacement of 'parallel' set
+
+
 %spline interpolate
 tlags_up = linspace(tlags(1),tlags(end),500);
 all_gsac_par_up = spline(tlags,all_gsac_par,tlags_up);
@@ -2696,10 +2710,15 @@ min_SD_frac = 0.2;
 all_CVs = cell2mat(arrayfun(@(x) x.sac_delay.single_rCV',all_SU_data(cur_SUs),'uniformoutput',0));
 min_CV = 0.05;
 
-uset = all_CVs > min_CV;
+ex_cell = 32;
+
+min_used_units = 20; %minimum number of cells to have significant measure at each latency
+min_pts = 5; %minimum number of latencies per cell to try to extract slope
 
 flen = 15;
 mod_dt = 0.01;
+tax = (0:(flen-1))*mod_dt + mod_dt/2;
+
 gsac_gain = nan(length(cur_SUs),flen,length(slags));
 for ff = 1:flen;
     cur_gains = 1+cell2mat(arrayfun(@(x) x.sac_delay.gain_filts(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
@@ -2709,47 +2728,69 @@ for ff = 1:flen;
     cur_gains = bsxfun(@rdivide,cur_gains,mean(cur_gains(:,base_lags),2)); %normalize by pre-sac gain strength
     gsac_gain(:,ff,:) = cur_gains;
 end
+
+uset = all_CVs > min_CV;
 uset_full = repmat(uset,[1 1 length(slags)]);
-% gsac_gain(~uset_full) = nan;
+gsac_gain_nan = gsac_gain;
+gsac_gain_nan(~uset_full) = nan; %only use cell/latencies that have enough stimulus modulation
 
 %population avgs
-avg_gains = squeeze(nanmean(gsac_gain));
-sem_gains = squeeze(nanstd(gsac_gain)./sqrt(sum(~isnan(gsac_gain))));
+avg_gains = squeeze(nanmean(gsac_gain_nan));
+sem_gains = squeeze(nanstd(gsac_gain_nan)./sqrt(sum(~isnan(gsac_gain_nan))));
+
+%only use latencies where we have enough significant units contributing to
+%the population avg
+n_use_units = sum(~isnan(gsac_gain_nan(:,:,1)));
+ulags = n_use_units >= min_used_units;
+avg_gains(~ulags,:) = nan;
+
+f1 = figure();
+imagescnan(slags*dt,tax,avg_gains)
+caxis([0.6 1.4])
+ylim([0 0.12]);
+xlabel('Time since saccade onset (s)');
+ylabel('Stimulus latency (s)');
+set(gca,'ydir','normal');
+xlim([-0.05 0.2]);
+colorbar
+line([0 0.12],[0 0.12],'color','k');
+line([0 0],[0 0.12],'color','k','linestyle','--');
 
 %interpolate onto finer temporal grid
 slags_up = linspace(slags(1),slags(end),200);
-avg_gains_up = spline(slags,avg_gains,slags_up);
+avg_gains_up = nan(flen,length(slags_up));
+avg_gains_up(ulags,:) = spline(slags,avg_gains(ulags,:),slags_up);
 [avg_gain_peakamps,avg_gain_peaklocs] = min(avg_gains_up,[],2);
 
-yr = [0.6 1.1];
-ulag_range = 3:10;
-cmap = jet(length(ulag_range));
-f1 = figure(); hold on
-for ii = 1:length(ulag_range)
-    plot(slags_up*dt,avg_gains_up(ulag_range(ii),:),'color',cmap(ii,:),'linewidth',1);
-    line([0 0]+slags_up(avg_gain_peaklocs(ulag_range(ii)))*dt,yr,'color',cmap(ii,:));
-    %     shadedErrorBar(slags*dt,avg_gains(ulag_range(ii),:),sem_gains(ulag_range(ii),:),{'color',cmap(ii,:)});
-    plot(slags_up(avg_gain_peaklocs(ulag_range(ii)))*dt,avg_gain_peakamps(ulag_range(ii)),'o','color',cmap(ii,:),'linewidth',2)
-end
-xlim([-0.05 0.2])
-ylim(yr);
-line([0 0],yr,'color','k','linestyle','--');
-line([-0.1 0.3],[1 1],'color','k','linestyle','--');
-xlabel('Time (s)');
-ylabel('Gain');
-
-%hyperparameter selection
-post_lambda_off = 4;
-post_lambda_gain = 3;
-
-%pre and post gain kernels
-gsac_post_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
-%noramlize gain kernels
-gsac_post_gain = bsxfun(@rdivide,gsac_post_gain,mean(gsac_post_gain(:,base_lags),2));
-avg_post_gain = mean(gsac_post_gain);
-
-post_gain_up = spline(slags,avg_post_gain,slags_up);
-plot(slags_up*dt,post_gain_up,'k--','linewidth',2);
+% yr = [0.6 1.1];
+% ulag_range = 3:10;
+% cmap = jet(length(ulag_range));
+% f1 = figure(); hold on
+% for ii = 1:length(ulag_range)
+%     plot(slags_up*dt,avg_gains_up(ulag_range(ii),:),'color',cmap(ii,:),'linewidth',1);
+%     line([0 0]+slags_up(avg_gain_peaklocs(ulag_range(ii)))*dt,yr,'color',cmap(ii,:));
+%     %     shadedErrorBar(slags*dt,avg_gains(ulag_range(ii),:),sem_gains(ulag_range(ii),:),{'color',cmap(ii,:)});
+%     plot(slags_up(avg_gain_peaklocs(ulag_range(ii)))*dt,avg_gain_peakamps(ulag_range(ii)),'o','color',cmap(ii,:),'linewidth',2)
+% end
+% xlim([-0.05 0.2])
+% ylim(yr);
+% line([0 0],yr,'color','k','linestyle','--');
+% line([-0.1 0.3],[1 1],'color','k','linestyle','--');
+% xlabel('Time (s)');
+% ylabel('Gain');
+% % 
+% %hyperparameter selection
+% post_lambda_off = 4;
+% post_lambda_gain = 3;
+% 
+% %pre and post gain kernels
+% gsac_post_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
+% %noramlize gain kernels
+% gsac_post_gain = bsxfun(@rdivide,gsac_post_gain,mean(gsac_post_gain(:,base_lags),2));
+% avg_post_gain = mean(gsac_post_gain);
+% 
+% post_gain_up = spline(slags,avg_post_gain,slags_up);
+% plot(slags_up*dt,post_gain_up,'k--','linewidth',2);
 
 
 search_range = [0. 0.2];
@@ -2765,22 +2806,23 @@ for ff = 1:flen
     gkern_times(:,ff) = cur_gkern_time;
 end
 % uset = all_SDs > min_SD_frac;
-uset = all_CVs > min_CV;
+% uset = all_CVs > min_CV;
 gkern_times(~uset) = nan;
 noise_SDs = squeeze(std(gsac_gain(:,:,base_lags),[],3));
-min_SNR = 0;
-bad_peaks = gkern_amps <= min_SNR*noise_SDs;
-gkern_times(bad_peaks) = nan;
+% min_SNR = 0;
+% bad_peaks = gkern_amps <= min_SNR*noise_SDs;
+% gkern_times(bad_peaks) = nan;
 
-tax = (0:(flen-1))*mod_dt + mod_dt/2;
 
-min_pts = 5;
 [cell_corr ,cell_slope,cell_offset] = deal(nan(length(cur_SUs),1));
 for ii = 1:length(cur_SUs)
     curset = find(~isnan(gkern_times(ii,:)));
     if length(curset) >= min_pts
+        ii
         cell_corr(ii) = corr((1:length(curset))',gkern_times(ii,curset)','type','spearman');
         temp = robustfit(tax(curset),gkern_times(ii,curset)');
+%         temp = robustfit(gkern_times(ii,curset)',tax(curset));
+%         temp = regress(gkern_times(ii,curset)',[ones(length(curset),1) tax(curset)']);
 %         temp = regress(gkern_times(ii,curset)',[ones(length(curset),1) tax(curset)']);
         cell_slope(ii) = temp(2); cell_offset(ii) = temp(1);
     end
@@ -2788,22 +2830,29 @@ end
 
 all_preds = bsxfun(@times,cell_slope,tax) + nanmean(cell_offset);
 
-min_used_units = 20;
 n_used_units = sum(~isnan(gkern_times));
-gkern_times(:,n_used_units < min_used_units) = nan;
+gkern_times_nan = gkern_times;
+gkern_times_nan(:,n_used_units < min_used_units) = nan;
 all_preds(:,n_used_units < min_used_units) = nan;
 f2 = figure(); hold on
 % shadedErrorBar(1:flen,nanmedian(gkern_times),iqr(gkern_times),{'color','r'});
 % shadedErrorBar(tax,nanmean(all_preds),nanstd(all_preds)./sqrt(n_used_units),{'color','r'});
-shadedErrorBar(tax,nanmean(gkern_times),nanstd(gkern_times)./sqrt(n_used_units),{'color','b'});
+% shadedErrorBar(tax,nanmean(gkern_times),nanstd(gkern_times)./sqrt(n_used_units),{'color','b'});
+h = errorbar(tax,nanmean(gkern_times_nan),nanstd(gkern_times_nan)./sqrt(n_used_units),'o-');
+plot(tax,gkern_times(ex_cell,:),'ro');
+xx = linspace(0.02,0.1,100); yy = xx*cell_slope(ex_cell) + cell_offset(ex_cell);
+plot(xx,yy,'r-');
 % plot(1:flen,gkern_times,'k.')
 line([0 0.14],[0 0.14]+0.0,'color','k');
-xlim([0 0.12]);
+xlim([0 0.12]); ylim([0.04 0.12]);
 xlabel('Stimulus latency (s)');
 ylabel('Suppression timing (s)');
 
-xe = linspace(-2.5,2.5,50);
+
+xe = linspace(-2.5,2.5,30);
 nn = histc(cell_slope,xe);
+% xe = linspace(-1,1,50);
+% nn = histc(cell_corr,xe);
 f3 = figure();
 stairs(xe,nn,'b','linewidth',2);
 yl = ylim();
@@ -2814,18 +2863,25 @@ xlabel('Slope');
 ylabel('Counts');
 
 % for ex_cell = 1:84
-ex_cell = 32;
 f4 = figure();
-imagesc(slags*dt,tax,squeeze(gsac_gain(ex_cell,:,:)))
+imagescnan(slags*dt,tax,squeeze(gsac_gain_nan(ex_cell,:,:)))
+hold on
+xx = linspace(-0.05,0.2,100); yy = (xx-cell_offset(ex_cell))/cell_slope(ex_cell);
+plot(xx,yy,'w','linewidth',2);
+plot(gkern_times(ex_cell,:),tax,'ro','linewidth',1);
 caxis([0.2 1.8])
 ylim([0 0.12]);
 xlabel('Time since saccade onset (s)');
 ylabel('Stimulus latency (s)');
+set(gca,'ydir','normal');
 xlim([-0.05 0.2]);
+line([0 0.12],[0 0.12],'color','k');
+line([0 0],[0 0.12],'color','k','linestyle','--');
 colorbar
 % pause
 % close
 % end
+
 % % PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
@@ -2844,14 +2900,14 @@ colorbar
 % fname = [fig_dir 'gsac_stimlatency_gainmod_slopedist.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
-
-% fig_width = 3.5; rel_height = 0.8;
+% 
+% fig_width = 3.5; rel_height = 0.7;
 % figufy(f4);
 % fname = [fig_dir sprintf('gsac_stimlatency_excell%d.pdf',ex_cell)];
 % exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f4);
 
-%%
+%% FORWARD CORR SACMOD GAIN TIMING ANALYSIS
 sm_win = 1;
 flen = 15;
 high_avgs = nan(length(cur_SUs),flen,length(slags));
@@ -3009,3 +3065,10 @@ ii
 pause
 close all
 end
+
+%% XVAL LL PERFORMANCE COMPARISON
+cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
+offset_xvLLimp = arrayfun(@(x) x.xvData.offset_mod.xvLLimp,all_SU_data(cur_SUs));
+gain_xvLLimp = arrayfun(@(x) x.xvData.gain_mod.xvLLimp,all_SU_data(cur_SUs));
+
+
