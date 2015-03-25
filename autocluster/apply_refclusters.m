@@ -3,8 +3,8 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir spkdata_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M005';
-monk_name = 'jbe';
+Expt_name = 'M309';
+monk_name = 'lem';
 rec_type = 'LP';
 
 Expt_num = str2num(Expt_name(2:end));
@@ -55,7 +55,7 @@ elseif strcmp(rec_type,'LP')
 end
 
 target_probes = 1:n_probes;
-force_new_clusters = false; %if you want to
+force_new_clusters = false; %if you want to ov
 
 elen = cellfun(@(x) length(x),Expts);
 target_blocks = find(elen > 0);
@@ -295,39 +295,42 @@ for bb = target_blocks
     regenerate_allprobe_xyscatters(target_probes,bb);
 end
 
-% %% CHECK CLUSTER ASSIGNMENTS ACROSS ALL BLOCKS FOR ALL PROBES HAVING AT LEAST 2 SUs
-% for probe_num = target_probes
-%     N_sus = max(RefClusters{probe_num}.cluster_labels) - 1;
-%     if N_sus > 1
-%         fprintf('Aligning cluster assignments across blocks for probe %d\n',probe_num);
-%         n_blocks = length(target_blocks);
-%         
-%         N_samps = length(RefClusters{probe_num}.params.spk_pts);
-%         N_chs = length(RefClusters{probe_num}.use_chs);
-%         ref_mean_spike = RefClusters{probe_num}.mean_spike(:,2:end);
-%         ms_size = size(ref_mean_spike);
-%         all_mean_spike = nan(n_blocks,ms_size(1),ms_size(2));
-%         for bb = 1:length(target_blocks)
-%             cur_data = [base_save_dir sprintf('/Block%d_Clusters.mat',target_blocks(bb))];
-%             load(cur_data,'Clusters');
-%             all_mean_spike(bb,:,:) = Clusters{probe_num}.mean_spike(:,2:end);
-%         end
-%         
-%         max_n_sus = 8;
-%         if N_sus > max_n_sus
-%             error('Too many possible SU permutations to consider!');
-%         end
-%         perm_set = perms(1:N_sus);
-%         n_perms = size(perm_set,1);
-%         block_Ctrace = nan(1,n_perms);
-%         best_perms = nan(1,n_blocks);
-%         for bb = 1:length(target_blocks)
-%             Cmat = corr(ref_mean_spike,squeeze(all_mean_spike(bb,:,:)));
-%             for ii = 1:n_perms
-%                 block_Ctrace(ii) = trace(Cmat(perm_set(ii,:),:));
-%             end
-%             [~,best_perms(bb)] = max(block_Ctrace);
-%         end
+%% CHECK CLUSTER ASSIGNMENTS ACROSS ALL BLOCKS FOR ALL PROBES HAVING AT LEAST 2 SUs
+for probe_num = target_probes
+    N_sus = max(RefClusters{probe_num}.cluster_labels) - 1;
+    if N_sus > 1
+        fprintf('Aligning cluster assignments across blocks for probe %d\n',probe_num);
+        n_blocks = length(target_blocks);
+        
+        N_samps = length(RefClusters{probe_num}.params.spk_pts);
+        N_chs = length(RefClusters{probe_num}.use_chs);
+        ref_mean_spike = RefClusters{probe_num}.mean_spike(:,2:end);
+        ms_size = size(ref_mean_spike);
+        all_mean_spike = nan(n_blocks,ms_size(1),ms_size(2));
+        for bb = 1:length(target_blocks)
+            cur_data = [base_save_dir sprintf('/Block%d_Clusters.mat',target_blocks(bb))];
+            load(cur_data,'Clusters');
+            uset = unique(Clusters{probe_num}.cluster_labels);
+            uset(uset==1) = [];
+            all_mean_spike(bb,:,uset-1) = Clusters{probe_num}.mean_spike(:,uset);
+        end
+        
+        max_n_sus = 8;
+        if N_sus > max_n_sus
+            error('Too many possible SU permutations to consider!');
+        end
+        perm_set = perms(1:N_sus);
+        n_perms = size(perm_set,1);
+        block_Ctrace = nan(1,n_perms);
+        best_perms = nan(1,n_blocks);
+        for bb = 1:length(target_blocks)
+            uset = find(~isnan(all_mean_spike(bb,1,:)));
+            Cmat = corr(ref_mean_spike,squeeze(all_mean_spike(bb,:,:)));
+            for ii = 1:n_perms
+                block_Ctrace(ii) = nansum(diag(Cmat(perm_set(ii,:),:)));
+            end
+            [~,best_perms(bb)] = max(block_Ctrace);
+        end
 %         
 %         figure
 %         N_sus = max(RefClusters{probe_num}.cluster_labels) - 1;
@@ -347,64 +350,66 @@ end
 %             end
 %             title(sprintf('Block %d',target_blocks(bb)));
 %         end
-%         
-% %         resp = input('Are the new cluster assignments correct? (y/n)\n','s');
-% %         close
-% %         if strcmpi(resp,'y');
-%             %look for existing full scatter figure and open if it exists
-%             pfname_sc = [full_save_dir sprintf('/Probe%d_fullclust_scatter.fig',probe_num)];
-%             if exist(pfname_sc,'file') %&& ~ishandle(full_scatter_fig)
-%                 full_scatter_fig = open(pfname_sc);
-%             else
-%                 full_scatter_fig = nan;
-%             end
-%             for bb = 1:length(target_blocks)
-%                 fprintf('Relabeling clusters for block %d\n',target_blocks(bb));
-%                 cur_data = [base_save_dir sprintf('/Block%d_Clusters.mat',target_blocks(bb))];
-%                 load(cur_data,'Clusters');
-%                 prev_labels = Clusters{probe_num}.cluster_labels;
-%                 prev_clusts = Clusters{probe_num}.spike_clusts;
-%                 cur_perm = perm_set(best_perms(bb),:);
-%                 new_labels = prev_labels;
-%                 for ii = 1:length(cur_perm)
-%                     new_labels(prev_labels==ii+1) = cur_perm(ii)+1;
-%                 end
-%                 su_spks = prev_clusts > 1;
-%                 new_clusts = prev_clusts;
-%                 new_clusts(su_spks) = cur_perm(prev_clusts(su_spks)-1) + 1;
-%                 Clusters{probe_num}.spike_clusts = new_clusts;
-%                 Clusters{probe_num}.cluster_labels = new_labels;
-%                 Clusters{probe_num}.mean_spike(:,2:end) = Clusters{probe_num}.mean_spike(:,cur_perm+1);
-%                 Clusters{probe_num}.std_spike(:,2:end) = Clusters{probe_num}.std_spike(:,cur_perm+1);
-%                 Clusters{probe_num}.n_spks(2:end) = Clusters{probe_num}.n_spks(cur_perm+1);
-%                 Clusters{probe_num}.refract = Clusters{probe_num}.refract(cur_perm,:);
-%                 Clusters{probe_num}.Lratios = Clusters{probe_num}.Lratios(cur_perm);
-%                 Clusters{probe_num}.iso_dists = Clusters{probe_num}.iso_dists(cur_perm);
-%                 
-%                 save(cur_data,'Clusters');
-%                 
-%                 if ishandle(full_scatter_fig)
-%                     subplot(n_cols,n_rows,bb);
-%                     hold on
-%                     mu_inds = Clusters{probe_num}.spike_clusts == 1;
-%                     spike_xy = Clusters{probe_num}.spike_xy;
-%                     plot(spike_xy(mu_inds,1),spike_xy(mu_inds,2),'k.');
-%                     hold on
-%                     for ii = 1:N_sus
-%                         su_inds = Clusters{probe_num}.spike_clusts == ii + 1;
-%                         plot(spike_xy(su_inds,1),spike_xy(su_inds,2),'.','color',cmap(ii,:));
-%                     end
-%                     if target_blocks(bb) == RefClusters{probe_num}.base_block
-%                         title(sprintf('Block %d',target_blocks(bb)),'Color','r');
-%                     else
-%                         title(sprintf('Block %d',target_blocks(bb)),'Color','k');
-%                     end
-%                 end
-%             end
-%             if ishandle(full_scatter_fig)
-%                 saveas(full_scatter_fig,pfname_sc);
-%                 close(full_scatter_fig);
-%             end
-%         end
-% %     end
-% end
+        
+%         resp = input('Are the new cluster assignments correct? (y/n)\n','s');
+%         close
+%         if strcmpi(resp,'y');
+            %look for existing full scatter figure and open if it exists
+            pfname_sc = [full_save_dir sprintf('/Probe%d_fullclust_scatter.fig',probe_num)];
+            if exist(pfname_sc,'file') %&& ~ishandle(full_scatter_fig)
+                full_scatter_fig = open(pfname_sc);
+            else
+                full_scatter_fig = nan;
+            end
+            for bb = 1:length(target_blocks)
+                fprintf('Relabeling clusters for block %d\n',target_blocks(bb));
+                cur_data = [base_save_dir sprintf('/Block%d_Clusters.mat',target_blocks(bb))];
+                load(cur_data,'Clusters');
+                prev_labels = Clusters{probe_num}.cluster_labels;
+                prev_clusts = Clusters{probe_num}.spike_clusts;
+                cur_perm = perm_set(best_perms(bb),:);
+                new_labels = prev_labels;
+                label_set = unique(prev_labels); label_set(label_set == 1) = [];
+                for ii = 1:length(cur_perm)
+                    new_labels(prev_labels==ii+1) = cur_perm(ii)+1;
+                end
+                su_spks = prev_clusts > 1;
+                new_clusts = prev_clusts;
+                new_clusts(su_spks) = cur_perm(prev_clusts(su_spks)-1) + 1;
+                Clusters{probe_num}.spike_clusts = new_clusts;
+                Clusters{probe_num}.cluster_labels = new_labels;
+                map_to = cur_perm + 1; map_to(~ismember(map_to,label_set)) = [];
+                Clusters{probe_num}.mean_spike(:,label_set) = Clusters{probe_num}.mean_spike(:,map_to);
+                Clusters{probe_num}.std_spike(:,label_set) = Clusters{probe_num}.std_spike(:,map_to);
+                Clusters{probe_num}.n_spks(label_set) = Clusters{probe_num}.n_spks(map_to);
+                Clusters{probe_num}.refract = Clusters{probe_num}.refract(map_to-1,:);
+                Clusters{probe_num}.Lratios = Clusters{probe_num}.Lratios(map_to-1);
+                Clusters{probe_num}.iso_dists = Clusters{probe_num}.iso_dists(map_to-1);
+                
+                save(cur_data,'Clusters');
+                
+                if ishandle(full_scatter_fig)
+                    subplot(n_cols,n_rows,bb);
+                    hold on
+                    mu_inds = Clusters{probe_num}.spike_clusts == 1;
+                    spike_xy = Clusters{probe_num}.spike_xy;
+                    plot(spike_xy(mu_inds,1),spike_xy(mu_inds,2),'k.');
+                    hold on
+                    for ii = 1:N_sus
+                        su_inds = Clusters{probe_num}.spike_clusts == ii + 1;
+                        plot(spike_xy(su_inds,1),spike_xy(su_inds,2),'.','color',cmap(ii,:));
+                    end
+                    if target_blocks(bb) == RefClusters{probe_num}.base_block
+                        title(sprintf('Block %d',target_blocks(bb)),'Color','r');
+                    else
+                        title(sprintf('Block %d',target_blocks(bb)),'Color','k');
+                    end
+                end
+            end
+            if ishandle(full_scatter_fig)
+                saveas(full_scatter_fig,pfname_sc);
+                close(full_scatter_fig);
+            end
+        end
+%     end
+end
