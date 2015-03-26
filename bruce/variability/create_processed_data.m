@@ -1,14 +1,14 @@
 
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'G086';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'G086';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -491,8 +491,11 @@ params.rpt_seeds = unique_seeds(seed_counts > 10);
 time_data.t_axis = all_t_axis;
 time_data.tsince_start = all_tsince_start;
 
-time_data.trial_flip_inds = find(all_trialvec(2:end) > all_trialvec(1:end-1));
-time_data.block_flip_inds = find(all_blockvec(2:end) > all_blockvec(1:end-1));
+time_data.trial_flip_inds = [1; find(all_trialvec(2:end) > all_trialvec(1:end-1))];
+time_data.trial_flip_ids = all_trialvec(time_data.trial_flip_inds+1);
+time_data.block_flip_inds = [1; find(all_blockvec(2:end) > all_blockvec(1:end-1))];
+time_data.block_flip_ids = all_blockvec(time_data.block_flip_inds+1);
+
 %% package stimulus
 stimComp = compressTernNoise(all_stim_mat);
 

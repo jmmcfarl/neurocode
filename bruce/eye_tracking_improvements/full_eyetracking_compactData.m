@@ -256,22 +256,22 @@ SU_numbers = Clust_data.SU_numbers;
 %%
 NT = length(used_inds);
 fullNT = size(all_binned_mua,1);
-n_trials = length(trial_data);
+n_trials = length(time_data.trial_flip_ids);
 n_blocks = length(expt_data.used_blocks);
 
 all_t_axis = time_data.t_axis;
-trial_start_inds = [1; 1+time_data.trial_flip_inds];
-trial_end_inds = [time_data.trial_flip_inds; NT];
+trial_start_inds = [1+time_data.trial_flip_inds];
+trial_end_inds = [time_data.trial_flip_inds(2:end); fullNT];
 all_trialvec = nan(fullNT,1);
 for ii = 1:n_trials
-    all_trialvec(trial_start_inds(ii):trial_end_inds(ii)) = ii;
+    all_trialvec(trial_start_inds(ii):trial_end_inds(ii)) = time_data.trial_flip_ids(ii);
 end
 
-block_start_inds = [1; 1+time_data.block_flip_inds];
-block_end_inds = [time_data.block_flip_inds; NT];
+block_start_inds = [1+time_data.block_flip_inds];
+block_end_inds = [time_data.block_flip_inds(2:end); fullNT];
 all_blockvec = nan(fullNT,1);
 for ii = 1:n_blocks
-    all_blockvec(block_start_inds(ii):block_end_inds(ii)) = ii;
+    all_blockvec(block_start_inds(ii):block_end_inds(ii)) = time_data.block_flip_ids(ii);
 end
 Xblock = zeros(fullNT,n_blocks);
 for i = 1:n_blocks
