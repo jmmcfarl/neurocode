@@ -1,18 +1,18 @@
-% clear all
-% close all
+clear all
+close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G086';
-% bar_ori = 0;
+Expt_name = 'M297';
+bar_ori = 0;
 
 include_bursts = 0;
-nboot = 5000; %number of bootstrap samples for computing trig-avg SD
-% nboot = 0;
+% nboot = 5000; %number of bootstrap samples for computing trig-avg SD
+nboot = 0;
 
-sname = 'sac_trig_avg_data5';
-% sname = 'sac_trig_avg_data_test';
+% sname = 'sac_trig_avg_data5';
+sname = 'sac_trig_avg_data_test';
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -554,6 +554,16 @@ small_ocomp = gsac_set(abs(sac_deltaY(gsac_set)) < med_ocomp);
 
 avg_locomp = nanmean(abs(sac_deltaY(large_ocomp)));
 avg_socomp = nanmean(abs(sac_deltaY(small_ocomp)));
+
+orth_vel = [zeros(1,2); diff(corrected_eye_vals_interp(:,[2 4]))]/dt;
+orth_vel = mean(orth_vel(:,logical(use_coils)),2);
+sac_peak_Ospeed = nan(length(saccades),1);
+sac_mean_Ospeed = nan(length(saccades),1);
+for ii = 1:length(saccades)
+    cur_inds = sac_start_inds(ii):sac_stop_inds(ii);
+    sac_peak_Ospeed(ii) = max(abs(orth_vel(cur_inds)));
+    sac_mean_Ospeed(ii) = mean(abs(orth_vel(cur_inds)));
+end
 
 %compile indices of simulated saccades
 all_sim_sacs = [];
