@@ -6,7 +6,7 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'G086';
+Expt_name = 'M005';
 monk_name = 'jbe';
 bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
 
@@ -23,9 +23,10 @@ Edata_file = strcat(data_dir,'/',monk_name,Expt_name,'Expts');
 load(Edata_file);
 
 %is this a laminar probe or utah array rec?
-if strcmp(Expts{1}.Header.DataType,'GridData 96')
+firste = find(cellfun(@(x) ~isempty(x),Expts),1);
+if strcmp(Expts{firste}.Header.DataType,'GridData 96')
     rec_type = 'UA';
-elseif strcmp(Expts{1}.Header.DataType,'Spike2')
+elseif strcmp(Expts{firste}.Header.DataType,'Spike2')
     rec_type = 'LP';
 end
 

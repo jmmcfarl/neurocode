@@ -10,7 +10,7 @@ addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
 
 data_sets = what(data_dir);data_sets = data_sets.mat;
 
-for eee = 34:length(data_sets)
+for eee = 1:length(data_sets)
     % Expt_name = 'G050';
     Expt_name = data_sets{eee};
     
@@ -240,7 +240,7 @@ for eee = 34:length(data_sets)
     xlim(xr); ylim(yr);
     title(sprintf('ori: %d',unique(trialOR)));
     
-    fig_width = 6; rel_height = 1;
+    fig_width = 5; rel_height = 1;
     fig_name = [fig_dir sprintf('%s_CPSP_hist.pdf',Expt_name)];
     figufy(gcf);
     exportfig(gcf,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -256,7 +256,7 @@ for eee = 34:length(data_sets)
     xlim(xr); ylim(yr);
     title(sprintf('avg CP: %.4f  avg SP: %.4f',avg_CP,avg_SP));
     
-    fig_width = 6; rel_height = 1;
+    fig_width = 5; rel_height = 1;
     fig_name = [fig_dir sprintf('%s_CPSPRES_hist.pdf',Expt_name)];
     figufy(gcf);
     exportfig(gcf,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -337,11 +337,14 @@ for eee = 34:length(data_sets)
     ET_data_up = int2double(ET_data_up, AllExpt.Expt.Header.emscale);
     ET_data_down = int2double(ET_data_down, AllExpt.Expt.Header.emscale);
     
-    trange = (size(ET_data_up,1)-200):(size(ET_data_up,1)-10);
+    trange = (size(ET_data_up,1)-100):(size(ET_data_up,1)-10);
     ET_data_up = permute(ET_data_up,[1 3 2]); ET_data_down = permute(ET_data_down,[1 3 2]);
-    
-    ET_data_up = bsxfun(@minus,ET_data_up,reshape(nanmedian(reshape(ET_data_up,[],4)),1,1,4));
-    ET_data_down = bsxfun(@minus,ET_data_down,reshape(nanmedian(reshape(ET_data_down,[],4)),1,1,4));
+
+        ET_data_up = bsxfun(@minus,ET_data_up,nanmedian(ET_data_up,2));
+    ET_data_down = bsxfun(@minus,ET_data_down,nanmedian(ET_data_down,2));
+
+    %     ET_data_up = bsxfun(@minus,ET_data_up,reshape(nanmedian(reshape(ET_data_up,[],4)),1,1,4));
+%     ET_data_down = bsxfun(@minus,ET_data_down,reshape(nanmedian(reshape(ET_data_down,[],4)),1,1,4));
     
     em_r = [-8 8];
     subplot(2,2,4); hold on
@@ -473,7 +476,7 @@ for eee = 34:length(data_sets)
         axis tight
         line(params.fpass,[0 0],'color','k');
         
-        fig_width = 4; rel_height = 0.7;
+        fig_width = 3; rel_height = 0.7;
         fig_name = [fig_dir sprintf('%s_LFP_diffspec.pdf',Expt_name)];
         figufy(f1);
         exportfig(f1,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -498,8 +501,9 @@ for eee = 34:length(data_sets)
         set(ax(1),'ylim',[0.35 0.65]);
         set(ax(2),'ylim',[-0.7 0.7])
         set(get(ax(1),'xlabel'),'String','Frequency (Hz)');
+        line(params.fpass,[0 0],'color','k');
         
-        fig_width = 4; rel_height = 0.7;
+        fig_width = 3; rel_height = 0.7;
         fig_name = [fig_dir sprintf('%s_LFP_CP.pdf',Expt_name)];
         figufy(f1);
         exportfig(f1,fig_name,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);

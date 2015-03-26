@@ -1,5 +1,6 @@
 clear all
 
+addpath('~/James_scripts/bruce/variability/');
 global Expt_name bar_ori monk_name 
 
 Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
@@ -19,9 +20,11 @@ for Elist_cnt = 1:length(Expt_list)
     monk_name = expt_mname{Elist_cnt}; 
     for bori_cnt = 1:2
        bar_ori = expt_oris(Elist_cnt,bori_cnt);
+       if ~isnan(bar_ori)
         fprintf('Running script %s on Expt %s ori %d\n',batch_function,Expt_name,bar_ori);
        eval(batch_function);
        clearvars -except Elist_cnt bori_cnt Expt_list Expt_name bar_ori monk_name expt_oris expt_mname batch_function
+       end
     end
 end
 
