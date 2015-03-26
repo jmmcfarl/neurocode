@@ -1,15 +1,14 @@
 
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M005';
-monk_name = 'jbe';
-
-bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
+% Expt_name = 'G086';
+% monk_name = 'jbe';
+% bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
 
 Expt_num = str2num(Expt_name(2:end));
 

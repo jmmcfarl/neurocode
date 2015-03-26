@@ -10,7 +10,7 @@ addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
 
 data_sets = what(data_dir);data_sets = data_sets.mat;
 
-for eee = 1:length(data_sets)
+for eee = 34:length(data_sets)
     % Expt_name = 'G050';
     Expt_name = data_sets{eee};
     
@@ -359,9 +359,15 @@ for eee = 1:length(data_sets)
     %% USE WAVELET ANALYSIS TO COMPUTE PHASE-LOCKING SPECTRA FOR EACH UNIT
     if isfield(AllExpt.Expt.Header,'LFPsamplerate')
         LFP_Fs = double(1/AllExpt.Expt.Header.LFPsamplerate);
+        if Expt_name(1) == 'G'
         LFP_offset = AllExpt.Expt.Header.preperiod/1e4;
         LFP_trial_taxis = (1:length(AllExpt.Expt.Header.LFPtimes))/LFP_Fs - LFP_offset;
-        
+        else
+            LFP_trial_taxis = AllExpt.Expt.Header.LFPtimes;
+            if nanmax(LFP_trial_taxis) > 1e3
+                LFP_trial_taxis = LFP_trial_taxis/1e4;
+            end
+        end
         LFP_dsf = 2;
         LFP_Fsd = LFP_Fs/LFP_dsf;
         %anti-aliasing filter and high-pass filter
