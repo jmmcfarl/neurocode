@@ -58,12 +58,14 @@ for eee = 1:length(data_sets)
     %% get total trial-by-trial spike counts for each unit
     tot_spks_per_trial = zeros(Ntrials,Nunits);
     spk_delay_buff = 0.05;
+    spk_end_exclude = 0;
+    spk_beg_exclude = 0.5;
     for tr = 1:Ntrials
         for nn = 1:Nunits
             trindx = find( AllExpt.Spikes{nn}.Trial == trialNums(tr));
             if ~isempty(trindx)
-                tot_spks_per_trial(tr,nn) = sum(AllExpt.Spikes{nn}.Spikes{trindx}*1e-4 <= (trialDur + spk_delay_buff) & ...
-                    (AllExpt.Spikes{nn}.Spikes{trindx}*1e-4 >= spk_delay_buff));
+                tot_spks_per_trial(tr,nn) = sum(double(AllExpt.Spikes{nn}.Spikes{trindx})*1e-4 <= (trialDur + spk_delay_buff - spk_end_exclude) & ...
+                    (double(AllExpt.Spikes{nn}.Spikes{trindx})*1e-4 >= spk_delay_buff + spk_beg_exclude));
             end
         end
     end
@@ -339,8 +341,8 @@ for eee = 1:length(data_sets)
     
     trange = (size(ET_data_up,1)-100):(size(ET_data_up,1)-10);
     ET_data_up = permute(ET_data_up,[1 3 2]); ET_data_down = permute(ET_data_down,[1 3 2]);
-
-        ET_data_up = bsxfun(@minus,ET_data_up,nanmedian(ET_data_up,2));
+    
+    ET_data_up = bsxfun(@minus,ET_data_up,nanmedian(ET_data_up,2));
     ET_data_down = bsxfun(@minus,ET_data_down,nanmedian(ET_data_down,2));
 
     %     ET_data_up = bsxfun(@minus,ET_data_up,reshape(nanmedian(reshape(ET_data_up,[],4)),1,1,4));
