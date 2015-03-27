@@ -4,7 +4,7 @@ close all
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'M297';
+Expt_name = 'G086';
 bar_ori = 0;
 
 include_bursts = 0;
@@ -557,13 +557,22 @@ avg_socomp = nanmean(abs(sac_deltaY(small_ocomp)));
 
 orth_vel = [zeros(1,2); diff(corrected_eye_vals_interp(:,[2 4]))]/dt;
 orth_vel = mean(orth_vel(:,logical(use_coils)),2);
+par_vel = [zeros(1,2); diff(corrected_eye_vals_interp(:,[1 3]))]/dt;
+par_vel = mean(par_vel(:,logical(use_coils)),2);
+tot_vel = sqrt(orth_vel.^2 + par_vel.^2);
 sac_peak_Ospeed = nan(length(saccades),1);
 sac_mean_Ospeed = nan(length(saccades),1);
+sac_peak_Tspeed = nan(length(saccades),1);
+sac_mean_Tspeed = nan(length(saccades),1);
 for ii = 1:length(saccades)
     cur_inds = sac_start_inds(ii):sac_stop_inds(ii);
     sac_peak_Ospeed(ii) = max(abs(orth_vel(cur_inds)));
     sac_mean_Ospeed(ii) = mean(abs(orth_vel(cur_inds)));
+    sac_peak_Tspeed(ii) = max(abs(tot_vel(cur_inds)));
+    sac_mean_Tspeed(ii) = mean(abs(tot_vel(cur_inds)));
 end
+sac_delta_amp = sqrt(sac_deltaX.^2 + sac_deltaY.^2);
+sac_orth_comp = abs(sac_deltaY)./sac_delta_amp;
 
 %compile indices of simulated saccades
 all_sim_sacs = [];
