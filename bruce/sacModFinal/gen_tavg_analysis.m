@@ -1,11 +1,11 @@
-% clear all
-% close all
+clear all
+close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-% Expt_name = 'G093';
-% bar_ori = 0;
+Expt_name = 'G086';
+bar_ori = 0;
 
 include_bursts = 0;
 
@@ -461,6 +461,9 @@ end
 %saccade amplitude along parallel axis
 sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
 
+%saccade amplitude along orthogonal axis
+sac_deltaY = sac_postpos(2,:) - sac_prepos(2,:);
+
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks
 sac_durs = [saccades(:).duration];
@@ -556,19 +559,94 @@ maxlag = round(0.5/dt);
 [gen_data.msac_gsac_xcorr,acorr_lags] = xcov(binned_gsac_sm,binned_msac_sm,maxlag,'coeff');
 gen_data.acorr_lags = acorr_lags*dt;
 
-%compute sac-trig avg eye speeds (using ET Fs)
+%%
+orth_vel = [zeros(1,2); diff(corrected_eye_vals(:,[2 4]))]*et_params.eye_fs;
+orth_vel = mean(orth_vel(:,logical(use_coils)),2);
+par_vel = [zeros(1,2); diff(corrected_eye_vals(:,[1 3]))]*et_params.eye_fs;
+par_vel = mean(par_vel(:,logical(use_coils)),2);
+tot_vel = sqrt(orth_vel.^2 + par_vel.^2);
+
 raw_sac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).start_time]));
-[gen_data.gsac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_sac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
-raw_sac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).start_time]));
-[gen_data.msac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_sac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
+raw_msac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).start_time]));
+
+% %compute sac-trig avg eye speeds (using ET Fs)
+% [gen_data.gsac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_sac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
+% [gen_data.msac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_msac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
+
+[gen_data.gsac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(tot_vel,raw_sac_start_inds,round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
+[gen_data.msac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(tot_vel,raw_msac_start_inds,round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
 gen_data.raw_eye_lags = eye_tavg_lags/et_params.eye_fs;
+
+gsac_pos_orth = find(sac_deltaY(gsac_set) > 0);
+gsac_neg_orth = find(sac_deltaY(gsac_set) < 0);
+[gen_data.gsac_pos_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(gsac_pos_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
+[gen_data.gsac_neg_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(gsac_neg_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
+
+med_pos_orth = median(sac_deltaY(gsac_set(gsac_pos_orth)));
+large_pos_orth = gsac_pos_orth(sac_deltaY(gsac_set(gsac_pos_orth)) > med_pos_orth);
+small_pos_orth = gsac_pos_orth(sac_deltaY(gsac_set(gsac_pos_orth)) < med_pos_orth);
+med_neg_orth = median(sac_deltaY(gsac_set(gsac_neg_orth)));
+large_neg_orth = gsac_neg_orth(sac_deltaY(gsac_set(gsac_neg_orth)) < med_neg_orth);
+small_neg_orth = gsac_neg_orth(sac_deltaY(gsac_set(gsac_neg_orth)) > med_neg_orth);
+
+gsac_delta_Y_frac = sac_deltaY(gsac_set)./sqrt(sac_deltaY(gsac_set).^2 + sac_deltaX(gsac_set).^2);
+gen_data.gsac_delta_orth = sac_deltaY(gsac_set);
+gen_data.gsac_delta_Y_frac = gsac_delta_Y_frac;
+
+[gen_data.gsac_large_pos_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(large_pos_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
+[gen_data.gsac_small_pos_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(small_pos_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
+[gen_data.gsac_large_neg_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(large_neg_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
+[gen_data.gsac_small_neg_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(small_neg_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
 
 %compute sac-trig-avgs at dt resolution
 [gen_data.gsac_tavg_eyespeed,tavg_lags] = get_event_trig_avg_v3(interp_eye_speed,sac_start_inds(gsac_set),round(0.15/dt),round(0.15/dt));
 [gen_data.msac_tavg_eyespeed,tavg_lags] = get_event_trig_avg_v3(interp_eye_speed,sac_start_inds(micro_set),round(0.15/dt),round(0.15/dt));
 gen_data.eye_lags = tavg_lags*dt;
 
+%%
+%classify guided saccades as having large or small orthogonal component
+med_ocomp = nanmedian(abs(sac_deltaY(gsac_set)));
+large_ocomp = gsac_set(abs(sac_deltaY(gsac_set)) > med_ocomp);
+small_ocomp = gsac_set(abs(sac_deltaY(gsac_set)) < med_ocomp);
+
+avg_locomp = nanmean(abs(sac_deltaY(large_ocomp)));
+avg_socomp = nanmean(abs(sac_deltaY(small_ocomp)));
+
+
 %% COMPUTE SACCADE DURATION DISTRIBUTIONS AND STATS
+
+new_gsac_speedthresh = 10;
+
+raw_sac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).start_time]));
+raw_sac_stop_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).stop_time]));
+new_gsac_durs = nan(size(gsac_set));
+for ii = 1:length(new_gsac_durs)
+    cur_inds = (raw_sac_start_inds(ii)-1):(raw_sac_stop_inds(ii)+1);
+    new_gsac_durs(ii) = sum(tot_vel(cur_inds) >= new_gsac_speedthresh);
+end
+new_gsac_durs = new_gsac_durs/et_params.eye_fs;
+
+new_msac_speedthresh = 10;
+raw_msac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).start_time]));
+raw_msac_stop_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).stop_time]));
+new_msac_durs = nan(size(micro_set));
+for ii = 1:length(new_msac_durs)
+    cur_inds = (raw_msac_start_inds(ii)-1):(raw_msac_stop_inds(ii)+1);
+    new_msac_durs(ii) = sum(tot_vel(cur_inds) >= new_msac_speedthresh);
+end
+new_msac_durs = new_msac_durs/et_params.eye_fs;
+
+new_msac_speedthreshhigh = 10;
+new_msac_durs_hthresh = nan(size(micro_set));
+for ii = 1:length(new_msac_durs)
+    cur_inds = (raw_msac_start_inds(ii)-1):(raw_msac_stop_inds(ii)+1);
+    new_msac_durs_hthresh(ii) = sum(tot_vel(cur_inds) >= new_msac_speedthreshhigh);
+end
+new_msac_durs_hthresh = new_msac_durs_hthresh/et_params.eye_fs;
+
+gen_data.new_gsac_durs = new_gsac_durs;
+gen_data.new_msac_durs = new_msac_durs;
+gen_data.new_msac_durs_hthresh = new_msac_durs_hthresh;
 
 % n_durBins = 40;
 % dur_bin_edges = linspace(0,0.1,n_durBins+1);
