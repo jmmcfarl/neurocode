@@ -14,7 +14,7 @@ use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur));
 sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1));
 
 avg_delta_Y_frac = mean(abs(gen_data.gsac_delta_Y_frac));
-upper_delta_Y_frac = prctile(abs(gen_data.gsac_delta_Y_frac),90);
+upper_delta_Y_frac = prctile(abs(gen_data.gsac_delta_Y_frac),75);
 orth_velprof = sac_velprof(use_chunk)*avg_delta_Y_frac;
 % orth_velprof = sac_velprof(use_chunk)*upper_delta_Y_frac;
 
@@ -48,7 +48,7 @@ Trial_Tax = Trial_Tax(1:ep);
 
 n_rpts = 10;
 frame_dur = 0.01;
-Ntrials = 10;
+Ntrials = 25;
 Nframes = ceil(Trial_Dur/frame_dur);
 wi = 2;
 bar_width = 0.0565;
@@ -142,6 +142,7 @@ diff_mat = (avg_PP-avg_PP_eye)./avg_PP;
 diff_mat_avg = 0.5*diff_mat + 0.5*flipud(diff_mat);
 f2 = figure();
 imagesc(fx(fxu),ft(ftu),diff_mat_avg);
+% imagesc(fx(fxu),ft(ftu),diff_mat);
 caxis([0 0.5]);
 xlim(xr);ylim(tr);
 colorbar
