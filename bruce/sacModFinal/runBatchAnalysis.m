@@ -104,8 +104,10 @@ end
 
 Expt_name = 'M297'; bar_ori = 0;
 gen_tavg_analysis;
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 Expt_name = 'M297'; bar_ori = 90;
 gen_tavg_analysis;
+clearvars -except Elist_cnt Expt_list Expt_name bar_ori
 
 clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');

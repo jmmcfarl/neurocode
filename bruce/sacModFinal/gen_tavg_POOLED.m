@@ -78,6 +78,8 @@ dt = trig_avg_params.dt;
 
 msac_durs = [all_data(:).msac_dur_avg];
 gsac_durs = [all_data(:).gsac_dur_avg];
+msac_new_durs = arrayfun(@(x) mean(x.new_msac_durs),all_data);
+gsac_new_durs = arrayfun(@(x) mean(x.new_gsac_durs),all_data);
 
 msac_rates = N_msacs./Tot_time/dt;
 expt_nums = [all_data(:).exptnum];
@@ -86,12 +88,17 @@ unique_expts = unique(expt_nums);
 expt_msac_rates = nan(length(unique_expts),1);
 expt_gsac_durs = nan(length(unique_expts),1);
 expt_msac_durs = nan(length(unique_expts),1);
+expt_gsac_new_durs = nan(length(unique_expts),1);
+expt_msac_new_durs = nan(length(unique_expts),1);
+
 expt_animal = cell(length(unique_expts),1);
 for ii = 1:length(unique_expts)
     eset = find(expt_nums == unique_expts(ii));
     expt_msac_rates(ii) = mean(msac_rates(eset));
     expt_msac_durs(ii) = mean(msac_durs(eset));
     expt_gsac_durs(ii) = mean(gsac_durs(eset));
+    expt_msac_new_durs(ii) = mean(msac_new_durs(eset));
+    expt_gsac_new_durs(ii) = mean(gsac_new_durs(eset));
     expt_animal{ii} = all_data(eset(1)).animal;
 end
 
