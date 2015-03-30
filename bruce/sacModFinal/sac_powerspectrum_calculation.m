@@ -2,21 +2,31 @@ clear all
 close all
 
 %%
-dname = '~/Analysis/bruce/G086/FINsac_mod/gen_trig_avg_data_ori0.mat';
+% dname = '~/Analysis/bruce/G086/FINsac_mod/gen_trig_avg_data_ori0.mat';
+dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
 load(dname);
 
-sac_tax = gen_data.raw_eye_lags;
-sac_velprof = gen_data.gsac_rawtavg_eyespeed;
+% sac_tax = gen_data.raw_eye_lags;
+% sac_velprof = gen_data.gsac_rawtavg_eyespeed;
+% 
+% chunk_dur = 0.032;
+% beg_offset = 0.001;
+% use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur));
+% sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1));
+% 
+% avg_delta_Y_frac = mean(abs(gen_data.gsac_delta_Y_frac));
+% upper_delta_Y_frac = prctile(abs(gen_data.gsac_delta_Y_frac),75);
+% % orth_velprof = sac_velprof(use_chunk)*avg_delta_Y_frac;
+% orth_velprof = sac_velprof(use_chunk)*upper_delta_Y_frac;
 
 chunk_dur = 0.032;
 beg_offset = 0.001;
+sac_tax = orth_trajects.tax;
+orth_velprof = orth_trajects.avg_orth_speed;
+% orth_velprof = orth_trajects.avg_inac_speed;
 use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur));
 sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1));
-
-avg_delta_Y_frac = mean(abs(gen_data.gsac_delta_Y_frac));
-upper_delta_Y_frac = prctile(abs(gen_data.gsac_delta_Y_frac),75);
-orth_velprof = sac_velprof(use_chunk)*avg_delta_Y_frac;
-% orth_velprof = sac_velprof(use_chunk)*upper_delta_Y_frac;
+orth_velprof = orth_velprof(use_chunk);
 
 %%
 load ~/Data/bruce/misc/ViewsonicFrame.mat
