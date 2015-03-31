@@ -614,39 +614,55 @@ avg_socomp = nanmean(abs(sac_deltaY(small_ocomp)));
 
 
 %% COMPUTE SACCADE DURATION DISTRIBUTIONS AND STATS
+vel_x = [zeros(1,2); diff(all_eye_vals(:,[1 3]))]*et_params.eye_fs;
+vel_y = [zeros(1,2); diff(all_eye_vals(:,[2 4]))]*et_params.eye_fs;
+vel_x = mean(vel_x(:,logical(use_coils)),2);
+vel_y = mean(vel_y(:,logical(use_coils)),2);
+sac_angles = [saccades(:).direction];
 
 new_gsac_speedthresh = 10;
-
 raw_sac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).start_time]));
 raw_sac_stop_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).stop_time]));
+raw_sac_peak_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).peak_time]));
 new_gsac_durs = nan(size(gsac_set));
 for ii = 1:length(new_gsac_durs)
-    cur_inds = (raw_sac_start_inds(ii)-1):(raw_sac_stop_inds(ii)+1);
-    new_gsac_durs(ii) = sum(tot_vel(cur_inds) >= new_gsac_speedthresh);
+    cur_inds = (raw_sac_start_inds(ii)):(raw_sac_stop_inds(ii)+2);
+    %     new_gsac_durs(ii) = sum(tot_vel(cur_inds) >= new_gsac_speedthresh);
+    ploc = raw_sac_peak_inds(ii)-raw_sac_start_inds(ii)+1;
+    cur_vel = all_eye_speed(cur_inds);
+%     [~,ploc] = max(cur_vel);
+    ep = find(cur_vel(ploc:end) <= new_gsac_speedthresh,1) + ploc-1;
+    new_gsac_durs(ii) = ep-1;
 end
 new_gsac_durs = new_gsac_durs/et_params.eye_fs;
 
-new_msac_speedthresh = 10;
+new_msac_speedthresh = 5;
 raw_msac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).start_time]));
 raw_msac_stop_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).stop_time]));
+raw_msac_peak_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(micro_set).peak_time]));
 new_msac_durs = nan(size(micro_set));
 for ii = 1:length(new_msac_durs)
-    cur_inds = (raw_msac_start_inds(ii)-1):(raw_msac_stop_inds(ii)+1);
-    new_msac_durs(ii) = sum(tot_vel(cur_inds) >= new_msac_speedthresh);
+    cur_inds = (raw_msac_start_inds(ii)):(raw_msac_stop_inds(ii)+2);
+    ploc = raw_msac_peak_inds(ii)-raw_msac_start_inds(ii)+1;
+    %     new_msac_durs(ii) = sum(tot_vel(cur_inds) >= new_msac_speedthresh);
+    cur_vel = all_eye_speed(cur_inds);
+    %     [~,ploc] = max(cur_vel);
+    ep = find(cur_vel(ploc:end) <= new_msac_speedthresh,1) + ploc-1;
+    new_msac_durs(ii) = ep-1;
 end
 new_msac_durs = new_msac_durs/et_params.eye_fs;
 
-new_msac_speedthreshhigh = 10;
-new_msac_durs_hthresh = nan(size(micro_set));
-for ii = 1:length(new_msac_durs)
-    cur_inds = (raw_msac_start_inds(ii)-1):(raw_msac_stop_inds(ii)+1);
-    new_msac_durs_hthresh(ii) = sum(tot_vel(cur_inds) >= new_msac_speedthreshhigh);
-end
-new_msac_durs_hthresh = new_msac_durs_hthresh/et_params.eye_fs;
+% new_msac_speedthreshhigh = 10;
+% new_msac_durs_hthresh = nan(size(micro_set));
+% for ii = 1:length(new_msac_durs)
+%     cur_inds = (raw_msac_start_inds(ii)-1):(raw_msac_stop_inds(ii)+1);
+%     new_msac_durs_hthresh(ii) = sum(tot_vel(cur_inds) >= new_msac_speedthreshhigh);
+% end
+% new_msac_durs_hthresh = new_msac_durs_hthresh/et_params.eye_fs;
 
 gen_data.new_gsac_durs = new_gsac_durs;
 gen_data.new_msac_durs = new_msac_durs;
-gen_data.new_msac_durs_hthresh = new_msac_durs_hthresh;
+% gen_data.new_msac_durs_hthresh = new_msac_durs_hthresh;
 
 % n_durBins = 40;
 % dur_bin_edges = linspace(0,0.1,n_durBins+1);

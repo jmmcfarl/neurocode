@@ -78,18 +78,20 @@ plot(Trial_Tax*1e3,interp_velprof)
 xlabel('Time (ms)');
 ylabel('Orthogonal eye speed (deg/sec)');
 
-%PRINT PLOTS
-fig_width = 6; rel_height = 1.2;
-figufy(f1);
-fname = [fig_dir 'eyespeed_phosphor_profiles_' type '.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% %PRINT PLOTS
+% fig_width = 6; rel_height = 1.2;
+% figufy(f1);
+% fname = [fig_dir 'eyespeed_phosphor_profiles_' type '.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %%
 
-n_rpts = 50;
+% n_rpts = 50;
+n_rpts = 10;
 frame_dur = 0.01;
-Ntrials = 50;
+% Ntrials = 50;
+Ntrials = 10;
 Nframes = ceil(Trial_Dur/frame_dur);
 wi = 2;
 bar_width = 0.0565;
@@ -132,6 +134,12 @@ for nn = 1:n_rpts
         end
     end
     
+    %these pixels could have zeros introduced from the image translation
+    buffer_win = round(0.4/pix_size);
+    stim_up_trans(:,:,1:buffer_win,:) = [];
+    stim_up(:,:,1:buffer_win,:) = [];
+    npix = size(stim_up,3);
+    
     stim_up_trans = reshape(stim_up_trans,[],npix,Ntrials);
     stim_up = reshape(stim_up,[],npix,Ntrials);
     
@@ -155,8 +163,8 @@ for nn = 1:n_rpts
     PP = abs(fftshift(fft2(stim_up)));
     PP_trans = abs(fftshift(fft2(stim_up_trans)));
     
-    fxu = find(abs(fx) <= 50);
-    ftu = find(abs(ft) <= 100);
+    fxu = find(abs(fx) <= 200);
+    ftu = find(abs(ft) <= 200);
     
     PP = filter2(H,PP);
     PP_trans = filter2(H,PP_trans);
@@ -205,15 +213,15 @@ xlabel('Spatial frequency (cyc/deg)');
 ylabel('Temporal frequency (Hz)');
 set(gca,'ydir','normal');
 
-%PRINT PLOTS
-fig_width = 6; rel_height = 1.4;
-figufy(f1);
-fname = [fig_dir 'amplitude_spectra_' type '.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-fig_width = 5; rel_height = 0.7;
-figufy(f2);
-fname = [fig_dir 'spectra_diffs_' type '.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% %PRINT PLOTS
+% fig_width = 6; rel_height = 1.4;
+% figufy(f1);
+% fname = [fig_dir 'amplitude_spectra_' type '.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% fig_width = 5; rel_height = 0.7;
+% figufy(f2);
+% fname = [fig_dir 'spectra_diffs_' type '.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
