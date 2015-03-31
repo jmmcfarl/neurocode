@@ -3,26 +3,13 @@ close all
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
 
-type = 'worst';
+type = 'worst'; %avg worst or best, determines which velocity profile to use
 
 %%
-% dname = '~/Analysis/bruce/G086/FINsac_mod/gen_trig_avg_data_ori0.mat';
 dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
 load(dname);
 
-% sac_tax = gen_data.raw_eye_lags;
-% sac_velprof = gen_data.gsac_rawtavg_eyespeed;
-% 
-% chunk_dur = 0.032;
-% beg_offset = 0.001;
-% use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur));
-% sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1));
-% 
-% avg_delta_Y_frac = mean(abs(gen_data.gsac_delta_Y_frac));
-% upper_delta_Y_frac = prctile(abs(gen_data.gsac_delta_Y_frac),75);
-% % orth_velprof = sac_velprof(use_chunk)*avg_delta_Y_frac;
-% orth_velprof = sac_velprof(use_chunk)*upper_delta_Y_frac;
-
+%pick out chunk of velocity profile to use
 chunk_dur = 0.032;
 beg_offset = 0.001;
 sac_tax = orth_trajects.tax;
@@ -39,7 +26,7 @@ use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur));
 sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1));
 orth_velprof = orth_velprof(use_chunk);
 
-%%
+%% load in phosphor response trace, and sample enough repeats to cover the simulated trial
 load ~/Data/bruce/misc/ViewsonicFrame.mat
 phosphor_Fs = 4e4;
 phosphor_lum = -Average3_ViewSonic_FrameRise__Ch1.values;
@@ -53,7 +40,7 @@ n_traces_per_trial = 5;
 phosphor_lum = repmat(phosphor_lum,n_traces_per_trial,1);
 phosphor_t = (1:length(phosphor_lum))'/phosphor_Fs;
 
-%%
+%% resample both phosphor trace and velocity profile onto sufficiently dense time axis
 trial_Fs = 5e3;
 
 Trial_Tax = 1/trial_Fs:1/trial_Fs:max(sac_tax);
@@ -66,7 +53,7 @@ interp_velprof = interp_velprof(1:ep);
 interp_phosphor = interp_phosphor(1:ep);
 Trial_Tax = Trial_Tax(1:ep);
 
-%%
+%% plot phosphor response and eye velocity profiles
 f1 = figure();
 subplot(2,1,1)
 plot(Trial_Tax*1e3,interp_phosphor)
@@ -87,32 +74,32 @@ ylabel('Orthogonal eye speed (deg/sec)');
 
 %%
 
-% n_rpts = 50;
-n_rpts = 10;
-frame_dur = 0.01;
-% Ntrials = 50;
-Ntrials = 10;
-Nframes = ceil(Trial_Dur/frame_dur);
-wi = 2;
-bar_width = 0.0565;
-target_pixsize = 0.5/trial_Fs;
-spatial_usfac = round(bar_width/target_pixsize);
-nbars = round(wi/bar_width);
-npix = nbars*spatial_usfac;
-pix_size = nbars*bar_width/npix;
+n_rpts = 100; %number of times to repeat simulation for averaging
+frame_dur = 0.01; %duration of each stimulus frame
+Ntrials = 50;%number of simulated trials to pool for calculating FFT at higher temp freq sampling
+Nframes = ceil(Trial_Dur/frame_dur); %number of stimulus frames per trial
+wi = 2; %width of stimulus (deg)
+bar_width = 0.0565; %width of individual bars (deg)
+target_pixsize = 0.5/trial_Fs; %desired spatial sampling
+spatial_usfac = round(bar_width/target_pixsize); %required spatial up-sampling factor
+nbars = round(wi/bar_width); %number of bars per frame
+npix = nbars*spatial_usfac; %number of pixels per frame
+pix_size = nbars*bar_width/npix; %pixel size (deg)
 
-dd = 12;
+dd = 12; %bar density
 
-H = fspecial('gaussian',5,1);
+H = fspecial('gaussian',5,1); %circular gaussian window for slight frequency smoothing
 %%
 for nn = 1:n_rpts
     fprintf('Sim rpt %d of %d\n',nn,n_rpts);
     
+    %create bar white noise stim
     is_zero = rand(Nframes,nbars,Ntrials) > dd/100;
     stim = randi(2,Nframes,nbars,Ntrials);
     stim(stim==2) = -1;
     stim(is_zero) = 0;
     
+    %spatial up-sampling
     stim_up = zeros(Nframes,npix,Ntrials);
     for ii = 1:nbars
         for jj = 1:spatial_usfac
@@ -120,12 +107,12 @@ for nn = 1:n_rpts
         end
     end
     
-    %%
+    %% temporal up-sampling
     temp_usfac = round(frame_dur*trial_Fs);
     stim_up = repmat(stim_up,[1 1 1 temp_usfac]);
     stim_up = permute(stim_up,[4 1 2 3]);
     % stim_up = reshape(stim_up,[],npix,Ntrials);
-    %%
+    %% simulate frame-by-frame translation, egiven eye velocity
     vel_in_pix = round(interp_velprof/trial_Fs/pix_size);
     stim_up_trans = stim_up;
     for jj = 1:Nframes
@@ -143,6 +130,7 @@ for nn = 1:n_rpts
     stim_up_trans = reshape(stim_up_trans,[],npix,Ntrials);
     stim_up = reshape(stim_up,[],npix,Ntrials);
     
+    %factor in phosphor response
     stim_up_trans = bsxfun(@times,stim_up_trans,interp_phosphor');
     stim_up = bsxfun(@times,stim_up,interp_phosphor');
     
@@ -150,7 +138,7 @@ for nn = 1:n_rpts
     stim_up = permute(stim_up,[1 3 2]);
     stim_up_trans = reshape(stim_up_trans,[],npix);
     stim_up = reshape(stim_up,[],npix);
-    %%
+    %% compute and store ffts
     NT = length(Trial_Tax)*Ntrials;
     niqf_x = 1/(2*pix_size);
     niqf_t = trial_Fs/2;
@@ -172,6 +160,10 @@ for nn = 1:n_rpts
     all_PP_eye(nn,:,:) = PP_trans(ftu,fxu);
     
 end
+
+%%
+sname = [fig_dir 'pspec_calcs_' type];
+save(sname,'fx','ft','fxu','ftu','all_PP','all_PP_eye');
 
 %%
 avg_PP = squeeze(nanmean(all_PP));
