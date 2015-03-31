@@ -76,33 +76,33 @@ N_msacs = [all_data(:).N_msacs];
 Tot_time = [all_data(:).Tot_time];
 dt = trig_avg_params.dt;
 
-msac_durs = [all_data(:).msac_dur_avg];
-gsac_durs = [all_data(:).gsac_dur_avg];
-msac_new_durs = arrayfun(@(x) mean(x.new_msac_durs),all_data);
-gsac_new_durs = arrayfun(@(x) mean(x.new_gsac_durs),all_data);
+msac_dur_avgs = [all_data(:).msac_dur_avg];
+gsac_dur_avgs = [all_data(:).gsac_dur_avg];
+gsac_new_dur_avgs = arrayfun(@(x) mean(x.new_gsac_durs),all_data);
+msac_new_dur_avgs = arrayfun(@(x) mean(x.new_msac_durs),all_data);
 
 msac_rates = N_msacs./Tot_time/dt;
 expt_nums = [all_data(:).exptnum];
 unique_expts = unique(expt_nums);
 
+%get avg values within each expt (across multiple bar oris if applicable)
 expt_msac_rates = nan(length(unique_expts),1);
 expt_gsac_durs = nan(length(unique_expts),1);
 expt_msac_durs = nan(length(unique_expts),1);
 expt_gsac_new_durs = nan(length(unique_expts),1);
 expt_msac_new_durs = nan(length(unique_expts),1);
-
 expt_animal = cell(length(unique_expts),1);
 for ii = 1:length(unique_expts)
     eset = find(expt_nums == unique_expts(ii));
     expt_msac_rates(ii) = mean(msac_rates(eset));
-    expt_msac_durs(ii) = mean(msac_durs(eset));
-    expt_gsac_durs(ii) = mean(gsac_durs(eset));
-    expt_msac_new_durs(ii) = mean(msac_new_durs(eset));
-    expt_gsac_new_durs(ii) = mean(gsac_new_durs(eset));
+    expt_msac_durs(ii) = mean(msac_dur_avgs(eset));
+    expt_gsac_durs(ii) = mean(gsac_dur_avgs(eset));
+    expt_msac_new_durs(ii) = mean(msac_new_dur_avgs(eset));
+    expt_gsac_new_durs(ii) = mean(gsac_new_dur_avgs(eset));
     expt_animal{ii} = all_data(eset(1)).animal;
 end
 
-%%
+%% ORIGINAL CALCULATION OF SAC DURATION DISTRIBUTIONS
 all_gsac_tavg = [all_data(:).gsac_rawtavg_eyespeed]';
 all_msac_tavg = [all_data(:).msac_rawtavg_eyespeed]';
 
@@ -149,24 +149,63 @@ ylabel('Relative frequency');
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
+%% COMPUTE SAC DURATION DISTRIBUTION USING NEW DURATION DEFINITION
 
-%%
-all_gsac_tavg = [all_data(:).gsac_tavg_eyespeed]';
-all_msac_tavg = [all_data(:).msac_tavg_eyespeed]';
-eye_ax = all_data(1).eye_lags;
-expt_gsac_eyespeed = nan(length(unique_expts),length(eye_ax));
-expt_msac_eyespeed = nan(length(unique_expts),length(eye_ax));
-for ii = 1:length(unique_expts)
-    eset = find(expt_nums == unique_expts(ii));
-    expt_gsac_eyespeed(ii,:) = mean(all_gsac_tavg(eset,:),1);
-    expt_msac_eyespeed(ii,:) = mean(all_msac_tavg(eset,:),1);
+dur_bin_cents = all_data(1).dur_bin_cents;
+dur_dx = median(diff(dur_bin_cents));
+dur_bin_edges = [dur_bin_cents - dur_dx/2 (dur_bin_cents(end) + dur_dx/2)];
+dur_sm = 0.0025/dur_dx;
+
+[all_gsac_durdist,all_msac_durdist] = deal(nan(length(all_data),length(dur_bin_cents)));
+for ii = 1:length(all_data)
+    temp = histc(all_data(ii).new_gsac_durs,dur_bin_edges);
+    all_gsac_durdist(ii,:) = temp(1:end-1)'/sum(temp);
+    temp = histc(all_data(ii).new_msac_durs,dur_bin_edges);
+    all_msac_durdist(ii,:) = temp(1:end-1)/sum(temp);
 end
 
-figure; hold on
-h1 = shadedErrorBar(eye_ax,mean(expt_gsac_eyespeed),std(expt_gsac_eyespeed)/sqrt(length(unique_expts)));
-h2 = shadedErrorBar(eye_ax,mean(expt_msac_eyespeed),std(expt_msac_eyespeed)/sqrt(length(unique_expts)),{'color','r'});
+expt_gsac_durdist = nan(length(unique_expts),length(dur_bin_cents));
+expt_msac_durdist = nan(length(unique_expts),length(dur_bin_cents));
+for ii = 1:length(unique_expts)
+    eset = find(expt_nums == unique_expts(ii));
+    expt_gsac_durdist(ii,:) = mean(all_gsac_durdist(eset,:),1);
+    expt_msac_durdist(ii,:) = mean(all_msac_durdist(eset,:),1);
+    if dur_sm > 0
+       expt_gsac_durdist(ii,:) = jmm_smooth_1d_cor(expt_gsac_durdist(ii,:),dur_sm); 
+       expt_msac_durdist(ii,:) = jmm_smooth_1d_cor(expt_msac_durdist(ii,:),dur_sm); 
+    end
+end
+
+f2 = figure; hold on
+h1 = shadedErrorBar(dur_bin_cents,mean(expt_gsac_durdist),std(expt_gsac_durdist)/sqrt(length(unique_expts)),{'color','b'});
+h2 = shadedErrorBar(dur_bin_cents,mean(expt_msac_durdist),std(expt_msac_durdist)/sqrt(length(unique_expts)),{'color','r'});
+xlabel('Duration (s)');
+ylabel('Relative frequency');
+
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f2);
+% fname = [fig_dir 'Gsac_msac_dur_dists.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 %%
+% all_gsac_tavg = [all_data(:).gsac_tavg_eyespeed]';
+% all_msac_tavg = [all_data(:).msac_tavg_eyespeed]';
+% eye_ax = all_data(1).eye_lags;
+% expt_gsac_eyespeed = nan(length(unique_expts),length(eye_ax));
+% expt_msac_eyespeed = nan(length(unique_expts),length(eye_ax));
+% for ii = 1:length(unique_expts)
+%     eset = find(expt_nums == unique_expts(ii));
+%     expt_gsac_eyespeed(ii,:) = mean(all_gsac_tavg(eset,:),1);
+%     expt_msac_eyespeed(ii,:) = mean(all_msac_tavg(eset,:),1);
+% end
+% 
+% figure; hold on
+% h1 = shadedErrorBar(eye_ax,mean(expt_gsac_eyespeed),std(expt_gsac_eyespeed)/sqrt(length(unique_expts)));
+% h2 = shadedErrorBar(eye_ax,mean(expt_msac_eyespeed),std(expt_msac_eyespeed)/sqrt(length(unique_expts)),{'color','r'});
+
+%% DISPARITY ANALYSIS
 et_dt = 0.01;
 all_gsac_fixdisp = cell2mat(arrayfun(@(x) x.fix_data.gsac_fix_disp(:,1)',all_data,'uniformoutput',0));
 all_msac_fixdisp = cell2mat(arrayfun(@(x) x.fix_data.msac_fix_disp(:,1)',all_data,'uniformoutput',0));
@@ -185,10 +224,51 @@ h2 = shadedErrorBar(slags*et_dt,mean(expt_msac_fixdisp),std(expt_msac_fixdisp)/s
 xlabel('Time (s)');
 ylabel('Fixation disparity (deg)');
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'Gsac_msac_fix_disp.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Gsac_msac_fix_disp.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
+%%
+eye_tax = all_data(1).raw_eye_lags;
+gsac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.gsac_rawtavg_eyespeed',all_data,'uniformoutput',0));
+
+gsac_avg_orth_frac = arrayfun(@(x) mean(abs(x.gsac_delta_Y_frac)),all_data);
+[avg_inaccurate_orth,avg_accurate_orth] = deal(nan(length(all_data),1));
+for ii = 1:length(all_data)
+    cur_orth_frac = abs(all_data(ii).gsac_delta_Y_frac);
+    med_orth_frac = median(cur_orth_frac);
+    avg_inaccurate_orth(ii) = mean(cur_orth_frac(cur_orth_frac > med_orth_frac));
+    avg_accurate_orth(ii) = mean(cur_orth_frac(cur_orth_frac < med_orth_frac));
+end
+
+gsac_avg_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,gsac_avg_orth_frac);
+gsac_inac_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,avg_inaccurate_orth);
+gsac_ac_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,avg_accurate_orth);
+
+[expt_gsac_eyespeed,expt_gsac_avgorthspeed,expt_gsac_inaccorthspeed,expt_gsac_accorthspeed] = deal(nan(length(unique_expts),length(eye_tax)));
+[expt_avg_orth,expt_inacc_orth,expt_acc_orth] = deal(nan(length(unique_expts),1));
+for ii = 1:length(unique_expts)
+    eset = find(expt_nums == unique_expts(ii));
+    expt_gsac_eyespeed(ii,:) = mean(gsac_rawtavg_eyespeed(eset,:),1);
+    expt_gsac_avgorthspeed(ii,:) = mean(gsac_avg_orthspeed(eset,:),1);
+    expt_gsac_inaccorthspeed(ii,:) = mean(gsac_inac_orthspeed(eset,:),1);
+    expt_gsac_accorthspeed(ii,:) = mean(gsac_ac_orthspeed(eset,:),1);
+    expt_avg_orth(ii) = mean(gsac_avg_orth_frac(eset));
+    expt_inacc_orth(ii) = mean(avg_inaccurate_orth(eset));
+    expt_acc_orth(ii) = mean(avg_accurate_orth(eset));
+end
+
+f1 = figure(); hold on
+plot(eye_tax,mean(expt_gsac_avgorthspeed));
+plot(eye_tax,mean(expt_gsac_inaccorthspeed),'r')
+plot(eye_tax,mean(expt_gsac_accorthspeed),'k');
+
+orth_trajects.tax = eye_tax;
+orth_trajects.avg_orth_speed = mean(expt_gsac_avgorthspeed);
+orth_trajects.avg_inac_speed = mean(expt_gsac_inaccorthspeed);
+orth_trajects.avg_acc_speed = mean(expt_gsac_accorthspeed);
+dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
+save(dname,'orth_trajects');
