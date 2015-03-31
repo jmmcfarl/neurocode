@@ -185,7 +185,7 @@ ylabel('Relative frequency');
 % %PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f2);
-% fname = [fig_dir 'Gsac_msac_dur_dists.pdf'];
+% fname = [fig_dir 'Gsac_msac_dur_dists_new.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
@@ -234,6 +234,7 @@ ylabel('Fixation disparity (deg)');
 %%
 eye_tax = all_data(1).raw_eye_lags;
 gsac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.gsac_rawtavg_eyespeed',all_data,'uniformoutput',0));
+msac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.msac_rawtavg_eyespeed',all_data,'uniformoutput',0));
 
 gsac_avg_orth_frac = arrayfun(@(x) mean(abs(x.gsac_delta_Y_frac)),all_data);
 [avg_inaccurate_orth,avg_accurate_orth] = deal(nan(length(all_data),1));
@@ -248,10 +249,11 @@ gsac_avg_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,gsac_avg_orth_frac);
 gsac_inac_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,avg_inaccurate_orth);
 gsac_ac_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,avg_accurate_orth);
 
-[expt_gsac_eyespeed,expt_gsac_avgorthspeed,expt_gsac_inaccorthspeed,expt_gsac_accorthspeed] = deal(nan(length(unique_expts),length(eye_tax)));
+[expt_gsac_eyespeed,expt_msac_eyespeed,expt_gsac_avgorthspeed,expt_gsac_inaccorthspeed,expt_gsac_accorthspeed] = deal(nan(length(unique_expts),length(eye_tax)));
 [expt_avg_orth,expt_inacc_orth,expt_acc_orth] = deal(nan(length(unique_expts),1));
 for ii = 1:length(unique_expts)
     eset = find(expt_nums == unique_expts(ii));
+    expt_msac_eyespeed(ii,:) = mean(msac_rawtavg_eyespeed(eset,:),1);
     expt_gsac_eyespeed(ii,:) = mean(gsac_rawtavg_eyespeed(eset,:),1);
     expt_gsac_avgorthspeed(ii,:) = mean(gsac_avg_orthspeed(eset,:),1);
     expt_gsac_inaccorthspeed(ii,:) = mean(gsac_inac_orthspeed(eset,:),1);
@@ -266,6 +268,36 @@ plot(eye_tax,mean(expt_gsac_avgorthspeed));
 plot(eye_tax,mean(expt_gsac_inaccorthspeed),'r')
 plot(eye_tax,mean(expt_gsac_accorthspeed),'k');
 
+f2 = figure(); 
+subplot(2,1,1);hold on
+plot(eye_tax,mean(expt_gsac_eyespeed));
+hold on
+plot(eye_tax,mean(expt_msac_eyespeed),'r')
+xlabel('Time (s)'); ylabel('Speed (deg/sec)');
+xlim([-0.02 0.08]);
+line([-0.02 0.08],[3 3],'color','k','linestyle','--');
+line([-0.02 0.08],[5 5],'color','r','linestyle','--');
+line([-0.02 0.08],[10 10],'color','b','linestyle','--');
+
+subplot(2,1,2);hold on
+plot(eye_tax,mean(expt_gsac_eyespeed));
+hold on
+plot(eye_tax,mean(expt_msac_eyespeed),'r')
+xlabel('Time (s)'); ylabel('Speed (deg/sec)');
+set(gca,'yscale','log');
+xlim([-0.02 0.08]);
+line([-0.02 0.08],[3 3],'color','k','linestyle','--');
+line([-0.02 0.08],[5 5],'color','r','linestyle','--');
+line([-0.02 0.08],[10 10],'color','b','linestyle','--');
+
+%PRINT PLOTS
+fig_width = 3.5; rel_height = 1.5;
+figufy(f2);
+fname = [fig_dir 'Avg_speed_thresh_comparison.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
+
+%%
 orth_trajects.tax = eye_tax;
 orth_trajects.avg_orth_speed = mean(expt_gsac_avgorthspeed);
 orth_trajects.avg_inac_speed = mean(expt_gsac_inaccorthspeed);
