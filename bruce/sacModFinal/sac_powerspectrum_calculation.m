@@ -1,6 +1,10 @@
 clear all
 close all
 
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
+
+type = 'worst';
+
 %%
 % dname = '~/Analysis/bruce/G086/FINsac_mod/gen_trig_avg_data_ori0.mat';
 dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
@@ -22,7 +26,14 @@ load(dname);
 chunk_dur = 0.032;
 beg_offset = 0.001;
 sac_tax = orth_trajects.tax;
-orth_velprof = orth_trajects.avg_orth_speed;
+switch type
+    case 'avg'
+        orth_velprof = orth_trajects.avg_orth_speed;
+    case 'best'
+        orth_velprof = orth_trajects.avg_acc_speed;
+    case 'worst'
+        orth_velprof = orth_trajects.avg_inac_speed;
+end
 % orth_velprof = orth_trajects.avg_inac_speed;
 use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur));
 sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1));
@@ -54,11 +65,31 @@ ep = find(Trial_Tax >= Trial_Dur,1);
 interp_velprof = interp_velprof(1:ep);
 interp_phosphor = interp_phosphor(1:ep);
 Trial_Tax = Trial_Tax(1:ep);
+
+%%
+f1 = figure();
+subplot(2,1,1)
+plot(Trial_Tax*1e3,interp_phosphor)
+xlabel('Time (ms)');
+ylabel('Relative phosphor intensity');
+
+subplot(2,1,2)
+plot(Trial_Tax*1e3,interp_velprof)
+xlabel('Time (ms)');
+ylabel('Orthogonal eye speed (deg/sec)');
+
+%PRINT PLOTS
+fig_width = 6; rel_height = 1.2;
+figufy(f1);
+fname = [fig_dir 'eyespeed_phosphor_profiles_' type '.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
 %%
 
-n_rpts = 10;
+n_rpts = 50;
 frame_dur = 0.01;
-Ntrials = 25;
+Ntrials = 50;
 Nframes = ceil(Trial_Dur/frame_dur);
 wi = 2;
 bar_width = 0.0565;
@@ -144,16 +175,45 @@ f1 = figure();
 subplot(2,1,1);
 imagesc(fx(fxu),ft(ftu),avg_PP);
 xlim(xr);ylim(tr);
+xlabel('Spatial frequency (cyc/deg)');
+ylabel('Temporal frequency (Hz)');
+set(gca,'ydir','normal');
+
 subplot(2,1,2);
 imagesc(fx(fxu),ft(ftu),avg_PP_eye);
 xlim(xr);ylim(tr);
+xlabel('Spatial frequency (cyc/deg)');
+ylabel('Temporal frequency (Hz)');
+set(gca,'ydir','normal');
 
+xr = [0 10];
+tr = [0 15];
 diff_mat = (avg_PP-avg_PP_eye)./avg_PP;
 diff_mat_avg = 0.5*diff_mat + 0.5*flipud(diff_mat);
 f2 = figure();
 imagesc(fx(fxu),ft(ftu),diff_mat_avg);
 % imagesc(fx(fxu),ft(ftu),diff_mat);
-caxis([0 0.5]);
 xlim(xr);ylim(tr);
+switch type
+    case 'avg'
+        caxis([0 0.3]);
+    case 'worst'
+        caxis([0 0.5]);
+end
 colorbar
+xlabel('Spatial frequency (cyc/deg)');
+ylabel('Temporal frequency (Hz)');
+set(gca,'ydir','normal');
 
+%PRINT PLOTS
+fig_width = 6; rel_height = 1.4;
+figufy(f1);
+fname = [fig_dir 'amplitude_spectra_' type '.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f1);
+
+fig_width = 5; rel_height = 0.7;
+figufy(f2);
+fname = [fig_dir 'spectra_diffs_' type '.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
