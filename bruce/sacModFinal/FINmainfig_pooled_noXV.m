@@ -7,12 +7,12 @@ include_bursts = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 % fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
-base_sname = 'sacStimProcFin_noXV';
+base_sname = 'sacStimProcFin_noXV'; %main stim-proc analysis
 % base_tname = 'sac_trig_avg_data4'; %this data set has all the bootsrap an
-base_tname = 'sac_trig_avg_data5';
-base_yname = 'sacTypeDep_noXV';
-base_iname = 'sac_info_timing_noXV3';
-base_dname = 'sacStimDelay_noXV2';
+base_tname = 'sac_trig_avg_data5'; %trig-avg firing rate data
+base_yname = 'sacTypeDep_noXV'; %saccade type-dependent data
+base_iname = 'sac_info_timing_noXV3'; %info-timing analysis
+base_dname = 'sacStimDelay_noXV2'; %new stim delay analysis
 base_xname = 'sacStimProcFin_XVTEST'; %analysis of xv LL for gain vs gain+offset models
 
 if include_bursts

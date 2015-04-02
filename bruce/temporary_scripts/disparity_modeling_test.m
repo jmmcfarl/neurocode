@@ -1,21 +1,24 @@
 clear all
 close all
 
-monName = 'jbe';
-Expt_name = 'M008';
+% monName = 'jbe';
+% Expt_name = 'M008';
+monName = 'lem';
+Expt_name = 'M312';
+
 rec_type = 'LP';
-% data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-data_dir = ['~/Data/bruce/' Expt_name];
-cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
+data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% data_dir = ['~/Data/bruce/' Expt_name];
+% cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
 
 
 %%
 
 min_trial_dur = 2;
 trial_dur = 4;
-use_nPix = 20;
-dt = 0.01;
-flen = 8;
+use_nPix = 30;
+dt = 0.03;
+flen = 5;
 Fr = 1;
 n_probes = 24;
 spatial_usfac = 1;
@@ -130,6 +133,11 @@ for ee = 1:n_blocks;
     all_trial_end_times = cat(1,all_trial_end_times,trial_end_times(use_trials)' + cur_toffset);
     all_trial_blocknums = cat(1,all_trial_blocknums,ones(length(use_trials),1)*ee);
     
+    if dt == 0.03
+        trial_Fr = [Expts{cur_block}.Trials(:).Fr];
+        use_trials = use_trials(trial_Fr(use_trials) == 3);
+    end
+    
     trial_Se = [Expts{cur_block}.Trials(:).se];
     trial_Se = trial_Se(id_inds);
     trial_Fr = [Expts{cur_block}.Trials(:).Fr];
@@ -231,9 +239,9 @@ full_nPix_us = spatial_usfac*full_nPix;
 stim_params_us = NMMcreate_stim_params([flen full_nPix_us*2],dt);
 
 %%
-flip_frames = all_frame_ce == -1;
-all_Rstim_mat(flip_frames,:) = -all_Rstim_mat(flip_frames,:);
-% all_Lstim_mat(flip_frames,:) = -all_Lstim_mat(flip_frames,:);
+% flip_frames = all_frame_ce == -1;
+% all_Rstim_mat(flip_frames,:) = -all_Rstim_mat(flip_frames,:);
+% % all_Lstim_mat(flip_frames,:) = -all_Lstim_mat(flip_frames,:);
 
 %%
 blank_frames = all_frame_ce == -1009;
@@ -268,39 +276,51 @@ NT = length(used_inds);
 used_inds(ismember(all_trialvec(used_inds),bad_trials)) = [];
 
 utrials = find(all_trial_Fr == dt/0.01);
+% utrials = find(all_trial_Fr == 3);
 used_inds(~ismember(all_trialvec(used_inds),utrials)) = [];
 
 %%
 silent = 0;
-base_lambda_d2XT = 30;
+base_lambda_d2XT = 20;
 base_lambda_L1 = 1;
 
+if dt == 0.01 %use st smoothness
+L2_params = create_L2_params([],[1; use_nPix*flen],[flen use_nPix],2,3,[0 0]);
+L2_mat_left = generate_L2_mat(L2_params,2*use_nPix*flen);
+L2_params = create_L2_params([],[(use_nPix*flen + 1); 2*use_nPix*flen],[flen use_nPix],2,3,[0 0]);
+L2_mat_right = generate_L2_mat(L2_params,2*use_nPix*flen);
+elseif dt == 0.03 %use spatial smoothness
 L2_params = create_L2_params([],[1; use_nPix*flen],[flen use_nPix],2,2,[0 0]);
 L2_mat_left = generate_L2_mat(L2_params,2*use_nPix*flen);
 L2_params = create_L2_params([],[(use_nPix*flen + 1); 2*use_nPix*flen],[flen use_nPix],2,2,[0 0]);
 L2_mat_right = generate_L2_mat(L2_params,2*use_nPix*flen);
+end
 
 L2_mat = L2_mat_left + L2_mat_right;
 
-n_stim_filts = 3;
-mod_signs = ones(1,n_stim_filts);
-NL_types = [{'lin' 'quad','quad'}];
+n_stim_filts = 2;
+mod_signs = [1 1 1 -1 -1];
+NL_types = [{'lin','quad','quad','quad','quad'}];
 init_d2XT = [ones(n_stim_filts,1)];
 init_L2 = [zeros(n_stim_filts,1);];
 init_reg_params = NMMcreate_reg_params('lambda_custom',base_lambda_d2XT,'lambda_L1',base_lambda_L1);
 
+optim_params.optTol = 1e-6;
+optim_params.progTol = 1e-8;
+
 mod_pred_rates = nan(length(used_inds),length(su_set));
 for ss = 1:length(su_set)
-    fprintf('Fitting model for MU %d of %d\n',ss,n_probes);
+% for ss = [6]
+    fprintf('Fitting model for SU %d of %d\n',ss,length(su_set));
     Robs = all_binned_sua(used_inds,ss);
     cur_uinds = find(~isnan(Robs));
     
     if nansum(Robs) > 0
         gqm1 = NMMinitialize_model(stim_params,mod_signs,NL_types,init_reg_params);
-        gqm1 = NMMfit_filters(gqm1,Robs,all_Xmat(used_inds,:),[],cur_uinds,silent,[],L2_mat);
+        gqm1 = NMMfit_filters(gqm1,Robs,all_Xmat(used_inds,:),[],cur_uinds,silent,optim_params,L2_mat);
         [LL, ~, pred_rate, G, gint] = NMMeval_model(gqm1,Robs,all_Xmat(used_inds,:),[],cur_uinds);
         
-        gqm2 = NMMadjust_regularization(gqm1,1:length(mod_signs),'lambda_d2XT',base_lambda_d2XT./var(gint)');
+        gqm2 = NMMadjust_regularization(gqm1,1:length(mod_signs),'lambda_custom',base_lambda_d2XT./var(gint)');
         gqm2 = NMMadjust_regularization(gqm2,1:length(mod_signs),'lambda_L1',base_lambda_L1./std(gint)');
         gqm2 = NMMfit_filters(gqm2,Robs,all_Xmat(used_inds,:),[],cur_uinds,silent,[],L2_mat);
         
@@ -312,6 +332,165 @@ for ss = 1:length(su_set)
     end
 end
 
+%%
+% use_lag = 3;
+% [XX,TT] = meshgrid(1:use_nPix*2,1:flen);
+% 
+% cur_use_Kinds = find(TT == use_lag);
+% cur_stim_params = NMMcreate_stim_params([1 use_nPix*2]);
+% 
+% silent = 1;
+% base_lambda_d2XT = 20;
+% base_lambda_L1 = 0;
+% 
+% L2_params = create_L2_params([],[1; use_nPix],[1 use_nPix],2,2,[0 0]);
+% L2_mat_left = generate_L2_mat(L2_params,2*use_nPix);
+% L2_params = create_L2_params([],[(use_nPix + 1); 2*use_nPix],[1 use_nPix],2,2,[0 0]);
+% L2_mat_right = generate_L2_mat(L2_params,2*use_nPix);
+% 
+% L2_mat = L2_mat_left + L2_mat_right;
+% 
+% n_stim_filts = 5;
+% mod_signs = [1 1 1 -1 -1];
+% NL_types = [{'lin' 'quad','quad','quad','quad'}];
+% init_d2XT = [ones(n_stim_filts,1)];
+% init_L2 = [zeros(n_stim_filts,1);];
+% init_reg_params = NMMcreate_reg_params('lambda_custom',base_lambda_d2XT,'lambda_L1',base_lambda_L1);
+% 
+% pos_used_inds = used_inds(all_frame_ce(used_inds) == 0);
+% neg_used_inds = used_inds(all_frame_ce(used_inds) == -1);
+% 
+% mod_pred_rates = nan(length(used_inds),length(su_set));
+% % for ss = 1:length(su_set)
+% for ss = [1 6]
+%     fprintf('Fitting model for SU %d of %d\n',ss,length(su_set));
+%     Robs = all_binned_sua(pos_used_inds,ss);
+%     cur_uinds = find(~isnan(Robs));
+%     
+%     if nansum(Robs) > 0
+%         gqm1 = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,init_reg_params);
+%         gqm1 = NMMfit_filters(gqm1,Robs,all_Xmat(pos_used_inds,cur_use_Kinds),[],cur_uinds,silent,[],L2_mat);
+%         [LL, ~, pred_rate, G, gint] = NMMeval_model(gqm1,Robs,all_Xmat(pos_used_inds,cur_use_Kinds),[],cur_uinds);
+%         
+%         gqm2 = NMMadjust_regularization(gqm1,1:length(mod_signs),'lambda_custom',base_lambda_d2XT./var(gint)');
+%         gqm2 = NMMadjust_regularization(gqm2,1:length(mod_signs),'lambda_L1',base_lambda_L1./std(gint)');
+%         gqm2 = NMMfit_filters(gqm2,Robs,all_Xmat(pos_used_inds,cur_use_Kinds),[],cur_uinds,silent,[],L2_mat);
+%         
+%         pos_ce_mod(ss) = gqm2;
+%         
+%         [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMeval_model(gqm2,[],all_Xmat(used_inds,cur_use_Kinds));
+%         mod_pred_rates(used_inds,ss) = pred_rate;
+%     end
+% %     
+% %     fprintf('Fitting model for SU %d of %d\n',ss,length(su_set));
+% %     Robs = all_binned_sua(neg_used_inds,ss);
+% %     cur_uinds = find(~isnan(Robs));
+% %     
+% %     if nansum(Robs) > 0
+% %         gqm1 = NMMinitialize_model(cur_stim_params,mod_signs,NL_types,init_reg_params);
+% %         gqm1 = NMMfit_filters(gqm1,Robs,all_Xmat(neg_used_inds,cur_use_Kinds),[],cur_uinds,silent,[],L2_mat);
+% %         [LL, ~, pred_rate, G, gint] = NMMeval_model(gqm1,Robs,all_Xmat(neg_used_inds,cur_use_Kinds),[],cur_uinds);
+% %         
+% %         gqm2 = NMMadjust_regularization(gqm1,1:length(mod_signs),'lambda_custom',base_lambda_d2XT./var(gint)');
+% %         gqm2 = NMMadjust_regularization(gqm2,1:length(mod_signs),'lambda_L1',base_lambda_L1./std(gint)');
+% %         gqm2 = NMMfit_filters(gqm2,Robs,all_Xmat(neg_used_inds,cur_use_Kinds),[],cur_uinds,silent,[],L2_mat);
+% %         
+% %         neg_ce_mod(ss) = gqm2;
+% %         
+% % %         [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMeval_model(gqm2,[],all_Xmat(used_inds,cur_use_Kinds));
+% % %         mod_pred_rates(used_inds,ss) = pred_rate;
+% %     end
+%     
+% end
+
+%%
+poss_latency = 1:10;
+un_dp = unique(all_frame_dp);
+dp_trig_avgs = nan(length(un_dp),length(poss_latency),length(su_set));
+dp_mp = nan(length(un_dp),length(poss_latency),length(su_set));
+use_dps = 3:length(un_dp);
+
+for pp = 1:length(poss_latency)
+    latency = poss_latency(pp);
+    for ii = 1:length(un_dp)
+        cur_set = find(all_frame_dp(used_inds) == un_dp(ii) & all_frame_ce(used_inds) == 1);
+        cur_resp_set = cur_set + latency;
+        bad = cur_resp_set > length(used_inds);
+        cur_set(bad) = []; cur_resp_set(bad) = [];
+        cur_resp_set(all_trialvec(used_inds(cur_resp_set)) ~= all_trialvec(used_inds(cur_set))) = [];
+        dp_trig_avgs(ii,pp,:) = nanmean(all_binned_sua(used_inds(cur_resp_set),:));
+        dp_mp(ii,pp,:) = nanmean(mod_pred_rates((cur_resp_set),:));
+        
+        cur_set = find(all_frame_dp(used_inds) == un_dp(ii) & all_frame_ce(used_inds) == -1);
+        cur_resp_set = cur_set + latency;
+        bad = cur_resp_set > length(used_inds);
+        cur_set(bad) = []; cur_resp_set(bad) = [];
+        cur_resp_set(all_trialvec(used_inds(cur_resp_set)) ~= all_trialvec(used_inds(cur_set))) = [];
+        dp_trig_avgsR(ii,pp,:) = nanmean(all_binned_sua(used_inds(cur_resp_set),:));
+        dp_mpR(ii,pp,:) = nanmean(mod_pred_rates((cur_resp_set),:));
+    end
+end
+
+%%
+% nneg = 5; npos = 5;
+% stc_thresh = -5e-3;
+% 
+% for ss = 1:length(su_set)
+%     
+%     fprintf('Computing STC for SU %d of %d\n',ss,length(su_set));
+%     
+%     Robs = all_binned_sua(used_inds,ss);
+%     cur_used_inds = used_inds(~isnan(Robs));
+%     if ~isempty(cur_used_inds)
+%         Robs = all_binned_sua(cur_used_inds,ss);
+%         avg_rate = mean(Robs);
+%         
+%         spikebins = convert_to_spikebins(Robs);
+%         spike_cond_stim = all_Xmat(cur_used_inds(spikebins),:);
+%         sta      = mean(spike_cond_stim) - mean(all_Xmat(cur_used_inds,:));
+%         sta = sta/norm(sta);
+%         proj_mat = sta'/(sta*sta')*sta;
+%         stim_proj = all_Xmat(cur_used_inds,:) - all_Xmat(cur_used_inds,:)*proj_mat;
+%         % stim_proj = stim_emb;
+%         stvcv = cov(stim_proj(spikebins,:));  utvcv = cov(stim_proj);
+%         [evecs,evals] = eig(stvcv-utvcv); evs   = diag(evals);
+%         stcs  = evecs(:,[nneg:-1:1,length(evs)-npos+1:end]); stcs  = stcs(:,end:-1:1);
+%         
+%         sua_data(ss).avg_rates = avg_rate;
+%          sua_data(ss).var_rates = nanvar(Robs);
+%        sua_data(ss).sta = sta;
+%         sua_data(ss).stcs = stcs;
+%         sua_data(ss).evals = diag(evals);
+%         cur_evec_diff = diff(flipud(sua_data(ss).evals));
+%         sua_data(ss).npos_stc = find(cur_evec_diff(1:250) < stc_thresh,1,'last');
+%         sua_data(ss).nneg_stc = find(cur_evec_diff(end:-1:250) < stc_thresh,1,'last');
+%         if isempty(sua_data(ss).npos_stc); sua_data(ss).npos_stc = 0; end;
+%         if isempty(sua_data(ss).nneg_stc); sua_data(ss).nneg_stc = 0; end;
+%         sua_data(ss).stc_use = true;
+%         sua_data(ss).avg_rate = mean(Robs);
+%         sua_data(ss).nspks = sum(Robs);
+%         
+%         %%
+%     else
+%         sua_data(ss).stc_use = false;
+%     end
+% end
+
+%%
+% close all
+% for ss = 1:length(su_set)
+% subplot(3,1,1)
+% imagesc(reshape(sua_data(ss).sta,[flen use_nPix*2]))
+% colormap(gray)
+% subplot(3,1,2)
+% imagesc(reshape(sua_data(ss).stcs(:,1),[flen use_nPix*2]))
+% colormap(gray)
+% subplot(3,1,3)
+% imagesc(reshape(sua_data(ss).stcs(:,2),[flen use_nPix*2]))
+% colormap(gray)
+% pause
+% clf
+% end
 %%
 mu_set = 1:24;
 mu_mod_pred_rates = nan(length(used_inds),length(mu_set));
@@ -337,86 +516,6 @@ for ss = 1:length(mu_set)
     end
 end
 
-%%
-poss_latency = 1:10;
-un_dp = unique(all_frame_dp);
-dp_trig_avgs = nan(length(un_dp),length(poss_latency),length(su_set));
-dp_mp = nan(length(un_dp),length(poss_latency),length(su_set));
-use_dps = 3:length(un_dp);
-for pp = 1:length(poss_latency)
-    latency = poss_latency(pp);
-    for ii = 1:length(un_dp)
-        cur_set = find(all_frame_dp(used_inds) == un_dp(ii) & all_frame_ce(used_inds) == 1);
-        cur_resp_set = cur_set + latency;
-        bad = cur_resp_set > length(used_inds);
-        cur_set(bad) = []; cur_resp_set(bad) = [];
-        cur_resp_set(all_trialvec(used_inds(cur_resp_set)) ~= all_trialvec(used_inds(cur_set))) = [];
-        dp_trig_avgs(ii,pp,:) = nanmean(all_binned_sua(used_inds(cur_resp_set),:));
-           dp_mp(ii,pp,:) = nanmean(mod_pred_rates((cur_resp_set),:));
-    end
-end
-
-%%
-nneg = 5; npos = 5;
-stc_thresh = -5e-3;
-
-for ss = 1:length(su_set)
-    
-    fprintf('Computing STC for SU %d of %d\n',ss,length(su_set));
-    
-    Robs = all_binned_sua(used_inds,ss);
-    cur_used_inds = used_inds(~isnan(Robs));
-    if ~isempty(cur_used_inds)
-        Robs = all_binned_sua(cur_used_inds,ss);
-        avg_rate = mean(Robs);
-        
-        spikebins = convert_to_spikebins(Robs);
-        spike_cond_stim = all_Xmat(cur_used_inds(spikebins),:);
-        sta      = mean(spike_cond_stim) - mean(all_Xmat(cur_used_inds,:));
-        sta = sta/norm(sta);
-        proj_mat = sta'/(sta*sta')*sta;
-        stim_proj = all_Xmat(cur_used_inds,:) - all_Xmat(cur_used_inds,:)*proj_mat;
-        % stim_proj = stim_emb;
-        stvcv = cov(stim_proj(spikebins,:));  utvcv = cov(stim_proj);
-        [evecs,evals] = eig(stvcv-utvcv); evs   = diag(evals);
-        stcs  = evecs(:,[nneg:-1:1,length(evs)-npos+1:end]); stcs  = stcs(:,end:-1:1);
-        
-        sua_data(ss).avg_rates = avg_rate;
-         sua_data(ss).var_rates = nanvar(Robs);
-       sua_data(ss).sta = sta;
-        sua_data(ss).stcs = stcs;
-        sua_data(ss).evals = diag(evals);
-        cur_evec_diff = diff(flipud(sua_data(ss).evals));
-        sua_data(ss).npos_stc = find(cur_evec_diff(1:250) < stc_thresh,1,'last');
-        sua_data(ss).nneg_stc = find(cur_evec_diff(end:-1:250) < stc_thresh,1,'last');
-        if isempty(sua_data(ss).npos_stc); sua_data(ss).npos_stc = 0; end;
-        if isempty(sua_data(ss).nneg_stc); sua_data(ss).nneg_stc = 0; end;
-        sua_data(ss).stc_use = true;
-        sua_data(ss).avg_rate = mean(Robs);
-        sua_data(ss).nspks = sum(Robs);
-        
-        %%
-    else
-        sua_data(ss).stc_use = false;
-    end
-end
-
-%%
-close all
-for ss = 1:length(su_set)
-subplot(3,1,1)
-imagesc(reshape(sua_data(ss).sta,[flen use_nPix*2]))
-colormap(gray)
-subplot(3,1,2)
-imagesc(reshape(sua_data(ss).stcs(:,1),[flen use_nPix*2]))
-colormap(gray)
-subplot(3,1,3)
-imagesc(reshape(sua_data(ss).stcs(:,2),[flen use_nPix*2]))
-colormap(gray)
-pause
-clf
-end
-%%
 %%
 nneg = 5; npos = 5;
 stc_thresh = -5e-3;

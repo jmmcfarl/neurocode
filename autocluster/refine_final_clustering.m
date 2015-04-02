@@ -6,8 +6,8 @@ spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_
 plot_GMM_cluster(block_num,probe_num,spk_data_name);
 
 %% SPLIT COMPONENTS
-block_num = 49;
-probe_num = 23;
+block_num = 37;
+probe_num = 11;
 spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_num)];
 split_GMM_component(block_num,probe_num,spk_data_name);
 
@@ -18,9 +18,9 @@ spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_
 delete_GMM_component(block_num,probe_num,spk_data_name);
 
 %% EXCLUSION CLUSTERING
-block_num = 14;
-probe_num = 17;
-exclude_SUs = [2 3];
+block_num = 35;
+probe_num = 10;
+exclude_SUs = [2];
 
 clear clust_params
 clust_params.outlier_thresh = 5;

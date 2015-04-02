@@ -6,7 +6,7 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M005';
+Expt_name = 'M009';
 monk_name = 'jbe';
 bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
 
@@ -62,10 +62,14 @@ if strcmp(rec_type,'LP')
         case 297
             if ~ismember(bar_ori,[0 90])
                 error('M297 is either 0 or 90 deg bars');
-            end
+            end            
+        case 309
+            bar_ori = 120;
             
         case 5
             bar_ori = 50;
+        case 9
+            bar_ori = 0;
     end
 end
 
@@ -227,6 +231,15 @@ expt_data.expt_nf = all_nfs;
 expt_data.expt_wi = cellfun(@(x) x.Stimvals.wi,Expts(cur_block_set));
 expt_data.expt_dw = cellfun(@(x) x.Stimvals.dw,Expts(cur_block_set));
 
+
+cur_expt_npix = unique(expt_npix(cur_block_set));
+if length(cur_expt_npix) > 1
+    warning('multiple Npix detected');
+    cur_expt_npix = mode(cur_expt_npix);
+end
+if params.full_nPix > cur_expt_npix
+    params.full_nPix = cur_expt_npix;
+end
 %% COMPUTE TRIAL DATA
 cd(data_dir);
 
@@ -508,5 +521,47 @@ spike_data.clust_params = clust_params;
 spike_data.SU_spk_times = all_su_spk_times;
 
 %%
-data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
-save(data_name,'params','trial_data','expt_data','spike_data','stimComp','ET_data','time_data','used_inds');
+% data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+% save(data_name,'params','trial_data','expt_data','spike_data','stimComp','ET_data','time_data','used_inds');
+
+
+%%
+n_sus = size(all_binned_sua,2);
+norm_binned_spikes = nanzscore(all_binned_sua);
+sua_corrmat = squeeze(nanmean(bsxfun(@times,reshape(norm_binned_spikes,[],1,n_sus),norm_binned_spikes)));
+
+sua_corrmat(logical(eye(n_sus))) = nan;
+f1 = figure();
+imagescnan(sua_corrmat);
+
+%% coarse xcorr test
+% maxlags = 50;
+% check_units = [1 3];
+% uinds = find(~isnan(all_binned_sua(:,check_units(1))) & ~isnan(all_binned_sua(:,check_units(2))));
+% [xc,xl] = xcov(all_binned_sua(uinds,check_units(1)),all_binned_sua(uinds,check_units(2)),maxlags,'coeff');
+% f2 = figure();
+% plot(xl*params.dt,xc);
+    
+%% fine timesclae xcorr check
+% check_units = [1 3];
+% rel_bins = (-0.05:0.001:0.05)';
+% 
+% joint_counts = zeros(size(rel_bins));
+% spike_counts = nansum(all_binned_sua);
+% [~,smaller_unit] = min(spike_counts(check_units));
+% 
+% if smaller_unit == 1
+% ref_times = all_su_spk_times{check_units(1)};
+% test_times = all_su_spk_times{check_units(2)};
+% else
+% ref_times = all_su_spk_times{check_units(2)};
+% test_times = all_su_spk_times{check_units(1)};    
+% end
+% 
+% nspks = length(ref_times);
+% for ii = 1:nspks
+%     joint_counts = joint_counts + histc(test_times - ref_times(ii),rel_bins);
+% end
+% 
+% f1 = figure();
+% plot(rel_bins(1:end-1),joint_counts(1:end-1));

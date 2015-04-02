@@ -3,8 +3,8 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M005';
-monk_name = 'jbe';
+Expt_name = 'M309';
+monk_name = 'lem';
 rec_type = 'LP';
 
 Expt_num = str2num(Expt_name(2:end));
@@ -179,7 +179,7 @@ for ii = 1:n_good_units
     set(0,'CurrentFigure',f2);
     subplot(n_cols,n_rows,ii);hold on
     [handles, details] = DensityPlot_jmm(spike_xy(:,1),spike_xy(:,2),'sqrtsc','ynormal','sd',[1 1]);
-    title(sprintf('Unit %d\n',good_SUs(ii)));
+    title(sprintf('U%d P%d B%d\n',good_SUs(ii),good_SU_pnums(ii),cur_block));
     axis tight
 end
 
@@ -224,7 +224,7 @@ end
 % caxis([2 ca(2)]);
 
 %% CHECK SPIKE CORRELATIONS
-block_num = 40;
+block_num = 30;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
 if strcmp(rec_type,'UA')
@@ -376,9 +376,14 @@ switch Expt_name
     case 'M297'
 %         init_use_SUs = [1 2 4 6 10 11 14 19 21 22 23 28 29];
        init_use_SUs = [1 2 4 6 9 11 14 19 21 22 23 28 29];
+ 
+    case 'M309'
+        init_use_SUs = [10 20 21 26 27 29];
 
     case 'M005'
         init_use_SUs = [9 10 11 20 21 24];
+    case 'M009'
+        init_use_SUs = [11 13];
        
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
@@ -544,11 +549,24 @@ switch Expt_name
         SU_ID_mat([11:end],29) = nan;
         SU_ID_mat(~isnan(SU_ID_mat(:,29)),29) = SU_ID_mat(find(~isnan(SU_ID_mat(:,28)),1),28); %units 28 and 29 are the same
 
+     case 'M309'
+        SU_ID_mat([1 2 21:end],10) = nan;
+        SU_ID_mat([1:30],20) = nan;
+        SU_ID_mat([1:21],21) = nan;
+        SU_ID_mat([1:23],26) = nan;
+        SU_ID_mat([1:15],27) = nan;
+        SU_ID_mat([1:11],29) = nan;
+
     case 'M005'
         SU_ID_mat([3 5],10) = nan;
         SU_ID_mat([1 3 4 11 12],11) = nan;
         SU_ID_mat([3],20) = nan;
         SU_ID_mat([4 5 6],21) = nan;
+
+    case 'M009'
+        SU_ID_mat([1:15],11) = nan;
+        SU_ID_mat([16:end],13) = nan;
+        SU_ID_mat(~isnan(SU_ID_mat(:,13)),13) = SU_ID_mat(find(~isnan(SU_ID_mat(:,11)),1),11); %units 11 and 13 are the same
 end
 
 % figure;

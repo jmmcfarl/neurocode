@@ -3,8 +3,8 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir spkdata_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M309';
-monk_name = 'lem';
+Expt_name = 'M009';
+monk_name = 'jbe';
 rec_type = 'LP';
 
 Expt_num = str2num(Expt_name(2:end));

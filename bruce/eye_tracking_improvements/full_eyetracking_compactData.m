@@ -5,10 +5,10 @@ addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type
 
-Expt_name = 'M005';
-monk_name = 'jbe';
+Expt_name = 'M309';
+monk_name = 'lem';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 50; %bar orientation to use (only for UA recs)
+bar_ori = 120; %bar orientation to use (only for UA recs)
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -61,8 +61,12 @@ if strcmp(rec_type,'LP')
             cor_ori = 45;
         case 297
             cor_ori = [0 90];
+        case 309
+            cor_ori = 120;
         case 5
             cor_ori = 50;
+        case 9
+            cor_ori = 0;
     end
 else
     cor_ori = [0 90];
@@ -129,14 +133,22 @@ else
 end
 
 flen = 12;
-spatial_usfac = 2;
+% spatial_usfac = 2;
 
-%these recs have larger bar widths
+%for manually specifying number of used pixs
 if ismember(Expt_num,[287 289 294])
     use_nPix = 15;
-    spatial_usfac = 4;
-elseif ismember(Expt_num,[296 297])
+elseif ismember(Expt_num,[296 297 9])
     use_nPix = 22;
+elseif ismember(Expt_num,[5 309])
+    use_npix = 26;
+end
+
+%for bar widths bigger than 0.08 degrees use a higher spatial up-sampling
+%factor
+if mode(expt_data.expt_dw)/params.scale_fac > 0.08
+    spatial_usfac = 4;
+else
     spatial_usfac = 2;
 end
 
@@ -176,6 +188,15 @@ switch Expt_num
         full_nPix = 22;
     case 294
         full_nPix = 20;
+end
+
+if full_nPix ~= params.full_nPix
+    fprintf('Using full_nPix in params struct\n');
+    full_nPix = params.full_nPix;
+end
+if use_nPix > full_nPix
+    fprintf('Using npix == full_nPix\n');
+    use_nPix = full_nPix;
 end
 
 %exclude data at beginning and end of each trial
