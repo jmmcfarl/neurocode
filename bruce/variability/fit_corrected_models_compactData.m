@@ -266,9 +266,9 @@ for cc = targs
         n_tr_trials = length(tr_trials);
         fprintf('Initializing models with %d training trials and %d xval trials\n',n_tr_trials,n_xv_trials);
         
-        cur_tr_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
-        cur_xv_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
-        cur_full_inds = find(ismember(all_trialvec(used_inds(cc_uinds)),use_trials));
+        cur_tr_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
+        cur_xv_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
+        cur_full_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),use_trials));
         
         %% COMPUTE UNIT DATA
         unit_data.isLOO = ismember(cc,loo_set);
@@ -337,7 +337,7 @@ for cc = targs
         init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_lambda_d2XT,'boundary_conds',[0 0 0]);
         mod_stim_params(1) = NMMcreate_stim_params([flen use_nPix_us],dt);
         
-        if cc <= n_probes %for MUA just fit a 3-filter quad model
+        if cc <= params.n_probes %for MUA just fit a 3-filter quad model
             
             %start out with just a linear filter
             nEfilts = 2;
