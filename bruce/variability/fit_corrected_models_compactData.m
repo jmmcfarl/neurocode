@@ -1,12 +1,13 @@
-clear all
-close all
+% clear all
+% close all
 
-global Expt_name bar_ori monk_name rec_type fit_unCor use_MUA
+global Expt_name bar_ori monk_name rec_type 
 
-Expt_name = 'M005';
-monk_name = 'jbe';
-bar_ori = 50; %bar orientation to use (only for UA recs)
-fit_unCor = false; %use eye correction
+% Expt_name = 'M005';
+% monk_name = 'jbe';
+% bar_ori = 50; %bar orientation to use (only for UA recs)
+
+fit_unCor = true; %use eye correction
 use_MUA = false; %use MUA in model-fitting
 
 save_name = 'corrected_models_comp';

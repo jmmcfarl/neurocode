@@ -11,8 +11,12 @@ Expt_list = cat(2,Expt_list,{'G085','G086','G087','G088','G089','G091','G093','G
 expt_oris = cat(1,expt_oris,[0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan]);
 expt_mname = cat(2,expt_mname,repmat({'jbe'},1,8));
 
+Expt_list = cat(2,Expt_list,{'M005','M309','M009'});
+expt_oris = cat(1,expt_oris,[5 nan; 120 nan; 0 nan]);
+expt_mname = cat(2,expt_mname,{'jbe','lem','jbe'});
+
 %%
-batch_function = 'create_processed_data';
+batch_function = 'fit_corrected_models_compactData';
 
 
 for Elist_cnt = 1:length(Expt_list)
