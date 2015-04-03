@@ -3,9 +3,9 @@
 
 global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'G086';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'M266';
+% monk_name = 'lem';
+% bar_ori = 80; %bar orientation to use (only for UA recs)
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
 fit_unCor = false; %use eye correction
@@ -71,6 +71,18 @@ load(et_mod_data_name,'all_mod*');
 load(et_anal_name,'drift*','it_*','dit_*','et_tr_set','et_saccades','et_params');
 tr_set = et_tr_set;
 
+if length(ET_data.saccades) ~= length(et_saccades)
+    sac_start_times = [ET_data.saccades(:).start_time];
+    old_sac_start_times = [et_saccades(:).start_time];
+    if length(sac_start_times) > length(old_sac_start_times)
+        extra_sacs = find(~ismember(sac_start_times,old_sac_start_times));
+        ET_data.saccades(extra_sacs) = [];
+        ET_data.is_blink(extra_sacs) = [];
+        fprintf('Difference in saccade detection from eye-tracking data, eliminating %d/%d saccades\n',length(extra_sacs),length(sac_start_times));
+    else
+        error('Fewer saccades than in ETdata');
+    end
+end
 %%
 if ~isnan(params.rpt_seeds)
     xv_type = 'rpt';
@@ -79,7 +91,7 @@ else
 end
 xv_frac = 0.2; %fraction of trials to use for XVAL
 
-flen = 12; %time lags for ST filters
+flen = 15; %time lags for ST filters
 spatial_usfac = et_params.spatial_usfac; %spatial up-sampling factor
 
 use_nPix = et_params.use_nPix; %number of pixels (bars) used in models
@@ -378,8 +390,8 @@ for cc = targs
             
         else %for SUA try a number of different model structures and pick the best by xvalLL
             
-            max_Emods = 3; %max excitatory quad filters
-            max_Imods = 3; %max inhibitory quad filters
+            max_Emods = 4; %max excitatory quad filters
+            max_Imods = 4; %max inhibitory quad filters
             
             %start out with just a linear filter
             nEfilts = 0;
