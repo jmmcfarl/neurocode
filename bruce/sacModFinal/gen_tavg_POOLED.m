@@ -236,6 +236,17 @@ eye_tax = all_data(1).raw_eye_lags;
 gsac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.gsac_rawtavg_eyespeed',all_data,'uniformoutput',0));
 msac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.msac_rawtavg_eyespeed',all_data,'uniformoutput',0));
 
+gsac_pos_orthvel = cell2mat(arrayfun(@(x) x.gsac_pos_orthvel',all_data,'uniformoutput',0));
+gsac_neg_orthvel = cell2mat(arrayfun(@(x) x.gsac_neg_orthvel',all_data,'uniformoutput',0));
+gsac_large_pos_orthvel = cell2mat(arrayfun(@(x) x.gsac_large_pos_orthvel',all_data,'uniformoutput',0));
+gsac_large_neg_orthvel = cell2mat(arrayfun(@(x) x.gsac_large_neg_orthvel',all_data,'uniformoutput',0));
+gsac_small_pos_orthvel = cell2mat(arrayfun(@(x) x.gsac_small_pos_orthvel',all_data,'uniformoutput',0));
+gsac_small_neg_orthvel = cell2mat(arrayfun(@(x) x.gsac_small_neg_orthvel',all_data,'uniformoutput',0));
+
+gsac_orthvel = 0.5*gsac_pos_orthvel - 0.5*gsac_neg_orthvel;
+gsac_large_orthvel = 0.5*gsac_large_pos_orthvel - 0.5*gsac_large_neg_orthvel;
+gsac_small_orthvel = 0.5*gsac_small_pos_orthvel - 0.5*gsac_small_neg_orthvel;
+
 gsac_avg_orth_frac = arrayfun(@(x) mean(abs(x.gsac_delta_Y_frac)),all_data);
 [avg_inaccurate_orth,avg_accurate_orth] = deal(nan(length(all_data),1));
 for ii = 1:length(all_data)
@@ -290,12 +301,12 @@ line([-0.02 0.08],[3 3],'color','k','linestyle','--');
 line([-0.02 0.08],[5 5],'color','r','linestyle','--');
 line([-0.02 0.08],[10 10],'color','b','linestyle','--');
 
-%PRINT PLOTS
-fig_width = 3.5; rel_height = 1.5;
-figufy(f2);
-fname = [fig_dir 'Avg_speed_thresh_comparison.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+% %PRINT PLOTS
+% fig_width = 3.5; rel_height = 1.5;
+% figufy(f2);
+% fname = [fig_dir 'Avg_speed_thresh_comparison.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 %%
 orth_trajects.tax = eye_tax;

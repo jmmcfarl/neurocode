@@ -3,7 +3,7 @@ close all
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
 
-type = 'best'; %avg worst or best, determines which velocity profile to use
+type = 'avg'; %avg worst or best, determines which velocity profile to use
 
 %%
 dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
@@ -76,7 +76,7 @@ ylabel('Orthogonal eye speed (deg/sec)');
 
 n_rpts = 100; %number of times to repeat simulation for averaging
 frame_dur = 0.01; %duration of each stimulus frame
-Ntrials = 50;%number of simulated trials to pool for calculating FFT at higher temp freq sampling
+Ntrials = 1;%number of simulated trials to pool for calculating FFT at higher temp freq sampling
 Nframes = ceil(Trial_Dur/frame_dur); %number of stimulus frames per trial
 wi = 2; %width of stimulus (deg)
 bar_width = 0.0565; %width of individual bars (deg)
@@ -162,8 +162,8 @@ for nn = 1:n_rpts
 end
 
 %%
-sname = [fig_dir 'pspec_calcs_' type];
-save(sname,'fx','ft','fxu','ftu','all_PP','all_PP_eye');
+% sname = [fig_dir 'pspec_calcs_' type];
+% save(sname,'fx','ft','fxu','ftu','all_PP','all_PP_eye');
 
 %%
 avg_PP = squeeze(nanmean(all_PP));
