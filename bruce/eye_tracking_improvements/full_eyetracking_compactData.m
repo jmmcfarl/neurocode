@@ -34,7 +34,7 @@ fprintf('Loading %s\n',data_name);
 load(data_name);
 
 %%
-recompute_init_mods = 0; %use existing initial models?
+recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
 use_sac_kerns = 1; %use sac-modulation kernels
 
@@ -141,7 +141,7 @@ if ismember(Expt_num,[287 289 294])
 elseif ismember(Expt_num,[296 297 9])
     use_nPix = 22;
 elseif ismember(Expt_num,[5 309])
-    use_npix = 26;
+    use_nPix = 26;
 end
 
 %for bar widths bigger than 0.08 degrees use a higher spatial up-sampling
