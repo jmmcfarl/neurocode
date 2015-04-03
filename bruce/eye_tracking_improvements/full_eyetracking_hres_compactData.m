@@ -2,10 +2,10 @@ clear all
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type
 
-Expt_name = 'M009';
+Expt_name = 'M005';
 monk_name = 'jbe';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 0; %bar orientation to use (only for UA recs)
+bar_ori = 50; %bar orientation to use (only for UA recs)
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -31,7 +31,7 @@ fprintf('Loading %s\n',data_name);
 load(data_name);
 
 %%
-recompute_init_mods = 0; %use existing initial models?
+recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
 use_sac_kerns = 1; %use sac-modulation kernels
 
@@ -118,12 +118,16 @@ old_anal_name = [old_anal_name sprintf('_ori%d',bar_ori)];
 hr_anal_name = [hr_anal_name sprintf('_ori%d',bar_ori)];
 hr_mod_name = [hr_mod_name sprintf('_ori%d',bar_ori)];
 
+load([anal_dir '/' old_anal_name],'et_params');
 %%
-if strcmp(rec_type,'LP')
-    use_nPix = 32;
-elseif strcmp(rec_type,'UA')
-    use_nPix = 16;
-end
+% if strcmp(rec_type,'LP')
+%     use_nPix = 32;
+% elseif strcmp(rec_type,'UA')
+%     use_nPix = 16;
+% end
+
+use_nPix = et_params.use_nPix;
+flen = et_params.flen;
 
 if ~isnan(params.rpt_seeds)
     xv_type = 'rpt';
@@ -133,26 +137,27 @@ else
     xv_frac = 0.2;
 end
 
-flen = 12;
-old_spatial_usfac = 2;
+% flen = 12;
+% old_spatial_usfac = 2;
 
-%these recs have larger bar widths
-if ismember(Expt_num,[287 289 294])
-    use_nPix = 15;
-elseif ismember(Expt_num,[296 297 300])
-    use_nPix = 22;
-elseif Expt_num == 309
-    use_npix = 26;
-end
+% %these recs have larger bar widths
+% if ismember(Expt_num,[287 289 294])
+%     use_nPix = 15;
+% elseif ismember(Expt_num,[296 297 300])
+%     use_nPix = 22;
+% elseif Expt_num == 309
+%     use_npix = 26;
+% end
 
-%for bar widths bigger than 0.08 degrees use a higher spatial up-sampling
-%factor
-if mode(expt_data.expt_dw)/params.scale_fac > 0.08
-    old_spatial_usfac = 4;
-else
-    old_spatial_usfac = 2;
-end
+% %for bar widths bigger than 0.08 degrees use a higher spatial up-sampling
+% %factor
+% if mode(expt_data.expt_dw)/params.scale_fac > 0.08
+%     old_spatial_usfac = 4;
+% else
+%     old_spatial_usfac = 2;
+% end
 
+old_spatial_usfac = et_params.spatial_usfac;
 spatial_usfac = old_spatial_usfac*2;
 
 n_drift_inf_it = 1; %3
@@ -178,26 +183,27 @@ stim_fs = 100; %in Hz
 dt = 0.01;
 Fr = 1;
 
-full_nPix=36;
-switch Expt_num
-    case 270
-        full_nPix=32;
-    case  287
-        full_nPix = 22;
-    case 289
-        full_nPix = 22;
-    case 294
-        full_nPix = 20;
-end
-
-if full_nPix ~= params.full_nPix
-    fprintf('Using full_nPix in params struct\n');
-    full_nPix = params.full_nPix;
-end
-if use_nPix > full_nPix
-    fprintf('Using npix == full_nPix\n');
-    use_nPix = full_nPix;
-end
+full_nPix = params.full_nPix;
+% full_nPix=36;
+% switch Expt_num
+%     case 270
+%         full_nPix=32;
+%     case  287
+%         full_nPix = 22;
+%     case 289
+%         full_nPix = 22;
+%     case 294
+%         full_nPix = 20;
+% end
+% 
+% if full_nPix ~= params.full_nPix
+%     fprintf('Using full_nPix in params struct\n');
+%     full_nPix = params.full_nPix;
+% end
+% if use_nPix > full_nPix
+%     fprintf('Using npix == full_nPix\n');
+%     use_nPix = full_nPix;
+% end
 
 %exclude data at beginning and end of each trial
 trial_dur = 4;
