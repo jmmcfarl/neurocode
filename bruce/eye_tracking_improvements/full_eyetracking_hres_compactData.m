@@ -2,10 +2,10 @@ clear all
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type
 
-Expt_name = 'M009';
-monk_name = 'jbe';
+Expt_name = 'M309';
+monk_name = 'lem';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 0; %bar orientation to use (only for UA recs)
+bar_ori = 120; %bar orientation to use (only for UA recs)
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -31,7 +31,7 @@ fprintf('Loading %s\n',data_name);
 load(data_name);
 
 %%
-recompute_init_mods = 1; %use existing initial models?
+recompute_init_mods = 0; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
 use_sac_kerns = 1; %use sac-modulation kernels
 
@@ -511,7 +511,7 @@ end
 null_stim_params = fin_stim_params(2:end);
 
 block_L2 = 1;
-silent = 0;
+silent = 1;
 sac_d2t = 100;
 
 if unique(expt_data.expt_dds) == 67

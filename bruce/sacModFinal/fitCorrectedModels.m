@@ -1,17 +1,17 @@
-clear all
+% clear all
 
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/eye_tracking_improvements/');
 
 global Expt_name bar_ori use_MUA fit_unCor
 
-Expt_name = 'M297';
-bar_ori = 0; %bar orientation to use (only for UA recs)
-use_MUA = true;
-fit_unCor = true; %fit models to uncorrected stim?
+% Expt_name = 'M297';
+% bar_ori = 0; %bar orientation to use (only for UA recs)
+% use_MUA = true;
+% fit_unCor = true; %fit models to uncorrected stim?
 
 
-save_name = 'corrected_models2';
+save_name = 'corrected_models3';
 % save_name = 'corrected_models2withMUA';
 
 %%
@@ -602,10 +602,10 @@ end
 
 %% IDENTIFY REPEAT TRIALS
 %don't use repeat trials for training or cross-validation here.
-if strcmp(xv_type,'rpt')
-    rpt_trials = find(all_trial_Se==rpt_seed);
-    rpt_inds = find(ismember(all_trialvec(used_inds),rpt_trials));
-end
+% if strcmp(xv_type,'rpt')
+rpt_trials = find(all_trial_Se==rpt_seed);
+rpt_inds = find(ismember(all_trialvec(used_inds),rpt_trials));
+% end
 
 %%
 %set of units where we have LOOXV on eye-tracking

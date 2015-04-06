@@ -6,13 +6,12 @@ fit_unCor = 0;
 include_bursts = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
-% fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV'; %main stim-proc analysis
 % base_tname = 'sac_trig_avg_data4'; %this data set has all the bootsrap an
 base_tname = 'sac_trig_avg_data5'; %trig-avg firing rate data
 base_yname = 'sacTypeDep_noXV'; %saccade type-dependent data
-base_iname = 'sac_info_timing_noXV3'; %info-timing analysis
-base_dname = 'sacStimDelay_noXV2'; %new stim delay analysis
+% base_iname = 'sac_info_timing_noXV3'; %info-timing analysis
+base_dname = 'sacStimDelay_noXV2'; %new single-latency sac-mod analysis
 base_xname = 'sacStimProcFin_XVTEST'; %analysis of xv LL for gain vs gain+offset models
 
 if include_bursts
@@ -30,7 +29,6 @@ all_SU_NPdata = [];
 Expt_list = {'G085','G086','G087','G088','G089','G091','G093','G095'};
 n_probes = 96;
 ori_list = [0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan];
-% ori_list = [0 90; 0 90; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan; 0 nan];
 rmfield_list = {};
 
 for ee = 1:length(Expt_list)
@@ -50,29 +48,31 @@ for ee = 1:length(Expt_list)
                 sname = strcat(sname,'_unCor');
             end
             load(sname);
-            %load type-dep data (STILL NEED TO ADD THIS)
+            %load type-dep data 
             yname = strcat(sac_dir,base_yname,sprintf('_ori%d',ori_list(ee,ii)));
-            %             if fit_unCor
+            %             if fit_unCor %dont use uncorrected type-dep data
             %                 yname = strcat(yname,'_unCor');
             %             end
             load(yname);
             
-            iname = strcat(sac_dir,base_iname,sprintf('_ori%d',ori_list(ee,ii)));
-            load(iname);
+            %             iname = strcat(sac_dir,base_iname,sprintf('_ori%d',ori_list(ee,ii)));
+            %             load(iname);
             
+            %single-latency sac-mod analysis
             dname = strcat(sac_dir,base_dname,sprintf('_ori%d',ori_list(ee,ii)));
             load(dname);
             
+            %xvLL for gain vs gain+offset models
             xname = strcat(sac_dir,base_xname,sprintf('_ori%d',ori_list(ee,ii)));
             xvdat = load(xname);
-
+            
             su_range = (n_probes+1):length(sacStimProc);
             clear SU_data
             for jj = 1:length(su_range)
                 SU_data(jj).sacStimProc = sacStimProc(su_range(jj));
                 SU_data(jj).trig_avg = sua_data(jj);
                 SU_data(jj).type_dep = sacTypeDep(su_range(jj));
-                SU_data(jj).info_time = sacInfoTiming(su_range(jj));
+%                 SU_data(jj).info_time = sacInfoTiming(su_range(jj));
                 SU_data(jj).sac_delay = sacDelay(su_range(jj));
                 SU_data(jj).xvData = xvdat.sacStimProc(su_range(jj));
             end
@@ -104,10 +104,8 @@ end
 %% LOAD LEM
 % Expt_list = {'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'};
 Expt_list = {'M266','M270','M275','M277','M281','M287','M294','M296','M297'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
-% Expt_list = {'M266','M270','M275','M277','M281'};%NOTE: Excluding M289 because fixation point jumps in and out of RFs, could refine analysis to handle this
 n_probes = 24;
 ori_list = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 40 nan; 45 nan; 0 90];
-% rmfield_list = {};
 
 for ee = 1:length(Expt_list)
     Expt_name = Expt_list{ee};
@@ -135,8 +133,8 @@ for ee = 1:length(Expt_list)
                 load(yname);
             end
             
-            iname = strcat(sac_dir,base_iname,sprintf('_ori%d',ori_list(ee,ii)));
-            load(iname);
+%             iname = strcat(sac_dir,base_iname,sprintf('_ori%d',ori_list(ee,ii)));
+%             load(iname);
             
             dname = strcat(sac_dir,base_dname,sprintf('_ori%d',ori_list(ee,ii)));
             load(dname);
@@ -152,9 +150,9 @@ for ee = 1:length(Expt_list)
                 if ~ismember(Expt_num,[296 297])
                     SU_data(jj).type_dep = sacTypeDep(su_range(jj));
                 else
-                    SU_data(jj).type_dep = nan;
+                    SU_data(jj).type_dep = nan; %didnt do type-dependent trials in these expts
                 end
-                SU_data(jj).info_time = sacInfoTiming(su_range(jj));
+%                 SU_data(jj).info_time = sacInfoTiming(su_range(jj));
                 SU_data(jj).sac_delay = sacDelay(su_range(jj));
                 SU_data(jj).xvData = xvdat.sacStimProc(su_range(jj));
             end
@@ -190,8 +188,8 @@ tlags = tlags*Tdt;
 %% SELECT USABLE CELLS
 %selection criteria
 min_rate = 5; % min avg rate in Hz (5)
-min_Nsacs = 500; % min number of saccades for full analysis (1e3)
-min_TA_Nsacs = 500; %min number of saccades for trig avg analysis
+min_Nsacs = 500; % min number of saccades for full analysis (500)
+min_TA_Nsacs = 500; %min number of saccades for trig avg analysis (500)
 min_xvLLimp = 0.0; %(0.05); %minimum cross-validated LL improvement for stim-proc models
 
 %basic stats for each cell
@@ -248,7 +246,7 @@ all_gsac = cell2mat(arrayfun(@(x) x.trig_avg.gsac_avg', all_SU_data(:),'uniformo
 
 xl = [-0.1 0.3]; %x-axis limit
 
-close all
+% close all
 
 %FOR SEPARATE MONKEYS
 % f1 = figure(); hold on

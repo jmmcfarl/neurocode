@@ -300,7 +300,7 @@ L2_mat = L2_mat_left + L2_mat_right;
 
 n_stim_filts = 2;
 mod_signs = [1 1 1 -1 -1];
-NL_types = [{'lin','quad','quad','quad','quad'}];
+NL_types = [{'threshlin','threshlin','threshlin','threshlin','threshlin'}];
 init_d2XT = [ones(n_stim_filts,1)];
 init_L2 = [zeros(n_stim_filts,1);];
 init_reg_params = NMMcreate_reg_params('lambda_custom',base_lambda_d2XT,'lambda_L1',base_lambda_L1);
@@ -309,8 +309,8 @@ optim_params.optTol = 1e-6;
 optim_params.progTol = 1e-8;
 
 mod_pred_rates = nan(length(used_inds),length(su_set));
-for ss = 1:length(su_set)
-% for ss = [6]
+% for ss = 1:length(su_set)
+for ss = [6]
     fprintf('Fitting model for SU %d of %d\n',ss,length(su_set));
     Robs = all_binned_sua(used_inds,ss);
     cur_uinds = find(~isnan(Robs));
@@ -431,6 +431,19 @@ for pp = 1:length(poss_latency)
     end
 end
 
+
+%%
+un = 6;
+ln = 1;
+f1 = figure(); hold on
+ plot(un_dp(3:end),dp_trig_avgs(3:end,ln,un)/dt,'b')
+ plot(un_dp(3:end),dp_mp(3:end,ln,un)/dt,'r')
+ plot(un_dp(3:end),dp_trig_avgsR(3:end,ln,un)/dt,'k')
+ plot(un_dp(3:end),dp_mpR(3:end,ln,un)/dt,'g')
+xlim([-1.1 1.1])
+xlabel('Dp')
+ylabel('Firing rate (Hz)')
+legend('Forward corr ce1','Model-predicted ce1','Forward corr ce-1','Model-predicted ce-1')
 %%
 % nneg = 5; npos = 5;
 % stc_thresh = -5e-3;

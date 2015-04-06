@@ -3,9 +3,9 @@
 
 global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'M266';
-% monk_name = 'lem';
-% bar_ori = 80; %bar orientation to use (only for UA recs)
+% Expt_name = 'G085';
+% monk_name = 'jbe';
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
 fit_unCor = false; %use eye correction
@@ -25,9 +25,10 @@ Edata_file = strcat(data_dir,'/',monk_name,Expt_name,'Expts');
 load(Edata_file);
 
 %is this a laminar probe or utah array rec?
-if strcmp(Expts{1}.Header.DataType,'GridData 96')
+ff = find(cellfun(@(x) ~isempty(x),Expts),1);
+if strcmp(Expts{ff}.Header.DataType,'GridData 96')
     rec_type = 'UA';
-elseif strcmp(Expts{1}.Header.DataType,'Spike2')
+elseif strcmp(Expts{ff}.Header.DataType,'Spike2')
     rec_type = 'LP';
 end
 
@@ -139,7 +140,8 @@ SU_numbers = Clust_data.SU_numbers;
 NT = length(used_inds);
 fullNT = size(all_binned_mua,1);
 n_trials = length(time_data.trial_flip_ids);
-n_blocks = length(expt_data.used_blocks);
+% n_blocks = length(expt_data.used_blocks);
+n_blocks = length(time_data.block_flip_ids);
 
 all_t_axis = time_data.t_axis;
 trial_start_inds = [1+time_data.trial_flip_inds];
