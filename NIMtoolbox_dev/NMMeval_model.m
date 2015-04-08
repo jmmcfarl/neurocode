@@ -155,7 +155,7 @@ end
 
 
 if strcmp(nim.spk_NL_type,'linear')
-    LL = sum( (Robs - pred_rate).^2 );
+    LL = -sum( (Robs - pred_rate).^2 );
     Nspks = length(Robs);
 else
     LL = sum(Robs.* log(pred_rate) - pred_rate); %up to an overall constant

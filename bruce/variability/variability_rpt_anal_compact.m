@@ -346,7 +346,7 @@ TB_stim = [TT(:) reshape(tbt_EP(uinds,:),[],1)];
 su_num = 1;
 
 robs = reshape(tbt_binned_spikes(uinds,:,su_num),[],1);
-uset = ~isnan(robs);
+uset = find(~isnan(robs));
 
 temp_smooth = 10;
 eye_smooth = 10;
@@ -356,6 +356,31 @@ TB_mod = NMMinitialize_model(TB_stim_params,1,{'lin'},TB_reg_params);
 TB_mod = NMMfit_filters(TB_mod,robs,TB_Xmat,[],uset,0);
 TB_filt = reshape(TB_mod.mods(1).filtK,[length(Xtick) length(Ytick)]);
 TB_rate = log(1+exp(TB_filt + TB_mod.spk_NL_params(1)))/base_dt;
+
+%%
+xv_frac = 0.2;
+
+poss_trials = unique(RR(uset));
+nuse_trials = length(poss_trials);
+n_xvtrials = round(xv_frac*(length(poss_trials)));
+xv_trials = randperm(nuse_trials);
+xv_trials(n_xvtrials+1:end) = [];
+xv_trials = poss_trials(xv_trials);
+tr_trials = setdiff(poss_trials,xv_trials);
+tr_inds = uset(ismember(RR(uset),tr_trials));
+xv_inds = uset(ismember(RR(uset),xv_trials));
+
+poss_eye_smooth = [0.1 1 10 100 1000];
+optim_params.maxIter = 200;
+clear mod_xv
+for pp = 1:length(poss_eye_smooth)
+    tr_mod = TB_mod;
+    tr_mod.mods(1).reg_params.lambda_d2X = poss_eye_smooth(pp);
+    tr_mod = NMMfit_filters(tr_mod,robs,TB_Xmat,[],tr_inds,0,optim_params);
+    TB_filt = reshape(tr_mod.mods(1).filtK,[length(Xtick) length(Ytick)]);
+    TB_rate = log(1+exp(TB_filt + tr_mod.spk_NL_params(1)))/base_dt;
+    mod_xv(pp) = NMMeval_model(tr_mod,robs,TB_Xmat,[],xv_inds)
+end
 
 % B = glmfit(TB_Xmat,robs,'poisson');
 
