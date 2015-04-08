@@ -199,27 +199,28 @@ for blocknum = 4:11
     clf
 end
 
-% emtimes = Expts{blocknum}.Header.emtimes;
-% nTrials = length(Expts{blocknum}.Trials);
-% 
-% close all
-% for ii = 1:nTrials
-%     cur_inds = (1:length(emtimes)) + (ii-1)*length(emtimes);
-%     subplot(2,1,1); hold on
-%     plot(emtimes/1e4,corrected_eye_vals(cur_inds,1));
-%     plot(emtimes/1e4,corrected_eye_vals(cur_inds,2),'r');
-%     plot(emtimes/1e4,corrected_eye_vals(cur_inds,5),'k');
-%     xlim([0 4]);
-%         ylim([-5 5]);
-% %     ylim([-1 1]);
-%     
-%     subplot(2,1,2); hold on
-%     plot(emtimes/1e4,corrected_eye_vals(cur_inds,3));
-%     plot(emtimes/1e4,corrected_eye_vals(cur_inds,4),'r');
-%     plot(emtimes/1e4,corrected_eye_vals(cur_inds,6),'k');
-%     xlim([0 4]);
+%%
+emtimes = Expts{blocknum}.Header.emtimes;
+nTrials = length(Expts{blocknum}.Trials);
+
+close all
+for ii = 1:nTrials
+    cur_inds = (1:length(emtimes)) + (ii-1)*length(emtimes);
+    subplot(2,1,1); hold on
+    plot(emtimes/1e4,corrected_eye_vals(cur_inds,1));
+    plot(emtimes/1e4,corrected_eye_vals(cur_inds,2),'r');
+    plot(emtimes/1e4,corrected_eye_vals(cur_inds,5),'k');
+    xlim([0 4]);
+        ylim([-5 5]);
 %     ylim([-1 1]);
-% %     ylim([-5 5]);
-%     pause
-%     clf
-% end
+    
+    subplot(2,1,2); hold on
+    plot(emtimes/1e4,corrected_eye_vals(cur_inds,3));
+    plot(emtimes/1e4,corrected_eye_vals(cur_inds,4),'r');
+    plot(emtimes/1e4,corrected_eye_vals(cur_inds,6),'k');
+    xlim([0 4]);
+    ylim([-1 1]);
+%     ylim([-5 5]);
+    pause
+    clf
+end

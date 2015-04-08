@@ -523,8 +523,8 @@ spike_data.clust_params = clust_params;
 spike_data.SU_spk_times = all_su_spk_times;
 
 %%
-% data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
-% save(data_name,'params','trial_data','expt_data','spike_data','stimComp','ET_data','time_data','used_inds');
+data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+save(data_name,'params','trial_data','expt_data','spike_data','stimComp','ET_data','time_data','used_inds');
 
 
 %%

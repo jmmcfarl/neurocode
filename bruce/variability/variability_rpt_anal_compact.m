@@ -14,7 +14,7 @@ use_MUA = false; %use MUA in model-fitting
 fit_rect = false; %split quad linear filter into two rectified
 use_hres_ET = true; %use high-res eye-tracking?
 exclude_sacs = true;
-base_dt = 0.005;
+base_dt = 0.01;
 
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
 
@@ -208,13 +208,16 @@ if use_hres_ET %if using high-res ET
     sp_dx = et_params.sp_dx;
     post_mean_EP = post_mean_EP*sp_dx;
     
+    if exist('drift_post_mean_LOO','var')
     post_mean_EP_LOO = nan(length(loo_set),NT);
     for ss = 1:length(loo_set)
         [post_mean_EP_LOO(ss,:)] = construct_eye_position(best_fix_cor,best_fix_std,...
             drift_post_mean_LOO(ss,:),drift_post_std_LOO(ss,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);
     end
     post_mean_EP_LOO = post_mean_EP_LOO*sp_dx;
-    
+    else
+       warning('No LOO variables detected'); 
+    end
 else %if using base resolution ET
     [post_mean_EP,post_std_EP] = construct_eye_position(it_fix_post_mean(end,:),it_fix_post_std(end,:),...
         drift_post_mean(end,:),drift_post_std(end,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);
@@ -325,7 +328,36 @@ trial_avg_var = squeeze(nanvar(trial_avg_BS)); %variance of trial-avg rates
 
 %%
 interp_post_mean_EP = interp1(time_data.t_axis(used_inds),post_mean_EP,tbt_t_axis(up_used_inds));
-tbt_EP = nan(up_nf,n_trials);
+tbt_EP = nan(up_nf,n_rpts);
 tbt_EP(up_used_inds) = interp_post_mean_EP;
 
+%%
+uinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt);
+Xtick = rpt_taxis(1):0.02:rpt_taxis(end);
+Ytick = -0.5:0.025:0.5;
+TB = TentBasis2D(Xtick, Ytick);
+[RR,TT] = meshgrid(1:n_rpts,rpt_taxis);
+TB_stim = [TT(:) reshape(tbt_EP(uinds,:),[],1)];
+
+%process data with TBs
+[TB_Xmat,TB_counts] = TB.InputNL2D(TB_stim);
+
+%%
+su_num = 1;
+
+robs = reshape(tbt_binned_spikes(uinds,:,su_num),[],1);
+uset = ~isnan(robs);
+
+temp_smooth = 10;
+eye_smooth = 10;
+TB_stim_params = NMMcreate_stim_params([length(Xtick) length(Ytick)]);
+TB_reg_params = NMMcreate_reg_params('lambda_d2T',temp_smooth,'lambda_d2X',eye_smooth,'boundary_conds',[Inf Inf]);
+TB_mod = NMMinitialize_model(TB_stim_params,1,{'lin'},TB_reg_params);
+TB_mod = NMMfit_filters(TB_mod,robs,TB_Xmat,[],uset,0);
+TB_filt = reshape(TB_mod.mods(1).filtK,[length(Xtick) length(Ytick)]);
+TB_rate = log(1+exp(TB_filt + TB_mod.spk_NL_params(1)))/base_dt;
+
+% B = glmfit(TB_Xmat,robs,'poisson');
+
+% temp = tpaps(TB_Xmat,robs);
 %%
