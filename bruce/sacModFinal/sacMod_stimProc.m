@@ -1,6 +1,6 @@
 
 %
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,9 +9,9 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-Expt_name = 'G086';
-use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'G086';
+% use_MUA = false;
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 
 fit_unCor = false;
 fit_subMod = true;
@@ -22,12 +22,13 @@ fitFullPostMod = true;
 
 include_bursts = 0;
 
-sname = 'sacStimProcFin_noXV';
+sname = 'sacStimProcFin_noXV_test';
 if include_bursts
     sname = [sname '_withbursts'];
 end
 
-mod_data_name = 'corrected_models2';
+% mod_data_name = 'corrected_models2';
+mod_data_name = 'corrected_models3';
 
 %%
 % poss_gain_d2T = logspace(log10(1),log10(1e3),8); %range of d2T reg values for post-gain models

@@ -2673,42 +2673,42 @@ xeval = log10(logspace(log10(0.3),log10(5),100));
 % plot(xeval,xeval*r_JBE(2)+r_JBE(1),'b');
 % plot(xeval,xeval*r_LEM(2)+r_LEM(1),'r');
 
-% PRINT PLOTS
-fig_width = 3.5; rel_height = 0.8;
-figufy(f1);
-fname = [fig_dir 'RFsigma_vs_ratesup.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'RFsigma_vs_rateenh.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
-
-figufy(f3);
-fname = [fig_dir 'RFsigma_vs_SSIsup.pdf'];
-exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f3);
-
-figufy(f4);
-fname = [fig_dir 'RFecc_vs_SSIsup.pdf'];
-exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f4);
+% % PRINT PLOTS
+% fig_width = 3.5; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'RFsigma_vs_ratesup.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'RFsigma_vs_rateenh.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
+% 
+% figufy(f3);
+% fname = [fig_dir 'RFsigma_vs_SSIsup.pdf'];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f3);
+% 
+% figufy(f4);
+% fname = [fig_dir 'RFecc_vs_SSIsup.pdf'];
+% exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
 
 %% SACCADE GAIN TIMING ANALYSIS
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0); 
 
-%get the SD of the generating signal for models at each latency
-all_SDs = cell2mat(arrayfun(@(x) x.sac_delay.single_gSD',all_SU_data(cur_SUs),'uniformoutput',0));
-all_SDs = bsxfun(@rdivide,all_SDs,max(all_SDs,[],2));
-min_SD_frac = 0.2;
+% %get the SD of the generating signal for models at each latency
+% all_SDs = cell2mat(arrayfun(@(x) x.sac_delay.single_gSD',all_SU_data(cur_SUs),'uniformoutput',0));
+% all_SDs = bsxfun(@rdivide,all_SDs,max(all_SDs,[],2));
+% min_SD_frac = 0.2;
 
 %get the model-predicted firing rate CV for each latency
 all_CVs = cell2mat(arrayfun(@(x) x.sac_delay.single_rCV',all_SU_data(cur_SUs),'uniformoutput',0));
 min_CV = 0.05;
 
-ex_cell = 32;
+ex_cell = 32; %SU number of example cell
 
 min_used_units = 20; %minimum number of cells to have significant measure at each latency
 min_pts = 5; %minimum number of latencies per cell to try to extract slope
@@ -2717,6 +2717,7 @@ flen = 15;
 mod_dt = 0.01;
 tax = (0:(flen-1))*mod_dt + mod_dt/2;
 
+%get peri-saccadic gain functions for stimuli at each latency
 gsac_gain = nan(length(cur_SUs),flen,length(slags));
 for ff = 1:flen;
     cur_gains = 1+cell2mat(arrayfun(@(x) x.sac_delay.gain_filts(ff,:),all_SU_data(cur_SUs),'uniformoutput',0));
@@ -2727,7 +2728,7 @@ for ff = 1:flen;
     gsac_gain(:,ff,:) = cur_gains;
 end
 
-uset = all_CVs > min_CV;
+uset = all_CVs > min_CV; %only use neurons/latencies where there was a min amount of modulation
 uset_full = repmat(uset,[1 1 length(slags)]);
 gsac_gain_nan = gsac_gain;
 gsac_gain_nan(~uset_full) = nan; %only use cell/latencies that have enough stimulus modulation
@@ -2756,9 +2757,9 @@ line([0 0],[0 0.12],'color','k','linestyle','--');
 
 %interpolate onto finer temporal grid
 slags_up = linspace(slags(1),slags(end),200);
-avg_gains_up = nan(flen,length(slags_up));
-avg_gains_up(ulags,:) = spline(slags,avg_gains(ulags,:),slags_up);
-[avg_gain_peakamps,avg_gain_peaklocs] = min(avg_gains_up,[],2);
+% avg_gains_up = nan(flen,length(slags_up));
+% avg_gains_up(ulags,:) = spline(slags,avg_gains(ulags,:),slags_up);
+% [avg_gain_peakamps,avg_gain_peaklocs] = min(avg_gains_up,[],2); %get timing of 
 
 % yr = [0.6 1.1];
 % ulag_range = 3:10;
@@ -2797,6 +2798,8 @@ resh_gsac_gain = reshape(permute(gsac_gain,[3 1 2]),length(slags),[]);
 all_gkerns_up = spline(slags',resh_gsac_gain',slags_up');
 all_gkerns_up = reshape(all_gkerns_up',length(slags_up),length(cur_SUs),flen);
 
+%get the timing and magnitude of suppression at each latency, for each
+%neuron
 [gkern_amps,gkern_times] = deal(nan(length(cur_SUs),flen));
 for ff = 1:flen
     [cur_gkern_max,cur_gkern_time] = get_tavg_peaks(-(squeeze(all_gkerns_up(:,:,ff))'-1),slags_up*dt,search_range);
@@ -2805,17 +2808,18 @@ for ff = 1:flen
 end
 % uset = all_SDs > min_SD_frac;
 % uset = all_CVs > min_CV;
-gkern_times(~uset) = nan;
-noise_SDs = squeeze(std(gsac_gain(:,:,base_lags),[],3));
+gkern_times(~uset) = nan; %use only cases where there is sufficient modulation
+% noise_SDs = squeeze(std(gsac_gain(:,:,base_lags),[],3));
 % min_SNR = 0;
 % bad_peaks = gkern_amps <= min_SNR*noise_SDs;
 % gkern_times(bad_peaks) = nan;
 
-
+%get the slope of the latency/suppressoin-timing relationship for all
+%latencies/neurons
 [cell_corr ,cell_slope,cell_offset] = deal(nan(length(cur_SUs),1));
 for ii = 1:length(cur_SUs)
     curset = find(~isnan(gkern_times(ii,:)));
-    if length(curset) >= min_pts
+    if length(curset) >= min_pts %must be at least a certain number of significant latencies
         ii
         cell_corr(ii) = corr((1:length(curset))',gkern_times(ii,curset)','type','spearman');
         temp = robustfit(tax(curset),gkern_times(ii,curset)');
@@ -2826,12 +2830,14 @@ for ii = 1:length(cur_SUs)
     end
 end
 
-all_preds = bsxfun(@times,cell_slope,tax) + nanmean(cell_offset);
+% all_preds = bsxfun(@times,cell_slope,tax) + nanmean(cell_offset);
 
+%plot the relationship betwen suppression timing and stim latency for the
+%population and an example neuron
 n_used_units = sum(~isnan(gkern_times));
 gkern_times_nan = gkern_times;
 gkern_times_nan(:,n_used_units < min_used_units) = nan;
-all_preds(:,n_used_units < min_used_units) = nan;
+% all_preds(:,n_used_units < min_used_units) = nan;
 f2 = figure(); hold on
 % shadedErrorBar(1:flen,nanmedian(gkern_times),iqr(gkern_times),{'color','r'});
 % shadedErrorBar(tax,nanmean(all_preds),nanstd(all_preds)./sqrt(n_used_units),{'color','r'});
@@ -2846,7 +2852,7 @@ xlim([0 0.12]); ylim([0.04 0.12]);
 xlabel('Stimulus latency (s)');
 ylabel('Suppression timing (s)');
 
-
+%plot the distribution of slopes
 xe = linspace(-2.5,2.5,30);
 nn = histc(cell_slope,xe);
 % xe = linspace(-1,1,50);
@@ -2860,6 +2866,7 @@ axis tight
 xlabel('Slope');
 ylabel('Counts');
 
+%plot the set of gain kernels for an example neuron
 % for ex_cell = 1:84
 f4 = figure();
 imagescnan(slags*dt,tax,squeeze(gsac_gain_nan(ex_cell,:,:)))
