@@ -51,8 +51,10 @@ load([data_dir '/stims/expt_data.mat']); %load in stim-alignment meta-data
 
 et_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
+model_dir = ['~/Analysis/bruce/' Expt_name '/models'];
 et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 et_anal_name = 'full_eyetrack_Rinit';
+mod_name = 'corrected_models_comp';
 
 %if using coil info
 if any(params.use_coils > 0)
@@ -63,6 +65,7 @@ et_hres_anal_name = strcat(et_anal_name,'_hres');
 et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
 et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 et_hres_anal_name = [et_hres_anal_name sprintf('_ori%d',bar_ori)];
+mod_name = [mod_name sprintf('_ori%d',bar_ori)];
 
 %% LOAD EYE-TRACKING DATA
 cd(et_dir)
@@ -331,9 +334,12 @@ interp_post_mean_EP = interp1(time_data.t_axis(used_inds),post_mean_EP,tbt_t_axi
 tbt_EP = nan(up_nf,n_rpts);
 tbt_EP(up_used_inds) = interp_post_mean_EP;
 
-%%
+tbt_EP(in_blink_inds) = nan;
+tbt_EP(in_sac_inds) = nan;
 uinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt);
-Xtick = rpt_taxis(1):0.02:rpt_taxis(end);
+
+%%
+Xtick = rpt_taxis(1):0.01:rpt_taxis(end);
 Ytick = -0.5:0.025:0.5;
 TB = TentBasis2D(Xtick, Ytick);
 [RR,TT] = meshgrid(1:n_rpts,rpt_taxis);
@@ -348,8 +354,8 @@ su_num = 1;
 robs = reshape(tbt_binned_spikes(uinds,:,su_num),[],1);
 uset = find(~isnan(robs));
 
-temp_smooth = 10;
-eye_smooth = 10;
+temp_smooth = 1;
+eye_smooth = 1;
 TB_stim_params = NMMcreate_stim_params([length(Xtick) length(Ytick)]);
 TB_reg_params = NMMcreate_reg_params('lambda_d2T',temp_smooth,'lambda_d2X',eye_smooth,'boundary_conds',[Inf Inf]);
 TB_mod = NMMinitialize_model(TB_stim_params,1,{'lin'},TB_reg_params);
@@ -357,32 +363,227 @@ TB_mod = NMMfit_filters(TB_mod,robs,TB_Xmat,[],uset,0);
 TB_filt = reshape(TB_mod.mods(1).filtK,[length(Xtick) length(Ytick)]);
 TB_rate = log(1+exp(TB_filt + TB_mod.spk_NL_params(1)))/base_dt;
 
+% %%
+% xv_frac = 0.2;
+% 
+% poss_trials = unique(RR(uset));
+% nuse_trials = length(poss_trials);
+% n_xvtrials = round(xv_frac*(length(poss_trials)));
+% xv_trials = randperm(nuse_trials);
+% xv_trials(n_xvtrials+1:end) = [];
+% xv_trials = poss_trials(xv_trials);
+% tr_trials = setdiff(poss_trials,xv_trials);
+% tr_inds = uset(ismember(RR(uset),tr_trials));
+% xv_inds = uset(ismember(RR(uset),xv_trials));
+% 
+% temp_smooth = 10;
+% poss_eye_smooth = [0.1 1 10 100 1000];
+% optim_params.maxIter = 200;
+% clear mod_xv TB_rate
+% for pp = 1:length(poss_eye_smooth)
+%     tr_mod = TB_mod;
+%     tr_mod.mods(1).reg_params.lambda_d2X = poss_eye_smooth(pp);
+%     tr_mod = NMMfit_filters(tr_mod,robs,TB_Xmat,[],tr_inds,0,optim_params);
+%     TB_filt = reshape(tr_mod.mods(1).filtK,[length(Xtick) length(Ytick)]);
+%     TB_rate{pp} = log(1+exp(TB_filt + tr_mod.spk_NL_params(1)))/base_dt;
+%     mod_xv(pp) = NMMeval_model(tr_mod,robs,TB_Xmat,[],xv_inds)
+% end
+% 
 %%
-xv_frac = 0.2;
+TB_dist = bsxfun(@rdivide,TB_counts,sum(TB_counts,2));
+avg_dist = mean(TB_dist);
+% [~,best_xv] = max(mod_xv);
+% best_TB_rate = TB_rate{best_xv};
+sp_mean = sum(bsxfun(@times,TB_rate,avg_dist),2);
+sp_var = sum(bsxfun(@times,bsxfun(@minus,TB_rate,sp_mean).^2,avg_dist),2);
 
-poss_trials = unique(RR(uset));
-nuse_trials = length(poss_trials);
-n_xvtrials = round(xv_frac*(length(poss_trials)));
-xv_trials = randperm(nuse_trials);
-xv_trials(n_xvtrials+1:end) = [];
-xv_trials = poss_trials(xv_trials);
-tr_trials = setdiff(poss_trials,xv_trials);
-tr_inds = uset(ismember(RR(uset),tr_trials));
-xv_inds = uset(ismember(RR(uset),xv_trials));
+%%
+back_look = 7; %look back this many time steps to parse EP trajectories
 
-poss_eye_smooth = [0.1 1 10 100 1000];
-optim_params.maxIter = 200;
-clear mod_xv
-for pp = 1:length(poss_eye_smooth)
-    tr_mod = TB_mod;
-    tr_mod.mods(1).reg_params.lambda_d2X = poss_eye_smooth(pp);
-    tr_mod = NMMfit_filters(tr_mod,robs,TB_Xmat,[],tr_inds,0,optim_params);
-    TB_filt = reshape(tr_mod.mods(1).filtK,[length(Xtick) length(Ytick)]);
-    TB_rate = log(1+exp(TB_filt + tr_mod.spk_NL_params(1)))/base_dt;
-    mod_xv(pp) = NMMeval_model(tr_mod,robs,TB_Xmat,[],xv_inds)
+% %make an anticausal filter for processing EP history
+% back_kern = zeros(back_look*2+1,1);
+% back_kern(1:back_look+1) = 1;
+% back_kern = flipud(back_kern/sum(back_kern));
+
+%initialize a time-embedded version of the EPs
+sp = NMMcreate_stim_params(back_look);
+tbt_EP_emb = create_time_embedding(tbt_EP(:),sp);
+
+tbt_EP_emb = tbt_EP_emb(:,4); back_look = 1;
+
+tbt_EP_emb = reshape(tbt_EP_emb,up_nf,n_rpts,[]);
+
+%%
+rand_T = [];
+tsamps = uinds(1:5:end);
+for ii = 1:length(tsamps)
+    cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tsamps(ii),:,:)))))/sqrt(back_look);
+    cur_Dmat(logical(eye(n_rpts))) = nan;
+    cur_Dmat = cur_Dmat(~isnan(cur_Dmat));
+    rand_T = cat(1,rand_T,cur_Dmat);
 end
 
-% B = glmfit(TB_Xmat,robs,'poisson');
+n_EP_bins = 100;
+EP_bin_edges = prctile(rand_T,linspace(0,100,n_EP_bins+1));
+EP_bin_centers = (EP_bin_edges(1:end-1)+EP_bin_edges(2:end))/2;
+%% COMPUTE VARIANCES FOR BINNED DELTA ES FOR ALL CELLS (using full recon et)
+[II,JJ] = meshgrid(1:n_rpts);
 
-% temp = tpaps(TB_Xmat,robs);
+cur_XC = nan(up_nf,n_EP_bins,length(targs));
+cur_cnt = zeros(n_EP_bins,length(targs));
+rand_XC = nan(up_nf,length(targs));
+for tt = uinds
+    Y1 = squeeze(tbt_binned_spikes(tt,:,:));
+
+    cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,:,:)))))/sqrt(back_look);
+    cur_Dmat(logical(eye(n_rpts))) = nan;
+    for jj = 1:n_EP_bins
+        curset = find(cur_Dmat > EP_bin_edges(jj) & cur_Dmat <= EP_bin_edges(jj+1));
+        cur_XC(tt,jj,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
+        cur_cnt(jj,:) = cur_cnt(jj,:) + sum(~isnan(Y1(II(curset),:)));
+    end
+    curset = ~isnan(cur_Dmat);
+    rand_XC(tt,:) = squeeze(nanmean(bsxfun(@times,Y1(II(curset),:),Y1(JJ(curset),:)),1));
+end
+new_psth_var = nanmean(rand_XC);
+
+var_ep_binned = squeeze(nanmean(cur_XC));
+all_relprobs = bsxfun(@rdivide,cur_cnt,sum(cur_cnt));
+
 %%
+n_splines = 10;
+spline_bounds = [0 max(EP_bin_centers)];
+spline_DS = prctile(rand_T,100/n_splines:100/n_splines:(100-100/n_splines));
+knot_pts = [0 0 0 0 spline_DS spline_DS(end) spline_DS(end) spline_DS(end)];
+
+sp1 = fastBSpline.lsqspline(knot_pts,3,EP_bin_centers,squeeze(var_ep_binned(:,3)))
+
+%% FIT SPLINES TO VAR VS ET FUNCTIONS (again using full et recon)
+spline_spacing = 0.015;
+spline_knots = spline_spacing:spline_spacing:maxlag_ED;
+spline_eval = 0:0.005:maxlag_ED;
+
+nboots = 0;
+
+var_spline_ZPT = nan(n_chs,1);
+var_spline_funs = nan(n_chs,length(spline_eval));
+var_spline_ZPT_boot = nan(n_chs,nboots);
+for ii = 1:n_chs
+    x = ED_bin_centers;
+    y = squeeze(var_ep_binned(:,ii));
+    bad = find(isnan(y));  x(bad) = []; y(bad) = [];
+    ss = fnxtr(csape(spline_knots,y(:).'/fnval(fnxtr(csape(spline_knots,eye(length(spline_knots)),'var')),x(:).'),'var'));
+    var_spline_ZPT(ii) = fnval(ss,0);
+    var_spline_funs(ii,:) = fnval(ss,spline_eval);
+    
+    npts = length(x);
+    for nn = 1:nboots
+        rsmp = randi(npts,npts,1);
+        ss = fnxtr(csape(spline_knots,y(rsmp).'/fnval(fnxtr(csape(spline_knots,eye(length(spline_knots)),'var')),x(rsmp).'),'var'));
+        var_spline_ZPT_boot(ii,nn) = fnval(ss,0);
+    end
+end
+
+% psth_var_frac = ms_psth_var'./var_spline_ZPT;
+new_psth_var_frac = new_psth_var'./var_spline_ZPT;
+psth_var_frac_cor = ms_psth_var_cor'./var_spline_ZPT;
+
+new_psth_var_frac_boot = bsxfun(@times,(var_spline_ZPT_boot.^(-1)),new_psth_var');
+new_psth_var_frac_CIs = prctile(new_psth_var_frac_boot',[5 95]);
+
+
+%%
+load([model_dir '/' mod_name]);
+
+for tt = 1:length(targs)
+    cur_mod = ModData(targs(tt)).bestGQM;
+    cur_block_filt = cur_mod.mods(1).filtK;
+    cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt);
+    cur_mod.mods(1) = [];
+    reduced_mods(tt) = cur_mod;
+end
+
+%%
+full_rpt_inds = find(ismember(all_trialvec,rpt_trials));
+
+all_stim_mat = decompressTernNoise(stimComp);
+
+full_nPix_us = modFitParams.spatial_usfac*params.full_nPix;
+if modFitParams.spatial_usfac > 1
+    all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
+    for ii = 1:size(all_stim_mat,2)
+        for jj = 1:modFitParams.spatial_usfac
+            all_stimmat_up(:,modFitParams.spatial_usfac*(ii-1)+jj) = all_stim_mat(:,ii);
+        end
+    end
+elseif modFitParams.spatial_usfac == 1
+    all_stimmat_up = all_stim_mat;
+end
+
+%select subset of pixels used for model fitting
+buffer_pix = floor((params.full_nPix - modFitParams.use_nPix_us/modFitParams.spatial_usfac)/2);
+[Xinds_up,~] = meshgrid(1/modFitParams.spatial_usfac:1/modFitParams.spatial_usfac:params.full_nPix,1:modFitParams.flen);
+cur_use_pix = (1/modFitParams.spatial_usfac:1/modFitParams.spatial_usfac:(modFitParams.use_nPix_us/modFitParams.spatial_usfac)) + buffer_pix;
+use_kInds_up = find(ismember(Xinds_up(:),cur_use_pix));
+
+stim_params_full = NMMcreate_stim_params([modFitParams.flen full_nPix_us]);
+
+%%
+fin_shift_cor = round(post_mean_EP/modFitParams.sp_dx);
+
+%RECOMPUTE XMAT
+best_shift_stimmat_up = all_stimmat_up;
+for i=1:length(all_rpt_inds)
+    best_shift_stimmat_up(used_inds(all_rpt_inds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(all_rpt_inds(i)),:),-fin_shift_cor(all_rpt_inds(i)),2);
+end
+all_Xmat_shift = create_time_embedding(best_shift_stimmat_up(full_rpt_inds,:),stim_params_full);
+all_Xmat_shift = all_Xmat_shift(ismember(full_rpt_inds,used_inds),use_kInds_up);
+
+%%
+first_rpt_inds = find(all_trialvec == rpt_trials(1));
+first_rpt_uinds = find(ismember(first_rpt_inds,used_inds));
+base_rpt_stim = all_stimmat_up(first_rpt_inds,:);
+% base_rpt_stim = create_time_embedding(all_stimmat_up(first_rpt_inds,:),stim_params_full);
+% base_rpt_stim = base_rpt_stim(ismember(first_rpt_inds,used_inds),:);
+%%
+max_shift = round(0.5/modFitParams.sp_dx);
+poss_EP_shifts = -max_shift:max_shift;
+
+all_mod_prates = nan(length(first_rpt_uinds),length(poss_EP_shifts),length(targs));
+for pp = 1:length(poss_EP_shifts)
+    shifted_stim = shift_matrix_Nd(base_rpt_stim,poss_EP_shifts(pp),2);
+    shifted_stim = create_time_embedding(shifted_stim,stim_params_full);
+    shifted_stim = shifted_stim(first_rpt_uinds,use_kInds_up);
+    for tt = 1:length(targs)
+        [~,~,all_mod_prates(:,pp,tt)] = NMMmodel_eval(reduced_mods(tt),[],shifted_stim);
+    end
+end
+all_mod_prates = all_mod_prates/modFitParams.dt;
+
+ueps = fin_shift_cor(all_rpt_inds(abs(fin_shift_cor(all_rpt_inds)) <= max_shift));
+avg_dist = hist(ueps,poss_EP_shifts); 
+avg_dist = avg_dist/sum(avg_dist);
+mod_sp_mean = sum(bsxfun(@times,all_mod_prates,avg_dist),2);
+mod_sp_var = sum(bsxfun(@times,bsxfun(@minus,all_mod_prates,mod_sp_mean).^2,avg_dist),2);
+mod_sp_mean = squeeze(mod_sp_mean);
+mod_sp_var = squeeze(mod_sp_var);
+%%
+all_mod_emp_prates = nan(length(all_rpt_inds),length(targs));
+for tt = 1:length(targs)
+    [~,~,all_mod_emp_prates(:,tt)] = NMMmodel_eval(reduced_mods(tt),[],all_Xmat_shift);
+end
+all_mod_emp_prates = reshape(all_mod_emp_prates,length(first_rpt_uinds),n_rpts,length(targs))/modFitParams.dt;
+
+mod_psths = squeeze(nanmean(all_mod_emp_prates,2));
+mod_vars = squeeze(nanvar(all_mod_emp_prates,[],2));
+
+uinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt);
+all_mod_emp_prates = reshape(all_mod_emp_prates,[],length(targs));
+cur_in_blink = in_blink_inds(uinds,:);
+cur_in_sac = in_sac_inds(uinds,:);
+all_mod_emp_prates(cur_in_blink(:),:) = nan;
+all_mod_emp_prates(cur_in_sac(:),:) = nan;
+all_mod_emp_prates = reshape(all_mod_emp_prates,length(uinds),n_rpts,length(targs));
+
+ns_mod_psths = squeeze(nanmean(all_mod_emp_prates,2));
+ns_mod_vars = squeeze(nanvar(all_mod_emp_prates,[],2));
