@@ -3,30 +3,23 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M309';
-monk_name = 'lem';
+Expt_name = 'M011';
+monk_name = 'jbe';
 rec_type = 'LP';
+
+rec_number = 1;
+block_set = 1:21;
 
 Expt_num = str2num(Expt_name(2:end));
 
-% if Expt_num >= 280
-    data_loc = '/media/NTlab_data3/Data/bruce/';
-% elseif Expt_num == 99
-%     data_loc = '/media/NTlab_data2/Data/bruce/';
-% else
-%     data_loc = '/home/james/Data/bruce/';
-% end
-
-% if Expt_num >= 281
-    data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
-% elseif Expt_num == 99
-%     data_dir2 = ['/media/NTlab_data2/Data/bruce/' Expt_name];
-% else
-%     data_dir2 = ['/home/james/Data/bruce/' Expt_name];
-% end
+data_loc = '/media/NTlab_data3/Data/bruce/';
+data_dir2 = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 
 base_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
-init_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering/init'];
+if rec_number > 1 %if you're splitting the recording into multiple separate chunks for clustering
+   base_save_dir = [base_save_dir sprintf('/rec%d',rec_number)]; 
+end
+init_save_dir = [base_save_dir '/init'];
 spkdata_dir = [data_loc Expt_name '/spikes/'];
 
 if ~exist(base_save_dir,'dir');
@@ -95,6 +88,10 @@ for bb = target_blocks
     end
 end
 target_blocks(ismember(target_blocks,missing_Vdata)) = [];
+
+if exist('block_set','var')
+target_blocks(~ismember(target_blocks,block_set)) = [];
+end
 
 %% load in basic cluster stats for all blocks
 rclust_data = [base_save_dir '/Ref_Clusters.mat'];
@@ -224,7 +221,7 @@ end
 % caxis([2 ca(2)]);
 
 %% CHECK SPIKE CORRELATIONS
-block_num = 30;
+block_num = 16;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
 if strcmp(rec_type,'UA')
@@ -292,8 +289,8 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-block_num = 40;
-pair = [19 20];
+block_num = 10;
+pair = [22 23];
 spk_pts = [-12:27];
 
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
@@ -332,10 +329,12 @@ figure;
 subplot(2,1,1);hold on
 plot(trig_avg_1(:,1),'k');
 plot(trig_avg_1(:,2),'r');
+legend(sprintf('Probe%d',probe1),sprintf('Probe%d',probe2));
 title(sprintf('SU %d',pair(1)));
 subplot(2,1,2); hold on
 plot(trig_avg_2(:,1),'k');
 plot(trig_avg_2(:,2),'r');
+legend(sprintf('Probe%d',probe1),sprintf('Probe%d',probe2));
 title(sprintf('SU %d',pair(2)));
 fprintf('Waveform correlation %.3f\n',pair_wvfrm_corr);
 ginds = find(ismember(good_SUs,pair));
@@ -378,13 +377,22 @@ switch Expt_name
        init_use_SUs = [1 2 4 6 9 11 14 19 21 22 23 28 29];
  
     case 'M309'
-        init_use_SUs = [10 20 21 26 27 29];
+        init_use_SUs = [20 21 26 27 29];
 
     case 'M005'
         init_use_SUs = [9 10 11 20 21 24];
     case 'M009'
         init_use_SUs = [11 13];
-       
+    case 'M010'
+        init_use_SUs = [7 8 11 20];
+    case 'M011'
+        if rec_number == 1
+            init_use_SUs = [4 5 19 20 23 25];
+        elseif rec_number == 2
+            init_use_SUs = [3 16 19];
+        end
+        
+        
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
     case 'G081'
@@ -410,37 +418,6 @@ switch Expt_name
     case 'G103'
         init_use_SUs = [38 94]; %G103 CHECKED
 end
-
-%% M232
-% init_use_SUs = [2 4 5 8 14 17 19 21 28]; %CHECKED
-
-%% M235
-% init_use_SUs = [2 3 7 14 18 22]; %CHECKED
-
-%% M239
-% init_use_SUs = [3 4 6 9 10 13 16 17 20 26 28 30]; %CHECKED
-
-%% newer LEM data
-% init_use_SUs = [13 14 24]; %M266 %CHECKED
-% init_use_SUs = [10 12 17 18 24 27]; %for M270 CHECKED
-% init_use_SUs = [3 6 17 19]; %M275 CHECKED
-% init_use_SUs = [4 5 7 12 16 18]; %M277 CHECKED
-% init_use_SUs = [4 5 6 7 8 9 10 13 17 18 20 22 24 26 27 28]; %M281
-% init_use_SUs = [2 6 7 8 9 11 12 13 16 18 19 21 24]; %M287
-% init_use_SUs = [3 8 9 17 19 20]; %M289
-% init_use_SUs = [3 6 8 9 10 11 13 15 18 22]; %M294
-%% JBE data
-% init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
-% init_use_SUs = [9 18 37 42 50 56 72 80 86 94]; %for G081 %CHECKED
-% init_use_SUs = [18 19 22 29 48 55 89]; %for G085 %CHECKED
-% init_use_SUs = [12 42 43 48 49 91 94]; %for G086 CHECKED
-% init_use_SUs = [19 36 48 64 94]; %for G087 CHECKED
-% init_use_SUs = [17 44 55 64 85]; %for G088 CHECKED
-% init_use_SUs = [25 48]; %for G089 CHECKED
-% init_use_SUs = [18 42 43]; %for G091 CHECKED
-% init_use_SUs = [22 34 48 74 76 86 94]; %for G093 CHECKED
-% init_use_SUs = [7 9 12 18 44 45 56 60 75 77 90]; %for G095 CHECKED
-% init_use_SUs = [38 94]; %G103 CHECKED
 
 %% ASSIGN SU NUMBERS AND MANUALLY ELIMINATE BLOCKS WHERE CLUSTERING ISN"T CLEAR
 iso_thresh = 2.25;
@@ -550,7 +527,6 @@ switch Expt_name
         SU_ID_mat(~isnan(SU_ID_mat(:,29)),29) = SU_ID_mat(find(~isnan(SU_ID_mat(:,28)),1),28); %units 28 and 29 are the same
 
      case 'M309'
-        SU_ID_mat([1 2 21:end],10) = nan;
         SU_ID_mat([1:30],20) = nan;
         SU_ID_mat([1:21],21) = nan;
         SU_ID_mat([1:23],26) = nan;
@@ -567,6 +543,21 @@ switch Expt_name
         SU_ID_mat([1:15],11) = nan;
         SU_ID_mat([16:end],13) = nan;
         SU_ID_mat(~isnan(SU_ID_mat(:,13)),13) = SU_ID_mat(find(~isnan(SU_ID_mat(:,11)),1),11); %units 11 and 13 are the same
+
+    case 'M010'
+        SU_ID_mat([1 3],7) = nan;
+        SU_ID_mat([2],8) = nan;
+        SU_ID_mat([6],11) = nan;
+        SU_ID_mat([1 3 6 ],20) = nan;
+        
+    case 'M011'
+        if rec_number == 1
+            SU_ID_mat([1 2 3 4],4) = nan;
+            SU_ID_mat([1 2 3],5) = nan;
+             SU_ID_mat([3],19) = nan;
+             SU_ID_mat([3],25) = nan;
+       elseif rec_number == 2
+        end
 end
 
 % figure;

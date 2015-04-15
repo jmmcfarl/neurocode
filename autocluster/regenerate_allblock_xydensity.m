@@ -1,6 +1,6 @@
 function [] = regenerate_allblock_xydensity(probe_num,target_blocks)
 
-global base_save_dir full_save_dir 
+global base_save_dir full_save_dir
 
 fprintf('Loading RefClusters\n');
 rclust_dat_name = [base_save_dir '/Ref_Clusters.mat'];
@@ -22,8 +22,8 @@ if ~isempty(base_block_loc)
     dens_xrange = minmax(details.x);
     dens_yrange = minmax(details.y);
 else
-   dens_xrange = minmax(ref_xy(uids,1));
-   dens_yrange = minmax(ref_xy(uids,2));
+    dens_xrange = minmax(ref_xy(uids,1));
+    dens_yrange = minmax(ref_xy(uids,2));
 end
 
 for bb = 1:length(target_blocks)
@@ -40,21 +40,23 @@ for bb = 1:length(target_blocks)
     hold on
     set(gca,'xtick',[],'ytick',[]);axis tight
     for ii = 1:length(Clusters{probe_num}.cluster_labels)
-        h1 = plot_gaussian_2d(Clusters{probe_num}.gmm_xyMeans(ii,:)',squeeze(Clusters{probe_num}.gmm_xySigma(:,:,ii)),[2],'r',0.5);
+        if ~isnan(Clusters{probe_num}.gmm_xyMeans(ii,1))
+            h1 = plot_gaussian_2d(Clusters{probe_num}.gmm_xyMeans(ii,:)',squeeze(Clusters{probe_num}.gmm_xySigma(:,:,ii)),[2],'r',0.5);
+        end
     end
     if target_blocks(bb) == cur_base_block
         title(['Block #',int2str(target_blocks(bb))],'Color','r');
     else
         title(['Block #',int2str(target_blocks(bb))],'Color','k');
     end
-        
+    
 end
 
 %scale axes
 set(0,'CurrentFigure',full_dense_fig);
 if ~isempty(base_block_loc)
-subplot(n_cols,n_rows,base_block_loc);
-xl = xlim(); yl = ylim();
+    subplot(n_cols,n_rows,base_block_loc);
+    xl = xlim(); yl = ylim();
 else
     xl = dens_xrange;
     yl = dens_yrange;

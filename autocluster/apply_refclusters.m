@@ -3,28 +3,28 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir spkdata_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M009';
+Expt_name = 'M011';
 monk_name = 'jbe';
 rec_type = 'LP';
 
+rec_number = 2;
+
+block_set = [22:50];
+
 Expt_num = str2num(Expt_name(2:end));
 
-% if Expt_num > 280 
-    data_loc = '/media/NTlab_data3/Data/bruce/';
-% elseif Expt_num == 99
-%     data_loc = '/media/NTlab_data2/Data/bruce/';
-% else
-%     data_loc = '/home/james/Data/bruce/';
-% end
+data_loc = '/media/NTlab_data3/Data/bruce/';
 
 %location of Expts.mat files
 data_dir2 = [data_loc Expt_name];
 
 spkdata_dir = [data_loc Expt_name '/spikes/'];
 
-
 base_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
-init_save_dir = ['~/Analysis/bruce/' Expt_name '/clustering/init'];
+if rec_number > 1 %if you're splitting the recording into multiple separate chunks for clustering
+   base_save_dir = [base_save_dir sprintf('/rec%d',rec_number)]; 
+end
+init_save_dir = [base_save_dir '/init'];
 
 if ~exist(base_save_dir,'dir');
     mkdir(base_save_dir);
@@ -97,6 +97,9 @@ if strcmp(Expt_name,'M289')
     target_blocks(target_blocks == 14 | target_blocks == 32) = [];
 end
 
+if exist('block_set','var')
+target_blocks(~ismember(target_blocks,block_set)) = [];
+end
 %%
 % ADD CLUSTER PERMUTATION CHECKING INTO THE APPLY REF CLUSTERS FUNCTION!
 
@@ -162,14 +165,15 @@ for bb = target_blocks
             %     else
             [new_cluster,spike_features,spike_xy,Spikes] = apply_clustering(loadedData,RefClusters{probe_num});
             %     end
+          
+            spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,bb)];
+            store_spike_data(Spikes,spk_data_name,1);
+            
         catch
             new_cluster.failed = 1;
             fprintf('Couldnt cluster probe %d block %d!\n',probe_num,bb);
         end
         
-        spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,bb)];
-        
-        store_spike_data(Spikes,spk_data_name,1);
         
         if ~new_cluster.failed
             N_spks = size(spike_xy,1);
@@ -188,7 +192,9 @@ for bb = target_blocks
             end
             set(gca,'xtick',[],'ytick',[]);axis tight
             for ii = 1:length(new_cluster.cluster_labels)
+                if ~isnan(new_cluster.gmm_xyMeans(ii,1))
                 h1 = plot_gaussian_2d(new_cluster.gmm_xyMeans(ii,:)',squeeze(new_cluster.gmm_xySigma(:,:,ii)),[2],'r',1);
+                end
             end
             if bb == cur_base_block
                 title(['Block #',int2str(bb)],'Color','r');
@@ -302,7 +308,8 @@ for probe_num = target_probes
         fprintf('Aligning cluster assignments across blocks for probe %d\n',probe_num);
         n_blocks = length(target_blocks);
         
-        N_samps = length(RefClusters{probe_num}.params.spk_pts);
+         cmap = cluster_cmap(N_sus);
+       N_samps = length(RefClusters{probe_num}.params.spk_pts);
         N_chs = length(RefClusters{probe_num}.use_chs);
         ref_mean_spike = RefClusters{probe_num}.mean_spike(:,2:end);
         ms_size = size(ref_mean_spike);
@@ -312,7 +319,9 @@ for probe_num = target_probes
             load(cur_data,'Clusters');
             uset = unique(Clusters{probe_num}.cluster_labels);
             uset(uset==1) = [];
-            all_mean_spike(bb,:,uset-1) = Clusters{probe_num}.mean_spike(:,uset);
+            for jj = 1:length(uset)
+                all_mean_spike(bb,:,uset(jj)-1) = Clusters{probe_num}.mean_spike(:,find(Clusters{probe_num}.cluster_labels==uset(jj)));
+            end
         end
         
         max_n_sus = 8;
@@ -334,7 +343,6 @@ for probe_num = target_probes
 %         
 %         figure
 %         N_sus = max(RefClusters{probe_num}.cluster_labels) - 1;
-%         cmap = cluster_cmap(N_sus);
 %         n_cols = ceil(sqrt(n_blocks)); n_rows = ceil(n_blocks/n_cols);
 %         for bb = 1:length(target_blocks)
 %             subplot(n_cols,n_rows,bb);

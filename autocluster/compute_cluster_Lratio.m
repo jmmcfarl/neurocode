@@ -21,28 +21,33 @@ for ii = 1:N_sus
     clust_spikes = find(ismember(comp_idx,cluster_comps));
     non_clust_spikes = setdiff(1:N_spks,clust_spikes);
     
-    %if single-component cluster, use the model stats for that comp
-    if length(cluster_comps) == 1
-        clust_mean = gmm_fit.mu(cluster_comps,:);
-        clust_Sigma = squeeze(gmm_fit.Sigma(:,:,cluster_comps));
-    else %use empirical mean if more than one gaussians used for cluster
-        clust_mean = mean(X(clust_spikes,:));
-        clust_Sigma = cov(X(clust_spikes,:));
-    end
-    mean_seps = bsxfun(@minus,X,clust_mean);
-    D = sum((mean_seps/clust_Sigma) .* mean_seps,2); %mah D
-    
-    Lratio(ii) = sum(1 - chi2cdf(D(non_clust_spikes),df));
-    
-    
-    if isempty(clust_spikes) || isempty(non_clust_spikes)
-        iso_distance(ii) = nan;
-    else
-        D = sqrt(sort(D(non_clust_spikes)));
-        if length(clust_spikes) <= length(non_clust_spikes)
-            iso_distance(ii) = D(length(clust_spikes));
-        else
-            iso_distance(ii) = D(end);
+    if ~isempty(clust_spikes)
+        %if single-component cluster, use the model stats for that comp
+        if length(cluster_comps) == 1
+            clust_mean = gmm_fit.mu(cluster_comps,:);
+            clust_Sigma = squeeze(gmm_fit.Sigma(:,:,cluster_comps));
+        else %use empirical mean if more than one gaussians used for cluster
+            clust_mean = mean(X(clust_spikes,:));
+            clust_Sigma = cov(X(clust_spikes,:));
         end
+        mean_seps = bsxfun(@minus,X,clust_mean);
+        D = sum((mean_seps/clust_Sigma) .* mean_seps,2); %mah D
+        
+        Lratio(ii) = sum(1 - chi2cdf(D(non_clust_spikes),df));
+        
+        
+        if isempty(clust_spikes) || isempty(non_clust_spikes)
+            iso_distance(ii) = nan;
+        else
+            D = sqrt(sort(D(non_clust_spikes)));
+            if length(clust_spikes) <= length(non_clust_spikes)
+                iso_distance(ii) = D(length(clust_spikes));
+            else
+                iso_distance(ii) = D(end);
+            end
+        end
+    else
+        Lratio(ii) = nan;
+        iso_distance(ii) = nan;
     end
 end

@@ -48,7 +48,9 @@ for bb = 1:length(target_blocks)
     end
     set(gca,'xtick',[],'ytick',[]);axis tight
     for ii = 1:length(Clusters{probe_num}.cluster_labels)
+        if ~isnan(Clusters{probe_num}.gmm_xyMeans(ii,1))
         h1 = plot_gaussian_2d(Clusters{probe_num}.gmm_xyMeans(ii,:)',squeeze(Clusters{probe_num}.gmm_xySigma(:,:,ii)),[2],'r',1);
+        end
     end
     if target_blocks(bb) == cur_base_block
         title(['Block #',int2str(target_blocks(bb))],'Color','r');

@@ -31,7 +31,7 @@ fprintf('Loading %s\n',data_name);
 load(data_name);
 
 %%
-recompute_init_mods = 0; %use existing initial models?
+recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init, 0 for init to perfect fixation
 use_sac_kerns = 1; %use sac-modulation kernels
 

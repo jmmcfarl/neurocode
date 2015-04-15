@@ -109,11 +109,12 @@ if fixed == 0
     init_comp_idx = cluster(new_cluster.gmm_fit,spike_features);
     init_comp_idx(outliers) = -1;
     
-    %if any components have no assigned spikes, remove them
+%     %if any components have no assigned spikes, remove them
     init_cluster_labels = new_cluster.cluster_labels;
+    N_initial_clusts = length(unique(init_cluster_labels));
     n = hist(init_comp_idx,1:length(init_cluster_labels));
     init_cluster_labels(n==0) = [];
-    if length(unique(init_comp_idx(init_comp_idx > 0))) < 2
+    if length(unique(init_comp_idx(init_comp_idx > 0))) < 2 %if there is only one cluster apparent in the data try random inits
         gmm_obj = nan;
     else
         [gmm_obj, gmm_distance, clust_ids, cluster_labels, cluster_stats, outliers] = ...
@@ -135,6 +136,15 @@ if fixed == 0
         end
     end
     
+    %if we need to add back in any clusters which dont have spikes in this
+    %data (save as null clusters for bookkeeping)
+    if N_initial_clusts > length(unique(cluster_labels))
+        n_null_clusts = N_initial_clusts - max(cluster_labels);
+        cluster_labels = cat(2,cluster_labels,(1:n_null_clusts)+max(cluster_labels));
+    else
+        n_null_clusts = 0;
+    end
+    
     new_cluster.gmm_fit = gmm_obj;
     new_cluster.comp_idx = clust_ids;
     new_cluster.cluster_labels = cluster_labels;
@@ -146,15 +156,17 @@ if fixed == 0
         new_cluster.dprime = nan;
     end
 end
-if fixed ~= 1
-    %%
+if fixed ~= 1    %%
     if fixed == 0
-    [cluster_labels, cluster_stats] = relabel_clusters(Spikes.V,new_cluster.comp_idx,new_cluster.cluster_labels);
-    new_cluster.cluster_labels = cluster_labels;
+        [cluster_labels, cluster_stats] = relabel_clusters(Spikes.V,new_cluster.comp_idx,new_cluster.cluster_labels);
+        new_cluster.cluster_labels = cluster_labels;
     elseif fixed == 2
+        orig_n_clusts = size(init_cluster.mean_spike,2);
+        new_n_clusts = length(unique(init_cluster.cluster_labels));
+        n_null_clusts = orig_n_clusts - new_n_clusts;
         [cluster_stats] = get_cluster_stats(Spikes.V,new_cluster.spike_clusts);
     else
-       error('Unsupported option for input fixed'); 
+        error('Unsupported option for input fixed');
     end
     new_cluster.mean_spike = cluster_stats.mean_spike;
     new_cluster.std_spike = cluster_stats.std_spike;
@@ -163,14 +175,14 @@ if fixed ~= 1
     spike_clusts = int16(nan(size(new_cluster.comp_idx)));
     spike_clusts(uids) = (new_cluster.cluster_labels(new_cluster.comp_idx(uids)));
     new_cluster.spike_clusts = spike_clusts(:);
-
-%     mu_inds = setdiff(1:N_spks,su_inds);
+    
+    %     mu_inds = setdiff(1:N_spks,su_inds);
     mu_inds = find(spike_clusts == 1);
     new_cluster.n_spks(1) = length(mu_inds);
     N_sus = nanmax(new_cluster.cluster_labels) - 1;
     for ss = 1:N_sus
         su_inds = find(spike_clusts == ss + 1);
-%         su_inds = find(ismember(clust_ids,find(cluster_labels == 2)));
+        %         su_inds = find(ismember(clust_ids,find(cluster_labels == 2)));
         %get ISIs
         su_spk_times = Spikes.times(su_inds);
         isis = diff(su_spk_times)*1e3; %in ms
@@ -187,12 +199,17 @@ if fixed ~= 1
     for ii = 1:size(gmm_xyMeans,1)
         gmm_xySigma(:,:,ii) = init_cluster.xy_projmat' * squeeze(new_cluster.gmm_fit.Sigma(:,:,ii)) * init_cluster.xy_projmat;
     end
+    if n_null_clusts > 0
+        gmm_xyMeans = cat(1,gmm_xyMeans,nan(n_null_clusts,2));
+        gmm_xySigma = cat(3,gmm_xySigma,nan(2,2,n_null_clusts));
+    end
+    
     new_cluster.gmm_xyMeans = gmm_xyMeans;
     new_cluster.gmm_xySigma = gmm_xySigma;
     
     %%
-    new_cluster = compute_cluster_stats(new_cluster,Spikes,spike_features);
-
+    new_cluster = compute_cluster_stats(new_cluster,Spikes,spike_features,n_null_clusts);
+    
     [new_cluster.Lratios,new_cluster.iso_dists] = compute_cluster_Lratio(spike_features,new_cluster.gmm_fit,new_cluster.comp_idx,new_cluster.cluster_labels);
     
 end

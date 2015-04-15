@@ -144,8 +144,8 @@ saccade_start_inds = find(ismember(used_inds,interp_sac_start_inds));
 used_saccade_set = find(ismember(interp_sac_start_inds,used_inds));
 %nearest index in the used data set of the saccade stop time
 saccade_stop_inds = round(interp1(used_inds,1:length(used_inds),interp_sac_stop_inds(used_saccade_set)))';
-
 saccade_stop_inds(isnan(saccade_stop_inds)) = length(used_inds);
+
 used_is_blink = ET_data.is_blink(used_saccade_set);
 
 saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
@@ -212,14 +212,14 @@ if use_hres_ET %if using high-res ET
     post_mean_EP = post_mean_EP*sp_dx;
     
     if exist('drift_post_mean_LOO','var')
-    post_mean_EP_LOO = nan(length(loo_set),NT);
-    for ss = 1:length(loo_set)
-        [post_mean_EP_LOO(ss,:)] = construct_eye_position(best_fix_cor,best_fix_std,...
-            drift_post_mean_LOO(ss,:),drift_post_std_LOO(ss,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-    end
-    post_mean_EP_LOO = post_mean_EP_LOO*sp_dx;
+        post_mean_EP_LOO = nan(length(loo_set),NT);
+        for ss = 1:length(loo_set)
+            [post_mean_EP_LOO(ss,:)] = construct_eye_position(best_fix_cor,best_fix_std,...
+                drift_post_mean_LOO(ss,:),drift_post_std_LOO(ss,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+        end
+        post_mean_EP_LOO = post_mean_EP_LOO*sp_dx;
     else
-       warning('No LOO variables detected'); 
+        warning('No LOO variables detected');
     end
 else %if using base resolution ET
     [post_mean_EP,post_std_EP] = construct_eye_position(it_fix_post_mean(end,:),it_fix_post_std(end,:),...
@@ -264,8 +264,8 @@ for ii = 1:n_rpts
     cur_bin_edges = [trial_data(rpt_trials(ii)).start_times:base_dt:(trial_data(rpt_trials(ii)).start_times + base_dt*(up_nf))];
     cur_bin_cents = 0.5*cur_bin_edges(1:end-1) + 0.5*cur_bin_edges(2:end);
     for cc = 1:length(SU_numbers)
-       cur_hist = histc(spike_data.SU_spk_times{cc},cur_bin_edges);
-       tbt_binned_spikes(:,ii,cc) = cur_hist(1:end-1);
+        cur_hist = histc(spike_data.SU_spk_times{cc},cur_bin_edges);
+        tbt_binned_spikes(:,ii,cc) = cur_hist(1:end-1);
     end
     tbt_t_axis(:,ii) = cur_bin_cents;
 end
@@ -276,7 +276,7 @@ up_used_inds = find(ismember(orig_t_ind,used_inds));
 
 tbt_binned_spikes = reshape(tbt_binned_spikes,[],length(SU_numbers));
 for ii = 1:length(SU_numbers)
-   tbt_binned_spikes(isnan(all_binned_sua(orig_t_ind,ii)),ii) = nan; 
+    tbt_binned_spikes(isnan(all_binned_sua(orig_t_ind,ii)),ii) = nan;
 end
 tbt_binned_spikes = reshape(tbt_binned_spikes,up_nf,n_rpts,length(SU_numbers));
 
@@ -293,10 +293,10 @@ for ii = 1:length(rpt_saccade_set)
     cur_ind_range = rpt_sac_start_inds(ii):(rpt_sac_stop_inds(ii) + postsac_buff);
     cur_ind_range(all_trialvec(orig_t_ind(cur_ind_range)) ~= all_trialvec(orig_t_ind(cur_ind_range(1)))) = [];
     
-    if ~used_is_blink(rpt_saccade_set(ii)) 
-    in_sac_inds(cur_ind_range) = 1;
+    if ~used_is_blink(rpt_saccade_set(ii))
+        in_sac_inds(cur_ind_range) = 1;
     else
-    in_blink_inds(cur_ind_range) = 1;
+        in_blink_inds(cur_ind_range) = 1;
     end
 end
 
@@ -316,7 +316,8 @@ tbt_BS_ms = reshape(tbt_BS_ms,up_nf,n_rpts,length(SU_numbers));
 trial_avg_BS = nanmean(tbt_binned_spikes);
 tbt_BS_ms = bsxfun(@minus,tbt_binned_spikes,nanmean(trial_avg_BS));
 trial_avg_BS = squeeze(trial_avg_BS);
-%%
+
+%% GET BASIC STATS OF TBT DATA
 psths = squeeze(nanmean(tbt_BS_ms,2));
 psth_var = nanvar(psths);
 tot_resp_var = nanvar(reshape(tbt_BS_ms,[],length(SU_numbers)));
@@ -328,15 +329,23 @@ psth_var_cor = psth_var.*(n_utrials'./(n_utrials'-1)) - avg_temp_var'./n_utrials
 
 trial_avg_var = squeeze(nanvar(trial_avg_BS)); %variance of trial-avg rates
 
-
 %%
-interp_post_mean_EP = interp1(time_data.t_axis(used_inds),post_mean_EP,tbt_t_axis(up_used_inds));
-tbt_EP = nan(up_nf,n_rpts);
-tbt_EP(up_used_inds) = interp_post_mean_EP;
-
-tbt_EP(in_blink_inds) = nan;
-tbt_EP(in_sac_inds) = nan;
-uinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt);
+for tt = 1:length(targs)
+    robs = reshape(tbt_binned_spikes(uinds,:,su_num),[],1);
+    su_uinds = find(~isnan(robs));
+    if ~isempty(su_uinds)
+        fprintf('Analyzing repeat data for SU %d of %d\n',tt,length(targs));
+        
+        interp_post_mean_EP = interp1(time_data.t_axis(used_inds),post_mean_EP,tbt_t_axis(up_used_inds));
+        tbt_EP = nan(up_nf,n_rpts);
+        tbt_EP(up_used_inds) = interp_post_mean_EP;
+        
+        tbt_EP(in_blink_inds) = nan;
+        tbt_EP(in_sac_inds) = nan;
+        uinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt);
+        
+    end
+end
 
 %%
 Xtick = rpt_taxis(1):0.01:rpt_taxis(end);
@@ -349,10 +358,7 @@ TB_stim = [TT(:) reshape(tbt_EP(uinds,:),[],1)];
 [TB_Xmat,TB_counts] = TB.InputNL2D(TB_stim);
 
 %%
-su_num = 1;
 
-robs = reshape(tbt_binned_spikes(uinds,:,su_num),[],1);
-uset = find(~isnan(robs));
 
 temp_smooth = 1;
 eye_smooth = 1;
@@ -365,7 +371,7 @@ TB_rate = log(1+exp(TB_filt + TB_mod.spk_NL_params(1)))/base_dt;
 
 % %%
 % xv_frac = 0.2;
-% 
+%
 % poss_trials = unique(RR(uset));
 % nuse_trials = length(poss_trials);
 % n_xvtrials = round(xv_frac*(length(poss_trials)));
@@ -375,7 +381,7 @@ TB_rate = log(1+exp(TB_filt + TB_mod.spk_NL_params(1)))/base_dt;
 % tr_trials = setdiff(poss_trials,xv_trials);
 % tr_inds = uset(ismember(RR(uset),tr_trials));
 % xv_inds = uset(ismember(RR(uset),xv_trials));
-% 
+%
 % temp_smooth = 10;
 % poss_eye_smooth = [0.1 1 10 100 1000];
 % optim_params.maxIter = 200;
@@ -388,7 +394,7 @@ TB_rate = log(1+exp(TB_filt + TB_mod.spk_NL_params(1)))/base_dt;
 %     TB_rate{pp} = log(1+exp(TB_filt + tr_mod.spk_NL_params(1)))/base_dt;
 %     mod_xv(pp) = NMMeval_model(tr_mod,robs,TB_Xmat,[],xv_inds)
 % end
-% 
+%
 %%
 TB_dist = bsxfun(@rdivide,TB_counts,sum(TB_counts,2));
 avg_dist = mean(TB_dist);
@@ -434,7 +440,7 @@ cur_cnt = zeros(n_EP_bins,length(targs));
 rand_XC = nan(up_nf,length(targs));
 for tt = uinds
     Y1 = squeeze(tbt_binned_spikes(tt,:,:));
-
+    
     cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,:,:)))))/sqrt(back_look);
     cur_Dmat(logical(eye(n_rpts))) = nan;
     for jj = 1:n_EP_bins
@@ -561,7 +567,7 @@ end
 all_mod_prates = all_mod_prates/modFitParams.dt;
 
 ueps = fin_shift_cor(all_rpt_inds(abs(fin_shift_cor(all_rpt_inds)) <= max_shift));
-avg_dist = hist(ueps,poss_EP_shifts); 
+avg_dist = hist(ueps,poss_EP_shifts);
 avg_dist = avg_dist/sum(avg_dist);
 mod_sp_mean = sum(bsxfun(@times,all_mod_prates,avg_dist),2);
 mod_sp_var = sum(bsxfun(@times,bsxfun(@minus,all_mod_prates,mod_sp_mean).^2,avg_dist),2);

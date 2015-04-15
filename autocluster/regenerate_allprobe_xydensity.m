@@ -36,7 +36,9 @@ for probe_num = target_probes
     hold on
     set(gca,'xtick',[],'ytick',[]);axis tight
     for ii = 1:length(Clusters{probe_num}.cluster_labels)
-        h1 = plot_gaussian_2d(Clusters{probe_num}.gmm_xyMeans(ii,:)',squeeze(Clusters{probe_num}.gmm_xySigma(:,:,ii)),[2],'r',0.5);
+         if ~isnan(Clusters{probe_num}.gmm_xyMeans(ii,1))
+       h1 = plot_gaussian_2d(Clusters{probe_num}.gmm_xyMeans(ii,:)',squeeze(Clusters{probe_num}.gmm_xySigma(:,:,ii)),[2],'r',0.5);
+         end
     end
 %     if bb == cur_base_block
 %         title(['Block #',int2str(bb)],'Color','r');

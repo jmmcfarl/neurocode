@@ -19,6 +19,13 @@ end
 
 [cluster_stats] = get_cluster_stats(SpikeV,cluster_assignments);
 
+%if there are clusters with no spikes, set there spike stats to nans
+if size(cluster_stats,2) < n_clusters
+   nospikeclusts = n_clusters - size(cluster_stats.mean_spike,2); 
+   cluster_stats.mean_spike = cat(2,cluster_stats.mean_spike,nan(size(cluster_stats.mean_spike,1),nospikeclusts));
+   cluster_stats.std_spike = cat(2,cluster_stats.std_spike,nan(size(cluster_stats.mean_spike,1),nospikeclusts));
+end
+
 max_amps = nanmax(abs(cluster_stats.mean_spike));
 [~,label_order] = sort(max_amps); %sort cluster labels by increasing amplitude of average waveform
 
