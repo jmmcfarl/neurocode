@@ -1,4 +1,4 @@
-function [new_cluster,spike_features,spike_xy,Spikes] = apply_clustering(loadedData,init_cluster,params,fixed,Spikes)
+function [new_cluster,spike_features,spike_xy,Spikes] = apply_clustering(loadedData,init_cluster,params,fixed,Spikes,spike_features)
 
 %set fixed == 0 to fit new GMM with input as initialization. Set fixed == 1
 %to just grab spike features, and set fixed == 2 if you want to keep the
@@ -11,6 +11,9 @@ if nargin < 4 || isempty(fixed)
 end
 if nargin < 5
     Spikes = [];
+end
+if nargin < 6
+    spike_features = [];
 end
 new_cluster = init_cluster;
 
@@ -25,7 +28,7 @@ if isempty(Spikes)
         Fs = loadedData.Fs;
     end
     
-    if fixed == -1
+    if fixed == -1 %if retriggering
         if ischar(params.target_rate)
             target_Nspks = params.target_rate;
         else
@@ -34,12 +37,11 @@ if isempty(Spikes)
         [spk_id, trig_thresh] = triggerSpikes(V(:,new_cluster.trig_ch),params.thresh_sign,target_Nspks);
         new_cluster.trig_thresh = trig_thresh;
     else
-        
         trig_thresh = new_cluster.trig_thresh;
         [spk_id, trig_thresh] = triggerSpikes(V(:,new_cluster.trig_ch),params.thresh_sign,[],trig_thresh);
     end
     spk_id(spk_id <= abs(params.spk_pts(1)) | spk_id >= length(V)-params.spk_pts(end)) = []; %get rid of spikes at the edges
-   
+    
     %extract spike snippets
     Spikes = getSpikeSnippets(V,Vtime,spk_id,params.spk_pts,new_cluster.trig_ch);
     
@@ -66,31 +68,32 @@ end
 [N_spks, N_samps, N_chs] = size(Spikes.V);
 
 %%
-
-if strcmp(new_cluster.fin_space,'PC')
-    if N_chs > 1
-        AllV = reshape(Spikes.V,N_spks,N_samps*N_chs);
+if isempty(spike_features)
+    if strcmp(new_cluster.fin_space,'PC')
+        if N_chs > 1
+            AllV = reshape(Spikes.V,N_spks,N_samps*N_chs);
+        else
+            AllV = Spikes.V;
+        end
+        spike_features = AllV*new_cluster.pc_vecs;
+    elseif strcmp(new_cluster.fin_space,'voltage')
+        if N_chs > 1
+            AllV = reshape(Spikes.V,N_spks,N_samps*N_chs);
+        else
+            AllV = Spikes.V;
+        end
+        spike_features = AllV(:,new_cluster.tdims);
+    elseif strcmp(new_cluster.fin_space,'energy')
+        spike_energy = squeeze(sqrt(sum(Spikes.V.^2,2)));
+        spike_dt_energy = squeeze(sqrt(sum(diff(Spikes.V,1,2).^2,2)));
+        spike_features = [spike_energy spike_dt_energy];
+    elseif strcmp(new_cluster.fin_space,'template')
+        templates = new_cluster.templates;
+        n_templates = size(templates,2);
+        spike_features = get_template_scores(Spikes.V,new_cluster.templates,new_cluster.template_params);
     else
-        AllV = Spikes.V;
+        error('Unrecognized feature space');
     end
-    spike_features = AllV*new_cluster.pc_vecs;
-elseif strcmp(new_cluster.fin_space,'voltage')
-    if N_chs > 1
-        AllV = reshape(Spikes.V,N_spks,N_samps*N_chs);
-    else
-        AllV = Spikes.V;
-    end
-    spike_features = AllV(:,new_cluster.tdims);
-elseif strcmp(new_cluster.fin_space,'energy')
-    spike_energy = squeeze(sqrt(sum(Spikes.V.^2,2)));
-    spike_dt_energy = squeeze(sqrt(sum(diff(Spikes.V,1,2).^2,2)));
-    spike_features = [spike_energy spike_dt_energy];
-elseif strcmp(new_cluster.fin_space,'template')
-    templates = new_cluster.templates;
-    n_templates = size(templates,2);
-    spike_features = get_template_scores(Spikes.V,new_cluster.templates,new_cluster.template_params);
-else
-    error('Unrecognized feature space');
 end
 spike_xy = spike_features*init_cluster.xy_projmat;
 new_cluster.spike_xy = spike_xy;
@@ -109,7 +112,7 @@ if fixed == 0
     init_comp_idx = cluster(new_cluster.gmm_fit,spike_features);
     init_comp_idx(outliers) = -1;
     
-%     %if any components have no assigned spikes, remove them
+    %     %if any components have no assigned spikes, remove them
     init_cluster_labels = new_cluster.cluster_labels;
     N_initial_clusts = length(unique(init_cluster_labels));
     n = hist(init_comp_idx,1:length(init_cluster_labels));

@@ -6,11 +6,14 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M309';
-monk_name = 'lem';
-bar_ori = 120; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
+rec_number = 1;
+use_block_range =1:27;
 
-% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90]
+
+% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -72,6 +75,12 @@ if strcmp(rec_type,'LP')
             bar_ori = 50;
         case 9
             bar_ori = 0;
+        case 10
+            bar_ori = 60;
+        case 11
+            bar_ori = 160;
+        case 12 
+            bar_ori = 0;
     end
 end
 
@@ -103,6 +112,10 @@ end
 et_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
 mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
+
+if rec_number > 1
+    cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
+end
 
 %dont fit stim models using these blocks
 ignore_blocks = [];
@@ -196,6 +209,10 @@ if length(unique(expt_dds(cur_block_set))) > 1
     fprintf('Warning, multiple dds detected!\n');
     main_dds = mode(expt_dds(cur_block_set));
     cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
+end
+
+if exist('use_block_range','var')
+cur_block_set(~ismember(cur_block_set,use_block_range)) = []; %if specifying a usable block range
 end
 
 sim_sac_expts = find(~expt_has_ds(cur_block_set));

@@ -3,13 +3,13 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir spkdata_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M011';
+Expt_name = 'M012';
 monk_name = 'jbe';
 rec_type = 'LP';
 
 rec_number = 2;
 
-block_set = [22:50];
+block_set = [28:100];
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -308,8 +308,8 @@ for probe_num = target_probes
         fprintf('Aligning cluster assignments across blocks for probe %d\n',probe_num);
         n_blocks = length(target_blocks);
         
-         cmap = cluster_cmap(N_sus);
-       N_samps = length(RefClusters{probe_num}.params.spk_pts);
+        cmap = cluster_cmap(N_sus);
+        N_samps = length(RefClusters{probe_num}.params.spk_pts);
         N_chs = length(RefClusters{probe_num}.use_chs);
         ref_mean_spike = RefClusters{probe_num}.mean_spike(:,2:end);
         ms_size = size(ref_mean_spike);
@@ -317,10 +317,14 @@ for probe_num = target_probes
         for bb = 1:length(target_blocks)
             cur_data = [base_save_dir sprintf('/Block%d_Clusters.mat',target_blocks(bb))];
             load(cur_data,'Clusters');
-            uset = unique(Clusters{probe_num}.cluster_labels);
-            uset(uset==1) = [];
-            for jj = 1:length(uset)
-                all_mean_spike(bb,:,uset(jj)-1) = Clusters{probe_num}.mean_spike(:,find(Clusters{probe_num}.cluster_labels==uset(jj)));
+            if ~Clusters{probe_num}.failed
+                all_mean_spike(bb,:,:) = Clusters{probe_num}.mean_spike(:,2:end);
+%                 uset = unique(Clusters{probe_num}.cluster_labels);
+%                 uset(uset==1) = []; %ignore MU
+%                 for jj = 1:length(uset)
+% %                     cur_comps = find(Clusters{probe_num}.cluster_labels == uset(jj));
+%                     all_mean_spike(bb,:,uset(jj)-1) = Clusters{probe_num}.mean_spike(:,find(Clusters{probe_num}.cluster_labels==uset(jj)));
+%                 end
             end
         end
         
@@ -373,6 +377,7 @@ for probe_num = target_probes
                 fprintf('Relabeling clusters for block %d\n',target_blocks(bb));
                 cur_data = [base_save_dir sprintf('/Block%d_Clusters.mat',target_blocks(bb))];
                 load(cur_data,'Clusters');
+                if ~Clusters{probe_num}.failed
                 prev_labels = Clusters{probe_num}.cluster_labels;
                 prev_clusts = Clusters{probe_num}.spike_clusts;
                 cur_perm = perm_set(best_perms(bb),:);
@@ -413,11 +418,15 @@ for probe_num = target_probes
                         title(sprintf('Block %d',target_blocks(bb)),'Color','k');
                     end
                 end
+                end
             end
             if ishandle(full_scatter_fig)
                 saveas(full_scatter_fig,pfname_sc);
                 close(full_scatter_fig);
             end
+            
+                regenerate_allblock_xyscatters(probe_num,target_blocks);
+
         end
 %     end
 end

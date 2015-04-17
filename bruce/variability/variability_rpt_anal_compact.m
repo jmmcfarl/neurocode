@@ -1,6 +1,8 @@
 clear all
 close all
 
+addpath('~/other_code/fastBSpline/');
+
 global Expt_name bar_ori monk_name rec_type
 
 Expt_name = 'M296';
@@ -304,6 +306,8 @@ in_sac_inds = logical(reshape(in_sac_inds,up_nf,n_rpts));
 in_blink_inds = logical(reshape(in_blink_inds,up_nf,n_rpts));
 
 %% process trial-by-trial binned spike data (exclude blinks, sacs, subtract trial avgs)
+used_Tinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt); %set of time points within each trial for analysis (excluding buffer windows)
+
 tbt_BS_ms = reshape(tbt_binned_spikes,[],length(SU_numbers));
 tbt_BS_ms(in_blink_inds(:),:) = nan;
 
@@ -313,45 +317,58 @@ end
 
 tbt_BS_ms = reshape(tbt_BS_ms,up_nf,n_rpts,length(SU_numbers));
 %subtract out trial-avg spike count
-trial_avg_BS = nanmean(tbt_binned_spikes);
+trial_avg_BS = nanmean(tbt_binned_spikes(used_Tinds,:,:));
 tbt_BS_ms = bsxfun(@minus,tbt_binned_spikes,nanmean(trial_avg_BS));
 trial_avg_BS = squeeze(trial_avg_BS);
 
 %% GET BASIC STATS OF TBT DATA
+
 psths = squeeze(nanmean(tbt_BS_ms,2));
-psth_var = nanvar(psths);
-tot_resp_var = nanvar(reshape(tbt_BS_ms,[],length(SU_numbers)));
+psth_var = nanvar(psths(used_Tinds,:));
+tot_resp_var = nanvar(reshape(tbt_BS_ms(used_Tinds,:,:),[],length(SU_numbers)));
 
 n_utrials = squeeze(mean(sum(~isnan(tbt_BS_ms),2)));
 
-avg_temp_var = squeeze(nanmean(nanvar(tbt_BS_ms))); %avg (across trials) of across-time variance
+avg_temp_var = squeeze(nanmean(nanvar(tbt_BS_ms(used_Tinds,:,:)))); %avg (across trials) of across-time variance
 psth_var_cor = psth_var.*(n_utrials'./(n_utrials'-1)) - avg_temp_var'./n_utrials'; %sahani linden correction for PSTH sampling noise
 
 trial_avg_var = squeeze(nanvar(trial_avg_BS)); %variance of trial-avg rates
 
 %%
-for tt = 1:length(targs)
-    robs = reshape(tbt_binned_spikes(uinds,:,su_num),[],1);
+
+n_splines = 10;
+knot_prctls = 0:100/n_splines:100;
+eval_ax = linspace(-0.5,0.5,100);
+for ss = 1:length(targs)
+    robs = reshape(tbt_binned_spikes(used_Tinds,:,ss),[],1);
     su_uinds = find(~isnan(robs));
+    loo_ind = find(loo_set == targs(ss));
     if ~isempty(su_uinds)
-        fprintf('Analyzing repeat data for SU %d of %d\n',tt,length(targs));
+        fprintf('Analyzing repeat data for SU %d/%d, has %d/%d repeats\n',ss,length(targs),n_utrials(ss),n_rpts);
         
-        interp_post_mean_EP = interp1(time_data.t_axis(used_inds),post_mean_EP,tbt_t_axis(up_used_inds));
+        interp_post_mean_EP = interp1(time_data.t_axis(used_inds),post_mean_EP_LOO(loo_ind,:),tbt_t_axis(up_used_inds));
         tbt_EP = nan(up_nf,n_rpts);
         tbt_EP(up_used_inds) = interp_post_mean_EP;
         
         tbt_EP(in_blink_inds) = nan;
         tbt_EP(in_sac_inds) = nan;
-        uinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt);
         
+        knot_pts = prctile(tbt_EP(:),knot_prctls);
+        sp = fastBSpline([repmat(knot_pts(1),1,3) knot_pts repmat(knot_pts(end),1,3)],ones(size(knot_pts)));
+        
+        pred_rate = nan(length(used_Tinds),length(eval_ax));
+        for tt = 1:length(used_Tinds)
+            cur_EP = tbt_EP(used_Tinds(tt),:);
+            cur_robs = squeeze(tbt_binned_spikes(used_Tinds(tt),:,ss));
+                    
+            spline_output = sp.getBasis(cur_EP);
+            B = glmfit(spline_output,cur_robs,'poisson');
+            pred_rate(tt,:) = glmval(B,sp.getBasis(eval_ax),'log');
+        end
     end
 end
 
 %%
-Xtick = rpt_taxis(1):0.01:rpt_taxis(end);
-Ytick = -0.5:0.025:0.5;
-TB = TentBasis2D(Xtick, Ytick);
-[RR,TT] = meshgrid(1:n_rpts,rpt_taxis);
 TB_stim = [TT(:) reshape(tbt_EP(uinds,:),[],1)];
 
 %process data with TBs

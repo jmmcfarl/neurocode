@@ -2,10 +2,20 @@ clear all
 close all
 
 monName = 'jbe';
-Expt_name = 'M005';
+Expt_name = 'M010';
 data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
+% data_dir = ['~/Data/bruce/' Expt_name];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
+rec_type = 'LP';
 
+use_SUs = false;
+
+rec_number = 1;
+% use_block_range =1:27;
+
+if rec_number > 1
+    cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
+end
 
 %%
 
@@ -17,7 +27,7 @@ flen = 12;
 Fr = 1;
 n_probes = 24;
 spatial_usfac = 1;
-rec_type = 'LP';
+
 %%
 cd(data_dir);
 ExptFileName = strcat(monName,Expt_name,'Expts.mat');
@@ -28,17 +38,26 @@ load('./stim_data.mat');
 load('./expt_data.mat');
 
 %%
-include_expts = {'rls.froNoise'};
+% include_expts = {'rls.froNoise'};
+include_expts = {'rls.Fa', 'rls.FaXimi','rls.FaXFaXFs','rls.AllSac','rls.imiXFa','rls.FaXwi','rls.FaXwiXimi','rls.AllSacB','rls.froNoise'};
 usable_expts = find(cellfun(@(x) ~isempty(x),Expts));
 expt_names = cellfun(@(x) x.Header.expname,Expts(usable_expts),'uniformoutput',0);
-        
+
 cur_block_set = usable_expts(cellfun(@(x) any(strcmp(x,include_expts)),expt_names));
-n_blocks = length(cur_block_set);
 
 full_nPix = unique(expt_npix(cur_block_set));
 if length(full_nPix) > 1
     warning('multiple npix detected');
+    full_nPix = min(full_nPix);
 end
+
+eds = cellfun(@(x) x.Stimvals.ed,Expts);
+if exist('use_block_range','var')
+    cur_block_set(~ismember(cur_block_set,use_block_range)) = [];
+end
+
+n_blocks = length(cur_block_set);
+
 %% Spatial resolution
 all_dws = cellfun(@(x) x.Stimvals.dw,Expts(cur_block_set));
 base_sp_dx = mode(all_dws);
@@ -101,16 +120,16 @@ for ee = 1:n_blocks;
     else
         use_trials = find(trial_durs >= min_trial_dur);
     end
-    
+        
     all_trial_start_times = cat(1,all_trial_start_times,trial_start_times(use_trials)' + cur_toffset);
     all_trial_end_times = cat(1,all_trial_end_times,trial_end_times(use_trials)' + cur_toffset);
     all_trial_blocknums = cat(1,all_trial_blocknums,ones(length(use_trials),1)*ee);
     
     trial_Se = [Expts{cur_block}.Trials(:).se];
-    trial_Se = trial_Se(id_inds);
+%     trial_Se = trial_Se(id_inds);
     all_trial_Se = cat(1,all_trial_Se,trial_Se(use_trials)');
     all_trial_blk = cat(1,all_trial_blk,ones(length(use_trials),1)*ee);
-        
+    
     fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
     load(fname);
     buffer_pix = floor((expt_npix(cur_block) - full_nPix)/2);
@@ -172,9 +191,21 @@ for ee = 1:n_blocks;
 end
 
 %% BIN SPIKES FOR MU AND SU
+if ~use_SUs
+    all_binned_mua = get_quickbinned_mu(all_spk_times,all_clust_ids,all_t_axis,all_t_bin_edges,all_bin_edge_pts,clust_params);
+else
 clust_params.n_probes = n_probes;
-all_binned_mua = get_quickbinned_mu(all_spk_times,all_clust_ids,all_t_axis,all_t_bin_edges,all_bin_edge_pts,clust_params);
-
+%     if strcmp(rec_type,'LP')
+%         clust_params.exclude_adjacent = true;
+%     else
+        clust_params.exclude_adjacent = false;
+%     end
+    [all_binned_mua,all_binned_sua,Clust_data,all_su_spk_times,~,all_mu_spk_times] = ...
+        get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
+        all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);
+    SU_probes = Clust_data.SU_probes;
+    SU_numbers = Clust_data.SU_numbers;
+end
 %%
 full_nPix_us = spatial_usfac*full_nPix;
 if spatial_usfac > 1
@@ -204,7 +235,7 @@ all_Xmat = all_Xmat(:,use_kInds_up);
 %%
 % DEFINE DATA USED FOR ANALYSIS
 beg_buffer = 0.2;
-end_buffer = 0.1;
+end_buffer = 0.05;
 used_inds = find(all_tsince_start >= beg_buffer & (trial_dur-all_tsince_start) >= end_buffer);
 NT = length(used_inds);
 
@@ -213,8 +244,8 @@ use_trials = unique(all_trialvec(used_inds));
 nuse_trials = length(use_trials);
 
 %%
-tr_X{1} = abs(all_Xmat(used_inds,:));
-tr_X{2} = all_Xmat(used_inds,:);
+tr_X{2} = abs(all_Xmat(used_inds,:));
+tr_X{1} = all_Xmat(used_inds,:);
 
 %%
 init_stim_params(1) = NMMcreate_stim_params([flen use_nPix],dt);
@@ -231,15 +262,15 @@ NL_types = [{'lin' 'lin'}];
 init_d2XT = [ones(n_stim_filts,1)];
 init_L2 = [zeros(n_stim_filts,1);];
 init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT);
-init_Xtargs = [1; 2];
+init_Xtargs = [2; 1];
 
 for ss = 1:n_probes;
     fprintf('Fitting model for MU %d of %d\n',ss,n_probes);
     Robs = all_binned_mua(used_inds,ss);
-            
+    
     gqm1 = NMMinitialize_model(init_stim_params,mod_signs,NL_types,init_reg_params,init_Xtargs);
     gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],[],silent,init_optim_p);
-
+    
     [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(gqm1,Robs,tr_X);
     gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./var(gint)');
     gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_L1',base_lambda_L1./std(gint)');
@@ -249,7 +280,7 @@ for ss = 1:n_probes;
     
     [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMmodel_eval(all_mod_fits(ss),Robs,tr_X);
     all_mod_LLimp(ss) = (LL-nullLL)/log(2);
-        
+    
 end
 
 %%
@@ -273,3 +304,43 @@ figure
 imagesc(1:use_nPix,1:n_probes,best_space_profiles);
 xlabel('Bar position','fontsize',12);
 ylabel('Probe','fontsize',12);
+
+%%
+if use_SUs
+    
+    n_SUs = size(all_binned_sua,2);
+    
+    silent = 1;
+    base_lambda_d2XT = 5;
+    base_lambda_L1 = 0;
+    init_optim_p.optTol = 1e-5; init_optim_p.progTol = 1e-9;
+    
+    n_stim_filts = 3;
+    mod_signs = ones(1,n_stim_filts);
+    NL_types = [{'lin' 'quad' 'quad'}];
+    init_d2XT = [ones(n_stim_filts,1)];
+    init_L2 = [zeros(n_stim_filts,1);];
+    init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT);
+    
+    for ss = 1:n_SUs;
+        fprintf('Fitting model for SU %d of %d\n',ss,n_SUs);
+        Robs = all_binned_sua(used_inds,ss);
+        uinds = find(~isnan(Robs));
+        if ~isempty(uinds)
+            
+            gqm1 = NMMinitialize_model(init_stim_params,mod_signs,NL_types,init_reg_params);
+            gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],uinds,silent,init_optim_p);
+            
+            [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(gqm1,Robs,tr_X);
+            gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./var(gint)');
+            gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_L1',base_lambda_L1./std(gint)');
+            gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],uinds,silent);
+            
+            all_SU_fits(ss) = gqm1;
+            
+            [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMmodel_eval(all_SU_fits(ss),Robs,tr_X);
+            all_SU_LLimp(ss) = (LL-nullLL)/log(2);
+            
+        end
+    end
+end

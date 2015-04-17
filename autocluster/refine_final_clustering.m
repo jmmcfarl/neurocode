@@ -6,8 +6,8 @@ spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_
 plot_GMM_cluster(block_num,probe_num,spk_data_name);
 
 %% SPLIT COMPONENTS
-block_num = 16;
-probe_num = 24;
+block_num = 35;
+probe_num = 22;
 spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_num)];
 split_GMM_component(block_num,probe_num,spk_data_name);
 

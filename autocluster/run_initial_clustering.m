@@ -7,7 +7,7 @@ Expt_name = 'M012';
 monk_name = 'jbe';
 rec_type = 'LP'; %or UA
 % rec_number = 1;
-rec_number = 2;
+rec_number = 1;
 
 % data_loc = '/media/NTlab_data2/Data/bruce/';
 data_loc = '/media/NTlab_data3/Data/bruce/';
