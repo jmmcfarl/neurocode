@@ -2,10 +2,12 @@ clear all
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type
 
-Expt_name = 'M010';
+Expt_name = 'M012';
 monk_name = 'jbe';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 60; %bar orientation to use (only for UA recs)
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 1;
+
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -66,6 +68,10 @@ if strcmp(rec_type,'LP')
             cor_ori = 0;
         case 10
             cor_ori = 60;
+        case 11
+            cor_ori = 160;
+        case 12
+            cor_ori = 0;
     end
 else
     cor_ori = [0 90];
@@ -89,6 +95,11 @@ if ~exist(anal_dir,'dir')
     system(['mkdir ' anal_dir]);
 end
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
+
+if rec_number > 1
+    cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
+end
+
 
 mod_data_name = 'full_eyetrack_initmods';
 old_anal_name = 'full_eyetrack';
