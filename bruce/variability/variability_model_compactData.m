@@ -196,7 +196,7 @@ for ii = 1:n_fixs
     fix_ids(cur_inds) = ii;
 end
 
-%% Recon retinal stim 
+%% Recon retinal stim
 sac_shift = et_params.sac_shift; %forward projection of saccade start times
 
 cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
@@ -249,7 +249,7 @@ else
     targs = setdiff(1:n_units,1:params.n_probes); %SU only
 end
 
-%%
+%% MARK INDICES DURING BLINKS AND SACCADES
 sac_buff = round(0.06/dt);
 sac_delay = round(0.04/dt);
 blink_buff = round(0.1/dt);
@@ -274,4 +274,215 @@ for ii = 1:(blink_buff+1)
 end
 in_blink_inds = logical(in_blink_inds);
 
+%% absorb block filter into spkNL offset parameter
+for cc = targs
+    cur_mod = ModData(cc).bestGQM;
+    %absorb block-by-block offsets into overall spkNL offset param
+    cur_block_filt = cur_mod.mods(1).filtK;
+    cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt);
+    cur_mod.mods(1) = [];
+    GQM_mod(cc) = cur_mod;
+end
+
+%% get set of trials used for calcs, and construct TBT matrices
+use_trials = unique(all_trialvec(used_inds)); %set of potentially usable trials
+use_trials(ismember(use_trials,rpt_trials)) = []; %dont use repeat trials
+
+%use only completed trials
+target_uf = mode(expt_data.expt_nf) - (params.beg_buffer + params.end_buffer)/params.dt;
+T = tabulate(all_trialvec(used_inds));
+complete_trials = find(T(:,2) == target_uf);
+use_trials(~ismember(use_trials,complete_trials)) = [];
+
+full_uinds = find(ismember(all_trialvec(used_inds),use_trials));
+n_utrials = length(full_uinds)/target_uf;
+
+%matrix of trial-by-trial EP estimates
+base_EP_est = fin_tot_corr(full_uinds) - nanmedian(fin_tot_corr(full_uinds));
+EP_tbt = reshape(base_EP_est,target_uf,n_utrials);
+
+%TBT mats for sac and blink indicators
+inblink_tbt = reshape(in_blink_inds(full_uinds),target_uf,n_utrials);
+insac_tbt = reshape(in_sac_inds(full_uinds),target_uf,n_utrials);
+
 %%
+poss_SDs = [0:0.025:0.2 robust_std_dev(base_EP_est*sp_dx)];
+max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
+
+%create a set of temporally shifted versions of the spiking data
+max_tlag = 0; %max time lag for computing autocorrs
+tlags = [-max_tlag:max_tlag];
+
+poss_ubins = [1 2 5 10 20 50];
+
+ep_rates = nan(length(full_uinds),length(targs));
+ep_rates2 = nan(length(full_uinds),length(targs));
+ep_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
+true_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
+ep_spk_cov = nan(length(targs),length(targs),length(poss_ubins),length(poss_SDs));
+true_spk_cov = nan(length(targs),length(targs),length(poss_ubins),length(poss_SDs));
+ep_FF_est = nan(length(targs),length(poss_ubins),length(poss_SDs));
+true_FF_est = nan(length(targs),length(poss_ubins),length(poss_SDs));
+for sd = 1:length(poss_SDs)
+    fprintf('SD %d of %d\n',sd,length(poss_SDs));
+    
+    %rescale robust SD
+    cur_EP = base_EP_est./robust_std_dev(base_EP_est)*poss_SDs(sd)/sp_dx;
+    fin_shift_cor = round(cur_EP);
+    fin_shift_cor(fin_shift_cor > max_shift) = max_shift;
+    fin_shift_cor(fin_shift_cor < -max_shift) = -max_shift;
+    uset1 = ~inblink_tbt(:);
+    
+    %RECOMPUTE XMAT
+    cur_shift_stimmat_up = all_stimmat_up;
+    for i=1:length(full_uinds)
+        cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor(i),2);
+    end
+    all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_full);
+    all_Xmat_shift = all_Xmat_shift(used_inds(full_uinds),use_kInds_up);
+    
+    %compute model-predicted rates given this retinal stim
+    for ss = 1:length(targs)
+        cc = targs(ss);
+        if isstruct(GQM_mod(cc))
+            [~,~,ep_rates(:,ss)] = NMMmodel_eval(GQM_mod(cc),[],all_Xmat_shift);
+        end
+    end
+    ep_spks = poissrnd(ep_rates);
+    cur_avg_rates = nanmean(ep_rates(uset1,:));
+    ep_rates = bsxfun(@minus,ep_rates,cur_avg_rates);
+        
+    %sample again from the same ET distribution but randomly permute trial
+    %assignments
+    tperm = randperm(n_utrials);
+    cur_EP2 = EP_tbt(:,tperm);
+    cur_EP2 = cur_EP2(:)./robust_std_dev(base_EP_est)*poss_SDs(sd)/sp_dx;
+    
+    cur_inblink = inblink_tbt(:,tperm);
+    cur_inblink = cur_inblink(:);
+    cur_insac = insac_tbt(:,tperm);
+    cur_insac = cur_insac(:);
+    uset2 = ~cur_inblink;
+    
+    fin_shift_cor2 = round(cur_EP2);
+    cur_shift_stimmat_up = all_stimmat_up;
+    for i=1:length(full_uinds)
+        cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor2(i),2);
+    end
+    all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_full);
+    all_Xmat_shift = all_Xmat_shift(used_inds(full_uinds),use_kInds_up);
+    
+    %compute model-rates for the second version of the retinal stim
+    for ss = 1:length(targs)
+        cc = targs(ss);
+        if isstruct(GQM_mod(cc))
+            [~,~,ep_rates2(:,ss)] = NMMmodel_eval(GQM_mod(cc),[],all_Xmat_shift);
+        end
+    end
+    ep_spks2 = poissrnd(ep_rates2);
+    ep_rates2 = bsxfun(@minus,ep_rates2,nanmean(ep_rates2(uset2,:)));
+        
+    %shiftify the second rate matrix
+    mod_rates_shifted = nan(length(full_uinds),length(targs),length(tlags));
+    for tt = 1:length(tlags)
+        mod_rates_shifted(:,:,tt) = shift_matrix_Nd(ep_rates2,-tlags(tt),1);
+    end
+    
+    cur_uset = uset1 & uset2;
+    %compute covariances
+    for ll = 1:length(tlags)
+        ep_rate_cov(:,:,ll,sd) = squeeze(mod_rates_shifted(cur_uset,:,ll))'*ep_rates(cur_uset,:)/length(cur_uset);
+    end
+    %compute covariances
+    for ll = 1:length(tlags)
+        true_rate_cov(:,:,ll,sd) = squeeze(mod_rates_shifted(cur_uset,:,ll))'*ep_rates2(cur_uset,:)/length(cur_uset);
+    end
+    
+    cur_ep_rates = bsxfun(@plus,ep_rates,cur_avg_rates);
+    cur_ep_rates2 = bsxfun(@plus,ep_rates2,cur_avg_rates);
+%     ep_avg_rates = 0.5*ep_rates + 0.5*ep_rates2;
+%     ep_avg_rates = reshape(ep_avg_rates,target_uf,n_utrials,length(targs));
+    ep_spks = reshape(ep_spks,target_uf,n_utrials,length(targs));
+    ep_spks2 = reshape(ep_spks2,target_uf,n_utrials,length(targs));
+    cur_ep_rates = reshape(cur_ep_rates,target_uf,n_utrials,length(targs));
+    cur_ep_rates2 = reshape(cur_ep_rates2,target_uf,n_utrials,length(targs));
+    ep_uset = reshape(uset1,target_uf,n_utrials) & reshape(uset2,target_uf,n_utrials);
+    
+    for pp = 1:length(poss_ubins)
+        bin_usfac = poss_ubins(pp);
+        n_newbins = floor(target_uf/bin_usfac);
+        new_ep_spks = zeros(n_newbins,n_utrials,length(targs));
+        new_ep_spks2 = zeros(n_newbins,n_utrials,length(targs));
+%         new_ep_avgrates = zeros(n_newbins,n_utrials,length(targs));
+        new_ep_rates = zeros(n_newbins,n_utrials,length(targs));
+        new_ep_rates2 = zeros(n_newbins,n_utrials,length(targs));
+        new_include = zeros(n_newbins,n_utrials);
+        for ii = 1:bin_usfac
+            new_ep_spks = new_ep_spks + ep_spks(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
+            new_ep_spks2 = new_ep_spks2 + ep_spks2(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
+%             new_ep_avgrates = new_ep_avgrates + ep_avg_rates(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
+            new_ep_rates = new_ep_rates + cur_ep_rates(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
+            new_ep_rates2 = new_ep_rates2 + cur_ep_rates2(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
+            new_include = new_include + ep_uset(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:);
+        end
+%         new_ep_avgrates = reshape(new_ep_avgrates/bin_usfac,[],length(targs));
+        new_ep_rates = reshape(new_ep_rates,[],length(targs));
+        new_ep_rates2 = reshape(new_ep_rates2,[],length(targs));
+        new_ep_avgrates = 0.5*new_ep_rates + 0.5*new_ep_rates2;
+        new_ep_spks = reshape(new_ep_spks,[],length(targs));
+        new_ep_spks2 = reshape(new_ep_spks2,[],length(targs));
+        new_include = logical(new_include(:));
+        
+        ep_var_ests = 0.5*(new_ep_spks - new_ep_avgrates).^2 + 0.5*(new_ep_spks2 - new_ep_avgrates).^2;
+        ep_FF_est(:,pp,sd) = nanmean(ep_var_ests(new_include,:)./new_ep_avgrates(new_include,:));
+        
+        cur_true_FF_est = nanmean((new_ep_spks(new_include,:) - new_ep_rates(new_include,:)).^2./new_ep_rates(new_include,:));
+        cur_true_FF_est = 0.5*cur_true_FF_est + 0.5*nanmean((new_ep_spks(new_include,:) - new_ep_rates(new_include,:)).^2./new_ep_rates(new_include,:));
+        
+        true_FF_est(:,pp,sd) = cur_true_FF_est;
+        
+        new_ep_spks = bsxfun(@minus,new_ep_spks,nanmean(new_ep_spks(new_include,:)));
+        new_ep_spks2 = bsxfun(@minus,new_ep_spks2,nanmean(new_ep_spks2(new_include,:)));
+        ep_spk_cov(:,:,pp,sd) = squeeze(new_ep_spks(new_include,:)'*new_ep_spks2(new_include,:))/sum(new_include);
+        true_spk_cov(:,:,pp,sd) = squeeze(new_ep_spks(new_include,:)'*new_ep_spks(new_include,:))/sum(new_include);
+    end
+end
+
+%%
+ep_noise_cov = true_rate_cov - ep_rate_cov;
+
+true_sig_vars = nan(length(targs),length(poss_SDs));
+ep_alpha_funs = nan(length(targs),length(poss_SDs));
+for ss = 1:length(targs)
+    true_sig_vars(ss,:) = squeeze(true_rate_cov(ss,ss,max_tlag+1,:));
+    ep_alpha_funs(ss,:) = squeeze(ep_rate_cov(ss,ss,max_tlag+1,:))./true_sig_vars(ss,:)';
+end
+
+uset = full_uinds(~in_blink_inds(full_uinds));
+ov_avg_rates = nanmean(Robs_mat(uset,targs));
+
+%normalize to get measured correlations
+ep_sig_corr = nan(size(true_rate_cov));
+ep_noise_corr = nan(size(true_rate_cov));
+ep_psth_corr = nan(size(true_rate_cov));
+for ss = 1:length(poss_SDs)
+    corr_norm = sqrt(true_sig_vars(:,ss)*true_sig_vars(:,ss)');
+    ep_sig_corr(:,:,:,ss) = bsxfun(@rdivide,true_rate_cov(:,:,:,ss),corr_norm);
+    ep_psth_corr(:,:,:,ss) = bsxfun(@rdivide,ep_rate_cov(:,:,:,ss),corr_norm);
+    ep_noise_corr(:,:,:,ss) = bsxfun(@rdivide,ep_noise_cov(:,:,:,ss),corr_norm);
+end
+
+%%
+ep_noise_cov_spk = true_spk_cov - ep_spk_cov;
+
+true_spk_vars = nan(length(targs),length(poss_ubins));
+for ss = 1:length(targs)
+    true_spk_vars(ss,:) = squeeze(true_spk_cov(ss,ss,:,end));
+end
+ep_noise_corr_spk = nan(size(true_spk_cov));
+for ss = 1:length(poss_SDs)
+    for pp = 1:length(poss_ubins)
+        corr_norm = sqrt(true_spk_vars(:,pp)*true_spk_vars(:,pp)');
+        ep_noise_corr_spk(:,:,pp,sd) = squeeze(ep_noise_cov_spk(:,:,pp,sd))./corr_norm;
+    end
+end
