@@ -3,9 +3,9 @@
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M309';
-monk_name = 'lem';
-bar_ori = 120; %bar orientation to use (only for UA recs)
+% Expt_name = 'M309';
+% monk_name = 'lem';
+% bar_ori = 120; %bar orientation to use (only for UA recs)
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
 fit_unCor = false; %use eye correction
@@ -588,18 +588,18 @@ for cc = targs
         unit_data.xv_trials = xv_trials;
         
         ModData(cc).unit_data = unit_data;
-        ModData(cc).bestGQM = bestGQM;
+        ModData(cc).bestGQM = bestGQM_spkNL;
         ModData(cc).all_reg_mods = all_reg_mods;
         ModData(cc).reg_val_xvLL = reg_val_xvLL;
         ModData(cc).best_reg_scale = best_reg_scale;
         ModData(cc).poss_smoothreg_scalefacs = poss_smoothreg_scalefacs;
         if fit_unCor
-            ModData(cc).bestGQM_unCor = bestGQM_unCor;
+            ModData(cc).bestGQM_unCor = bestGQM_unCor_spkNL;
         end
         if fit_rect
-            ModData(cc).rectGQM = rectGQM;
+            ModData(cc).rectGQM = rectGQM_spkNL;
             if fit_unCor
-                ModData(cc).rectGQM_unCor = rectGQM_unCor;
+                ModData(cc).rectGQM_unCor = rectGQM_unCor_spkNL;
             end
         end
         %% CALCULATE TUNING PROPERTIES
