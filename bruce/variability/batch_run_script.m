@@ -16,7 +16,8 @@ expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 nan; 0 nan]);
 expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe'});
 
 %%
-batch_function = 'fit_corrected_models_compactData';
+% batch_function = 'fit_corrected_models_compactData';
+batch_function = 'variability_model_compactData';
 
 
 for Elist_cnt = 1:length(Expt_list)

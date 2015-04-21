@@ -9,7 +9,7 @@ global Expt_name bar_ori use_MUA
 
 Expt_name = 'M296';
 use_MUA = false;
-bar_ori = 0; %bar orientation to use (only for UA recs)
+bar_ori = 45; %bar orientation to use (only for UA recs)
 
 mod_data_name = 'corrected_models2';
 ep_dist_bin_edges = linspace(-1,1,100);

@@ -1,13 +1,14 @@
-% clear all
-% close all
+clear all
+close all
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M296';
-monk_name = 'lem';
-bar_ori = 45; %bar orientation to use (only for UA recs)
+Expt_name = 'M011';
+monk_name = 'jbe';
+bar_ori = 160; %bar orientation to use (only for UA recs)
 
 use_MUA = false;
+fit_unCor = false;
 
 data_dir = ['~/Data/bruce/' Expt_name];
 if ~exist(data_dir,'dir')
@@ -32,6 +33,10 @@ data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
+sname = 'model_variability_compact';
+if fit_unCor
+    sname = strcat(sname,'_unCor');
+end
 
 %%
 Expt_num = str2num(Expt_name(2:end));
@@ -248,6 +253,7 @@ if use_MUA
 else
     targs = setdiff(1:n_units,1:params.n_probes); %SU only
 end
+targs(targs > length(ModData)) = [];
 
 %% MARK INDICES DURING BLINKS AND SACCADES
 sac_buff = round(0.06/dt);
@@ -255,33 +261,37 @@ sac_delay = round(0.04/dt);
 blink_buff = round(0.1/dt);
 
 in_sac_inds = zeros(NT,1);
+nblink_start_inds = saccade_start_inds(~used_is_blink);
 for ii = 1:(sac_buff+1)
-    cur_inds = saccade_start_inds + sac_delay + (ii-1);
-    cur_inds(cur_inds > NT) = [];
-    cur_inds(all_trialvec(used_inds(cur_inds)) ~= all_trialvec(used_inds(saccade_start_inds))) = [];
-    in_sac_inds(cur_inds) = 1;
+    cur_inds = nblink_start_inds + sac_delay + (ii-1);
+    uu = find(cur_inds <= NT);
+    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(nblink_start_inds(uu)))) = [];
+    in_sac_inds(cur_inds(uu)) = 1;
 end
 in_sac_inds = logical(in_sac_inds);
 
-blink_inds = find(used_is_blink);
-blink_start_inds = saccade_start_inds(blink_inds);
+blink_start_inds = saccade_start_inds(used_is_blink);
 in_blink_inds = zeros(NT,1);
 for ii = 1:(blink_buff+1)
     cur_inds = blink_start_inds + sac_delay + (ii-1);
-    cur_inds(cur_inds > NT) = [];
-    cur_inds(all_trialvec(used_inds(cur_inds)) ~= all_trialvec(used_inds(blink_start_inds))) = [];
-    in_blink_inds(cur_inds) = 1;
+    uu = find(cur_inds <= NT);
+    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(blink_start_inds(uu)))) = [];
+    in_blink_inds(cur_inds(uu)) = 1;
 end
 in_blink_inds = logical(in_blink_inds);
 
 %% absorb block filter into spkNL offset parameter
 for cc = targs
-    cur_mod = ModData(cc).bestGQM;
-    %absorb block-by-block offsets into overall spkNL offset param
-    cur_block_filt = cur_mod.mods(1).filtK;
-    cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt);
-    cur_mod.mods(1) = [];
-    GQM_mod(cc) = cur_mod;
+    if ~isempty(ModData(cc).bestGQM)
+        cur_mod = ModData(cc).bestGQM;
+        %absorb block-by-block offsets into overall spkNL offset param
+        cur_block_filt = cur_mod.mods(1).filtK;
+        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt);
+        cur_mod.mods(1) = [];
+        GQM_mod{cc} = cur_mod;
+    else
+        GQM_mod{cc} = [];
+    end
 end
 
 %% get set of trials used for calcs, and construct TBT matrices
@@ -344,8 +354,8 @@ for sd = 1:length(poss_SDs)
     %compute model-predicted rates given this retinal stim
     for ss = 1:length(targs)
         cc = targs(ss);
-        if isstruct(GQM_mod(cc))
-            [~,~,ep_rates(:,ss)] = NMMmodel_eval(GQM_mod(cc),[],all_Xmat_shift);
+        if isstruct(GQM_mod{cc})
+            [~,~,ep_rates(:,ss)] = NMMmodel_eval(GQM_mod{cc},[],all_Xmat_shift);
         end
     end
     ep_spks = poissrnd(ep_rates);
@@ -365,6 +375,8 @@ for sd = 1:length(poss_SDs)
     uset2 = ~cur_inblink;
     
     fin_shift_cor2 = round(cur_EP2);
+    fin_shift_cor2(fin_shift_cor2 > max_shift) = max_shift;
+    fin_shift_cor2(fin_shift_cor2 < -max_shift) = -max_shift;
     cur_shift_stimmat_up = all_stimmat_up;
     for i=1:length(full_uinds)
         cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor2(i),2);
@@ -375,8 +387,8 @@ for sd = 1:length(poss_SDs)
     %compute model-rates for the second version of the retinal stim
     for ss = 1:length(targs)
         cc = targs(ss);
-        if isstruct(GQM_mod(cc))
-            [~,~,ep_rates2(:,ss)] = NMMmodel_eval(GQM_mod(cc),[],all_Xmat_shift);
+        if ~isempty(GQM_mod{cc})
+            [~,~,ep_rates2(:,ss)] = NMMmodel_eval(GQM_mod{cc},[],all_Xmat_shift);
         end
     end
     ep_spks2 = poissrnd(ep_rates2);
@@ -486,3 +498,33 @@ for ss = 1:length(poss_SDs)
         ep_noise_corr_spk(:,:,pp,sd) = squeeze(ep_noise_cov_spk(:,:,pp,sd))./corr_norm;
     end
 end
+
+%%
+for ss = 1:length(targs)
+    cc = targs(ss);
+    EP_data(cc).ModData = ModData(cc);
+    EP_data(cc).poss_SDs = poss_SDs;
+    EP_data(cc).poss_ubins = poss_ubins;
+    EP_data(cc).base_vars = true_sig_vars(ss,:);
+    EP_data(cc).alpha_funs = ep_alpha_funs(ss,:);
+    EP_data(cc).sig_corr_mat = squeeze(ep_sig_corr(ss,:,:,:));
+    EP_data(cc).psth_corr_mat = squeeze(ep_psth_corr(ss,:,:,:));
+    EP_data(cc).noise_corr_mat = squeeze(ep_noise_corr(ss,:,:,:));
+    EP_data(cc).ep_noise_cov = squeeze(ep_noise_cov(ss,:,:,:));
+    EP_data(cc).true_rate_cov = squeeze(true_rate_cov(ss,:,:,:));
+    EP_data(cc).ep_rate_cov = squeeze(ep_rate_cov(ss,:,:,:));
+    
+    EP_data(cc).spk_vars = true_spk_vars(ss,:);
+    EP_data(cc).noise_corr_spk = squeeze(ep_noise_corr_spk(ss,:,:,:));
+end
+
+%%
+anal_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
+if ~exist(anal_dir)
+    mkdir(anal_dir)
+end
+cd(anal_dir);
+
+sname = [sname sprintf('_ori%d',bar_ori)];
+
+save(sname,'targs','EP_data','use_MUA','fit_unCor');
