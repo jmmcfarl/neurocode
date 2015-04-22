@@ -17,10 +17,12 @@ expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe'});
 
 %%
 % batch_function = 'fit_corrected_models_compactData';
-batch_function = 'variability_model_compactData';
+% batch_function = 'variability_model_compactData';
+batch_function = 'variability_rpt_anal_compact';
 
 
-for Elist_cnt = 1:length(Expt_list)
+% for Elist_cnt = 1:length(Expt_list)
+for Elist_cnt = find(strncmp(Expt_list,'M',1))
     Expt_name = Expt_list{Elist_cnt};
     monk_name = expt_mname{Elist_cnt}; 
     for bori_cnt = 1:2

@@ -6,11 +6,11 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M012';
-monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'M287';
+monk_name = 'lem';
+bar_ori = 90; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
-use_block_range =1:27;
+% use_block_range =1:27;
 
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60]
@@ -417,7 +417,6 @@ for ee = 1:n_blocks;
             all_blockvec = [all_blockvec; ones(size(cur_t_axis))*ee];
             all_trialvec = [all_trialvec; ones(size(cur_t_axis))*(tt + trial_cnt)];
             all_bin_edge_pts = [all_bin_edge_pts; length(all_t_bin_edges)];
-            
         end
     end
     trial_cnt = trial_cnt + n_trials;
@@ -518,7 +517,7 @@ trial_data = create_struct_from_mats('start_times',all_trial_start_times,'end_ti
 
 unique_seeds = unique(all_trial_Se);
 seed_counts = hist(all_trial_Se,unique_seeds);
-params.rpt_seeds = unique_seeds(seed_counts > 10);
+params.rpt_seeds = unique_seeds(seed_counts > 20);
 
 %% package
 time_data.t_axis = all_t_axis;

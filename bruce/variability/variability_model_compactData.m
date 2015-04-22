@@ -1,11 +1,11 @@
-clear all
-close all
+% clear all
+% close all
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M011';
-monk_name = 'jbe';
-bar_ori = 160; %bar orientation to use (only for UA recs)
+% Expt_name = 'M011';
+% monk_name = 'jbe';
+% bar_ori = 160; %bar orientation to use (only for UA recs)
 
 use_MUA = false;
 fit_unCor = false;
