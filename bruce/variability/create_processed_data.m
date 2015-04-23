@@ -516,6 +516,27 @@ ET_data.saccades = saccades;
 ET_data.et_params = et_params;
 ET_data.is_blink = is_blink;
 ET_data.interp_eye_pos = corrected_eye_vals_interp;
+
+%%
+unique_seeds = unique(all_trial_Se);
+seed_counts = hist(all_trial_Se,unique_seeds);
+
+%in these two expts there was a problem with the repeat trials where the
+%sequence would be shifted. We can still align these repeat trials by
+%treating them as if there was some number of repeats of a 'zero-frame'
+%before the trial started
+if strcmp(Expt_name,'M012') || strcmp(Expt_name,'M013')
+    rpt_trials = find(all_trial_Se < 1400);
+    even_seeds = rpt_trials(mod(all_trial_Se,2) == 0);
+    odd_seeds = rpt_trials(mod(all_trial_Se,2) == 0);
+    frame_offsets = nan(length(rpt_trials),1);
+    frame_offsets(even_seeds) = (all_trial_Se(even_seeds) - 1002)/2;
+    frame_offsets(odd_seeds) = (all_trial_Se(odd_seeds) - 1001)/2;
+    for ii = 1:length(rpt_trials)
+       all_trial_rptframes{rpt_trials(ii)} = cat(1,zeros(frame_offsets(ii),1),all_trial_rptframes{rpt_trials(ii)});
+       all_trial_nrptframes(rpt_trials(ii)) = length(all_trial_rptframes{rpt_trials(ii)});
+    end
+end
 %% package trial-by-trial data
 if ~params.is_TBT_expt
     [all_trial_Ff,all_trial_exvals,all_trial_back] = deal(nan(size(all_trial_start_times)));
@@ -524,8 +545,6 @@ trial_data = create_struct_from_mats('start_times',all_trial_start_times,'end_ti
     'Ff',all_trial_Ff,'block_nums',all_trial_blocknums,'nrpt_frames',all_trial_nrptframes,'wi',all_trial_wi,'back_type',all_trial_back);
 for ii = 1:length(trial_data); trial_data(ii).rpt_frames = all_trial_rptframes{ii}; end;
 
-unique_seeds = unique(all_trial_Se);
-seed_counts = hist(all_trial_Se,unique_seeds);
 params.rpt_seeds = unique_seeds(seed_counts > 20);
 
 %% package
