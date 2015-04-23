@@ -5,11 +5,11 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M294';
+Expt_name = 'M296';
 monk_name = 'lem';
-bar_ori = 40; %bar orientation to use (only for UA recs)
+bar_ori = 45; %bar orientation to use (only for UA recs)
 
-% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 11-160]
+% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 11-160 12-0]
 
 use_MUA = false; %use MUA in model-fitting
 use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
@@ -247,9 +247,11 @@ all_trial_Se = [trial_data(:).se];
 n_rpt_seeds = length(params.rpt_seeds); EP_params.n_rpt_seeds = n_rpt_seeds;
 
 all_rpt_trials = find(ismember(all_trial_Se,params.rpt_seeds));
-bad_rpt_trials = find([trial_data(all_rpt_trials).rpt_frames] > 0); %get rid of any repeat trials where there were repeat frames
-    fprintf('Eliminating %d/%d trials with detected rpt frames\n',length(bad_rpt_trials),length(all_rpt_trials));
-all_rpt_trials(bad_rpt_trials) = [];
+rptframe_trials = find([trial_data(all_rpt_trials).nrpt_frames] > 0); %get rid of any repeat trials where there were repeat frames
+fprintf('Detected %d/%d trials with rpt frames\n',length(rptframe_trials),length(all_rpt_trials));
+
+% all_rpt_trials(rptframe_trials) = [];
+% rptframe_trials = [];
 
 T = tabulate(all_trialvec);
 rpt_tdurs = T(all_rpt_trials,2);
@@ -257,12 +259,6 @@ rpt_tdurs = T(all_rpt_trials,2);
 nf = mode(rpt_tdurs); %number of frames
 used_Tinds = (params.beg_buffer/params.dt + 1):(nf - params.end_buffer/params.dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
 used_nf = length(used_Tinds); %number of used time points per trial at this resolution
-
-% bad_rpt_trials = find(rpt_tdurs > nf | rpt_tdurs < 399);
-% if ~isempty(bad_rpt_trials)
-%     fprintf('Eliminating %d/%d trials with undetected rpt frames\n',length(bad_rpt_trials),length(all_rpt_trials));
-%     all_rpt_trials(bad_rpt_trials) = [];
-% end
 
 all_rpt_seqnum = nan(size(all_rpt_trials));
 for ii = 1:n_rpt_seeds
@@ -278,6 +274,7 @@ tot_nrpts = length(all_rpt_seqnum);
 fprintf('Using %d repeat trials, %d sequences\n',tot_nrpts,length(params.rpt_seeds));
 
 rpt_trial_block = [trial_data(all_rpt_trials).block_nums];
+
 %% get binned spike data on finer time scale
 
 up_nf = nf/base_dt*orig_dt;
@@ -307,6 +304,27 @@ tbt_binned_spikes = reshape(tbt_binned_spikes,up_nf,tot_nrpts,length(SU_numbers)
 
 used_Tinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
 used_up_nf = length(used_Tinds); %number of used time points per trial at this resolution
+
+%% shift to realign repeats on trials with rpt frames
+rpt_blanked = false(up_nf,tot_nrpts);
+if ~isempty(rptframe_trials)
+    post_rpt_buffer = round(0.1/base_dt); %exclude data for this duration following each rpt frame
+    dt_uf = params.dt/base_dt;
+   for ii = 1:length(rptframe_trials)
+       cur_trial = all_rpt_trials(rptframe_trials(ii));
+       cur_rpt_frames = (trial_data(cur_trial).rpt_frames - 1)*dt_uf + 1;
+       new_spike_frame_ids = 1:up_nf;
+       for jj = 1:length(cur_rpt_frames)
+           target_inds = (cur_rpt_frames(jj) + dt_uf):up_nf;
+           map_to = target_inds + dt_uf; map_to(map_to > up_nf) = up_nf;
+           new_spike_frame_ids(target_inds) = new_spike_frame_ids(map_to);
+
+           rpt_blanked(cur_rpt_frames(jj):(cur_rpt_frames(jj)+post_rpt_buffer),rptframe_trials(ii)) = true;
+           rpt_blanked((up_nf-length(cur_rpt_frames)*dt_uf):up_nf,rptframe_trials(ii)) = true;
+       end
+       tbt_binned_spikes(:,rptframe_trials(ii),:) = tbt_binned_spikes(new_spike_frame_ids,rptframe_trials(ii),:);
+   end 
+end
 
 %% IDENTIFY TIMES WITHIN SACCADES AND BLINKS
 sac_buff = round(0.06/params.dt); EP_params.sac_buff = sac_buff; %window of data to exclude during saccades
@@ -342,6 +360,9 @@ tbt_BS_ms(in_blink_inds(:),:) = nan;
 if exclude_sacs
     tbt_BS_ms(in_sac_inds(:),:) = nan;
 end
+
+usedrpt_blanked = rpt_blanked(used_Tinds,:);
+tbt_BS_ms(usedrpt_blanked(:),:) = nan;
 
 tbt_BS_ms = reshape(tbt_BS_ms,used_up_nf,tot_nrpts,length(SU_numbers));
 
@@ -422,9 +443,6 @@ for rr = 1:n_rpt_seeds
     end
 end
 
-eval_xx = unique([0 prctile(rand_T,linspace(0,100,n_eval_pts))]); %x-axis for evaluating spline models
-EP_params.eval_xx = eval_xx;
-
 %% compile all time-embedded LOO EP sequences
 ms = size(tbt_EP_emb);
 loo_tbt_EP_emb = nan(ms(1),ms(2),ms(3),length(loo_set));
@@ -446,17 +464,22 @@ for cc = 1:length(targs)
     end
 end
 %%
-xvfold = 10; EP_params.xvfold = xvfold; %cross-val fold for estimating optimal number of splines
-poss_n_splines = [3:10]; EP_params.poss_N_splines = poss_n_splines; %range of possible values for number of splines.
-n_boot_samps = 20; EP_params.n_boot_samps = n_boot_samps; %number of bootstrap samples for estimating spline uncertainty
-n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins;
-EP_bin_edges = prctile(rand_T,linspace(0,100,n_EP_bins+1)); 
+maxD_prc = 50;
+
+% xvfold = 10; EP_params.xvfold = xvfold; %cross-val fold for estimating optimal number of splines
+poss_n_splines = [3:8]; EP_params.poss_N_splines = poss_n_splines; %range of possible values for number of splines.
+best_n_knots = 4; EP_params.best_n_knots = 4;
+% n_boot_samps = 2; EP_params.n_boot_samps = n_boot_samps; %number of bootstrap samples for estimating spline uncertainty
+n_EP_bins = 50; EP_params.n_EP_bins = n_EP_bins;
+EP_bin_edges = prctile(rand_T,linspace(0,maxD_prc,n_EP_bins+1)); 
 EP_bin_centers = (EP_bin_edges(1:end-1)+EP_bin_edges(2:end))/2;  EP_params.EP_bin_centers = EP_bin_centers;
+maxD = prctile(rand_T,maxD_prc);
 
 poss_eps_sizes = 0.0025:0.0025:0.025; EP_params.poss_eps_sizes = poss_eps_sizes;
 eps_boots = 25; EP_params.eps_boots = eps_boots;
 
-% opts.LargeScale = 'off'; opts.Display = 'off';
+eval_xx = unique([0 prctile(rand_T,linspace(0,maxD_prc,n_eval_pts))]); %x-axis for evaluating spline models
+EP_params.eval_xx = eval_xx;
 
 for cc = 1:length(targs)
     fprintf('SU %d/%d\n',cc,length(targs));
@@ -483,7 +506,7 @@ for cc = 1:length(targs)
                 cur_inds = (tt-1)*n_unique_pairs + (1:n_unique_pairs);
                 Y1 = squeeze(tbt_BS_ms(tt,cur_trial_set,cc));
                 
-                cur_Dmat = abs(squareform(pdist(squeeze(loo_tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+                cur_Dmat = abs(squareform(pdist(squeeze(cur_tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
                 cur_Dmat(logical(eye(cur_nrpts))) = nan;
                 cur_D(cur_inds) = cur_Dmat(uset);
                 cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
@@ -493,7 +516,7 @@ for cc = 1:length(targs)
                 cur_Xmat = bsxfun(@times,Y1(II),Y1(JJ));
                 cur_X(cur_inds) = cur_Xmat(uset);
                 
-                cur_Tpairs(cur_inds,:) = [II(uset) JJ(uset)];
+%                 cur_Tpairs(cur_inds,:) = [II(uset) JJ(uset)];
             end
             cur_upts = find(~isnan(cur_D) & ~isnan(cur_X));
             all_D = cat(1,all_D,cur_D(cur_upts));
@@ -503,84 +526,54 @@ for cc = 1:length(targs)
         end
         n_data_points = length(all_X);
                 
-        
         [bincnts,binids] = histc(all_D,EP_bin_edges);
         var_ep_binned = nan(n_EP_bins,1);
         for bb = 1:n_EP_bins
             var_ep_binned(bb) = mean(all_X(binids == bb));
         end
                         
-        %assign each data point (trial pair) to one of the cross-validation
-        %sets
-        n_xvpts = round(n_data_points/xvfold);
-        pt_xvsets = ceil((1:n_data_points)/n_xvpts);
-        rperm = randperm(n_data_points);
-        pt_xvsets = pt_xvsets(rperm);
+%         %assign each data point (trial pair) to one of the cross-validation
+%         %sets
+%         n_xvpts = round(n_data_points/xvfold);
+%         pt_xvsets = ceil((1:n_data_points)/n_xvpts);
+%         rperm = randperm(n_data_points);
+%         pt_xvsets = pt_xvsets(rperm);
+%         
+%         xv_binsums = nan(xvfold,n_EP_bins); 
+%         xv_bincnts = nan(xvfold,n_EP_bins);
+%         %get cross-validated MSE for each value of n_knots
+%         for ii = 1:xvfold
+%             cur_xv_pts = find(ismember(pt_xvsets,ii));
+%             for bb = 1:n_EP_bins
+%                 xv_binsums(ii,bb) = sum(all_X(cur_xv_pts(binids(cur_xv_pts) == bb)));
+%                 xv_bincnts(ii,bb) = sum(binids(cur_xv_pts) == bb);
+%             end
+%         end
         
-        xv_binsums = nan(xvfold,n_EP_bins); 
-        xv_bincnts = nan(xvfold,n_EP_bins);
-        %get cross-validated MSE for each value of n_knots
-        for ii = 1:xvfold
-            cur_xv_pts = find(ismember(pt_xvsets,ii));
-            for bb = 1:n_EP_bins
-                xv_binsums(ii,bb) = sum(all_X(cur_xv_pts(binids(cur_xv_pts) == bb)));
-                xv_bincnts(ii,bb) = sum(binids(cur_xv_pts) == bb);
-            end
-        end
-        
-        tot_binsums = nan(1,n_EP_bins);
-        tot_bincnts = nan(1,n_EP_bins);
-        for bb = 1:n_EP_bins
-            tot_binsums(bb) = sum(all_X(binids == bb));
-            tot_bincnts(bb) = sum(binids==bb);
-        end
-        
-        xv_err = nan(xvfold,length(poss_n_splines));
-        for pp = 1:length(poss_n_splines)
-            fprintf('Computing xval for spline set %d/%d\n',pp,length(poss_n_splines));
-            n_splines = poss_n_splines(pp);
-%             spline_DS = prctile(rand_T,100/n_splines:100/n_splines:(100-100/n_splines));
-            spline_DS = prctile(all_D,100/n_splines:100/n_splines:(100-100/n_splines));
-            mD = prctile(all_D,95); if mD > max(spline_DS); spline_DS = [spline_DS mD]; end; %add on a knot towards the end of the distribution if needed
-            knot_pts = [0 0 0 0 spline_DS spline_DS(end) spline_DS(end) spline_DS(end)];
-            
-            n_weights = length(knot_pts)-3-1;
-            Acon = full(spdiags([-ones(n_weights,1) ones(n_weights,1)],0:1,n_weights,n_weights));
-            bcon = zeros(n_weights,1);
-            
-            %get cross-validated MSE for each value of n_knots
-            for ii = 1:xvfold
-                cur_xv_pts = find(ismember(pt_xvsets,ii));
-                cur_tr_sum = tot_binsums - xv_binsums(ii,:);
-                cur_tr_cnts = tot_bincnts - xv_bincnts(ii,:);
-                cur_tr_avg = cur_tr_sum./cur_tr_cnts;
-                
-                cur_xv_avg = xv_binsums(ii,:)./xv_bincnts(ii,:);
-                
-                sp = fastBSpline.lsqspline(knot_pts,3,EP_bin_centers,cur_tr_avg);
-% 
-%                 sp = fastBSpline(knot_pts,ones(n_weights,1)); sp.outOfRange = fastBSpline.CONSTANT;
-%                 sp_xx = sp.getBasis(EP_bin_centers);
-%                 weights = lsqlin(sp_xx,cur_tr_avg,Acon,bcon,[],[],[],[],[],opts);
-%                 sp = fastBSpline(knot_pts,weights);
-                
-                sp_pred = sp.evalAt(EP_bin_centers);
-%                 temp_pred(ii,:) = sp_pred;
-                ubins = find(EP_bin_centers < 0.1); %were only concerned with the performance towards 0
-                xv_err(ii,pp) = sqrt(mean((sp_pred(ubins) - cur_xv_avg(ubins)).^2));
-            end
-        end
-        avg_xv_err = mean(xv_err);
-        [~,best_xval] = min(avg_xv_err);
-        best_n_knots = poss_n_splines(best_xval);
-        
-        
-       SAVE SPLINE FITS OVER A RANGE OF KNOTS. MAYBE GET RID OF XVAL. 
-       NEXT STEP IS XCOR. THERE WE CAN PROBABLY USE EPS BALL, AND CAN DO THAT EASILY WITH A RANGE OF DIFFERENT D VALS
-        
-        spline_DS = prctile(rand_T,100/best_n_knots:100/best_n_knots:(100-100/best_n_knots));
-        mD = prctile(all_D,95); if mD > max(spline_DS); spline_DS = [spline_DS mD]; end;
-        knot_pts = [0 0 0 0 spline_DS  spline_DS(end) spline_DS(end) spline_DS(end)];
+%         tot_binsums = nan(1,n_EP_bins);
+%         tot_bincnts = nan(1,n_EP_bins);
+%         for bb = 1:n_EP_bins
+%             tot_binsums(bb) = sum(all_X(binids == bb));
+%             tot_bincnts(bb) = sum(binids==bb);
+%         end
+
+knot_sp_evals = nan(length(eval_xx),length(poss_n_splines));
+for pp = 1:length(poss_n_splines)
+    fprintf('Computing spline for knot set %d/%d\n',pp,length(poss_n_splines));
+    n_splines = poss_n_splines(pp)-1;
+    spline_DS = prctile(all_D,maxD_prc/n_splines:maxD_prc/n_splines:(maxD_prc-maxD_prc/n_splines));
+    knot_pts = [0 0 0 0 spline_DS maxD maxD maxD maxD];
+    upts = find(all_D <= knot_pts(end));
+   
+    cur_sp = fastBSpline.lsqspline(knot_pts,3,all_D(upts),all_X(upts));
+    knot_sp_evals(:,pp) = cur_sp.evalAt(eval_xx);
+    EP_data(cc).spline_knotseq(pp) = cur_sp;
+end
+EP_data(cc).knot_sp_evals = knot_sp_evals;
+
+        spline_DS = prctile(all_D,maxD_prc/(best_n_knots-1):maxD_prc/(best_n_knots-1):(maxD_prc-maxD_prc/(best_n_knots-1)));
+        knot_pts = [0 0 0 0 spline_DS maxD maxD maxD];
+        upts = find(all_D <= knot_pts(end));
 %         boot_spline_pred = nan(n_boot_samps,length(eval_xx));
 %         for nn =1:n_boot_samps
 %             fprintf('Computing bootstrap sample %d/%d\n',nn,n_boot_samps);
@@ -606,78 +599,79 @@ end
 EP_data(cc).eps_ball_var = eps_ball_var;
 EP_data(cc).eps_ball_sd = std(eps_ball_boot);
 
-        sp = fastBSpline.lsqspline(knot_pts,3,all_base_D,all_X);
-        EP_data(cc).spline_pred_baseEP = sp.evalAt(eval_xx);
-        
-        sp = fastBSpline.lsqspline(knot_pts,3,all_D,all_X);
+         sp = fastBSpline.lsqspline(knot_pts,3,all_D(upts),all_X(upts));
         EP_data(cc).spline_pred_looEP = sp.evalAt(eval_xx);
         EP_data(cc).spline_looEP = sp;
+
+        upts = find(all_base_D <= knot_pts(end));
+        sp = fastBSpline.lsqspline(knot_pts,3,all_base_D(upts),all_X(upts));
+        EP_data(cc).spline_pred_baseEP = sp.evalAt(eval_xx);
         
         EP_data(cc).pair_psth_var = mean(all_X);
 %         EP_data(cc).spline_boot_avg = mean(boot_spline_pred);
 %         EP_data(cc).spline_boot_sd = std(boot_spline_pred);
-        EP_data(cc).avg_xv_err = avg_xv_err;
+%         EP_data(cc).avg_xv_err = avg_xv_err;
         EP_data(cc).n_knots = best_n_knots;
         EP_data(cc).var_ep_binned = var_ep_binned;
     end
 end
 
 %%
+maxD_prc = 100;
+
+best_n_knots = 4; EP_params.best_n_knots = 4;
 n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins;
-EP_bin_edges = prctile(rand_T,linspace(0,100,n_EP_bins+1)); 
+EP_bin_edges = prctile(rand_T,linspace(0,maxD_prc,n_EP_bins+1)); 
 EP_bin_centers = (EP_bin_edges(1:end-1)+EP_bin_edges(2:end))/2;  EP_params.EP_bin_centers = EP_bin_centers;
-for cc = 1:length(targs)
-    fprintf('SU %d/%d\n',cc,length(targs));
-    loo_ind = find(loo_set == targs(cc));
-    if ~isempty(loo_ind)
-        cur_tbt_EP_emb = squeeze(loo_tbt_EP_emb(:,:,:,loo_ind));
+maxD = prctile(rand_T,maxD_prc);
+
+for rr = 1:n_rpt_seeds %loop over unique repeat seeds
+    cur_trial_set = find(all_rpt_seqnum == rr);
+    cur_nrpts = length(cur_trial_set);
+    [II,JJ] = meshgrid(1:cur_nrpts);
+    uset = JJ > II; %only need to count each unique trial pair once
+    n_unique_pairs = sum(uset(:));
+    
+    cur_D = nan(n_unique_pairs*used_up_nf,1);
+    cur_X = nan(n_unique_pairs*used_up_nf,length(targs),length(targs));
+    for tt = 1:used_up_nf
+        cur_inds = (tt-1)*n_unique_pairs + (1:n_unique_pairs);
+        Y1 = squeeze(tbt_BS_ms(tt,cur_trial_set,:));
+        Y2 = reshape(Y1,[],1,length(targs));
+        cur_Xmat = bsxfun(@times,Y1(II(uset),:),Y2(JJ(uset),:,:));
+        cur_X(cur_inds,:,:) = cur_Xmat;
         
-        all_D = [];
-        all_base_D = [];
-        all_X = [];
-%         all_Tpairs = [];
-        for rr = 1:n_rpt_seeds %loop over unique repeat seeds
-            cur_trial_set = find(all_rpt_seqnum == rr);
-            cur_nrpts = length(cur_trial_set);
-            [II,JJ] = meshgrid(1:cur_nrpts);
-            uset = JJ > II; %only need to count each unique trial pair once
-            n_unique_pairs = sum(uset(:));
-            
-            cur_D = nan(n_unique_pairs*used_up_nf,1);
-            cur_base_D = nan(n_unique_pairs*used_up_nf,1);
-            cur_X = nan(n_unique_pairs*used_up_nf,1);
-%             cur_Tpairs = nan(n_unique_pairs*used_up_nf,2);
-            for tt = 1:used_up_nf
-                cur_inds = (tt-1)*n_unique_pairs + (1:n_unique_pairs);
-                Y1 = squeeze(tbt_BS_ms(tt,cur_trial_set,cc));
-                
-                cur_Dmat = abs(squareform(pdist(squeeze(loo_tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
-                cur_Dmat(logical(eye(cur_nrpts))) = nan;
-                cur_D(cur_inds) = cur_Dmat(uset);
-                cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
-                cur_Dmat(logical(eye(cur_nrpts))) = nan;
-                cur_base_D(cur_inds) = cur_Dmat(uset);
-                
-                cur_Xmat = bsxfun(@times,Y1(II),Y1(JJ));
-                cur_X(cur_inds) = cur_Xmat(uset);
-                
-                cur_Tpairs(cur_inds,:) = [II(uset) JJ(uset)];
-            end
-            cur_upts = find(~isnan(cur_D) & ~isnan(cur_X));
-            all_D = cat(1,all_D,cur_D(cur_upts));
-            all_base_D = cat(1,all_base_D,cur_base_D(cur_upts));
-            all_X = cat(1,all_X,cur_X(cur_upts));
-%             all_Tpairs = cat(1,all_Tpairs,cur_Tpairs(cur_upts,:));
-        end
-        n_data_points = length(all_X);
-                
-        
-        [bincnts,binids] = histc(all_D,EP_bin_edges);
-        var_ep_binned = nan(n_EP_bins,1);
-        for bb = 1:n_EP_bins
-            var_ep_binned(bb) = mean(all_X(binids == bb));
-        end
+        cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+        cur_D(cur_inds) = cur_Dmat(uset);
     end
+    
+    spline_DS = prctile(cur_D,maxD_prc/(best_n_knots-1):maxD_prc/(best_n_knots-1):(maxD_prc-maxD_prc/(best_n_knots-1)));
+    knot_pts = [0 0 0 0 spline_DS maxD maxD maxD];
+    upts = find(cur_D <= knot_pts(end));
+
+    [CI,CJ] = meshgrid(1:length(targs));
+    un_pairs = CJ > CI;
+    Cpairs = [CI(un_pairs) CJ(un_pairs)];
+    n_cell_pairs = size(Cpairs,1);
+    covar_ep_binned = nan(n_cell_pairs,n_EP_bins);
+    covar_spline_eval = nan(n_cell_pairs,length(eval_xx));
+    pair_psth_covar = nan(n_cell_pairs,1);
+   for cc = 1:n_cell_pairs
+        cc
+        Xvals = 0.5*squeeze(cur_X(:,Cpairs(cc,1),Cpairs(cc,2))) + 0.5*squeeze(cur_X(:,Cpairs(cc,2),Cpairs(cc,1)));
+        cur_pts = upts(~isnan(Xvals(upts,:))); 
+
+        sp = fastBSpline.lsqspline(knot_pts,3,cur_D(cur_pts),Xvals(cur_pts));
+        covar_spline_eval(cc,:) = sp.evalAt(eval_xx);
+        
+        [bincnts,binids] = histc(cur_D,EP_bin_edges);
+        for bb = 1:n_EP_bins
+            covar_ep_binned(cc,bb) = nanmean(Xvals(binids == bb));
+        end       
+        
+        pair_psth_covar(cc) = nanmean(Xvals);
+    end
+    
 end
 
 %%
@@ -772,20 +766,51 @@ if exclude_sacs
 end
 all_mod_emp_prates = reshape(all_mod_emp_prates,used_nf,tot_nrpts,length(targs));
 
+%% shift to realign repeats on trials with rpt frames
+if ~isempty(rptframe_trials)
+   shifted_mod_prates = nan(up_nf,tot_nrpts,length(targs));
+   shifted_mod_prates(used_Tinds,:,:) = all_mod_emp_prates;
+   for ii = 1:length(rptframe_trials)
+       cur_trial = all_rpt_trials(rptframe_trials(ii));
+       cur_rpt_frames = (trial_data(cur_trial).rpt_frames - 1)*dt_uf + 1;
+       new_spike_frame_ids = 1:up_nf;
+       for jj = 1:length(cur_rpt_frames)
+           target_inds = (cur_rpt_frames(jj) + dt_uf):up_nf;
+           map_to = target_inds + dt_uf; map_to(map_to > up_nf) = up_nf;
+           new_spike_frame_ids(target_inds) = new_spike_frame_ids(map_to);
+       end
+       shifted_mod_prates(:,rptframe_trials(ii),:) = shifted_mod_prates(new_spike_frame_ids,rptframe_trials(ii),:);
+   end 
+   shifted_mod_prates = shifted_mod_prates(used_Tinds,:,:);
+   shifted_mod_prates = reshape(shifted_mod_prates,[],length(targs));
+   shifted_mod_prates(usedrpt_blanked(:),:) = nan;
+   shifted_mod_prates = reshape(shifted_mod_prates,used_up_nf,tot_nrpts,length(targs));
+   all_mod_emp_prates = shifted_mod_prates;
+end
+
+%%
 for rr = 1:n_rpt_seeds
     cur_trial_set = find(all_rpt_seqnum == rr);
     mod_psths = squeeze(nanmean(all_mod_emp_prates(:,cur_trial_set,:),2));
     mod_cond_vars = squeeze(nanvar(all_mod_emp_prates(:,cur_trial_set,:),[],2));
     mod_tot_vars = squeeze(nanvar(reshape(all_mod_emp_prates(:,cur_trial_set,:),[],length(targs))));
+    mod_psth_vars = var(mod_psths);
     
+    n_utrials = squeeze(mean(sum(~isnan(all_mod_emp_prates(:,cur_trial_set,:)),2)));
+    avg_temp_var = squeeze(nanmean(nanvar(all_mod_emp_prates(:,cur_trial_set,:)))); %avg (across trials) of across-time variance
+    mod_psth_vars_cor = mod_psth_vars.*(n_utrials'./(n_utrials'-1)) - avg_temp_var'./n_utrials'; %sahani linden correction for PSTH sampling noise
+    
+
     for cc = 1:length(targs)
         if has_stim_mod(cc)
             EP_data(cc).mod_psths(rr,:) = mod_psths(:,cc);
             EP_data(cc).mod_cond_vars(rr,:) = mod_cond_vars(:,cc);
             EP_data(cc).mod_tot_vars(rr) = mod_tot_vars(cc);
-            EP_data(cc).mod_psth_vars(rr) = var(mod_psths(:,cc));
+            EP_data(cc).mod_psth_vars(rr) = mod_psth_vars(cc);
+            EP_data(cc).mod_psth_vars_cor(rr) = mod_psth_vars_cor(cc);
+            
             EP_data(cc).mod_ep_vars(rr) = mean(mod_cond_vars(:,cc));
-            EP_data(cc).mod_alphas(rr) = EP_data(cc).mod_psth_vars(rr)/EP_data(cc).mod_tot_vars(rr);
+            EP_data(cc).mod_alphas(rr) = EP_data(cc).mod_psth_vars_cor(rr)/EP_data(cc).mod_tot_vars(rr);
         end
     end
 end
