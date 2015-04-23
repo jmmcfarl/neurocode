@@ -135,7 +135,7 @@ elseif strcmp(rec_type,'UA')
     use_nPix = 16;
 end
 
-if ~isnan(params.rpt_seeds)
+if ~isempty(params.rpt_seeds)
     xv_type = 'rpt';
     xv_frac = nan;
 else
@@ -632,7 +632,7 @@ if ~exist(['./' mod_data_name '.mat'],'file') || recompute_init_mods == 1
             if strcmp(xv_type,'uni')
                 %now refit model using all (usable) data
                 cur_tr_inds = sort([cur_tr_inds; cur_xv_inds]);
-                Robs = all_binned_mua(used_inds(cur_tr_inds),ss);
+                Robs = Robs_mat(cur_tr_inds,ss);
                 tr_X{1} = all_Xmat_us(used_inds(cur_tr_inds),use_kInds_up);
                 tr_X{2} = Xblock(used_inds(cur_tr_inds),:);
                 if use_sac_kerns
