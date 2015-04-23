@@ -6,13 +6,16 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M296';
+Expt_name = 'M281';
 monk_name = 'lem';
-bar_ori = 45; %bar orientation to use (only for UA or single-ori-LP recs)
+bar_ori = 140; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
-% use_block_range =1:21; %M011
-
+if strcmp(Expt_name,'M011')
+use_block_range =1:21; %M011
+elseif strcmp(Expt_name,'M012')
+    use_block_range = 1:27;
+end
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60]
 
@@ -389,22 +392,6 @@ for ee = 1:n_blocks;
         if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes')
             cur_nrpt_frames(tt) = length(Expts{cur_block}.Trials(use_trials(tt)).rptframes);
             cur_rpt_frames{tt} = Expts{cur_block}.Trials(use_trials(tt)).rptframes;
-        elseif n_frames > (Expts{cur_block}.Stimvals.nf + 1) %if rpt frames exist but werent stored
-            fprintf('Detected missed rpt frames\n');
-            n_extra_frames = n_frames - (Expts{cur_block}.Stimvals.nf + 1); %should be this many
-            %look for frames that are non-zero and are repeated
-            cur_rpt_frames{tt} = find(all(diff(left_stim_mats{use_trials(tt)}) == 0,2) & ~all(left_stim_mats{use_trials(tt)}(1:end-1,:) == 0,2));
-            cur_nrpt_frames(tt) = length(cur_rpt_frames{tt});
-            if cur_nrpt_frames(tt) ~= n_extra_frames %if these are unequal an all-0 frame must have been repeated
-                all_zero_frames = find(all(left_stim_mats{use_trials(tt)}(1:end-1,:) == 0,2) & ...
-                    all(left_stim_mats{use_trials(tt)}(2:end,:) == 0,2));
-                if length(all_zero_frames) + cur_nrpt_frames(tt) == n_extra_frames %if there are the right number of repeat zero frames we have a unique soln
-                    cur_rpt_frames{tt} = sort(cat(1,all_zero_frames,cur_rpt_frames{tt}));
-                    cur_nrpt_frames(tt) = length(cur_rpt_frames{tt});
-                else
-                cur_nrpt_frames(tt) = nan; %if not, mark the trial as unalignable
-                end
-            end
         end
         if n_frames > 0
             if length(cur_stim_times) == 1
