@@ -6,12 +6,12 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M011';
-monk_name = 'jbe';
-bar_ori = 160; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'M296';
+monk_name = 'lem';
+bar_ori = 45; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
-use_block_range =1:21; %M011
+% use_block_range =1:21; %M011
 
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60]
@@ -284,6 +284,7 @@ all_trial_start_times = [];
 all_trial_end_times = [];
 all_bin_edge_pts = [];
 all_trial_rptframes = [];
+all_trial_nrptframes = [];
 all_spk_times = cell(params.n_probes,1);
 all_clust_ids = cell(params.n_probes,1);
 all_spk_inds = cell(params.n_probes,1);
@@ -381,11 +382,28 @@ for ee = 1:n_blocks;
     
     n_trials = length(use_trials);
     cur_nrpt_frames = zeros(n_trials,1);
+    cur_rpt_frames = cell(n_trials,1);
     for tt = 1:n_trials
         cur_stim_times = Expts{cur_block}.Trials(use_trials(tt)).Start'/1e4;
         n_frames = size(left_stim_mats{use_trials(tt)},1);
         if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes')
             cur_nrpt_frames(tt) = length(Expts{cur_block}.Trials(use_trials(tt)).rptframes);
+            cur_rpt_frames{tt} = Expts{cur_block}.Trials(use_trials(tt)).rptframes;
+        elseif n_frames > (Expts{cur_block}.Stimvals.nf + 1) %if rpt frames exist but werent stored
+            n_extra_frames = n_frames - (Expts{cur_block}.Stimvals.nf + 1); %should be this many
+            %look for frames that are non-zero and are repeated
+            cur_rpt_frames{tt} = find(all(diff(left_stim_mats{use_trials(tt)}) == 0,2) & ~all(left_stim_mats{use_trials(tt)}(1:end-1,:) == 0,2));
+            cur_nrpt_frames(tt) = length(cur_rpt_frames{tt});
+            if cur_nrpt_frames(tt) ~= n_extra_frames %if these are unequal an all-0 frame must have been repeated
+                all_zero_frames = find(all(left_stim_mats{use_trials(tt)}(1:end-1,:) == 0,2) & ...
+                    all(left_stim_mats{use_trials(tt)}(2:end,:) == 0,2));
+                if length(all_zero_frames) + cur_nrpt_frames(tt) == n_extra_frames %if there are the right number of repeat zero frames we have a unique soln
+                    cur_rpt_frames{tt} = sort(cat(1,all_zero_frames,cur_rpt_frames{tt}));
+                    cur_nrpt_frames(tt) = length(cur_rpt_frames{tt});
+                else
+                cur_nrpt_frames(tt) = nan; %if not, mark the trial as unalignable
+                end
+            end
         end
         if n_frames > 0
             if length(cur_stim_times) == 1
@@ -421,7 +439,8 @@ for ee = 1:n_blocks;
         end
     end
     trial_cnt = trial_cnt + n_trials;
-    all_trial_rptframes = [all_trial_rptframes; cur_nrpt_frames];
+    all_trial_nrptframes = [all_trial_nrptframes; cur_nrpt_frames];
+    all_trial_rptframes = cat(1,all_trial_rptframes,cur_rpt_frames);
     
     %need to keep track of block time offsets for LP recordings
     if strcmp(rec_type,'LP')
@@ -441,7 +460,7 @@ if params.is_TBT_expt
     end
 end
 
-if max(all_trial_rptframes) > 0
+if nanmax(all_trial_nrptframes) > 0
     warning('Some rpt frames detected');
 end
 %% BIN SPIKES FOR MU AND SU
@@ -514,7 +533,8 @@ if ~params.is_TBT_expt
     [all_trial_Ff,all_trial_exvals,all_trial_back] = deal(nan(size(all_trial_start_times)));
 end
 trial_data = create_struct_from_mats('start_times',all_trial_start_times,'end_times',all_trial_end_times,'se',all_trial_Se,...
-    'Ff',all_trial_Ff,'block_nums',all_trial_blocknums,'rpt_frames',all_trial_rptframes,'wi',all_trial_wi,'back_type',all_trial_back);
+    'Ff',all_trial_Ff,'block_nums',all_trial_blocknums,'nrpt_frames',all_trial_nrptframes,'wi',all_trial_wi,'back_type',all_trial_back);
+for ii = 1:length(trial_data); trial_data(ii).rpt_frames = all_trial_rptframes{ii}; end;
 
 unique_seeds = unique(all_trial_Se);
 seed_counts = hist(all_trial_Se,unique_seeds);

@@ -5,9 +5,9 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M296';
+Expt_name = 'M294';
 monk_name = 'lem';
-bar_ori = 45; %bar orientation to use (only for UA recs)
+bar_ori = 40; %bar orientation to use (only for UA recs)
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 11-160]
 
@@ -49,7 +49,7 @@ sname = 'rpt_variability_compact';
 Expt_num = str2num(Expt_name(2:end));
 
 cd(data_dir);
-load([data_dir '/stims/expt_data.mat']); %load in stim-alignment meta-data
+% load([data_dir '/stims/expt_data.mat']); %load in stim-alignment meta-data
 
 et_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
@@ -248,19 +248,21 @@ n_rpt_seeds = length(params.rpt_seeds); EP_params.n_rpt_seeds = n_rpt_seeds;
 
 all_rpt_trials = find(ismember(all_trial_Se,params.rpt_seeds));
 bad_rpt_trials = find([trial_data(all_rpt_trials).rpt_frames] > 0); %get rid of any repeat trials where there were repeat frames
+    fprintf('Eliminating %d/%d trials with detected rpt frames\n',length(bad_rpt_trials),length(all_rpt_trials));
 all_rpt_trials(bad_rpt_trials) = [];
-
-nf = 401; %number of frames
-used_Tinds = (params.beg_buffer/params.dt + 1):(nf - params.end_buffer/params.dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
-used_nf = length(used_Tinds); %number of used time points per trial at this resolution
 
 T = tabulate(all_trialvec);
 rpt_tdurs = T(all_rpt_trials,2);
-bad_rpt_trials = find(rpt_tdurs ~= nf);
-if ~isempty(bad_rpt_trials)
-    fprintf('Eliminating %d/%d incomplete repeats\n',length(bad_rpt_trials),length(all_rpt_trials));
-    all_rpt_trials(bad_rpt_trials) = [];
-end
+
+nf = mode(rpt_tdurs); %number of frames
+used_Tinds = (params.beg_buffer/params.dt + 1):(nf - params.end_buffer/params.dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
+used_nf = length(used_Tinds); %number of used time points per trial at this resolution
+
+% bad_rpt_trials = find(rpt_tdurs > nf | rpt_tdurs < 399);
+% if ~isempty(bad_rpt_trials)
+%     fprintf('Eliminating %d/%d trials with undetected rpt frames\n',length(bad_rpt_trials),length(all_rpt_trials));
+%     all_rpt_trials(bad_rpt_trials) = [];
+% end
 
 all_rpt_seqnum = nan(size(all_rpt_trials));
 for ii = 1:n_rpt_seeds
@@ -303,7 +305,7 @@ for ii = 1:length(SU_numbers)
 end
 tbt_binned_spikes = reshape(tbt_binned_spikes,up_nf,tot_nrpts,length(SU_numbers));
 
-used_Tinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt); %set of time points within each trial for analysis (excluding buffer windows)
+used_Tinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
 used_up_nf = length(used_Tinds); %number of used time points per trial at this resolution
 
 %% IDENTIFY TIMES WITHIN SACCADES AND BLINKS
