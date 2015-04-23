@@ -1,14 +1,14 @@
 
-clear all
+% clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M281';
-monk_name = 'lem';
-bar_ori = 140; %bar orientation to use (only for UA or single-ori-LP recs)
+% Expt_name = 'M012';
+% monk_name = 'jbe';
+% bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
 if strcmp(Expt_name,'M011')
@@ -527,11 +527,17 @@ seed_counts = hist(all_trial_Se,unique_seeds);
 %before the trial started
 if strcmp(Expt_name,'M012') || strcmp(Expt_name,'M013')
     rpt_trials = find(all_trial_Se < 1400);
-    even_seeds = rpt_trials(mod(all_trial_Se,2) == 0);
-    odd_seeds = rpt_trials(mod(all_trial_Se,2) == 0);
+    even_seeds = find(mod(all_trial_Se(rpt_trials),2) == 0);
+    odd_seeds = find(mod(all_trial_Se(rpt_trials),2) == 1);
     frame_offsets = nan(length(rpt_trials),1);
-    frame_offsets(even_seeds) = (all_trial_Se(even_seeds) - 1002)/2;
-    frame_offsets(odd_seeds) = (all_trial_Se(odd_seeds) - 1001)/2;
+    frame_offsets(even_seeds) = (all_trial_Se(rpt_trials(even_seeds)) - 1002)/2;
+    frame_offsets(odd_seeds) = (all_trial_Se(rpt_trials(odd_seeds)) - 1001)/2;
+    
+    new_seeds = nan(length(rpt_trials),1);
+    new_seeds(even_seeds) = 1002;
+    new_seeds(odd_seeds) = 1001;
+    all_trial_Se(rpt_trials) = new_seeds;
+    
     for ii = 1:length(rpt_trials)
        all_trial_rptframes{rpt_trials(ii)} = cat(1,zeros(frame_offsets(ii),1),all_trial_rptframes{rpt_trials(ii)});
        all_trial_nrptframes(rpt_trials(ii)) = length(all_trial_rptframes{rpt_trials(ii)});
