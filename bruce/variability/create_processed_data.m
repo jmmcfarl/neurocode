@@ -6,11 +6,12 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M287';
-monk_name = 'lem';
-bar_ori = 90; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'M011';
+monk_name = 'jbe';
+bar_ori = 160; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
-% use_block_range =1:27;
+
+use_block_range =1:21; %M011
 
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60]

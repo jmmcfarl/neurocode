@@ -98,8 +98,8 @@ plot(all_mod_alphas(lem_units),all_ball_alphas(lem_units,1),'o');
 plot(all_mod_alphas(jbe_units),all_ball_alphas(jbe_units,1),'ro');
 line([0 1],[0 1],'color','k');
 
-% f2 = figure();
-% plot(RF_ecc(uset),all_spline_alpha(uset),'o')
+f2 = figure();
+plot(RF_ecc(uset),all_spline_alphas(uset),'o')
 
 
 %%

@@ -300,14 +300,14 @@ n_trials = length(time_data.trial_flip_ids);
 n_blocks = length(expt_data.used_blocks);
 
 all_t_axis = time_data.t_axis;
-trial_start_inds = [1+time_data.trial_flip_inds];
+trial_start_inds = [1; 1+time_data.trial_flip_inds(2:end)];
 trial_end_inds = [time_data.trial_flip_inds(2:end); fullNT];
 all_trialvec = nan(fullNT,1);
 for ii = 1:n_trials
     all_trialvec(trial_start_inds(ii):trial_end_inds(ii)) = time_data.trial_flip_ids(ii);
 end
 
-block_start_inds = [1+time_data.block_flip_inds];
+block_start_inds = [1; 1+time_data.block_flip_inds(2:end)];
 block_end_inds = [time_data.block_flip_inds(2:end); fullNT];
 all_blockvec = nan(fullNT,1);
 for ii = 1:n_blocks
