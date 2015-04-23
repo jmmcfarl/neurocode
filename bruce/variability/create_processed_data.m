@@ -390,6 +390,7 @@ for ee = 1:n_blocks;
             cur_nrpt_frames(tt) = length(Expts{cur_block}.Trials(use_trials(tt)).rptframes);
             cur_rpt_frames{tt} = Expts{cur_block}.Trials(use_trials(tt)).rptframes;
         elseif n_frames > (Expts{cur_block}.Stimvals.nf + 1) %if rpt frames exist but werent stored
+            fprintf('Detected missed rpt frames\n');
             n_extra_frames = n_frames - (Expts{cur_block}.Stimvals.nf + 1); %should be this many
             %look for frames that are non-zero and are repeated
             cur_rpt_frames{tt} = find(all(diff(left_stim_mats{use_trials(tt)}) == 0,2) & ~all(left_stim_mats{use_trials(tt)}(1:end-1,:) == 0,2));
