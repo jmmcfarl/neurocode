@@ -5,9 +5,9 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M296';
-monk_name = 'lem';
-bar_ori = 45; %bar orientation to use (only for UA recs)
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 11-160 12-0]
 
@@ -617,62 +617,62 @@ EP_data(cc).eps_ball_sd = std(eps_ball_boot);
 end
 
 %%
-maxD_prc = 100;
-
-best_n_knots = 4; EP_params.best_n_knots = 4;
-n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins;
-EP_bin_edges = prctile(rand_T,linspace(0,maxD_prc,n_EP_bins+1)); 
-EP_bin_centers = (EP_bin_edges(1:end-1)+EP_bin_edges(2:end))/2;  EP_params.EP_bin_centers = EP_bin_centers;
-maxD = prctile(rand_T,maxD_prc);
-
-for rr = 1:n_rpt_seeds %loop over unique repeat seeds
-    cur_trial_set = find(all_rpt_seqnum == rr);
-    cur_nrpts = length(cur_trial_set);
-    [II,JJ] = meshgrid(1:cur_nrpts);
-    uset = JJ > II; %only need to count each unique trial pair once
-    n_unique_pairs = sum(uset(:));
-    
-    cur_D = nan(n_unique_pairs*used_up_nf,1);
-    cur_X = nan(n_unique_pairs*used_up_nf,length(targs),length(targs));
-    for tt = 1:used_up_nf
-        cur_inds = (tt-1)*n_unique_pairs + (1:n_unique_pairs);
-        Y1 = squeeze(tbt_BS_ms(tt,cur_trial_set,:));
-        Y2 = reshape(Y1,[],1,length(targs));
-        cur_Xmat = bsxfun(@times,Y1(II(uset),:),Y2(JJ(uset),:,:));
-        cur_X(cur_inds,:,:) = cur_Xmat;
-        
-        cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
-        cur_D(cur_inds) = cur_Dmat(uset);
-    end
-    
-    spline_DS = prctile(cur_D,maxD_prc/(best_n_knots-1):maxD_prc/(best_n_knots-1):(maxD_prc-maxD_prc/(best_n_knots-1)));
-    knot_pts = [0 0 0 0 spline_DS maxD maxD maxD];
-    upts = find(cur_D <= knot_pts(end));
-
-    [CI,CJ] = meshgrid(1:length(targs));
-    un_pairs = CJ > CI;
-    Cpairs = [CI(un_pairs) CJ(un_pairs)];
-    n_cell_pairs = size(Cpairs,1);
-    covar_ep_binned = nan(n_cell_pairs,n_EP_bins);
-    covar_spline_eval = nan(n_cell_pairs,length(eval_xx));
-    pair_psth_covar = nan(n_cell_pairs,1);
-   for cc = 1:n_cell_pairs
-        cc
-        Xvals = 0.5*squeeze(cur_X(:,Cpairs(cc,1),Cpairs(cc,2))) + 0.5*squeeze(cur_X(:,Cpairs(cc,2),Cpairs(cc,1)));
-        cur_pts = upts(~isnan(Xvals(upts,:))); 
-
-        sp = fastBSpline.lsqspline(knot_pts,3,cur_D(cur_pts),Xvals(cur_pts));
-        covar_spline_eval(cc,:) = sp.evalAt(eval_xx);
-        
-        [bincnts,binids] = histc(cur_D,EP_bin_edges);
-        for bb = 1:n_EP_bins
-            covar_ep_binned(cc,bb) = nanmean(Xvals(binids == bb));
-        end       
-        
-        pair_psth_covar(cc) = nanmean(Xvals);
-    end
-    
-end
+% maxD_prc = 100;
+% 
+% best_n_knots = 4; EP_params.best_n_knots = 4;
+% n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins;
+% EP_bin_edges = prctile(rand_T,linspace(0,maxD_prc,n_EP_bins+1)); 
+% EP_bin_centers = (EP_bin_edges(1:end-1)+EP_bin_edges(2:end))/2;  EP_params.EP_bin_centers = EP_bin_centers;
+% maxD = prctile(rand_T,maxD_prc);
+% 
+% for rr = 1:n_rpt_seeds %loop over unique repeat seeds
+%     cur_trial_set = find(all_rpt_seqnum == rr);
+%     cur_nrpts = length(cur_trial_set);
+%     [II,JJ] = meshgrid(1:cur_nrpts);
+%     uset = JJ > II; %only need to count each unique trial pair once
+%     n_unique_pairs = sum(uset(:));
+%     
+%     cur_D = nan(n_unique_pairs*used_up_nf,1);
+%     cur_X = nan(n_unique_pairs*used_up_nf,length(targs),length(targs));
+%     for tt = 1:used_up_nf
+%         cur_inds = (tt-1)*n_unique_pairs + (1:n_unique_pairs);
+%         Y1 = squeeze(tbt_BS_ms(tt,cur_trial_set,:));
+%         Y2 = reshape(Y1,[],1,length(targs));
+%         cur_Xmat = bsxfun(@times,Y1(II(uset),:),Y2(JJ(uset),:,:));
+%         cur_X(cur_inds,:,:) = cur_Xmat;
+%         
+%         cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+%         cur_D(cur_inds) = cur_Dmat(uset);
+%     end
+%     
+%     spline_DS = prctile(cur_D,maxD_prc/(best_n_knots-1):maxD_prc/(best_n_knots-1):(maxD_prc-maxD_prc/(best_n_knots-1)));
+%     knot_pts = [0 0 0 0 spline_DS maxD maxD maxD];
+%     upts = find(cur_D <= knot_pts(end));
+% 
+%     [CI,CJ] = meshgrid(1:length(targs));
+%     un_pairs = CJ > CI;
+%     Cpairs = [CI(un_pairs) CJ(un_pairs)];
+%     n_cell_pairs = size(Cpairs,1);
+%     covar_ep_binned = nan(n_cell_pairs,n_EP_bins);
+%     covar_spline_eval = nan(n_cell_pairs,length(eval_xx));
+%     pair_psth_covar = nan(n_cell_pairs,1);
+%    for cc = 1:n_cell_pairs
+%         cc
+%         Xvals = 0.5*squeeze(cur_X(:,Cpairs(cc,1),Cpairs(cc,2))) + 0.5*squeeze(cur_X(:,Cpairs(cc,2),Cpairs(cc,1)));
+%         cur_pts = upts(~isnan(Xvals(upts,:))); 
+% 
+%         sp = fastBSpline.lsqspline(knot_pts,3,cur_D(cur_pts),Xvals(cur_pts));
+%         covar_spline_eval(cc,:) = sp.evalAt(eval_xx);
+%         
+%         [bincnts,binids] = histc(cur_D,EP_bin_edges);
+%         for bb = 1:n_EP_bins
+%             covar_ep_binned(cc,bb) = nanmean(Xvals(binids == bb));
+%         end       
+%         
+%         pair_psth_covar(cc) = nanmean(Xvals);
+%     end
+%     
+% end
 
 %%
 % close all
