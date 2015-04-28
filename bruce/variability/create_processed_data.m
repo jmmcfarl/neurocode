@@ -1,14 +1,14 @@
 
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'M012';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
 if strcmp(Expt_name,'M011')
@@ -518,8 +518,6 @@ ET_data.is_blink = is_blink;
 ET_data.interp_eye_pos = corrected_eye_vals_interp;
 
 %%
-unique_seeds = unique(all_trial_Se);
-seed_counts = hist(all_trial_Se,unique_seeds);
 
 %in these two expts there was a problem with the repeat trials where the
 %sequence would be shifted. We can still align these repeat trials by
@@ -543,7 +541,11 @@ if strcmp(Expt_name,'M012') || strcmp(Expt_name,'M013')
        all_trial_nrptframes(rpt_trials(ii)) = length(all_trial_rptframes{rpt_trials(ii)});
     end
 end
+
+
 %% package trial-by-trial data
+unique_seeds = unique(all_trial_Se);
+seed_counts = hist(all_trial_Se,unique_seeds);
 if ~params.is_TBT_expt
     [all_trial_Ff,all_trial_exvals,all_trial_back] = deal(nan(size(all_trial_start_times)));
 end
