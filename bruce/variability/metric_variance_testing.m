@@ -90,9 +90,10 @@ xx = linspace(0,2*pi,nStims);
 alpha = 2;
 beta = 1/alpha;
 trialGains = gamrnd(alpha,beta,nTrials,nStims);
-% trialGains = ones(nTrials,nStims);
+% trialGains = bsxfun(@times,randn(nTrials,nStims),(rand(1,nStims)*1 + 1));
 
-rates = 3*log(1+3*exp(5+bsxfun(@times,cos(xx),trialGains)));
+genfun = bsxfun(@plus,cos(xx),trialGains);
+rates = 10*log(1+exp(genfun));
 % rates = bsxfun(@plus,cos(xx),trialGains);
 
 %%
@@ -112,7 +113,7 @@ yy_bar = yy - mean(yy(:));
 [II,JJ] = meshgrid(1:nTrials);
 upairs = (II ~= JJ);
 
-epsilon = 0.02;
+% epsilon = 0.02;
 % n_EP_bins = 100;
 % EP_bin_edges = prctile(allD,linspace(0,100,n_EP_bins+1));
 % EP_bin_centers = 0.5*EP_bin_edges(1:end-1) + 0.5*EP_bin_edges(2:end);
@@ -121,22 +122,22 @@ epsilon = 0.02;
 
 %%
 
-allD = [];
-for ii = 1:nStims
-%     curpicks = randi(nTrials,randpicks,1);
-    
-    curD = squareform(pdist(trialGains(:,ii)));
-    curD(~upairs) = nan;
-    allD = cat(1,allD,curD(upairs));
-    
-end
-
-n_Dbins = 100;
-D_bin_edges = prctile(allD,linspace(0,100,n_Dbins+1));
-D_bin_centers = 0.5*D_bin_edges(1:end-1) + 0.5*D_bin_edges(2:end);
-[margDdist,Dbinids] = histc(allD,D_bin_edges);
-Dbinids(Dbinids > n_Dbins) = n_Dbins;
-margDdist = margDdist(1:end-1)/length(allD);
+% allD = [];
+% for ii = 1:nStims
+% %     curpicks = randi(nTrials,randpicks,1);
+%     
+%     curD = squareform(pdist(trialGains(:,ii)));
+%     curD(~upairs) = nan;
+%     allD = cat(1,allD,curD(upairs));
+%     
+% end
+% 
+% n_Dbins = 100;
+% D_bin_edges = prctile(allD,linspace(0,100,n_Dbins+1));
+% D_bin_centers = 0.5*D_bin_edges(1:end-1) + 0.5*D_bin_edges(2:end);
+% [margDdist,Dbinids] = histc(allD,D_bin_edges);
+% Dbinids(Dbinids > n_Dbins) = n_Dbins;
+% margDdist = margDdist(1:end-1)/length(allD);
 %%
 
 allX = [];
@@ -159,15 +160,17 @@ for ii = 1:nStims
     
     ddvals = [trialGains(II,ii) trialGains(JJ,ii)];
     
-    WW = nan(nTrials,nTrials);
-    for jj = 1:nTrials
-        uset = setdiff(1:nTrials,jj);
-%        [curN,curIDs] = histc(curD(jj,:),D_bin_edges);
-%        curIDs(curIDs > n_Dbins) = n_Dbins;
-%        curN = curN(1:end-1)/(nTrials-1);
-%        WW(jj,uset) = curN(curIDs(uset));
-WW(jj,uset) = sum(curD(jj,uset) < 0.01)/(nTrials-1);
-    end
+%     WW = nan(nTrials,nTrials);
+%     for jj = 1:nTrials
+%         uset = setdiff(1:nTrials,jj);
+%         aa_est = wblfit(curD(jj,uset));
+%         WW(jj,uset) = wblpdf(curD(jj,uset),aa_est(1),aa_est(2));
+% %        [curN,curIDs] = histc(curD(jj,:),D_bin_edges);
+% %        curIDs(curIDs > n_Dbins) = n_Dbins;
+% %        curN = curN(1:end-1)/(nTrials-1);
+% %        WW(jj,uset) = curN(curIDs(uset));
+% % WW(jj,uset) = sum(curD(jj,uset) < 0.01)/(nTrials-1);
+%     end
 %     WW = n_Dbins;
 %     WW = nan(nTrials,nTrials,n_splines);
 % %     ww = nan(nTrials,nTrials,n_splines);
@@ -198,9 +201,13 @@ WW(jj,uset) = sum(curD(jj,uset) < 0.01)/(nTrials-1);
     allX = cat(1,allX,yyprod(upairs));
     allS = cat(1,allS,yyvals(upairs,:));
     allM = cat(1,allM,ddvals(upairs,:));
-    allW = cat(1,allW,WW(upairs));
+%     allW = cat(1,allW,WW(upairs));
 end
 
+%%
+% full_est = wblfit(allD);
+% all_marg_pdf = wblpdf(allD,full_est(1),full_est(2));
+% all_weights = all_marg_pdf./allW;
 % uu = find(~isnan(allX) & max(allW,[],2) > 0);
 % rr = lsqlin(allW(uu,:),allX(uu))
 % w = allW(uu,:)\allX(uu)
@@ -238,7 +245,7 @@ end
 % end
 
 %%
-n_splines = 5;
+n_splines = 4;
 % spline_DS = 0:0.5:4;
 spline_DS = prctile(allD,100/n_splines:100/n_splines:(100-100/n_splines));
 knot_pts = [0 0 0 0 spline_DS max(allD) max(allD) max(allD) max(allD)];
@@ -266,7 +273,7 @@ marg_prob = marg_prob(1:end-1)/sum(marg_prob);
 % cond_prob = cond_prob/sum(cond_prob)*n_xbins;
 
 
-n_Xbins = 500;
+n_Xbins = 100;
 X_bin_edges = prctile(allM(:,1),linspace(0,100,n_Xbins+1));
 X_bin_centers = 0.5*X_bin_edges(1:end-1) + 0.5*X_bin_edges(2:end);
 
@@ -288,67 +295,79 @@ end
 % var(rates(:))
 inds = sub2ind([n_Xbins n_Dbins],Xbinids,Dbinids);
 pt_cprobs = cond_eprob(inds);
-pt_mprobs = marg_prob(Dbinids);
-all_weights = pt_mprobs./pt_cprobs;
+% pt_mprobs = marg_prob(Dbinids);
+all_weights = 1/n_Dbins./pt_cprobs;
 % all_weights = marg_prob(Dbinids)./cond_eprob(Xbinids,Dbinids);
 
 all_spD = sp.getBasis(allD);
 % all_weights = mean(bsxfun(@times,1./cond_spline(Xbinids,:),marg_sp),2);
-w = all_spD\(allX.*all_weights)
+w = all_spD\(allX.*all_weights);
+
+var_fun = nan(n_Dbins,1);
+for dd = 1:n_Dbins
+    curset = find(Dbinids == dd);
+    var_fun(dd) = mean(allX(curset).*all_weights(curset));
+end
+
+
+eval_xx = linspace(0,2,100);
+sp = fastBSpline(knot_pts,w);
+figure; 
+plot(D_bin_centers,var_fun); hold on
+plot(eval_xx,sp.evalAt(eval_xx),'r')
+
+ov_psth = mean(allX);
+xl = xlim();
+line(xl,[0 0]+ov_psth,'color','k');
+%%
+% % allB = sp.getBasis(allD);
+% % rr = (allX./allW)\(allD./allW);
 % 
-% eval_xx = linspace(0,2,100);
-% sp = fastBSpline(knot_pts,w);
-% plot(eval_xx,sp.evalAt(eval_xx))
-
-%%
-% allB = sp.getBasis(allD);
-% rr = (allX./allW)\(allD./allW);
-
-
-% allW(allW == 0) = 1/nTrials;
-eps_set = find(allD < epsilon);
-
-ovW = sp.getBasis(allD); ovW = mean(ovW(eps_set,1)./sum(ovW(eps_set,:),2));
-% ovW = length(eps_set)/sum(~isnan(allD));
-allWeights = ovW./allW;
-
-%%
-avgM = mean(allM,2);
-n_xbins = 100;
-x_bin_edges = prctile(allM(:,1),linspace(0,100,n_xbins+1));
-x_bin_centers = 0.5*x_bin_edges(1:end-1) + 0.5*x_bin_edges(2:end);
-
-eps_set = find(allD < 0.02);
-
-marg_prob = hist(allM(:,1),x_bin_centers);
-marg_prob = marg_prob/sum(marg_prob);
-cond_prob = histc(reshape(allM(eps_set,1),[],1),x_bin_edges);
-cond_prob = cond_prob/sum(cond_prob)*n_xbins;
-
-% [~,binids] = hist(mean(all
-%%
-n_EP_bins = 200;
-EP_bin_edges = prctile(allD,linspace(0,100,n_EP_bins+1));
-EP_bin_centers = 0.5*EP_bin_edges(1:end-1) + 0.5*EP_bin_edges(2:end);
-EP_xcov = nan(n_EP_bins,1);
-EP_xcov2 = nan(n_EP_bins,1);
-EP_avg = nan(n_EP_bins,1);
-for ee = 1:n_EP_bins
-    curset = find(allD >= EP_bin_edges(ee) & allD < EP_bin_edges(ee+1));
-%     [cond_prob,binids] = histc(allM(curset,1),x_bin_edges);
-%     cond_prob = cond_prob/sum(cond_prob)*n_xbins;
-%     EP_xcov(ee) = mean(allX(curset).*cond_prob(binids));
-    EP_xcov2(ee) = mean(allX(curset));
-    EP_avg(ee) = mean(allS(curset,1));
-end
-
-%%
-n_xbins = 100;
-x_bin_edges = prctile(allM(:),linspace(0,100,n_xbins+1));
-x_bin_centers = 0.5*x_bin_edges(1:end-1) + 0.5*x_bin_edges(2:end);
-
-[~,binids] = histc(allM(:,1),x_bin_edges);
-for ee = 1:n_xbins
-    x_avg(ee) = mean(allS(binids==ee),1);
-end
+% 
+% % allW(allW == 0) = 1/nTrials;
+% eps_set = find(allD < epsilon);
+% 
+% ovW = sp.getBasis(allD); ovW = mean(ovW(eps_set,1)./sum(ovW(eps_set,:),2));
+% % ovW = length(eps_set)/sum(~isnan(allD));
+% allWeights = ovW./allW;
+% 
+% %%
+% avgM = mean(allM,2);
+% n_xbins = 100;
+% x_bin_edges = prctile(allM(:,1),linspace(0,100,n_xbins+1));
+% x_bin_centers = 0.5*x_bin_edges(1:end-1) + 0.5*x_bin_edges(2:end);
+% 
+% eps_set = find(allD < 0.02);
+% 
+% marg_prob = hist(allM(:,1),x_bin_centers);
+% marg_prob = marg_prob/sum(marg_prob);
+% cond_prob = histc(reshape(allM(eps_set,1),[],1),x_bin_edges);
+% cond_prob = cond_prob/sum(cond_prob)*n_xbins;
+% 
+% % [~,binids] = hist(mean(all
+% %%
+% n_EP_bins = 200;
+% EP_bin_edges = prctile(allD,linspace(0,100,n_EP_bins+1));
+% EP_bin_centers = 0.5*EP_bin_edges(1:end-1) + 0.5*EP_bin_edges(2:end);
+% EP_xcov = nan(n_EP_bins,1);
+% EP_xcov2 = nan(n_EP_bins,1);
+% EP_avg = nan(n_EP_bins,1);
+% for ee = 1:n_EP_bins
+%     curset = find(allD >= EP_bin_edges(ee) & allD < EP_bin_edges(ee+1));
+% %     [cond_prob,binids] = histc(allM(curset,1),x_bin_edges);
+% %     cond_prob = cond_prob/sum(cond_prob)*n_xbins;
+% %     EP_xcov(ee) = mean(allX(curset).*cond_prob(binids));
+%     EP_xcov2(ee) = mean(allX(curset));
+%     EP_avg(ee) = mean(allS(curset,1));
+% end
+% 
+% %%
+% n_xbins = 100;
+% x_bin_edges = prctile(allM(:),linspace(0,100,n_xbins+1));
+% x_bin_centers = 0.5*x_bin_edges(1:end-1) + 0.5*x_bin_edges(2:end);
+% 
+% [~,binids] = histc(allM(:,1),x_bin_edges);
+% for ee = 1:n_xbins
+%     x_avg(ee) = mean(allS(binids==ee),1);
+% end
 
