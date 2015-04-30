@@ -14,7 +14,7 @@ bar_ori = 0; %bar orientation to use (only for UA recs)
 use_MUA = false; %use MUA in model-fitting
 use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 exclude_sacs = true; EP_params.exclude_sacs = exclude_sacs;
-base_dt = 0.0025; EP_params.base_dt = base_dt;
+base_dt = 0.01; EP_params.base_dt = base_dt;
 
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
 
@@ -297,7 +297,7 @@ for ii = 1:tot_nrpts
 end
 
 orig_t_ind = round(interp1(time_data.t_axis,1:fullNT,tbt_t_axis(:)));
-orig_t_ind(1) = 1;
+orig_t_ind(isnan(orig_t_ind)) = 1;
 up_used_inds = find(ismember(orig_t_ind,used_inds));
 
 tbt_binned_spikes = reshape(tbt_binned_spikes,[],length(SU_numbers));
@@ -310,6 +310,8 @@ tbt_binned_spikes(:,:,length(targs)+1:end) = [];
 used_Tinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
 if base_dt == 0.005
     used_Tinds(end) = [];
+elseif base_dt == 0.0025
+    used_Tinds(end-2:end) = [];
 end
 used_up_nf = length(used_Tinds); %number of used time points per trial at this resolution
 
@@ -954,10 +956,9 @@ for rr = 1:n_rpt_seeds
         Y1 = squeeze(all_mod_emp_prates_ms(:,:,Cpairs(cc,1)));
         Y2 = squeeze(all_mod_emp_prates_ms(:,:,Cpairs(cc,2)));
         
-        mod_pair_covar(cc) = nanmean(Y1(:).*Y2(:));
-        mod_pair_psth_covar(cc) = nanmean(mod_psths(:,Cpairs(cc,1)).*mod_psths(:,Cpairs(cc,2)));
+        EP_pairs(cc).mod_tot_covar(rr) = nanmean(Y1(:).*Y2(:));
+        EP_pairs(cc).mod_psth_covar(rr) = nanmean(mod_psths(:,Cpairs(cc,1)).*mod_psths(:,Cpairs(cc,2)));
     end
-    mod_pair_alpha = mod_pair_psth_covar./mod_pair_covar;
 end
 %%
 anal_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
@@ -968,4 +969,4 @@ cd(anal_dir);
 
 sname = [sname sprintf('_ori%d',bar_ori)];
 
-save(sname,'targs','EP_data','EP_params','use_MUA');
+save(sname,'targs','EP_data','EP_pairs','EP_params','use_MUA');

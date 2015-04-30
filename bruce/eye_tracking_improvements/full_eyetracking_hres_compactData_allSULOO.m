@@ -900,61 +900,61 @@ hr_anal_name = strcat(hr_anal_name,'_fullLOO');
 save(hr_anal_name,'it_fix*','drift_post_*','fix_ids','et_used_inds','et_tr_set','et_clust_data','et_saccades','et_is_blink','et_params');
 
 %%
-fin_fix_corr = nan(NT,1);
-fin_fix_std = nan(NT,1);
-fin_fix_corr(~isnan(fix_ids)) = best_fix_cor(end,fix_ids(~isnan(fix_ids)));
-fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
-fin_fix_std(~isnan(fix_ids)) = best_fix_std(end,fix_ids(~isnan(fix_ids)));
-fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
-
-fin_fix_corr = fin_fix_corr*sp_dx;
-fin_fix_std = fin_fix_std*sp_dx;
-
-fin_drift_corr = drift_post_mean(end,:)*sp_dx;
-fin_drift_std = drift_post_std(end,:)*sp_dx;
-
-for ii = 1:length(trial_start_inds)
-    cur_inds = trial_start_inds(ii):trial_end_inds(ii);
-    fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
-    fin_drift_std(cur_inds(1:end-sac_shift)) = fin_drift_std(cur_inds(sac_shift+1:end));
-end
-fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
-fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
-
-
-fin_tot_corr = fin_fix_corr + fin_drift_corr;
-fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
+% fin_fix_corr = nan(NT,1);
+% fin_fix_std = nan(NT,1);
+% fin_fix_corr(~isnan(fix_ids)) = best_fix_cor(end,fix_ids(~isnan(fix_ids)));
+% fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
+% fin_fix_std(~isnan(fix_ids)) = best_fix_std(end,fix_ids(~isnan(fix_ids)));
+% fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
+% 
+% fin_fix_corr = fin_fix_corr*sp_dx;
+% fin_fix_std = fin_fix_std*sp_dx;
+% 
+% fin_drift_corr = drift_post_mean(end,:)*sp_dx;
+% fin_drift_std = drift_post_std(end,:)*sp_dx;
+% 
+% for ii = 1:length(trial_start_inds)
+%     cur_inds = trial_start_inds(ii):trial_end_inds(ii);
+%     fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
+%     fin_drift_std(cur_inds(1:end-sac_shift)) = fin_drift_std(cur_inds(sac_shift+1:end));
+% end
+% fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
+% fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
+% 
+% 
+% fin_tot_corr = fin_fix_corr + fin_drift_corr;
+% fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
 
 %%
-close all
-n_trials = length(unique(all_trialvec));
-for tt = 1:n_trials
-    % for tt = [96 137 154 179 376 409]
-    uu = find(all_trialvec(used_inds) == tt);
-    if ~isempty(uu)
-        bt = all_t_axis(used_inds(uu(1)));
-        et = all_t_axis(used_inds(uu(end)));
-        dur = et-bt;
-        if dur > 3.5
-            hold on
-            %             h1=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_fix_corr(uu),fin_fix_std(uu),{'color','m'});
-            h2=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_tot_corr(uu),fin_tot_std(uu),{'color','k'});
-            h3=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),2),'r','linewidth',2);
-            h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
-            %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
-            %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
-            
-            %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
-            xlim([0 dur]);
-            ylim([-0.5 0.5]);
-            xlabel('Time (s)','fontsize',10);
-            ylabel('Orthoganol position (deg)','fontsize',10);
-            title(sprintf('Trial %d',tt));
-            set(gca,'fontsize',8,'fontname','arial');
-            fillPage(gcf,'papersize',[8 5]);
-            pause
-            clf
-        end
-    end
-end
+% close all
+% n_trials = length(unique(all_trialvec));
+% for tt = 1:n_trials
+%     % for tt = [96 137 154 179 376 409]
+%     uu = find(all_trialvec(used_inds) == tt);
+%     if ~isempty(uu)
+%         bt = all_t_axis(used_inds(uu(1)));
+%         et = all_t_axis(used_inds(uu(end)));
+%         dur = et-bt;
+%         if dur > 3.5
+%             hold on
+%             %             h1=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_fix_corr(uu),fin_fix_std(uu),{'color','m'});
+%             h2=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_tot_corr(uu),fin_tot_std(uu),{'color','k'});
+%             h3=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),2),'r','linewidth',2);
+%             h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
+%             %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
+%             %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
+%             
+%             %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
+%             xlim([0 dur]);
+%             ylim([-0.5 0.5]);
+%             xlabel('Time (s)','fontsize',10);
+%             ylabel('Orthoganol position (deg)','fontsize',10);
+%             title(sprintf('Trial %d',tt));
+%             set(gca,'fontsize',8,'fontname','arial');
+%             fillPage(gcf,'papersize',[8 5]);
+%             pause
+%             clf
+%         end
+%     end
+% end
 
