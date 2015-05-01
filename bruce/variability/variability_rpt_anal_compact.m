@@ -5,9 +5,9 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M012';
-monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'M296';
+monk_name = 'lem';
+bar_ori = 45; %bar orientation to use (only for UA recs)
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 10-60 11-160 12-0]
 
@@ -261,8 +261,17 @@ T = tabulate(all_trialvec);
 rpt_tdurs = T(all_rpt_trials,2);
 
 nf = mode(rpt_tdurs); %number of frames
+if nf == 401
 used_Tinds = (params.beg_buffer/params.dt + 1):(nf - params.end_buffer/params.dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
+elseif nf == 400
+used_Tinds = (params.beg_buffer/params.dt + 1):(nf - params.end_buffer/params.dt); %set of time points within each trial for analysis (excluding buffer windows)
+end    
 used_nf = length(used_Tinds); %number of used time points per trial at this resolution
+
+too_short = find(rpt_tdurs < 390);
+fprintf('Deliminating %d/%d repeat trials without enough frames\n',length(too_short),length(rpt_tdurs));
+all_rpt_trials(too_short) = [];
+rptframe_trials(ismember(rptframe_trials,too_short)) = [];
 
 all_rpt_seqnum = nan(size(all_rpt_trials));
 for ii = 1:n_rpt_seeds
@@ -307,12 +316,12 @@ end
 tbt_binned_spikes = reshape(tbt_binned_spikes,up_nf,tot_nrpts,length(SU_numbers));
 tbt_binned_spikes(:,:,length(targs)+1:end) = [];
 
-used_Tinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
-if base_dt == 0.005
-    used_Tinds(end) = [];
-elseif base_dt == 0.0025
-    used_Tinds(end-2:end) = [];
-end
+% used_Tinds = (params.beg_buffer/base_dt + 1):(up_nf - params.end_buffer/base_dt - 1); %set of time points within each trial for analysis (excluding buffer windows)
+% if base_dt == 0.005
+%     used_Tinds(end) = [];
+% elseif base_dt == 0.0025
+%     used_Tinds(end-2:end) = [];
+% end
 used_up_nf = length(used_Tinds); %number of used time points per trial at this resolution
 
 %% IDENTIFY TIMES WITHIN SACCADES AND BLINKS
@@ -389,6 +398,8 @@ if ~isempty(rptframe_trials)
     
     tbt_EP_emb = cat(1,nan(params.beg_buffer/base_dt,tot_nrpts,emb_win),tbt_EP_emb,nan(params.end_buffer/base_dt+1,tot_nrpts,emb_win));
     loo_tbt_EP_emb = cat(1,nan(params.beg_buffer/base_dt,tot_nrpts,emb_win,length(loo_set)),loo_tbt_EP_emb,nan(params.end_buffer/base_dt+1,tot_nrpts,emb_win,length(loo_set)));
+    tbt_EP_emb((up_nf+1):end,:,:) = [];
+    loo_tbt_EP_emb((up_nf+1):end,:,:,:) = [];
     for ii = 1:length(rptframe_trials)
         cur_trial = all_rpt_trials(rptframe_trials(ii));
         cur_rpt_frames = (trial_data(cur_trial).rpt_frames*dt_uf - 1) + 1;
@@ -507,7 +518,7 @@ EP_bin_edges = prctile(rand_T,linspace(0,maxD_prc,n_EP_bins+1));
 EP_bin_centers = (EP_bin_edges(1:end-1)+EP_bin_edges(2:end))/2;  EP_params.EP_bin_centers = EP_bin_centers;
 maxD = prctile(rand_T,maxD_prc);
 
-poss_eps_sizes = 0.0025:0.0025:0.025; EP_params.poss_eps_sizes = poss_eps_sizes;
+poss_eps_sizes = 0.005:0.005:0.025; EP_params.poss_eps_sizes = poss_eps_sizes;
 eps_boots = 25; EP_params.eps_boots = eps_boots;
 
 n_eval_pts = 100; EP_params.n_eval_pts = n_eval_pts; %number of points to evaluate spline fit
@@ -746,59 +757,85 @@ end
 % end
 
 %%
-eps_range = 0.01;
-max_tlag = 10;
-tlags = -max_tlag:max_tlag;
-
-for rr = 1:n_rpt_seeds;
-    cur_trial_set = find(all_rpt_seqnum == rr);
-    cur_nrpts = length(cur_trial_set);
-    [II,JJ] = meshgrid(1:cur_nrpts);
-    uset = JJ > II; %only need to count each unique trial pair once
-    n_unique_pairs = sum(uset(:));
+covar_epsilon = 0.01;
+if length(targs) > 1
+    eps_range = 0.01;
+    max_tlag = 10;
+    tlags = -max_tlag:max_tlag;
     
-    %make shift-embedded spike mat
-    allY1 = squeeze(tbt_BS_ms(:,cur_trial_set,:));
-    allY2 = nan(used_up_nf,length(cur_trial_set),length(targs),length(tlags));
-    for tt = 1:length(tlags)
-        allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(tbt_BS_ms(:,cur_trial_set,:)),tlags(tt),1);
+    for rr = 1:n_rpt_seeds;
+        cur_trial_set = find(all_rpt_seqnum == rr);
+        cur_nrpts = length(cur_trial_set);
+        [II,JJ] = meshgrid(1:cur_nrpts);
+        uset = JJ > II; %only need to count each unique trial pair once
+        n_unique_pairs = sum(uset(:));
+        
+        %make shift-embedded spike mat
+        allY1 = tbt_BS_ms(:,cur_trial_set,:);
+        allY2 = nan(used_up_nf,length(cur_trial_set),length(targs),length(tlags));
+        for tt = 1:length(tlags)
+            allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(tbt_BS_ms(:,cur_trial_set,:)),tlags(tt),1);
+        end
+        
+        cur_sumX = zeros(length(targs),length(targs),length(tlags));
+        cur_cnts = zeros(length(targs),length(targs),length(tlags));
+        cur_LsumX = zeros(length(targs),length(targs),length(tlags),length(loo_set));
+        cur_Lcnts = zeros(length(targs),length(targs),length(tlags),length(loo_set));
+        cur_RsumX = zeros(length(targs),length(targs),length(tlags));
+        cur_Rcnts = zeros(length(targs),length(targs),length(tlags));
+        for tt = 1:used_up_nf
+            tt
+            Y1 = squeeze(allY1(tt,:,:));
+            Y2 = reshape(squeeze(allY2(tt,:,:,:)),[length(cur_trial_set) 1 length(targs) length(tlags)]);
+            cur_Xmat = bsxfun(@times,Y1(II(uset),:),Y2(JJ(uset),:,:,:));
+            
+            cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+            loo_Dmats = nan(length(loo_set),length(cur_trial_set),length(cur_trial_set));
+            for ll = 1:length(loo_set)
+                loo_Dmats(ll,:,:) = abs(squareform(pdist(squeeze(loo_tbt_EP_emb(tt,cur_trial_set,:,ll)))))/sqrt(emb_win);
+            end
+            upairs = cur_Dmat(uset) < covar_epsilon;
+            cur_sumX = cur_sumX + squeeze(nansum(cur_Xmat(upairs,:,:,:),1));
+            cur_cnts = cur_cnts + squeeze(sum(~isnan(cur_Xmat(upairs,:,:,:)),1));
+            
+            for ll = 1:length(loo_set)
+                temp_Dmat = squeeze(loo_Dmats(ll,:,:));
+                upairs = temp_Dmat(uset) < covar_epsilon;
+                cur_LsumX(:,:,:,ll) = cur_LsumX(:,:,:,ll) + squeeze(nansum(cur_Xmat(upairs,:,:,:),1));
+                cur_Lcnts(:,:,:,ll) = cur_Lcnts(:,:,:,ll) + squeeze(sum(~isnan(cur_Xmat(upairs,:,:,:)),1));
+            end
+            cur_RsumX = cur_RsumX + squeeze(nansum(cur_Xmat));
+            cur_Rcnts = cur_Rcnts + squeeze(sum(~isnan(cur_Xmat),1));
+        end
+        EP_xcovar = cur_sumX./cur_cnts;
+        pair_xcovar = cur_RsumX./cur_Rcnts;
+        EP_xcovar_LOO = cur_LsumX./cur_Lcnts;
+        
+        [CI,CJ] = meshgrid(1:length(targs));
+        un_pairs = CJ >= CI;
+        Cpairs = [CI(un_pairs) CJ(un_pairs)];
+        n_cell_pairs = size(Cpairs,1);
+        tot_xcovar = nan(n_cell_pairs,length(tlags));
+        for cc = 1:n_cell_pairs
+            Y1 = reshape(squeeze(allY1(:,:,Cpairs(cc,1))),[],1);
+            Y2 = reshape(squeeze(allY2(:,:,Cpairs(cc,2),:)),[],length(tlags));
+            
+            tot_xcovar(cc,:) = nanmean(bsxfun(@times,Y1,Y2));
+            
+            EP_pairs(cc).ids = Cpairs(cc,:);
+            EP_pairs(cc).tot_xcovar(rr,:) = tot_xcovar(cc,:);
+            EP_pairs(cc).pair_xcovar(rr,:) = pair_xcovar(Cpairs(cc,1),Cpairs(cc,2),:);
+            EP_pairs(cc).EP_xcovar(rr,:) = squeeze(EP_xcovar(Cpairs(cc,1),Cpairs(cc,2),:));
+            
+            loo_ind1 = find(ismember(targs(Cpairs(cc,1)),loo_set));
+            loo_ind2 = find(ismember(targs(Cpairs(cc,2)),loo_set));
+            loo_EP_xcov1 = squeeze(EP_xcovar_LOO(Cpairs(cc,1),Cpairs(cc,2),:,loo_ind1));
+            loo_EP_xcov2 = squeeze(EP_xcovar_LOO(Cpairs(cc,1),Cpairs(cc,2),:,loo_ind2));
+            EP_pairs(cc).EP_xcovar_LOO(rr,:) = 0.5*loo_EP_xcov1 + 0.5*loo_EP_xcov2;
+        end
     end
-    
-    cur_sumX = zeros(length(targs),length(targs),length(tlags));
-    cur_RsumX = zeros(length(targs),length(targs),length(tlags));
-    cur_cnts = zeros(length(targs),length(targs),length(tlags));
-    cur_Rcnts = zeros(length(targs),length(targs),length(tlags));
-    for tt = 1:used_up_nf
-        Y1 = squeeze(allY1(tt,:,:));
-        Y2 = reshape(squeeze(allY2(tt,:,:,:)),[length(cur_trial_set) 1 length(targs) length(tlags)]);
-        cur_Xmat = bsxfun(@times,Y1(II(uset),:),Y2(JJ(uset),:,:,:));
-        
-        cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
-        upairs = find(cur_Dmat(uset) < eps_range);
-        
-        cur_sumX = cur_sumX + squeeze(nansum(cur_Xmat(upairs,:,:,:),1));
-        cur_cnts = cur_cnts + squeeze(sum(~isnan(cur_Xmat(upairs,:,:,:)),1));
-        cur_RsumX = cur_RsumX + squeeze(nansum(cur_Xmat));
-        cur_Rcnts = cur_Rcnts + squeeze(sum(~isnan(cur_Xmat),1));
-    end
-    EP_xcovar = cur_sumX./cur_cnts;
-    pair_xcovar = cur_RsumX./cur_Rcnts;
-    
-    [CI,CJ] = meshgrid(1:length(targs));
-    un_pairs = CJ >= CI;
-    Cpairs = [CI(un_pairs) CJ(un_pairs)];
-    n_cell_pairs = size(Cpairs,1);
-    tot_xcovar = nan(n_cell_pairs,length(tlags));
-    for cc = 1:n_cell_pairs
-        Y1 = reshape(squeeze(allY1(:,:,Cpairs(cc,1))),[],1);
-        Y2 = reshape(squeeze(allY2(:,:,Cpairs(cc,2),:)),[],length(tlags));
-        
-        tot_xcovar(cc,:) = nanmean(bsxfun(@times,Y1,Y2));
-        
-        EP_pairs(cc).tot_xcovar(rr,:) = tot_xcovar(cc,:);
-        EP_pairs(cc).pair_xcovar(rr,:) = pair_xcovar(Cpairs(cc,1),Cpairs(cc,2),:);
-        EP_pairs(cc).EP_xcovar(rr,:) = EP_xcovar(Cpairs(cc,1),Cpairs(cc,2),:);
-    end
+else
+    EP_pairs = [];
 end
 
 %%
@@ -815,6 +852,7 @@ end
 % clf
 % end
 % end
+
 %% PROCESS MODEL FITS
 has_stim_mod = false(length(targs),1);
 for cc = 1:length(targs)
@@ -826,6 +864,7 @@ for cc = 1:length(targs)
         stim_mod(cc) = cur_mod;
         EP_data(cc).unit_data = ModData(targs(cc)).unit_data;
         EP_data(cc).tune_props = ModData(targs(cc)).tune_props;
+        EP_data(cc).bestGQM = ModData(targs(cc)).bestGQM;
         has_stim_mod(cc) = true;
     end
 end
@@ -938,26 +977,34 @@ for rr = 1:n_rpt_seeds
 end
 
 %%
-all_mod_emp_prates_ms = bsxfun(@minus,all_mod_emp_prates,reshape(nanmean(reshape(all_mod_emp_prates,[],length(targs))),[1 1 length(targs)]));
-for rr = 1:n_rpt_seeds
-    cur_trial_set = find(all_rpt_seqnum == rr);
-    mod_psths = squeeze(nanmean(all_mod_emp_prates_ms(:,cur_trial_set,:),2));
-    mod_cond_vars = squeeze(nanvar(all_mod_emp_prates_ms(:,cur_trial_set,:),[],2));
-    mod_tot_vars = squeeze(nanvar(reshape(all_mod_emp_prates_ms(:,cur_trial_set,:),[],length(targs))));
-    mod_psth_vars = nanvar(mod_psths);
-    
-    n_utrials = squeeze(mean(sum(~isnan(all_mod_emp_prates_ms(:,cur_trial_set,:)),2)));
-    avg_temp_var = squeeze(nanmean(nanvar(all_mod_emp_prates_ms(:,cur_trial_set,:)))); %avg (across trials) of across-time variance
-    mod_psth_vars_cor = mod_psth_vars.*(n_utrials'./(n_utrials'-1)) - avg_temp_var'./n_utrials'; %sahani linden correction for PSTH sampling noise
-    
-    mod_pair_covar = nan(n_cell_pairs,1);
-    mod_pair_psth_covar = nan(n_cell_pairs,1);
-    for cc = 1:n_cell_pairs
-        Y1 = squeeze(all_mod_emp_prates_ms(:,:,Cpairs(cc,1)));
-        Y2 = squeeze(all_mod_emp_prates_ms(:,:,Cpairs(cc,2)));
+if length(targs) > 1
+    allY1 = bsxfun(@minus,all_mod_emp_prates,reshape(nanmean(reshape(all_mod_emp_prates,[],length(targs))),[1 1 length(targs)]));
+    allY2 = nan(used_up_nf,length(cur_trial_set),length(targs),length(tlags));
+    for tt = 1:length(tlags)
+        allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(allY1(:,cur_trial_set,:)),tlags(tt),1);
+    end
+    for rr = 1:n_rpt_seeds
+        cur_trial_set = find(all_rpt_seqnum == rr);
+        mod_psths = squeeze(nanmean(allY1(:,cur_trial_set,:),2));
+        mod_cond_vars = squeeze(nanvar(allY1(:,cur_trial_set,:),[],2));
+        mod_tot_vars = squeeze(nanvar(reshape(allY1(:,cur_trial_set,:),[],length(targs))));
+        mod_psth_vars = nanvar(mod_psths);
         
-        EP_pairs(cc).mod_tot_covar(rr) = nanmean(Y1(:).*Y2(:));
-        EP_pairs(cc).mod_psth_covar(rr) = nanmean(mod_psths(:,Cpairs(cc,1)).*mod_psths(:,Cpairs(cc,2)));
+        n_utrials = squeeze(mean(sum(~isnan(allY1(:,cur_trial_set,:)),2)));
+        avg_temp_var = squeeze(nanmean(nanvar(allY1(:,cur_trial_set,:)))); %avg (across trials) of across-time variance
+        mod_psth_vars_cor = mod_psth_vars.*(n_utrials'./(n_utrials'-1)) - avg_temp_var'./n_utrials'; %sahani linden correction for PSTH sampling noise
+        
+        for cc = 1:n_cell_pairs
+           EP_pairs(cc).mod_tot_covar(rr,:) = nan(1,length(tlags));
+           EP_pairs(cc).mod_psth_covar(rr,:) = nan(1,length(tlags));
+            Y1 = squeeze(allY1(:,:,Cpairs(cc,1)));
+            for ll = 1:length(tlags)
+                Y2 = squeeze(allY2(:,:,Cpairs(cc,2),ll));
+                
+                EP_pairs(cc).mod_tot_covar(rr,ll) = nanmean(Y1(:).*Y2(:));
+                EP_pairs(cc).mod_psth_covar(rr,ll) = nanmean(nanmean(Y1,2).*nanmean(Y2,2));
+            end
+        end
     end
 end
 %%
@@ -969,4 +1016,4 @@ cd(anal_dir);
 
 sname = [sname sprintf('_ori%d',bar_ori)];
 
-save(sname,'targs','EP_data','EP_pairs','EP_params','use_MUA');
+save(sname,'targs','EP_data','EP_pairs','EP_params','use_MUA','tlags');

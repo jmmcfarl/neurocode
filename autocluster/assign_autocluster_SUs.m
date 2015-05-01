@@ -3,12 +3,12 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M012';
+Expt_name = 'M013';
 monk_name = 'jbe';
 rec_type = 'LP';
 
-rec_number = 2;
-block_set = 28:100;
+rec_number = 1;
+% block_set = 1:21;
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -221,7 +221,7 @@ end
 % caxis([2 ca(2)]);
 
 %% CHECK SPIKE CORRELATIONS
-block_num = 30;
+block_num = 15;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
 if strcmp(rec_type,'UA')
@@ -289,8 +289,8 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-block_num = 38;
-pair = [23 25];
+block_num = 31;
+pair = [17 20];
 spk_pts = [-12:27];
 
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
@@ -397,6 +397,9 @@ switch Expt_name
         elseif rec_number == 2
             init_use_SUs = [8 13 17 19 22 24 25 27 28];
         end
+    case 'M013'
+        init_use_SUs = [7 10 25];
+        
         
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
@@ -559,7 +562,9 @@ switch Expt_name
         if rec_number == 1
             SU_ID_mat([1 2 3 4],4) = nan;
             SU_ID_mat([1 2 3],5) = nan;
-             SU_ID_mat([3],19) = nan;
+             SU_ID_mat([3 16 17],19) = nan;
+             SU_ID_mat([1:13 16],20) = nan;
+             SU_ID_mat(~isnan(SU_ID_mat(:,20)),20) = SU_ID_mat(find(~isnan(SU_ID_mat(:,19)),1),19); %units 19 and 20 are the same
              SU_ID_mat([3],25) = nan;
        elseif rec_number == 2
         end
@@ -585,6 +590,11 @@ switch Expt_name
            SU_ID_mat([40:end],25) = nan;
            SU_ID_mat([28:34 40:end],28) = nan;
         end
+        
+    case 'M013'
+        SU_ID_mat([1:6 26:30],7) = nan;
+        SU_ID_mat([1:15 17:21],10) = nan;
+        SU_ID_mat([1:14 27 29],25) = nan;
 end
 
 % figure;

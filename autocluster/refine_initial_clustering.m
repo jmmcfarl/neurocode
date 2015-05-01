@@ -1,9 +1,9 @@
 
 %% RETRIGGERING
-block_num = 20;
-probe_num = 23;
-trig_rate = 200;
-trig_sign = 1;
+block_num = 24;
+probe_num = 18;
+trig_rate = 150;
+trig_sign = -1;
 reapply = 0;
 clear add_params
 add_params.try_features = [1 2 4];
@@ -16,8 +16,8 @@ load(rclust_name);
 Cdump = retrigger_and_cluster(RefClusters,block_num,probe_num,trig_rate,trig_sign,reapply,add_params);
 
 %% SPLIT COMPONENTS
-block_num = 38;
-probe_num = 21;
+block_num = 15;
+probe_num = 8;
 split_GMM_component(block_num,probe_num);
 
 %% DELETE COMPONENT

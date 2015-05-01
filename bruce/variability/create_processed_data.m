@@ -6,18 +6,20 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M012';
+Expt_name = 'M013';
 monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
+bar_ori = 100; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
 if strcmp(Expt_name,'M011')
-use_block_range =1:21; %M011
+    rec_block_range =1:21; %M011
 elseif strcmp(Expt_name,'M012')
-    use_block_range = 1:27;
+    rec_block_range = 1:27;
+else
+    rec_block_range = nan;
 end
 
-% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60]
+% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60 11-160 12-0]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -85,6 +87,8 @@ if strcmp(rec_type,'LP')
             bar_ori = 160;
         case 12 
             bar_ori = 0;
+        case 13
+            bar_ori = 100;
     end
 end
 
@@ -118,6 +122,7 @@ cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
 mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
 
 if rec_number > 1
+    rec_block_range = setdiff(1:length(Expts),rec_block_range);
     cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
 end
 
@@ -127,7 +132,7 @@ switch Expt_num
     case 270
         ignore_blocks = [5 19];
     case 289
-        ignore_blocks = [27]; %27 is off somehow
+        ignore_blocks = [25 26 27 28 29]; %25 and 26 have different dw, and 27-29 are clearly off somehow
     case 294
         ignore_blocks = [37 38 39]; %37-39 have slightly different dw used in these blocks
     case 86
@@ -136,6 +141,8 @@ switch Expt_num
         ignore_blocks = [15];
     case 93
         ignore_blocks = [28];
+    case 11
+        ignore_blocks = [29]; %different 
 end
 
 %problem with M270 where vd was wrong, need this correction factor to get
@@ -215,8 +222,8 @@ if length(unique(expt_dds(cur_block_set))) > 1
     cur_block_set(expt_dds(cur_block_set) ~= main_dds) = [];
 end
 
-if exist('use_block_range','var')
-cur_block_set(~ismember(cur_block_set,use_block_range)) = []; %if specifying a usable block range
+if ~isnan(rec_block_range)
+cur_block_set(~ismember(cur_block_set,rec_block_range)) = []; %if specifying a usable block range
 end
 
 sim_sac_expts = find(~expt_has_ds(cur_block_set));
@@ -254,7 +261,6 @@ expt_data.expt_nf = all_nfs;
 expt_data.expt_wi = cellfun(@(x) x.Stimvals.wi,Expts(cur_block_set));
 expt_data.expt_dw = cellfun(@(x) x.Stimvals.dw,Expts(cur_block_set));
 
-
 cur_expt_npix = unique(expt_npix(cur_block_set));
 if length(cur_expt_npix) > 1
     warning('multiple Npix detected');
@@ -263,6 +269,7 @@ end
 if params.full_nPix > cur_expt_npix
     params.full_nPix = cur_expt_npix;
 end
+
 %% COMPUTE TRIAL DATA
 cd(data_dir);
 
@@ -460,7 +467,7 @@ else
 end
 [all_binned_mua,all_binned_sua,Clust_data,all_su_spk_times,~,all_mu_spk_times] = ...
     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
-    all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);
+    all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params,rec_block_range);
 SU_probes = Clust_data.SU_probes;
 SU_numbers = Clust_data.SU_numbers;
 
@@ -537,7 +544,7 @@ if strcmp(Expt_name,'M012') || strcmp(Expt_name,'M013')
     all_trial_Se(rpt_trials) = new_seeds;
     
     for ii = 1:length(rpt_trials)
-       all_trial_rptframes{rpt_trials(ii)} = cat(1,zeros(frame_offsets(ii),1),all_trial_rptframes{rpt_trials(ii)});
+       all_trial_rptframes{rpt_trials(ii)} = cat(2,zeros(1,frame_offsets(ii)),all_trial_rptframes{rpt_trials(ii)});
        all_trial_nrptframes(rpt_trials(ii)) = length(all_trial_rptframes{rpt_trials(ii)});
     end
 end
@@ -576,6 +583,10 @@ spike_data.SU_spk_times = all_su_spk_times;
 
 %%
 data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+if rec_number > 1
+    data_name = strcat(data_name,sprintf('_r%d',rec_number));
+end
+
 save(data_name,'params','trial_data','expt_data','spike_data','stimComp','ET_data','time_data','used_inds');
 
 

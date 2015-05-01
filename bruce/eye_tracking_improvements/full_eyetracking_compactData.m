@@ -5,10 +5,10 @@ addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type
 
-Expt_name = 'M012';
+Expt_name = 'M011';
 monk_name = 'jbe';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 0; %bar orientation to use (only for UA recs)
+bar_ori = 160; %bar orientation to use (only for UA recs)
 rec_number = 1;
 
 Expt_num = str2num(Expt_name(2:end));
@@ -31,6 +31,9 @@ elseif strcmp(Expts{1}.Header.DataType,'Spike2')
 end
 
 data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+if rec_number > 1
+    data_name = strcat(data_name,sprintf('_r%d',rec_number));
+end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
@@ -127,7 +130,10 @@ end
 
 mod_data_name = [mod_data_name sprintf('_ori%d',bar_ori)];
 anal_name = [anal_name sprintf('_ori%d',bar_ori)];
-
+if rec_number > 1
+    mod_data_name = strcat(mod_data_name,sprintf('r%d',rec_number));
+    anal_name = strcat(anal_name,sprintf('r%d',rec_number));
+end
 %%
 if strcmp(rec_type,'LP')
     use_nPix = 32;

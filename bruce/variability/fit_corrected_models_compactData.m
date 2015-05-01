@@ -1,11 +1,12 @@
-clear all
-close all
+% clear all
+% close all
 
-global Expt_name bar_ori monk_name rec_type
+global Expt_name bar_ori monk_name rec_type 
 
-Expt_name = 'M287';
-monk_name = 'lem';
-bar_ori = 90; %bar orientation to use (only for UA recs)
+% Expt_name = 'M011';
+% monk_name = 'jbe';
+% bar_ori = 160; %bar orientation to use (only for UA recs)
+rec_number = 2;
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
 fit_unCor = false; %use eye correction
@@ -34,6 +35,9 @@ end
 
 %load in packaged data
 data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+if rec_number > 1
+    data_name = strcat(data_name,sprintf('_r%d',rec_number));
+end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
@@ -65,6 +69,12 @@ end
 et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
 et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 save_name = [save_name sprintf('_ori%d',bar_ori)];
+
+if rec_number > 1
+    et_mod_data_name = strcat(et_mod_data_name,sprintf('r%d',rec_number));
+    et_anal_name = strcat(et_anal_name,sprintf('r%d',rec_number));
+    save_name = strcat(save_name,sprintf('_r%d',rec_number));
+end
 
 %% LOAD EYE-TRACKING DATA
 cd(et_dir)
@@ -301,17 +311,18 @@ for cc = targs
         
         %% COMPUTE UNIT DATA
         unit_data.isLOO = ismember(cc,loo_set);
-        unit_data.avg_rate = mean(cur_Robs)/dt;
-        unit_data.tot_spikes = sum(cur_Robs);
+        unit_data.avg_rate = nanmean(cur_Robs)/dt;
+        unit_data.tot_spikes = nansum(cur_Robs);
         unit_data.N_used_samps = length(cur_Robs);
         used_blocks = unique(all_blockvec(used_inds(cc_uinds)));
         unit_data.n_used_blocks = length(used_blocks);
         block_rates = nan(unit_data.n_used_blocks,1);
         for ii = 1:unit_data.n_used_blocks
-            block_rates(ii) = mean(cur_Robs(all_blockvec(used_inds(cc_uinds)) == used_blocks(ii)));
+            block_rates(ii) = nanmean(cur_Robs(all_blockvec(used_inds(cc_uinds)) == used_blocks(ii)));
         end
         unit_data.rate_stability_cv = std(block_rates)/mean(block_rates);
         unit_data.block_rates = block_rates/dt;
+        unit_data.used_blocks = used_blocks;
         if cc > params.n_probes
             su_Ind = cc - params.n_probes;
             unit_data.SU_number = spike_data.Clust_data.SU_numbers(su_Ind);
