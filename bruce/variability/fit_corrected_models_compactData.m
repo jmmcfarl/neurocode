@@ -3,16 +3,10 @@
 
 global Expt_name bar_ori monk_name rec_type 
 
-<<<<<<< HEAD
-% Expt_name = 'M287';
-% monk_name = 'lem';
-% bar_ori = 90; %bar orientation to use (only for UA recs)
-=======
 % Expt_name = 'M011';
 % monk_name = 'jbe';
 % bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 2;
->>>>>>> df0c0275393e7961e25a305ce95d667f5c62de4f
+rec_number = 1;
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
 fit_unCor = true; %use eye correction
