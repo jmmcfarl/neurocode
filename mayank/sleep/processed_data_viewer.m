@@ -1,11 +1,12 @@
 clear all
 cd ~/Analysis/Mayank/sleep/
-load sleep_dirs
-% load sleep_dirs_old
+% load sleep_dirs
+load sleep_dirs_old
 
 %%
-dd = 28;
+dd = 4;
 cd(data(dd).dir)
+pwd
 load procData
 
 % ipsi_csc = contra_csc;
@@ -16,7 +17,7 @@ csc_dsf = 1;
 heka_dsf = 5;
 
 % use_cscs = [2];
-use_cscs = [4 6];
+use_cscs = [6];
 % use_cscs = [1:7];
 
 %%
@@ -43,6 +44,7 @@ for ii = 1:length(ipsi_csc)
     ipsi_csc{ii} = decimate(ipsi_csc{ii},csc_dsf);
     ipsi_csc{ii} = filtfilt(b,a,ipsi_csc{ii});
     ipsi_csc{ii} = zscore(ipsi_csc{ii});
+    ipsi_csc{ii} = ipsi_csc{ii}/robust_std_dev(ipsi_csc{ii});
 end
 csc_time = downsample(csc_time,csc_dsf);
 
@@ -63,7 +65,8 @@ end
 close all
 
 fig_dir = '/Users/james/Desktop/sleep_examples/';
-base_name = '2014-10-31_';
+lloc = find(data(dd).dir == '/',1,'last');
+base_name = [data(dd).dir((lloc+1):end) '_'];
 if ~exist(fig_dir,'dir')
     mkdir(fig_dir)
 end
@@ -74,6 +77,9 @@ spacing = 3;
 cmap = jet(length(use_cscs));
 if length(use_cscs) == 1
     cmap = [0 0 1];
+end
+if length(use_cscs) == 3
+    cmap(3,:) = [0.8 0.2 0.8];
 end
 n_wins = range(mp_t)/win_size + 1;
 f1 = figure();
