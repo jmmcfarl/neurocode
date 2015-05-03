@@ -2,13 +2,13 @@ clear all
 close all
 
 monName = 'jbe';
-Expt_name = 'M010';
+Expt_name = 'M013';
 data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 % data_dir = ['~/Data/bruce/' Expt_name];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
 rec_type = 'LP';
 
-use_SUs = false;
+use_SUs = true;
 
 rec_number = 1;
 % use_block_range =1:27;
@@ -51,7 +51,7 @@ if length(full_nPix) > 1
     full_nPix = min(full_nPix);
 end
 
-eds = cellfun(@(x) x.Stimvals.ed,Expts);
+% eds = cellfun(@(x) x.Stimvals.ed,Expts);
 if exist('use_block_range','var')
     cur_block_set(~ismember(cur_block_set,use_block_range)) = [];
 end
@@ -264,6 +264,7 @@ init_L2 = [zeros(n_stim_filts,1);];
 init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT);
 init_Xtargs = [2; 1];
 
+all_mod_LLseq = nan(n_probes,length(used_inds));
 for ss = 1:n_probes;
     fprintf('Fitting model for MU %d of %d\n',ss,n_probes);
     Robs = all_binned_mua(used_inds,ss);
@@ -281,6 +282,7 @@ for ss = 1:n_probes;
     [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMmodel_eval(all_mod_fits(ss),Robs,tr_X);
     all_mod_LLimp(ss) = (LL-nullLL)/log(2);
     
+    all_mod_LLseq(ss,:) = Robs.*log(pred_rate) - pred_rate;
 end
 
 %%
@@ -322,6 +324,7 @@ if use_SUs
     init_L2 = [zeros(n_stim_filts,1);];
     init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT);
     
+    all_SU_LLseq = nan(n_SUs,length(used_inds));
     for ss = 1:n_SUs;
         fprintf('Fitting model for SU %d of %d\n',ss,n_SUs);
         Robs = all_binned_sua(used_inds,ss);
@@ -331,16 +334,16 @@ if use_SUs
             gqm1 = NMMinitialize_model(init_stim_params,mod_signs,NL_types,init_reg_params);
             gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],uinds,silent,init_optim_p);
             
-            [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(gqm1,Robs,tr_X);
+            sh[LL, penLL, pred_rate, G, gint] = NMMmodel_eval(gqm1,Robs,tr_X);
             gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./var(gint)');
             gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_L1',base_lambda_L1./std(gint)');
             gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],uinds,silent);
             
             all_SU_fits(ss) = gqm1;
             
-            [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMmodel_eval(all_SU_fits(ss),Robs,tr_X);
+            [LL, penLL, pred_rate, G, gint, fgint, nullLL] = NMMeval_model(all_SU_fits(ss),Robs,tr_X,[],uinds);
             all_SU_LLimp(ss) = (LL-nullLL)/log(2);
-            
+            all_SU_LLseq(ss,uinds) = Robs(uinds).*log(pred_rate) - pred_rate;
         end
     end
 end

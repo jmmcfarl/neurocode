@@ -3,9 +3,9 @@
 
 global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'M011';
-% monk_name = 'jbe';
-% bar_ori = 160; %bar orientation to use (only for UA recs)
+% Expt_name = 'M275';
+% monk_name = 'lem';
+% bar_ori = 135; %bar orientation to use (only for UA recs)
 
 use_MUA = false;
 fit_unCor = false;
@@ -286,7 +286,8 @@ for cc = targs
         cur_mod = ModData(cc).bestGQM;
         %absorb block-by-block offsets into overall spkNL offset param
         cur_block_filt = cur_mod.mods(1).filtK;
-        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt);
+        cur_used_blocks = ModData(cc).unit_data.used_blocks;
+        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks));
         cur_mod.mods(1) = [];
         GQM_mod{cc} = cur_mod;
     else
@@ -299,9 +300,9 @@ use_trials = unique(all_trialvec(used_inds)); %set of potentially usable trials
 use_trials(ismember(use_trials,rpt_trials)) = []; %dont use repeat trials
 
 %use only completed trials
-target_uf = mode(expt_data.expt_nf) - (params.beg_buffer + params.end_buffer)/params.dt;
+target_uf = 400 - (params.beg_buffer + params.end_buffer)/params.dt;
 T = tabulate(all_trialvec(used_inds));
-complete_trials = find(T(:,2) == target_uf);
+complete_trials = find(T(:,2) >= target_uf);
 use_trials(~ismember(use_trials,complete_trials)) = [];
 
 full_uinds = find(ismember(all_trialvec(used_inds),use_trials));

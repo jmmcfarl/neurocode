@@ -1,7 +1,10 @@
 function [all_binned_mua,all_binned_sua,Clust_data,all_su_spk_times,all_su_spk_inds,all_mu_spk_times] = ...
     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
-    all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params)
+    all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params,rec_block_range)
 
+if nargin < 11
+    rec_block_range = nan;
+end
 
 exclude_adjacent = clust_params.exclude_adjacent;
 n_probes = clust_params.n_probes;
@@ -20,12 +23,18 @@ else
     disp('No Cluster data found.');
 end
 
+%if the recording spans a specific range of blocks, select these
+if ~isnan(rec_block_range)
+   SU_ID_mat = SU_ID_mat(rec_block_range,:);
+   SU_allBlock_Data = SU_allBlock_Data(:,rec_block_range);
+end
+
+
 %for SU probes
 all_binned_sua = nan(length(all_t_axis),length(SU_numbers));
 cur_used_blocks = find(ismember(SU_target_blocks,cur_block_set));
 SU_ID_mat = SU_ID_mat(cur_used_blocks,:);
 [CC,BB] = meshgrid(1:length(SU_clust_data),1:length(cur_used_blocks));
-
 
 
 su_probes = nan(1,length(SU_numbers));
@@ -128,14 +137,14 @@ Clust_data.cluster_stats = SU_clust_data;
 Clust_data.SU_probes = su_probes;
 
 if exist('SU_allBlock_Data','var')
-SU_allBlock_Data = SU_allBlock_Data(:,cur_block_set);
-
-Clust_data.SU_Lratios = reshape([SU_allBlock_Data.Lratios],length(SU_numbers),[]);
-Clust_data.SU_isodists = reshape([SU_allBlock_Data.isoDists],length(SU_numbers),[]);
-Clust_data.SU_isoRel = reshape([SU_allBlock_Data.isoReliable],length(SU_numbers),[]);
-Clust_data.SU_dprimes = reshape([SU_allBlock_Data.dprimes],length(SU_numbers),[]);
-Clust_data.SU_refract = reshape([SU_allBlock_Data.refract],length(SU_numbers),[]);
-
+    SU_allBlock_Data = SU_allBlock_Data(:,cur_used_blocks);
+    
+    Clust_data.SU_Lratios = reshape([SU_allBlock_Data.Lratios],length(SU_numbers),[]);
+    Clust_data.SU_isodists = reshape([SU_allBlock_Data.isoDists],length(SU_numbers),[]);
+    Clust_data.SU_isoRel = reshape([SU_allBlock_Data.isoReliable],length(SU_numbers),[]);
+    Clust_data.SU_dprimes = reshape([SU_allBlock_Data.dprimes],length(SU_numbers),[]);
+    Clust_data.SU_refract = reshape([SU_allBlock_Data.refract],length(SU_numbers),[]);
+    
 else
     fprintf('NO SU_allBlock_Data, Ignoring!!\n');
     Clust_data.SU_Lratios = nan;

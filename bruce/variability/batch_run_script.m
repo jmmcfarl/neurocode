@@ -19,7 +19,12 @@ expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe'});
 batch_function = 'fit_corrected_models_compactData';
 % batch_function = 'variability_model_compactData';
 % batch_function = 'variability_rpt_anal_compact';
+<<<<<<< HEAD
 % batch_function = 'create_processed_data';
+=======
+% batch_function = 'full_eyetracking_hres_compactData_allSULOO';
+% batch_function = 'fix_modelfit_ModData';
+>>>>>>> df0c0275393e7961e25a305ce95d667f5c62de4f
 
 
 for Elist_cnt = 1:length(Expt_list)
