@@ -3,13 +3,14 @@ close all
 
 addpath('~/other_code/fastBSpline/');
 
-global Expt_name bar_ori monk_name rec_type
+global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M296';
-monk_name = 'lem';
-bar_ori = 45; %bar orientation to use (only for UA recs)
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
-% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 10-60 11-160 12-0]
+% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 10-60 11-160 12-0 13-100]
 
 use_MUA = false; %use MUA in model-fitting
 use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
@@ -38,6 +39,9 @@ end
 
 %load in packaged data
 data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+if rec_number > 1
+    data_name = strcat(data_name,sprintf('_r%d',rec_number));
+end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
@@ -58,6 +62,10 @@ et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 et_anal_name = 'full_eyetrack_Rinit';
 mod_name = 'corrected_models_comp';
 
+if rec_number > 1
+    cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
+end
+
 %if using coil info
 if any(params.use_coils > 0)
     et_anal_name = [et_anal_name '_Cprior'];
@@ -68,6 +76,13 @@ et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
 et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 et_hres_anal_name = [et_hres_anal_name sprintf('_ori%d',bar_ori)];
 mod_name = [mod_name sprintf('_ori%d',bar_ori)];
+
+if rec_number > 1
+    mod_name = strcat(mod_name,sprintf('_r%d',rec_number));
+    et_mod_data_name = strcat(et_mod_data_name,sprintf('r%d',rec_number));
+    et_hres_anal_name = strcat(et_hres_anal_name,sprintf('r%d',rec_number));
+    et_anal_name = strcat(et_anal_name,sprintf('r%d',rec_number));
+end
 
 % et_hres_anal_name = strcat(et_hres_anal_name,'_fullLOO');
 
@@ -251,7 +266,7 @@ all_trial_Se = [trial_data(:).se];
 n_rpt_seeds = length(params.rpt_seeds); EP_params.n_rpt_seeds = n_rpt_seeds;
 
 all_rpt_trials = find(ismember(all_trial_Se,params.rpt_seeds));
-rptframe_trials = find([trial_data(all_rpt_trials).nrpt_frames] > 0); %get rid of any repeat trials where there were repeat frames
+rptframe_trials = find([trial_data(all_rpt_trials).nrpt_frames] > 0); %identify repeat trials where there were repeat frames
 fprintf('Detected %d/%d trials with rpt frames\n',length(rptframe_trials),length(all_rpt_trials));
 
 % all_rpt_trials(rptframe_trials) = [];
@@ -269,9 +284,25 @@ end
 used_nf = length(used_Tinds); %number of used time points per trial at this resolution
 
 too_short = find(rpt_tdurs < 390);
-fprintf('Deliminating %d/%d repeat trials without enough frames\n',length(too_short),length(rpt_tdurs));
-all_rpt_trials(too_short) = [];
-rptframe_trials(ismember(rptframe_trials,too_short)) = [];
+if ~isempty(too_short)
+    fprintf('Eliminating %d/%d repeat trials without enough frames\n',length(too_short),length(rpt_tdurs));
+    all_rpt_trials(too_short) = [];
+    rptframe_trials = find([trial_data(all_rpt_trials).nrpt_frames] > 0); %get rid of any repeat trials where there were repeat frames
+end
+
+if any(arrayfun(@(x) any(x.rpt_frames == 0),trial_data(all_rpt_trials)))
+    mixed_trials = false(length(all_rpt_trials),1);
+    for ii = 1:length(all_rpt_trials)
+       if any(trial_data(all_rpt_trials(ii)).rpt_frames == 0) & any(trial_data(all_rpt_trials(ii)).rpt_frames > 0)
+          mixed_trials(ii) = true; 
+       end
+    end
+    if any(mixed_trials)
+        fprintf('Eliminating %d/%d repeat trials with mixed rpt frame types\n',sum(mixed_trials),length(mixed_trials));
+        all_rpt_trials(mixed_trials) = [];
+    rptframe_trials = find([trial_data(all_rpt_trials).nrpt_frames] > 0); %get rid of any repeat trials where there were repeat frames        
+    end
+end
 
 all_rpt_seqnum = nan(size(all_rpt_trials));
 for ii = 1:n_rpt_seeds
@@ -412,7 +443,7 @@ if ~isempty(rptframe_trials)
             tbt_EP_emb(:,rptframe_trials(ii),:) = shift_matrix_Nd(tbt_EP_emb(:,rptframe_trials(ii),:),shift_amount,1);
             loo_tbt_EP_emb(:,rptframe_trials(ii),:,:) = shift_matrix_Nd(loo_tbt_EP_emb(:,rptframe_trials(ii),:,:),shift_amount,1);
             rpt_blanked(to_blank_inds,rptframe_trials(ii)) = true;
-        else
+        elseif ~any(cur_rpt_frames == 0)
             new_spike_frame_ids = 1:up_nf;
             for jj = 1:length(cur_rpt_frames)
                 target_inds = (cur_rpt_frames(jj) + dt_uf):up_nf;
@@ -426,6 +457,7 @@ if ~isempty(rptframe_trials)
             tbt_EP_emb(:,rptframe_trials(ii),:) = tbt_EP_emb(new_spike_frame_ids,rptframe_trials(ii),:);
             loo_tbt_EP_emb(:,rptframe_trials(ii),:,:) = loo_tbt_EP_emb(new_spike_frame_ids,rptframe_trials(ii),:,:);
         end
+            
     end
     
     tbt_EP_emb = tbt_EP_emb(used_Tinds,:,:);
@@ -758,10 +790,10 @@ end
 
 %%
 covar_epsilon = 0.01;
-if length(targs) > 1
     eps_range = 0.01;
     max_tlag = 10;
     tlags = -max_tlag:max_tlag;
+if length(targs) > 1
     
     for rr = 1:n_rpt_seeds;
         cur_trial_set = find(all_rpt_seqnum == rr);
@@ -829,9 +861,13 @@ if length(targs) > 1
             
             loo_ind1 = find(ismember(targs(Cpairs(cc,1)),loo_set));
             loo_ind2 = find(ismember(targs(Cpairs(cc,2)),loo_set));
+            if ~isempty(loo_ind1) & ~isempty(loo_ind2)
             loo_EP_xcov1 = squeeze(EP_xcovar_LOO(Cpairs(cc,1),Cpairs(cc,2),:,loo_ind1));
             loo_EP_xcov2 = squeeze(EP_xcovar_LOO(Cpairs(cc,1),Cpairs(cc,2),:,loo_ind2));
             EP_pairs(cc).EP_xcovar_LOO(rr,:) = 0.5*loo_EP_xcov1 + 0.5*loo_EP_xcov2;
+            else
+               EP_pairs(cc).EP_xcovar_LOO(rr,:) = nan(length(tlags),1); 
+            end
         end
     end
 else
@@ -979,12 +1015,9 @@ end
 %%
 if length(targs) > 1
     allY1 = bsxfun(@minus,all_mod_emp_prates,reshape(nanmean(reshape(all_mod_emp_prates,[],length(targs))),[1 1 length(targs)]));
-    allY2 = nan(used_up_nf,length(cur_trial_set),length(targs),length(tlags));
-    for tt = 1:length(tlags)
-        allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(allY1(:,cur_trial_set,:)),tlags(tt),1);
-    end
     for rr = 1:n_rpt_seeds
         cur_trial_set = find(all_rpt_seqnum == rr);
+
         mod_psths = squeeze(nanmean(allY1(:,cur_trial_set,:),2));
         mod_cond_vars = squeeze(nanvar(allY1(:,cur_trial_set,:),[],2));
         mod_tot_vars = squeeze(nanvar(reshape(allY1(:,cur_trial_set,:),[],length(targs))));
@@ -994,10 +1027,15 @@ if length(targs) > 1
         avg_temp_var = squeeze(nanmean(nanvar(allY1(:,cur_trial_set,:)))); %avg (across trials) of across-time variance
         mod_psth_vars_cor = mod_psth_vars.*(n_utrials'./(n_utrials'-1)) - avg_temp_var'./n_utrials'; %sahani linden correction for PSTH sampling noise
         
+        allY2 = nan(used_up_nf,length(cur_trial_set),length(targs),length(tlags));
+        for tt = 1:length(tlags)
+            allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(allY1(:,cur_trial_set,:)),tlags(tt),1);
+        end
+        
         for cc = 1:n_cell_pairs
-           EP_pairs(cc).mod_tot_covar(rr,:) = nan(1,length(tlags));
-           EP_pairs(cc).mod_psth_covar(rr,:) = nan(1,length(tlags));
-            Y1 = squeeze(allY1(:,:,Cpairs(cc,1)));
+            EP_pairs(cc).mod_tot_covar(rr,:) = nan(1,length(tlags));
+            EP_pairs(cc).mod_psth_covar(rr,:) = nan(1,length(tlags));
+            Y1 = squeeze(allY1(:,cur_trial_set,Cpairs(cc,1)));
             for ll = 1:length(tlags)
                 Y2 = squeeze(allY2(:,:,Cpairs(cc,2),ll));
                 
@@ -1015,5 +1053,8 @@ end
 cd(anal_dir);
 
 sname = [sname sprintf('_ori%d',bar_ori)];
+if rec_number > 1
+    sname = strcat(sname,sprintf('_r%d',rec_number));
+end
 
 save(sname,'targs','EP_data','EP_pairs','EP_params','use_MUA','tlags');

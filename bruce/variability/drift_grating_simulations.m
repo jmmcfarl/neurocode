@@ -1,20 +1,17 @@
-clear all
+% clear all
+% close all
 
-global Expt_name monk_name bar_ori rec_type
+global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'G086';
-bar_ori = 0; %bar orientation to use (only for UA recs)
-monk_name = 'jbe';
+% Expt_name = 'M012';
+% monk_name = 'jbe';
+% bar_ori = 0; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
-mod_data_name = 'corrected_models2';
-compact_data_name = 'packaged_data';
-et_anal_name = 'full_eyetrack_Rinit';
+use_MUA = false;
+fit_unCor = false;
+use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 
-et_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp'];
-cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
-mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
-
-%%
 data_dir = ['~/Data/bruce/' Expt_name];
 if ~exist(data_dir,'dir')
     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
@@ -23,58 +20,172 @@ if ~exist(data_dir,'dir');
     error('Couldnt find data directory');
 end
 Edata_file = strcat(data_dir,'/',monk_name,Expt_name,'Expts');
-fprintf('Loading %s\n',Edata_file);
 load(Edata_file);
 
 %is this a laminar probe or utah array rec?
-if strcmp(Expts{1}.Header.DataType,'GridData 96')
+ff = find(cellfun(@(x) ~isempty(x),Expts),1);
+if strcmp(Expts{ff}.Header.DataType,'GridData 96')
     rec_type = 'UA';
-elseif strcmp(Expts{1}.Header.DataType,'Spike2')
+elseif strcmp(Expts{ff}.Header.DataType,'Spike2')
     rec_type = 'LP';
 end
 
-compact_file = [data_dir sprintf('/%s_ori%d',compact_data_name,bar_ori)];
-fprintf('Loading %s\n',compact_file);
-load(compact_file);
+%load in packaged data
+data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+if rec_number > 1
+    data_name = strcat(data_name,sprintf('_r%d',rec_number));
+end
+fprintf('Loading %s\n',data_name);
+load(data_name);
+
+sname = 'model_variability_compact';
+if fit_unCor
+    sname = strcat(sname,'_unCor');
+end
+
+save_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
+save_name = 'grating_sim';
+save_name = strcat(save_name,sprintf('_ori%d',bar_ori));
+if rec_number > 1
+    save_name = strcat(save_name,sprintf('_r%d',rec_number));
+end
 
 %%
+Expt_num = str2num(Expt_name(2:end));
+
+%load in array RF position data
+load ~/Data/bruce/general_array_data/array_pos_data.mat
+interp_ecc = sqrt(interp_x.^2 + interp_y.^2);
+
+cd(data_dir);
+load([data_dir '/stims/expt_data.mat']); %load in stim-alignment meta-data
+
+et_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
+cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
+model_dir = ['~/Analysis/bruce/' Expt_name '/models'];
+et_mod_data_name = 'full_eyetrack_initmods_Rinit';
+et_anal_name = 'full_eyetrack_Rinit';
+
+if rec_number > 1
+    cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
+end
+
+mod_name = 'corrected_models_comp';
+
 %if using coil info
 if any(params.use_coils > 0)
     et_anal_name = [et_anal_name '_Cprior'];
 end
-et_file = [et_dir sprintf('/%s_ori%d',et_anal_name,bar_ori)];
-fprintf('Loading %s\n',et_file);
-load(et_file,'it_fix_post_*','drift_post_*','et_params');
+et_hres_anal_name = strcat(et_anal_name,'_hres');
 
-mod_file = [mod_data_dir sprintf('/%s_ori%d',mod_data_name,bar_ori)];
-fprintf('Loading %s\n',mod_file);
-load(mod_file);
+et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
+et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
+et_hres_anal_name = [et_hres_anal_name sprintf('_ori%d',bar_ori)];
+mod_name = [mod_name sprintf('_ori%d',bar_ori)];
 
-%%
-spatial_usfac = 2;
-base_sp_dx = mode(expt_data.expt_dw);
-if length(unique(expt_data.expt_dw)) > 1
-    fprintf('Warning, multiple different dws detected, using %.3f\n',base_sp_dx);
+if rec_number > 1
+    mod_name = strcat(mod_name,sprintf('_r%d',rec_number));
+    et_mod_data_name = strcat(et_mod_data_name,sprintf('r%d',rec_number));
+    et_hres_anal_name = strcat(et_hres_anal_name,sprintf('r%d',rec_number));
+    et_anal_name = strcat(et_anal_name,sprintf('r%d',rec_number));
 end
-sp_dx = base_sp_dx/spatial_usfac/params.scale_fac; %model dx in deg
 
+load([model_dir '/' mod_name]);
+
+%% LOAD EYE-TRACKING DATA
+cd(et_dir)
+load(et_mod_data_name,'all_mod*');
+if use_hres_ET
+    fprintf('Loading ET data %s\n',et_hres_anal_name);
+    load(et_hres_anal_name)
+else
+    fprintf('Loading ET data %s\n',et_anal_name);
+    load(et_anal_name);
+end
+tr_set = et_tr_set;
+
+if length(ET_data.saccades) ~= length(et_saccades)
+    sac_start_times = [ET_data.saccades(:).start_time];
+    old_sac_start_times = [et_saccades(:).start_time];
+    if length(sac_start_times) > length(old_sac_start_times)
+        extra_sacs = find(~ismember(sac_start_times,old_sac_start_times));
+        ET_data.saccades(extra_sacs) = [];
+        ET_data.is_blink(extra_sacs) = [];
+        fprintf('Difference in saccade detection from eye-tracking data, eliminating %d/%d saccades\n',length(extra_sacs),length(sac_start_times));
+    else
+        error('Fewer saccades than in ETdata');
+    end
+end
 %%
+if ~isnan(params.rpt_seeds)
+    xv_type = 'rpt';
+else
+    xv_type = 'uni';
+end
+xv_frac = 0.2; %fraction of trials to use for XVAL
+
+flen = 15; %time lags for ST filters
+spatial_usfac = et_params.spatial_usfac; %spatial up-sampling factor
+
+use_nPix = et_params.use_nPix; %number of pixels (bars) used in models
+full_nPix = params.full_nPix; %total number of bars to keep track of in stimulus
+dt = params.dt;
+
+use_nPix_us = use_nPix*spatial_usfac; %number of pixels in stimulus filters
+klen_us = use_nPix_us*flen; %number of parameters in stim-filters
+sp_dx = et_params.sp_dx; %pixel size (deg)
+
+use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
+all_stim_mat = decompressTernNoise(stimComp);
+
+ov_RF_pos = Expts{expt_data.used_blocks(1)}.Stimvals.rf(1:2)/params.scale_fac;
+
+%% spatial up-sampling of stimulus
+full_nPix_us = spatial_usfac*full_nPix;
+if spatial_usfac > 1
+    all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
+    for ii = 1:size(all_stim_mat,2)
+        for jj = 1:spatial_usfac
+            all_stimmat_up(:,spatial_usfac*(ii-1)+jj) = all_stim_mat(:,ii);
+        end
+    end
+elseif spatial_usfac == 1
+    all_stimmat_up = all_stim_mat;
+end
+
+%select subset of pixels used for model fitting
+buffer_pix = floor((full_nPix - use_nPix)/2);
+[Xinds_up,~] = meshgrid(1/spatial_usfac:1/spatial_usfac:full_nPix,1:flen);
+cur_use_pix = (1/spatial_usfac:1/spatial_usfac:use_nPix) + buffer_pix;
+use_kInds_up = find(ismember(Xinds_up(:),cur_use_pix));
+
+stim_params_full = NMMcreate_stim_params([flen full_nPix_us]);
+
+%% BIN SPIKES FOR MU AND SU
+all_binned_mua = spikes_int82double(spike_data.binned_mua);
+all_binned_sua = spikes_int82double(spike_data.binned_sua);
+Clust_data = spike_data.Clust_data;
+su_probes = Clust_data.SU_probes;
+SU_numbers = Clust_data.SU_numbers;
+
+%% extract time series to keep track of trial number and block number
 NT = length(used_inds);
-fullNT = size(spike_data.binned_mua,1);
+fullNT = size(all_binned_mua,1);
 n_trials = length(time_data.trial_flip_ids);
-n_blocks = length(expt_data.used_blocks);
+% n_blocks = length(expt_data.used_blocks);
+n_blocks = length(time_data.block_flip_ids);
 
 all_t_axis = time_data.t_axis;
-trial_start_inds = [1+time_data.trial_flip_inds];
+trial_start_inds = [1; 1+time_data.trial_flip_inds(2:end)];
 trial_end_inds = [time_data.trial_flip_inds(2:end); fullNT];
-all_trialvec = nan(fullNT,1);
+all_trialvec = nan(fullNT,1); %trial index vector
 for ii = 1:n_trials
     all_trialvec(trial_start_inds(ii):trial_end_inds(ii)) = time_data.trial_flip_ids(ii);
 end
 
-block_start_inds = [1+time_data.block_flip_inds];
+block_start_inds = [1; 1+time_data.block_flip_inds(2:end)];
 block_end_inds = [time_data.block_flip_inds(2:end); fullNT];
-all_blockvec = nan(fullNT,1);
+all_blockvec = nan(fullNT,1); %block index vector
 for ii = 1:n_blocks
     all_blockvec(block_start_inds(ii):block_end_inds(ii)) = time_data.block_flip_ids(ii);
 end
@@ -100,14 +211,9 @@ saccade_stop_inds = round(interp1(used_inds,1:length(used_inds),interp_sac_stop_
 saccade_stop_inds(isnan(saccade_stop_inds)) = length(used_inds);
 used_is_blink = ET_data.is_blink(used_saccade_set);
 
-sac_amps = [ET_data.saccades(:).amplitude];
-is_micro = sac_amps(used_saccade_set) < 1;
-big_sacs = find(~is_micro & ~used_is_blink');
-micro_sacs = find(is_micro & ~used_is_blink');
-sac_durs = [ET_data.saccades(:).duration];
-
 saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 
+%% DEFINE FIXATIONS
 trial_start_inds = [1; find(diff(all_trialvec(used_inds)) ~= 0) + 1];
 trial_end_inds = [find(diff(all_trialvec(used_inds)) ~= 0); NT];
 
@@ -119,245 +225,327 @@ fix_stop_inds(fix_durs <= 0) = [];
 fix_post_blink = ismember(fix_start_inds,saccade_stop_inds(used_is_blink));
 n_fixs = length(fix_start_inds);
 
+%index values numbering the different fixations
 fix_ids = nan(NT,1);
 for ii = 1:n_fixs
     cur_inds = fix_start_inds(ii):(fix_stop_inds(ii));
     fix_ids(cur_inds) = ii;
 end
 
-%%
-sac_buff = round(0.12/params.dt);
-in_sac_inds = zeros(NT,1);
-for ii = 1:sac_buff+1
-    cur_inds = saccade_stop_inds + (ii-1);
-    cur_inds(cur_inds > NT) = [];
-    in_sac_inds(cur_inds) = 1;
-end
-for ii = 1:length(saccade_start_inds)
-    cur_inds = saccade_start_inds(ii):saccade_stop_inds(ii);
-    in_sac_inds(cur_inds) = 1;
+%% Recon retinal stim
+sac_shift = et_params.sac_shift; %forward projection of saccade start times
+
+if use_hres_ET %if using high-res ET
+    [post_mean_EP,post_std_EP] = construct_eye_position(best_fix_cor,best_fix_std,...
+        drift_post_mean,drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+    sp_dx = et_params.sp_dx;
+    post_mean_EP = post_mean_EP*sp_dx;
+    
+else %if using base resolution ET
+    [post_mean_EP,post_std_EP] = construct_eye_position(it_fix_post_mean(end,:),it_fix_post_std(end,:),...
+        drift_post_mean(end,:),drift_post_std(end,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+    sp_dx = et_params.sp_dx;
+    post_mean_EP = post_mean_EP*sp_dx;
+    
 end
 
+%% COMBINE SUA AND MUA and make a matrix out of the binned spike data
+n_units = size(all_binned_mua,2) + size(all_binned_sua,2);
+
+% make Robs_mat
+poss_blocks = 1:(n_blocks-1);
+Robs_mat = nan(length(used_inds),n_units);
+for ss = 1:n_units
+    if ss > params.n_probes %these are the SUs
+        su_probe_ind = ss-params.n_probes;
+        Robs_mat(:,ss) = all_binned_sua(used_inds,su_probe_ind);
+    else
+        Robs_mat(:,ss) = all_binned_mua(used_inds,ss);
+    end
+end
+
+%% IDENTIFY REPEAT TRIALS
+%don't use repeat trials for training or cross-validation here.
+if strcmp(xv_type,'rpt')
+    rpt_trials = find(ismember([trial_data(:).se],params.rpt_seeds));
+    rpt_inds = find(ismember(all_trialvec(used_inds),rpt_trials));
+else
+    rpt_trials = [];
+end
+
+%%
+%set of units where we have LOOXV on eye-tracking
+if use_LOOXV == 2
+    loo_set = tr_set; %all usable units
+elseif use_LOOXV == 1
+    loo_set = tr_set(all_mod_SU(tr_set) > 0); % just SUs
+else
+    loo_set = [];
+end
+
+%for model fitting
+if use_MUA
+    targs = 1:n_units; %SU and MU
+else
+    targs = setdiff(1:n_units,1:params.n_probes); %SU only
+end
+targs(targs > length(ModData)) = [];
+
+%% MARK INDICES DURING BLINKS AND SACCADES
+sac_buff = round(0.06/dt);
+sac_delay = round(0.04/dt);
+blink_buff = round(0.1/dt);
+
+in_sac_inds = zeros(NT,1);
+nblink_start_inds = saccade_start_inds(~used_is_blink);
+for ii = 1:(sac_buff+1)
+    cur_inds = nblink_start_inds + sac_delay + (ii-1);
+    uu = find(cur_inds <= NT);
+    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(nblink_start_inds(uu)))) = [];
+    in_sac_inds(cur_inds(uu)) = 1;
+end
 in_sac_inds = logical(in_sac_inds);
 
-blink_inds = find(used_is_blink);
+blink_start_inds = saccade_start_inds(used_is_blink);
 in_blink_inds = zeros(NT,1);
-for ii = 1:length(blink_inds)
-    cur_inds = saccade_start_inds(blink_inds(ii)):saccade_stop_inds(blink_inds(ii));
-    in_blink_inds(cur_inds) = 1;
+for ii = 1:(blink_buff+1)
+    cur_inds = blink_start_inds + sac_delay + (ii-1);
+    uu = find(cur_inds <= NT);
+    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(blink_start_inds(uu)))) = [];
+    in_blink_inds(cur_inds(uu)) = 1;
 end
 in_blink_inds = logical(in_blink_inds);
 
-%%
-sac_shift = round(0.05/params.dt);
-
-cur_fix_post_mean = squeeze(it_fix_post_mean(end,:));
-cur_fix_post_std = squeeze(it_fix_post_std(end,:));
-cur_drift_post_mean = squeeze(drift_post_mean(end,:));
-cur_drift_post_std = squeeze(drift_post_std(end,:));
-
-[fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-    cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-ET_pos_orth = fin_tot_corr*et_params.sp_dx;
-
-%%
-min_trial_dur = 4;
-trial_durs = [trial_data(:).end_times] - [trial_data(:).start_times];
-used_trials = find(trial_durs >= min_trial_dur & ismember(1:length(trial_durs),all_trialvec(used_inds)));
-nf = (params.trial_dur - params.beg_buffer - params.end_buffer)/params.dt;
-NusedTrials = length(used_trials);
-tbt_EP_orth = nan(nf,NusedTrials);
-tbt_in_sac = nan(nf,NusedTrials);
-tbt_in_blink = nan(nf,NusedTrials);
-for ii = 1:NusedTrials
-    cur_inds = find(all_trialvec(used_inds) == used_trials(ii));
-    tbt_EP_orth(:,ii) = ET_pos_orth(cur_inds);
-    tbt_in_sac(:,ii) = in_sac_inds(cur_inds);
-    tbt_in_blink(:,ii) = in_blink_inds(cur_inds);
-end
-tbt_in_sac = logical(tbt_in_sac);
-tbt_in_blink = logical(tbt_in_blink);
-%%
-su_set = (params.n_probes+1):length(ModData);
-bad_sus = [];
-use_mods = [];
-for ii = 1:length(su_set)
-    if ~isempty(ModData(su_set(ii)).bestGQM)
-        flen = ModData(su_set(ii)).bestGQM.stim_params.stim_dims(1);
-        nPix = ModData(su_set(ii)).bestGQM.stim_params.stim_dims(2);
-
-        use_mods = cat(1,use_mods,ModData(su_set(ii)).bestGQM);
-        use_mods(end).mods([1 end]) = [];
+%% absorb block filter into spkNL offset parameter
+for cc = targs
+    if ~isempty(ModData(cc).bestGQM)
+        cur_mod = ModData(cc).bestGQM;
+        %absorb block-by-block offsets into overall spkNL offset param
+        cur_block_filt = cur_mod.mods(1).filtK;
+        cur_used_blocks = ModData(cc).unit_data.used_blocks;
+        poss_used_blocks = ModData(cc).unit_data.poss_used_blocks;
+        cur_used_blocks = find(ismember(cur_used_blocks,poss_used_blocks));
+        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks));
+        cur_mod.mods(1) = [];
+        GQM_mod{cc} = cur_mod;
     else
-        bad_sus = cat(1,bad_sus,ii);
+        GQM_mod{cc} = [];
     end
 end
-su_set(bad_sus) = [];
 
-%%
-ex_cell = 103;
-base_mod = ModData(ex_cell).bestGQM;
-flen = base_mod.stim_params.stim_dims(1);
-nPix = base_mod.stim_params.stim_dims(2);
-% base_filt = reshape(base_mod.mods(2).filtK,[flen nPix]);
-% 
-% xax = (1:nPix)*sp_dx;
-% tax  = (1:flen);
-% tprofile = std(base_filt,[],2);
-% 
-gsf = ModData(ex_cell).tune_props.RF_gSF;
-% gcent = mean(xax);
-% gRF_SD = ModData(ex_cell).tune_props.RF_sigma;
-% 
-% [XX,TT] = meshgrid(xax,tax);
-% gabor_RF = exp(-(XX-gcent).^2/(2*gRF_SD^2));
-% gabor_RF = gabor_RF.*sin(2*pi*(XX*gsf));
-% gabor_RF = bsxfun(@rdivide,gabor_RF,std(gabor_RF,[],2));
-% gabor_RF = bsxfun(@times,gabor_RF,tprofile);
-% 
-% gabor_QP = exp(-(XX-gcent).^2/(2*gRF_SD^2));
-% gabor_QP = gabor_QP.*sin(2*pi*(XX*gsf)+pi/2);
-% gabor_QP = bsxfun(@rdivide,gabor_QP,std(gabor_QP,[],2));
-% gabor_QP = bsxfun(@times,gabor_QP,tprofile);
-% 
-% base_mod.mods(2:end) = [];
-% base_mod.mods(1).filtK = gabor_RF(:);
-% base_mod.mods(1).NLtype = 'quad';
-% base_mod.mods(2) = base_mod.mods(1);
-% base_mod.mods(2).filtK = gabor_QP(:);
-% 
-% su_set = 1;
-% use_mods = base_mod;
-% 
-% base_mod.mods(2) = [];
-% base_mod.mods(1).NLtype = 'lin';
-% use_mods(2) = base_mod;
-% su_set = [1 2];
-%%
-stim_params = NMMcreate_stim_params([flen nPix]);
+%% get set of trials used for calcs, and construct TBT matrices
+use_trials = unique(all_trialvec(used_inds)); %set of potentially usable trials
+use_trials(ismember(use_trials,rpt_trials)) = []; %dont use repeat trials
+
+%use only completed trials
+target_uf = 400 - (params.beg_buffer + params.end_buffer)/params.dt;
+T = tabulate(all_trialvec(used_inds));
+complete_trials = find(T(:,2) >= target_uf);
+use_trials(~ismember(use_trials,complete_trials)) = [];
+
+full_uinds = find(ismember(all_trialvec(used_inds),use_trials));
+n_utrials = length(full_uinds)/target_uf;
+
+%matrix of trial-by-trial EP estimates
+base_EP_est = post_mean_EP(full_uinds) - nanmedian(post_mean_EP(full_uinds));
+EP_tbt = reshape(base_EP_est,target_uf,n_utrials);
+
+%TBT mats for sac and blink indicators
+inblink_tbt = reshape(in_blink_inds(full_uinds),target_uf,n_utrials);
+insac_tbt = reshape(in_sac_inds(full_uinds),target_uf,n_utrials);
+
+
+%% compute stats of model output on the stim ensemble it was trained on
+
+flen = modFitParams.flen;
+nPix_us = modFitParams.use_nPix_us;
+stim_params = NMMcreate_stim_params([flen nPix_us]);
+mod_usfac = modFitParams.spatial_usfac;
+nPix = nPix_us/mod_usfac;
 
 test_NT = 1e4;
 test_dd = mode(expt_data.expt_dds);
 
 test_stim = randi(2,test_NT,nPix);
 test_stim(test_stim == 2) = -1;
-is_zero = rand(test_NT,nPix) < test_dd/100;
+is_zero = rand(test_NT,nPix) > test_dd/100;
 test_stim(is_zero) = 0;
 
-Xmat = create_time_embedding(test_stim,stim_params);
-
-[test_gSD,test_meanrate] = deal(nan(length(su_set),1));
-for ii = 1:length(su_set)
-    [~,~,test_prate,~,gint] = NMMeval_model(use_mods(ii),[],Xmat);
-    test_gSD(ii) = mean(std(gint));
-    test_meanrate(ii) = mean(test_prate);
+if mod_usfac > 1
+    test_stim_up = zeros(size(test_stim,1),nPix_us);
+    for ii = 1:size(test_stim,2)
+        for jj = 1:mod_usfac
+            test_stim_up(:,mod_usfac*(ii-1)+jj) = test_stim(:,ii);
+        end
+    end
+elseif mod_usfac == 1
+    test_stim_up = all_stim_mat;
 end
+
+test_stim_SD = nanstd(test_stim_up(:));
+
+Xmat = create_time_embedding(test_stim_up,stim_params);
+
+[test_gSD,test_gMean] = deal(cell(length(targs),1));
+test_meanrate = nan(length(targs),1);
+for ii = 1:length(targs)
+    if ~isempty(GQM_mod{targs(ii)})
+    [~,~,test_prate,~,gint] = NMMeval_model(GQM_mod{targs(ii)},[],Xmat);
+    test_gSD{ii} = std(gint);
+    test_gMean{ii} = mean(gint);
+    test_meanrate(ii) = mean(test_prate);
+    end
+end
+
 %%
-poss_EP_scales = [0:0.1:2];
-for ep = 1:length(poss_EP_scales)
-    % EP_scale = 1;
-    EP_scale = poss_EP_scales(ep)
-    
-    xax = (1:nPix)*sp_dx;
-    tax  = (1:nf)*params.dt;
-    
-    gr_sf = ModData(ex_cell).tune_props.RF_gSF;
-    gr_tf = 4;
-    
-    [XX,TT] = meshgrid(xax,tax);
-    base_dg = sin(2*pi*(gr_sf*XX + gr_tf*TT));
-    
-    full_EP_orth = EP_scale*tbt_EP_orth(:);
-    % full_EP_orth(tbt_in_blink(:)) = nan;
-    % full_EP_orth(tbt_in_sac(:)) = nan;
-    
-    [XX,TT,RR] = meshgrid(xax,tax,1:NusedTrials);
-    TT = reshape(permute(TT,[1 3 2]),[],length(xax));
-    XX = reshape(permute(XX,[1 3 2]),[],length(xax));
-    
-    drift_grating = sin(2*pi*(gr_sf*(bsxfun(@plus,XX,full_EP_orth)) + gr_tf*TT));
-    % drift_grating = reshape(drift_grating,[nf NusedTrials length(xax)]);
-    
-    %%
-    throwout_win = round(0.15/params.dt);
-    
-    Xmat = create_time_embedding(drift_grating,stim_params);
-    base_Xmat = create_time_embedding(base_dg,stim_params);
-    
-    [tot_resp_var,avg_acrosstrial_var,avg_acrosstrial_SD,tot_resp_mean,tot_resp_SD] = deal(nan(length(su_set),1));
-    [all_base_psth,all_psth,all_psth_SD] = deal(nan(nf-throwout_win,length(su_set)));
-    for ii = 1:length(su_set)
-        [~,~,~,~,gint] = NMMeval_model(use_mods(ii),[],Xmat);
-        contrast_scale = test_gSD(ii)/mean(nanstd(gint));
+poss_ubins = [1 2 5 10 20 40 80 100];
+poss_grate_sf = [1 2 4];
+poss_grate_tf = [2 4 8];
+
+clear epscale*
+poss_EP_scales = 1;
+% for ep = 1:length(poss_EP_scales)
+EP_scale = 1;
+%     EP_scale = poss_EP_scales(ep)
+
+xax = (1:nPix_us)*sp_dx;
+nf = 375;
+tax  = (1:nf)*params.dt;
+throwout_win = 0.15/params.dt; %exclude this amount of data from the beginning of each trial to handle edge effects
+
+for sf = 1:length(poss_grate_sf)
+    for tf = 1:length(poss_grate_tf)
+        fprintf('Simulating grating repeats for SF %d/%d and TF %d/%d\n',sf,length(poss_grate_sf),tf,length(poss_grate_tf));
         
-        [~,~,pred_rate] = NMMeval_model(use_mods(ii),[],Xmat*contrast_scale);
-        pred_rate = reshape(pred_rate,nf,NusedTrials);
-        pred_rate(tbt_in_blink) = nan;
+        gr_sf = poss_grate_sf(sf);
+        gr_tf = poss_grate_tf(tf);
         
+        [XX,TT] = meshgrid(xax,tax);
+        base_dg = sin(2*pi*(gr_sf*XX + gr_tf*TT));
+        base_dg_rev = sin(2*pi*(gr_sf*XX - gr_tf*TT));
         
-        [~,~,base_pred_rate,~,gints] = NMMeval_model(use_mods(ii),[],base_Xmat*contrast_scale);
-        epscale_data(ep).all_base_psth(:,ii) = base_pred_rate((throwout_win+1):end);
+        full_EP_orth = EP_scale*EP_tbt(:);
         
-        ch_pred_rate = pred_rate((throwout_win+1):end,:);
-        epscale_data(ep).all_psth(:,ii) = nanmean(ch_pred_rate,2);
-        epscale_data(ep).all_psth_SD(:,ii) = nanstd(ch_pred_rate,[],2);
+        [XX,TT,RR] = meshgrid(xax,tax,1:n_utrials); 
+        flip_trials = rand(n_utrials,1) > 0.5; %randomly set half of trials to have opposite grating direction
+        TT(:,:,flip_trials) = -TT(:,:,flip_trials);
+        TT = reshape(permute(TT,[1 3 2]),[],length(xax));
+        XX = reshape(permute(XX,[1 3 2]),[],length(xax));
         
-        epscale_data(ep).tot_resp_mean(ii) = nanmean(ch_pred_rate(:));
-        epscale_data(ep).tot_resp_SD(ii) = nanstd(ch_pred_rate(:));
-        epscale_data(ep).tot_resp_var(ii) = nanvar(ch_pred_rate(:));
-        across_trial_var = nanvar(ch_pred_rate,[],2);
-        epscale_data(ep).avg_acrosstrial_var(ii) = mean(nanvar(ch_pred_rate,[],2));
-        epscale_data(ep).avg_acrosstrial_SD(ii) = mean(nanstd(ch_pred_rate,[],2));
-        epscale_data(ep).psth_var(ii) = var(epscale_data(ep).all_psth(:,ii));
-        epscale_data(ep).all_base_psth(ii) = var(epscale_data(ep).all_base_psth(:,ii));
+        drift_grating = sin(2*pi*(gr_sf*bsxfun(@plus,XX,full_EP_orth) + gr_tf*TT));
+        
+        %% compute firing rate output of each model neuron
+        
+        Xmat = create_time_embedding(drift_grating,stim_params);
+        base_Xmat = create_time_embedding(base_dg,stim_params);
+        base_Xmat_rev = create_time_embedding(base_dg_rev,stim_params);
+        
+        base_prates = nan(nf,length(targs));
+        base_prates_R = nan(nf,length(targs));
+        rpt_prates = nan(nf,n_utrials,length(targs));
+        for cc = 1:length(targs)
+            if ~isempty(GQM_mod{targs(cc)})
+            [~,~,cur_prate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat);
+            gint(inblink_tbt(:),:) = nan;
+            gint(insac_tbt(:),:) = nan;
+            contrast_scale = mean(test_gSD{cc})/mean(nanstd(gint)); %adjust the contrast of the grating to match the mean SD of filter outputs 
+            
+            [~,~,pred_rate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat*contrast_scale);
+            rpt_prates(:,:,cc) = reshape(pred_rate,(nf),n_utrials);
+            
+            %these are the firing rates in response to the unperturbed
+            %(left and rightward) gratings
+            [~,~,base_prates(:,cc)] = NMMeval_model(GQM_mod{targs(cc)},[],base_Xmat*contrast_scale);
+            [~,~,base_prates_R(:,cc)] = NMMeval_model(GQM_mod{targs(cc)},[],base_Xmat_rev*contrast_scale);
+            end
+        end
+        
+        base_prates(1:throwout_win,:) = [];
+        base_prates_R(1:throwout_win,:) = [];
+        
+        rpt_prates = reshape(rpt_prates,[],length(targs));
+        rpt_prates(inblink_tbt(:),:) = nan;
+        rpt_prates_noSac = rpt_prates; %make a copy of the tbt firing rates with intrasac data nanned out
+        rpt_prates_noSac(insac_tbt(:),:) = nan;
+        rpt_prates = reshape(rpt_prates,[],n_utrials,length(targs));
+        rpt_prates_noSac = reshape(rpt_prates_noSac,[],n_utrials,length(targs));
+        
+        rpt_prates(1:throwout_win,:,:) = [];
+        rpt_prates_noSac(1:throwout_win,:,:) = [];
+        
+        %% compute across-trial stats at different time resolutions
+        
+        [PSTH_vars,tot_vars,tot_means,FF_ests,PSTH_vars_R,tot_vars_R,tot_means_R,FF_ests_R] = deal(nan(length(poss_ubins),length(targs)));
+        [PSTH_vars_NS,tot_vars_NS,tot_means_NS,FF_ests_NS,PSTH_vars_NS_R,tot_vars_NS_R,tot_means_NS_R,FF_ests_NS_R] = deal(nan(length(poss_ubins),length(targs)));
+        for pp = 1:length(poss_ubins)
+            bin_usfac = poss_ubins(pp);
+            n_newbins = floor((nf-throwout_win)/bin_usfac);
+            
+            %'rebin' firnig rate data
+            new_ep_rates = zeros(n_newbins,n_utrials,length(targs),bin_usfac);
+            new_ep_rates_NS = zeros(n_newbins,n_utrials,length(targs),bin_usfac);
+            for ii = 1:bin_usfac
+                new_ep_rates(:,:,:,ii) = rpt_prates(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
+                new_ep_rates_NS(:,:,:,ii) = rpt_prates_noSac(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
+            end
+            new_ep_rates = squeeze(nanmean(new_ep_rates,4))*bin_usfac;
+            new_ep_rates_NS = squeeze(nanmean(new_ep_rates_NS,4))*bin_usfac;
+            
+            at_avgs = squeeze(nanmean(new_ep_rates(:,flip_trials,:),2));
+            at_vars = squeeze(nanvar(new_ep_rates(:,flip_trials,:),[],2));
+            PSTH_vars(pp,:) = nanvar(at_avgs);
+            tot_vars(pp,:) = nanvar(reshape(new_ep_rates(:,flip_trials,:),[],length(targs)));
+            tot_means(pp,:) = nanmean(reshape(new_ep_rates(:,flip_trials,:),[],length(targs)));
+            FF_ests(pp,:) = nanmean((at_avgs + at_vars)./at_avgs);
+            
+            at_avgs_R = squeeze(nanmean(new_ep_rates(:,~flip_trials,:),2));
+            at_vars_R = squeeze(nanvar(new_ep_rates(:,~flip_trials,:),[],2));
+            PSTH_vars_R(pp,:) = nanvar(at_avgs_R);
+            tot_vars_R(pp,:) = nanvar(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
+            tot_means_R(pp,:) = nanmean(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
+            FF_ests_R(pp,:) = nanmean((at_avgs_R + at_vars_R)./at_avgs_R);
+            
+            at_avgs_NS = squeeze(nanmean(new_ep_rates_NS(:,flip_trials,:),2));
+            at_vars_NS = squeeze(nanvar(new_ep_rates_NS(:,flip_trials,:),[],2));
+            PSTH_vars_NS(pp,:) = nanvar(at_avgs_NS);
+            tot_vars_NS(pp,:) = nanvar(reshape(new_ep_rates_NS(:,flip_trials,:),[],length(targs)));
+            tot_means_NS(pp,:) = nanmean(reshape(new_ep_rates_NS(:,flip_trials,:),[],length(targs)));
+            FF_ests_NS(pp,:) = nanmean((at_avgs_NS + at_vars_NS)./at_avgs_NS);
+            
+            at_avgs_NS_R = squeeze(nanmean(new_ep_rates_NS(:,~flip_trials,:),2));
+            at_vars_NS_R = squeeze(nanvar(new_ep_rates_NS(:,~flip_trials,:),[],2));
+            PSTH_vars_NS_R(pp,:) = nanvar(at_avgs_NS_R);
+            tot_vars_NS_R(pp,:) = nanvar(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
+            tot_means_NS_R(pp,:) = nanmean(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
+            FF_ests_NS_R(pp,:) = nanmean((at_avgs_NS_R + at_vars_NS_R)./at_avgs_NS_R);
+        end
         
         %%
-        pred_rate(tbt_in_sac) = nan;
+        for cc = 1:length(targs)
+            grate_Cdata(cc).PSTH_vars(sf,tf,:) = PSTH_vars(:,cc);
+            grate_Cdata(cc).PSTH_vars_R(sf,tf,:) = PSTH_vars_R(:,cc);
+            grate_Cdata(cc).PSTH_vars_NS(sf,tf,:) = PSTH_vars_NS(:,cc);
+            grate_Cdata(cc).PSTH_vars_NS_R(sf,tf,:) = PSTH_vars_NS_R(:,cc);
+            
+            grate_Cdata(cc).tot_vars(sf,tf,:) = tot_vars(:,cc);
+            grate_Cdata(cc).tot_vars_R(sf,tf,:) = tot_vars_R(:,cc);
+            grate_Cdata(cc).tot_vars_NS(sf,tf,:) = tot_vars_NS(:,cc);
+            grate_Cdata(cc).tot_vars_NS_R(sf,tf,:) = tot_vars_NS_R(:,cc);
+            
+            grate_Cdata(cc).tot_means(sf,tf,:) = tot_means(:,cc);
+            grate_Cdata(cc).tot_means_R(sf,tf,:) = tot_means_R(:,cc);
+            grate_Cdata(cc).tot_means_NS(sf,tf,:) = tot_means_NS(:,cc);
+            grate_Cdata(cc).tot_means_NS_R(sf,tf,:) = tot_means_NS_R(:,cc);
+            
+            grate_Cdata(cc).FF_ests(sf,tf,:) = FF_ests(:,cc);
+            grate_Cdata(cc).FF_ests_R(sf,tf,:) = FF_ests_R(:,cc);
+            grate_Cdata(cc).FF_ests_NS(sf,tf,:) = FF_ests_NS(:,cc);
+            grate_Cdata(cc).FF_ests_NS_R(sf,tf,:) = FF_ests_NS_R(:,cc);
+        end
         
-        [~,~,base_pred_rate,~,gints] = NMMeval_model(use_mods(ii),[],base_Xmat*contrast_scale);
-        epscale_data_nosac(ep).all_base_psth(:,ii) = base_pred_rate((throwout_win+1):end);
-        
-        ch_pred_rate = pred_rate((throwout_win+1):end,:);
-        epscale_data_nosac(ep).all_psth(:,ii) = nanmean(ch_pred_rate,2);
-        epscale_data_nosac(ep).all_psth_SD(:,ii) = nanstd(ch_pred_rate,[],2);
-        
-        epscale_data_nosac(ep).tot_resp_mean(ii) = nanmean(ch_pred_rate(:));
-        epscale_data_nosac(ep).tot_resp_SD(ii) = nanstd(ch_pred_rate(:));
-        epscale_data_nosac(ep).tot_resp_var(ii) = nanvar(ch_pred_rate(:));
-        across_trial_var = nanvar(ch_pred_rate,[],2);
-        epscale_data_nosac(ep).avg_acrosstrial_var(ii) = mean(nanvar(ch_pred_rate,[],2));
-        epscale_data_nosac(ep).avg_acrosstrial_SD(ii) = mean(nanstd(ch_pred_rate,[],2));
-        epscale_data_nosac(ep).psth_var(ii) = var(epscale_data_nosac(ep).all_psth(:,ii));
-        epscale_data_nosac(ep).all_base_psth(ii) = var(epscale_data_nosac(ep).all_base_psth(:,ii));
     end
-    
 end
 
 %%
-all_means = reshape([epscale_data(:).tot_resp_mean],length(su_set),[]);
-all_SDs = reshape([epscale_data(:).avg_acrosstrial_SD],length(su_set),[]);
-all_at_var = reshape([epscale_data(:).avg_acrosstrial_var],length(su_set),[]);
-all_tot_var = reshape([epscale_data(:).tot_resp_var],length(su_set),[]);
-
-all_means_ns = reshape([epscale_data_nosac(:).tot_resp_mean],length(su_set),[]);
-all_SDs_ns = reshape([epscale_data_nosac(:).avg_acrosstrial_SD],length(su_set),[]);
-all_at_var_ns = reshape([epscale_data_nosac(:).avg_acrosstrial_var],length(su_set),[]);
-all_tot_var_ns = reshape([epscale_data_nosac(:).tot_resp_var],length(su_set),[]);
-
-cmap = jet(length(su_set));
-f1 = figure(); hold on
-for ii = 1:length(su_set)
-plot(poss_EP_scales*gsf,all_SDs(ii,:)./all_means(ii,:),'color',cmap(ii,:))
-plot(poss_EP_scales*gsf,all_SDs_ns(ii,:)./all_means_ns(ii,:),'color',cmap(ii,:),'linestyle','--')
-end
-
-f2 = figure(); hold on
-for ii = 1:length(su_set)
-plot(poss_EP_scales*gsf,all_at_var(ii,:)./all_tot_var(ii,:),'color',cmap(ii,:))
-plot(poss_EP_scales*gsf,all_at_var_ns(ii,:)./all_tot_var_ns(ii,:),'color',cmap(ii,:),'linestyle','--')
-end
-
-% plot(poss_EP_scales*gsf,all_SDs(2,:)./all_means(2,:),'r')
-% plot(poss_EP_scales*gsf,all_SDs_ns(2,:)./all_means_ns(2,:),'r--')
-
-
+cd(save_dir)
+save(save_name,'grate_Cdata','poss_ubins','poss_grate_sf','poss_grate_tf');

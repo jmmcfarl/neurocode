@@ -1,19 +1,22 @@
-% clear all
-% close all
+clear all
+close all
 
-global Expt_name bar_ori monk_name rec_type 
+global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'M011';
-% monk_name = 'jbe';
-% bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 1;
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 2;
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
-fit_unCor = true; %use eye correction
+fit_unCor = false; %use eye correction
 use_MUA = false; %use MUA in model-fitting
 fit_rect = false; %split quad linear filter into two rectified
 
 save_name = 'corrected_models_comp';
+if fit_unCor
+    save_name = strcat(save_name,'_unCor');
+end
 
 data_dir = ['~/Data/bruce/' Expt_name];
 if ~exist(data_dir,'dir')
@@ -223,14 +226,14 @@ cur_drift_post_std = squeeze(drift_post_std(end,:));
 fin_shift_cor = round(fin_tot_corr);
 
 %RECOMPUTE XMAT
-best_shift_stimmat_up = all_stimmat_up;
-for i=1:NT
-    best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-end
-all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_full);
-
-if fit_unCor
-    all_Xmat_unCor = create_time_embedding(all_stimmat_up,stim_params_full);
+if ~fit_unCor
+    best_shift_stimmat_up = all_stimmat_up;
+    for i=1:NT
+        best_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+    end
+    all_Xmat_shift = create_time_embedding(best_shift_stimmat_up,stim_params_full);
+else
+    all_Xmat_shift = create_time_embedding(all_stimmat_up,stim_params_full);
 end
 
 %% COMBINE SUA AND MUA and make a matrix out of the binned spike data
@@ -279,11 +282,9 @@ mod_stim_params(2) = NMMcreate_stim_params([n_blocks],dt);
 Xmat{1} = all_Xmat_shift(used_inds,use_kInds_up);
 Xmat{2} = Xblock(used_inds,:);
 
-if fit_unCor
-    Xmat_unCor = Xmat;
-    Xmat_unCor{1} = all_Xmat_unCor(used_inds,use_kInds_up);
-end
 %%
+        silent = 1;
+
 for cc = targs
     fprintf('Starting model fits for unit %d\n',cc);
     
@@ -323,6 +324,7 @@ for cc = targs
         unit_data.rate_stability_cv = std(block_rates)/mean(block_rates);
         unit_data.block_rates = block_rates/dt;
         unit_data.used_blocks = used_blocks;
+        unit_data.poss_used_blocks = unique(all_blockvec(used_inds));
         if cc > params.n_probes
             su_Ind = cc - params.n_probes;
             unit_data.SU_number = spike_data.Clust_data.SU_numbers(su_Ind);
@@ -341,8 +343,15 @@ for cc = targs
             unit_data.SU_dprime = nan;
         end
         
+        %%
+        nullMod = NMMinitialize_model(mod_stim_params,1,{'lin'},[],2);
+        nullMod = NMMfit_filters(nullMod,cur_Robs,Xmat,[],cur_tr_inds,silent);
+        nullMod = NMMfit_logexp_spkNL(nullMod,cur_Robs,Xmat,[],cur_tr_inds);
+        [nullMod_xvLL,null_xvLL] = NMMeval_model(nullMod,cur_Robs,Xmat,[],cur_xv_inds);
+        nullMod.xvLLimp = (nullMod_xvLL - null_xvLL)/log(2);
+        
         %% RECON RETINAL STIM
-        if ~isempty(loo_cc)
+        if ~fit_unCor & ~isempty(loo_cc)
             fprintf('Reconstructing retinal stim for unit %d\n',cc);
             cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
             cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
@@ -364,7 +373,6 @@ for cc = targs
         
         %% FIT (eye-corrected) STIM-PROCESSING MODEL
         fprintf('Fitting stim models for unit %d\n',cc);
-        silent = 1;
         if mode(expt_data.expt_dds) == 12
             base_lambda_d2XT = 25; %target ST smoothness strength
             base_lambda_L1 = 2.5; %sparseness strength
@@ -504,23 +512,6 @@ for cc = targs
             rectGQM_xvLL = NMMeval_model(rectGQM_spkNL, cur_Robs, Xmat,[],cur_xv_inds);
             rectGQM.xvLLimp = (rectGQM_xvLL-nullxvLL)/log(2);
         end
-        %% Fit uncorrected model
-        if fit_unCor
-            bestGQM_unCor = bestGQM;
-            bestGQM_unCor = NMMfit_filters(bestGQM_unCor,cur_Robs,Xmat_unCor,[],cur_tr_inds);
-            cur_mod_spkNL = NMMfit_logexp_spkNL(bestGQM_unCor,cur_Robs,Xmat_unCor,[],cur_tr_inds);
-            cur_xvLL = NMMeval_model(cur_mod_spkNL,cur_Robs,Xmat_unCor,[],cur_xv_inds);
-            bestGQM_unCor.xvLLimp = (cur_xvLL - nullxvLL)/log(2);
-            
-            if fit_rect
-                rectGQM_unCor = rectGQM;
-                rectGQM_unCor = NMMfit_filters(rectGQM_unCor,cur_Robs,Xmat_unCor,[],cur_tr_inds);
-                cur_mod_spkNL = NMMfit_logexp_spkNL(rectGQM_unCor,cur_Robs,Xmat_unCor,[],cur_tr_inds);
-                cur_xvLL = NMMeval_model(cur_mod_spkNL,cur_Robs,Xmat_unCor,[],cur_xv_inds);
-                rectGQM_unCor.xvLLimp = (cur_xvLL - nullxvLL)/log(2);
-            end
-        end
-        
         %% try different smoothness reg strengths
         if ~isempty(poss_smoothreg_scalefacs)
             base_mod = bestGQM;
@@ -543,7 +534,7 @@ for cc = targs
             if best_xvLL > bestGQM_xvLL
                 bestGQM = all_reg_mods(best_reg_ind);
             else
-                best_reg_scale = 1; %if the original model (at scale == 1) was a better fit, keep it 
+                best_reg_scale = 1; %if the original model (at scale == 1) was a better fit, keep it
             end
         else
             all_reg_mods = [];
@@ -560,14 +551,6 @@ for cc = targs
             bestGQM.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
             bestGQM.LLimp = (bestGQM_LL - nullLL)/log(2);
             
-            if fit_unCor
-                bestGQM_unCor = NMMfit_filters(bestGQM_unCor,cur_Robs,Xmat_unCor,[],cur_full_inds);
-                bestGQM_unCor_spkNL = NMMfit_logexp_spkNL(bestGQM_unCor,cur_Robs,Xmat_unCor,[],cur_full_inds);
-                [~,~,~,~,~,fgint] = NMMeval_model(bestGQM_unCor,cur_Robs,Xmat_unCor,[],cur_full_inds);
-                rel_filt_weights = std(fgint(:,stim_filt_set));
-                bestGQM_unCor.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
-                bestGQM_unCor.LLimp = (bestGQM_unCor_spkNL.LL_seq(end)-nullLL)/log(2);
-            end
             if fit_rect
                 rectGQM = NMMfit_filters(rectGQM,cur_Robs,Xmat,[],cur_full_inds,silent);
                 [~,~,~,~,~,fgint] = NMMeval_model(rectGQM,cur_Robs,Xmat,[],cur_full_inds);
@@ -577,14 +560,6 @@ for cc = targs
                 rectGQM_spkNL = NMMfit_logexp_spkNL(rectGQM,cur_Robs,Xmat,[],cur_full_inds);
                 rectGQM.LLimp = (rectGQM_spkNL.LL_seq(end)-nullLL)/log(2);
                 
-                if fit_unCor
-                    rectGQM_unCor = NMMfit_filters(rectGQM_unCor,cur_Robs,Xmat_unCor,[],cur_full_inds);
-                    [~,~,~,~,~,fgint] = NMMeval_model(rectGQM_unCor,cur_Robs,Xmat_unCor,[],cur_full_inds);
-                    rel_filt_weights = std(fgint);
-                    rectGQM_unCor.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
-                    rectGQM_unCor_spkNL = NMMfit_logexp_spkNL(rectGQM_unCor,cur_Robs,Xmat_unCor,[],cur_full_inds);
-                    rectGQM_unCor.LLimp = (rectGQM_unCor_spkNL.LL_seq(end)-nullLL)/log(2);
-                end
             end
         end
         
@@ -600,18 +575,13 @@ for cc = targs
         
         ModData(cc).unit_data = unit_data;
         ModData(cc).bestGQM = bestGQM_spkNL;
+        ModData(cc).nullMod = nullMod;
         ModData(cc).all_reg_mods = all_reg_mods;
         ModData(cc).reg_val_xvLL = reg_val_xvLL;
         ModData(cc).best_reg_scale = best_reg_scale;
         ModData(cc).poss_smoothreg_scalefacs = poss_smoothreg_scalefacs;
-        if fit_unCor
-            ModData(cc).bestGQM_unCor = bestGQM_unCor_spkNL;
-        end
         if fit_rect
             ModData(cc).rectGQM = rectGQM_spkNL;
-            if fit_unCor
-                ModData(cc).rectGQM_unCor = rectGQM_unCor_spkNL;
-            end
         end
         %% CALCULATE TUNING PROPERTIES
         clear tune_props
@@ -665,61 +635,10 @@ for cc = targs
         tune_props.screen_X = screen_X;
         tune_props.screen_Y = screen_Y;
         tune_props.RF_ecc = sqrt(screen_X.^2 + screen_Y.^2);
+        tune_props.filt_out_weights = filt_out_weights;
         
         ModData(cc).tune_props = tune_props;
         
-        %% CALCULATE UNCORRECTED TUNING PROPERTIES
-        clear tune_props_unCor
-        if fit_unCor
-            if fit_rect
-                use_mod = ModData(cc).rectGQM_unCor;
-            else
-                use_mod = ModData(cc).bestGQM_unCor;
-            end
-            stim_filters = [use_mod.mods(stim_filt_set).filtK];
-            stim_mod_signs = [use_mod.mods(stim_filt_set).sign];
-            filt_data = get_filter_properties_v2(stim_filters,mod_stim_params(1),sp_dx);
-            tune_props_unCor.filt_data = filt_data;
-            
-            [~,~,best_pred_rate,~,~,filt_outs] = NMMeval_model(use_mod,cur_Robs,Xmat_unCor,[],cur_full_inds);
-            [~,~,rev_pred_rate] = NMMeval_model(use_mod,cur_Robs,-Xmat_unCor,[],cur_full_inds);
-            tune_props_unCor.PRM = mean(abs(best_pred_rate - rev_pred_rate))/mean(best_pred_rate);
-            
-            %only use E/lin filters for these calculations
-            non_supp_filts = find(stim_mod_signs(stim_filt_set) ~= -1);
-            filt_out_weights = std(filt_outs(:,stim_filt_set));
-            filt_out_weights = filt_out_weights(non_supp_filts)/nansum(filt_out_weights(non_supp_filts));
-            
-            tune_props_unCor.RF_mean = filt_out_weights(non_supp_filts)*filt_data.gest(non_supp_filts,1) - use_nPix_us*sp_dx/2 -sp_dx;
-            tune_props_unCor.RF_sigma = filt_out_weights(non_supp_filts)*filt_data.gest(non_supp_filts,2);
-            tune_props_unCor.RF_gSF = filt_out_weights(non_supp_filts)*filt_data.gest(non_supp_filts,3);
-            tune_props_unCor.RF_dirsel = filt_out_weights(non_supp_filts)*filt_data.dir_selectivity(non_supp_filts);
-            tune_props_unCor.RF_FTF = filt_out_weights(non_supp_filts)*filt_data.FFt(non_supp_filts);
-            tune_props_unCor.RF_FSF = filt_out_weights(non_supp_filts)*filt_data.FFx(non_supp_filts);
-            
-            rect_stim_filters = [use_mod.mods(stim_filt_set([1 end])).filtK];
-            avg_rect_filts = mean(rect_stim_filters);
-            absavg_rect_filts = mean(abs(rect_stim_filters(:)));
-            tune_props_unCor.net_phase_polarity = (avg_rect_filts(1) - avg_rect_filts(end))/absavg_rect_filts;
-            
-            screen_X =  -tune_props_unCor.RF_mean'.*sind(bar_ori) + ov_RF_pos(1);
-            screen_Y =  tune_props_unCor.RF_mean'.*cosd(bar_ori) + ov_RF_pos(2);
-            if strcmp(rec_type,'UA')
-                if bar_ori == 0
-                    screen_X = interp_x(unit_data.probe_number);
-                elseif bar_ori == 90
-                    screen_Y = interp_y(unit_data.probe_number);
-                else
-                    error('Code doesnt work with this condition!');
-                end
-            end
-            
-            tune_props_unCor.screen_X = screen_X;
-            tune_props_unCor.screen_Y = screen_Y;
-            tune_props_unCor.RF_ecc = sqrt(screen_X.^2 + screen_Y.^2);
-            
-            ModData(cc).tune_props_unCor = tune_props_unCor;
-        end
     end
 end
 

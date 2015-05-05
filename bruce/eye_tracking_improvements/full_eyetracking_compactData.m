@@ -5,11 +5,11 @@ addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type
 
-Expt_name = 'M011';
+Expt_name = 'M012';
 monk_name = 'jbe';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 1;
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 2;
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -77,6 +77,8 @@ if strcmp(rec_type,'LP')
             cor_ori = 160;
         case 12
             cor_ori = 0;
+        case 13
+            cor_ori = 100;
     end
 else
     cor_ori = [0 90];
@@ -155,10 +157,16 @@ flen = 12;
 %for manually specifying number of used pixs
 if ismember(Expt_num,[287 289 294])
     use_nPix = 15;
-elseif ismember(Expt_num,[296 297 9 10 11 12])
+elseif ismember(Expt_num,[296 297 9 10 11 13])
     use_nPix = 22;
 elseif ismember(Expt_num,[5 309])
     use_nPix = 26;
+elseif Expt_num == 12
+    if rec_number == 1
+        use_nPix = 22;
+    elseif rec_number == 2
+        use_nPix = 28;
+    end
 end
 
 %for bar widths bigger than 0.08 degrees use a higher spatial up-sampling

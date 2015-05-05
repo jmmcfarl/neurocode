@@ -2,11 +2,11 @@ clear all
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type
 
-Expt_name = 'M289';
-monk_name = 'lem';
+Expt_name = 'M012';
+monk_name = 'jbe';
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 1;
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 2;
 
 
 Expt_num = str2num(Expt_name(2:end));
@@ -29,6 +29,9 @@ elseif strcmp(Expts{1}.Header.DataType,'Spike2')
 end
 
 data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
+if rec_number > 1
+    data_name = strcat(data_name,sprintf('_r%d',rec_number));
+end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
@@ -72,6 +75,8 @@ if strcmp(rec_type,'LP')
             cor_ori = 160;
         case 12
             cor_ori = 0;
+        case 13
+            cor_ori = 100;
     end
 else
     cor_ori = [0 90];
@@ -131,6 +136,13 @@ old_anal_name = [old_anal_name sprintf('_ori%d',bar_ori)];
 hr_anal_name = [hr_anal_name sprintf('_ori%d',bar_ori)];
 hr_mod_name = [hr_mod_name sprintf('_ori%d',bar_ori)];
 
+if rec_number > 1
+    mod_data_name = strcat(mod_data_name,sprintf('r%d',rec_number));
+    old_anal_name = strcat(old_anal_name,sprintf('r%d',rec_number));
+    hr_anal_name = strcat(hr_anal_name,sprintf('r%d',rec_number));
+    hr_mod_name = strcat(hr_mod_name,sprintf('r%d',rec_number));
+end
+
 load([anal_dir '/' old_anal_name],'et_params');
 %%
 % if strcmp(rec_type,'LP')
@@ -149,26 +161,6 @@ else
     xv_type = 'uni';
     xv_frac = 0.2;
 end
-
-% flen = 12;
-% old_spatial_usfac = 2;
-
-% %these recs have larger bar widths
-% if ismember(Expt_num,[287 289 294])
-%     use_nPix = 15;
-% elseif ismember(Expt_num,[296 297 300])
-%     use_nPix = 22;
-% elseif Expt_num == 309
-%     use_npix = 26;
-% end
-
-% %for bar widths bigger than 0.08 degrees use a higher spatial up-sampling
-% %factor
-% if mode(expt_data.expt_dw)/params.scale_fac > 0.08
-%     old_spatial_usfac = 4;
-% else
-%     old_spatial_usfac = 2;
-% end
 
 old_spatial_usfac = et_params.spatial_usfac;
 spatial_usfac = old_spatial_usfac*2;
@@ -197,26 +189,6 @@ dt = 0.01;
 Fr = 1;
 
 full_nPix = params.full_nPix;
-% full_nPix=36;
-% switch Expt_num
-%     case 270
-%         full_nPix=32;
-%     case  287
-%         full_nPix = 22;
-%     case 289
-%         full_nPix = 22;
-%     case 294
-%         full_nPix = 20;
-% end
-% 
-% if full_nPix ~= params.full_nPix
-%     fprintf('Using full_nPix in params struct\n');
-%     full_nPix = params.full_nPix;
-% end
-% if use_nPix > full_nPix
-%     fprintf('Using npix == full_nPix\n');
-%     use_nPix = full_nPix;
-% end
 
 %exclude data at beginning and end of each trial
 trial_dur = 4;
@@ -1064,61 +1036,61 @@ cd(anal_dir);
 save(hr_anal_name,'best_fix_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set','et_clust_data','et_saccades','et_is_blink','et_params');
 
 %%
-fin_fix_corr = nan(NT,1);
-fin_fix_std = nan(NT,1);
-fin_fix_corr(~isnan(fix_ids)) = best_fix_cor(end,fix_ids(~isnan(fix_ids)));
-fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
-fin_fix_std(~isnan(fix_ids)) = best_fix_std(end,fix_ids(~isnan(fix_ids)));
-fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
-
-fin_fix_corr = fin_fix_corr*sp_dx;
-fin_fix_std = fin_fix_std*sp_dx;
-
-fin_drift_corr = drift_post_mean(end,:)*sp_dx;
-fin_drift_std = drift_post_std(end,:)*sp_dx;
-
-for ii = 1:length(trial_start_inds)
-    cur_inds = trial_start_inds(ii):trial_end_inds(ii);
-    fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
-    fin_drift_std(cur_inds(1:end-sac_shift)) = fin_drift_std(cur_inds(sac_shift+1:end));
-end
-fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
-fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
-
-
-fin_tot_corr = fin_fix_corr + fin_drift_corr;
-fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
-
-%%
-close all
-n_trials = length(unique(all_trialvec));
-for tt = 1:n_trials
-    % for tt = [96 137 154 179 376 409]
-    uu = find(all_trialvec(used_inds) == tt);
-    if ~isempty(uu)
-        bt = all_t_axis(used_inds(uu(1)));
-        et = all_t_axis(used_inds(uu(end)));
-        dur = et-bt;
-        if dur > 3.5
-            hold on
-%             h1=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_fix_corr(uu),fin_fix_std(uu),{'color','m'});
-            h2=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_tot_corr(uu),fin_tot_std(uu),{'color','k'});
-            h3=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),2),'r','linewidth',2);
-            h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
-            %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
-            %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
-
-            %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
-            xlim([0 dur]);
-            ylim([-0.5 0.5]);
-            xlabel('Time (s)','fontsize',10);
-            ylabel('Orthoganol position (deg)','fontsize',10);
-            title(sprintf('Trial %d',tt));
-            set(gca,'fontsize',8,'fontname','arial');
-            fillPage(gcf,'papersize',[8 5]);
-            pause
-            clf
-        end
-    end
-end
-
+% fin_fix_corr = nan(NT,1);
+% fin_fix_std = nan(NT,1);
+% fin_fix_corr(~isnan(fix_ids)) = best_fix_cor(end,fix_ids(~isnan(fix_ids)));
+% fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
+% fin_fix_std(~isnan(fix_ids)) = best_fix_std(end,fix_ids(~isnan(fix_ids)));
+% fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
+% 
+% fin_fix_corr = fin_fix_corr*sp_dx;
+% fin_fix_std = fin_fix_std*sp_dx;
+% 
+% fin_drift_corr = drift_post_mean(end,:)*sp_dx;
+% fin_drift_std = drift_post_std(end,:)*sp_dx;
+% 
+% for ii = 1:length(trial_start_inds)
+%     cur_inds = trial_start_inds(ii):trial_end_inds(ii);
+%     fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
+%     fin_drift_std(cur_inds(1:end-sac_shift)) = fin_drift_std(cur_inds(sac_shift+1:end));
+% end
+% fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
+% fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
+% 
+% 
+% fin_tot_corr = fin_fix_corr + fin_drift_corr;
+% fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
+% 
+% %%
+% close all
+% n_trials = length(unique(all_trialvec));
+% for tt = 1:n_trials
+%     % for tt = [96 137 154 179 376 409]
+%     uu = find(all_trialvec(used_inds) == tt);
+%     if ~isempty(uu)
+%         bt = all_t_axis(used_inds(uu(1)));
+%         et = all_t_axis(used_inds(uu(end)));
+%         dur = et-bt;
+%         if dur > 3.5
+%             hold on
+% %             h1=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_fix_corr(uu),fin_fix_std(uu),{'color','m'});
+%             h2=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_tot_corr(uu),fin_tot_std(uu),{'color','k'});
+%             h3=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),2),'r','linewidth',2);
+%             h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
+%             %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
+%             %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
+% 
+%             %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
+%             xlim([0 dur]);
+%             ylim([-0.5 0.5]);
+%             xlabel('Time (s)','fontsize',10);
+%             ylabel('Orthoganol position (deg)','fontsize',10);
+%             title(sprintf('Trial %d',tt));
+%             set(gca,'fontsize',8,'fontname','arial');
+%             fillPage(gcf,'papersize',[8 5]);
+%             pause
+%             clf
+%         end
+%     end
+% end
+% 
