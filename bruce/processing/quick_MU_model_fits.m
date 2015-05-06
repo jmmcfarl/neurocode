@@ -2,7 +2,7 @@ clear all
 close all
 
 monName = 'jbe';
-Expt_name = 'M013';
+Expt_name = 'M014';
 data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 % data_dir = ['~/Data/bruce/' Expt_name];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
@@ -334,7 +334,7 @@ if use_SUs
             gqm1 = NMMinitialize_model(init_stim_params,mod_signs,NL_types,init_reg_params);
             gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],uinds,silent,init_optim_p);
             
-            sh[LL, penLL, pred_rate, G, gint] = NMMmodel_eval(gqm1,Robs,tr_X);
+            [LL, penLL, pred_rate, G, gint] = NMMmodel_eval(gqm1,Robs,tr_X);
             gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_d2XT',base_lambda_d2XT./var(gint)');
             gqm1 = NMMadjust_regularization(gqm1,find(init_Xtargs==1),'lambda_L1',base_lambda_L1./std(gint)');
             gqm1 = NMMfit_filters(gqm1,Robs,tr_X,[],uinds,silent);

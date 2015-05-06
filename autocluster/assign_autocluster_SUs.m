@@ -3,7 +3,7 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M013';
+Expt_name = 'M014';
 monk_name = 'jbe';
 rec_type = 'LP';
 
@@ -221,7 +221,7 @@ end
 % caxis([2 ca(2)]);
 
 %% CHECK SPIKE CORRELATIONS
-block_num = 15;
+block_num = 40;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
 if strcmp(rec_type,'UA')
@@ -289,8 +289,8 @@ colorbar;
 
 clear binned_spikes
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-block_num = 31;
-pair = [17 20];
+block_num = 30;
+pair = [6 7];
 spk_pts = [-12:27];
 
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
@@ -399,6 +399,8 @@ switch Expt_name
         end
     case 'M013'
         init_use_SUs = [7 10 25];
+    case 'M014'
+        init_use_SUs = [7 16 21 22 24];
         
         
     case 'G029'
@@ -595,6 +597,12 @@ switch Expt_name
         SU_ID_mat([1:6 26:30],7) = nan;
         SU_ID_mat([1:15 17:21],10) = nan;
         SU_ID_mat([1:14 27 29],25) = nan;
+        
+    case 'M014'
+        SU_ID_mat([13 14 16 33],7) = nan;
+        SU_ID_mat([22 28],21) = nan;
+        SU_ID_mat([12],22) = nan;
+        SU_ID_mat([16],24) = nan;
 end
 
 % figure;
@@ -876,6 +884,7 @@ for cc = 1:length(final_SU_set);
     
     full_wvfrm_fig = figure('visible','off');
     for bb = 1:length(target_blocks)
+        if ismember(target_blocks(bb),blocks_with_clusters)
         cur_probe = find(SU_ID_mat(target_blocks(bb),:) == final_SU_set(cc));
         if ~isempty(cur_probe)
             cur_cnum = su_cnums(cur_probe);
@@ -892,6 +901,7 @@ for cc = 1:length(final_SU_set);
             title(sprintf('Block %d',target_blocks(bb)));
             axis off
             axis tight
+        end
         end
     end
     

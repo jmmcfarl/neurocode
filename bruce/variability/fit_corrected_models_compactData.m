@@ -1,15 +1,15 @@
-clear all
-close all
+% clear all
+% close all
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M012';
-monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA recs)
-rec_number = 2;
+% Expt_name = 'M012';
+% monk_name = 'jbe';
+% bar_ori = 0; %bar orientation to use (only for UA recs)
+% rec_number = 2;
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
-fit_unCor = false; %use eye correction
+fit_unCor = true; %use eye correction
 use_MUA = false; %use MUA in model-fitting
 fit_rect = false; %split quad linear filter into two rectified
 

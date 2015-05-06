@@ -3,7 +3,7 @@ close all
 
 addpath(genpath('~/Bruce_matlab'));
 
-Expt_name = 'M013';
+Expt_name = 'M014';
 monName = 'jbe';
 data_dir = '/media/NTlab_data3/Data/bruce/';
 stim_dir = strcat(data_dir,Expt_name,'/stims');

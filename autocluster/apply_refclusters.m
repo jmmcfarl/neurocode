@@ -3,7 +3,7 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir spkdata_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M013';
+Expt_name = 'M014';
 monk_name = 'jbe';
 rec_type = 'LP';
 

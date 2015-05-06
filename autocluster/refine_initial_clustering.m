@@ -1,8 +1,8 @@
 
 %% RETRIGGERING
-block_num = 24;
-probe_num = 18;
-trig_rate = 150;
+block_num = 40;
+probe_num = 24;
+trig_rate = 300;
 trig_sign = -1;
 reapply = 0;
 clear add_params

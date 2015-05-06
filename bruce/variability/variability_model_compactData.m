@@ -1,15 +1,16 @@
-% clear all
-% close all
+clear all
+close all
 
 global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'M012';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-% rec_number = 1;
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
 use_MUA = false;
 fit_unCor = false;
+use_sacMods = false;
 
 data_dir = ['~/Data/bruce/' Expt_name];
 if ~exist(data_dir,'dir')
@@ -63,6 +64,12 @@ if rec_number > 1
 end
 
 mod_name = 'corrected_models_comp';
+sacMod_name = 'msac_models_compData';
+if fit_unCor
+    mod_name = strcat(mod_name,'_unCor');
+    sacMod_name = strcat(sacMod_name,'_unCor');
+end
+
 
 %if using coil info
 if any(params.use_coils > 0)
@@ -72,15 +79,19 @@ end
 et_mod_data_name = [et_mod_data_name sprintf('_ori%d',bar_ori)];
 et_anal_name = [et_anal_name sprintf('_ori%d',bar_ori)];
 mod_name = [mod_name sprintf('_ori%d',bar_ori)];
+sacMod_name = [sacMod_name sprintf('_ori%d',bar_ori)];
 
 if rec_number > 1
     mod_name = strcat(mod_name,sprintf('_r%d',rec_number));
+    sacMod_name = strcat(sacMod_name,sprintf('_r%d',rec_number));
     et_mod_data_name = strcat(et_mod_data_name,sprintf('r%d',rec_number));
     et_anal_name = strcat(et_anal_name,sprintf('r%d',rec_number));
 end
 
 load([model_dir '/' mod_name]);
-
+if use_sacMods
+    load([model_dir '/' sacMod_name]);
+end
 %% LOAD EYE-TRACKING DATA
 cd(et_dir)
 load(et_mod_data_name,'all_mod*');
@@ -99,6 +110,7 @@ if length(ET_data.saccades) ~= length(et_saccades)
         error('Fewer saccades than in ETdata');
     end
 end
+
 %%
 if ~isnan(params.rpt_seeds)
     xv_type = 'rpt';
@@ -188,14 +200,54 @@ interp_sac_stop_inds = round(interp1(all_t_axis,1:length(all_t_axis),sac_stop_ti
 
 saccade_start_inds = find(ismember(used_inds,interp_sac_start_inds));
 used_saccade_set = find(ismember(interp_sac_start_inds,used_inds));
+saccades = ET_data.saccades(used_saccade_set);
 %nearest index in the used data set of the saccade stop time
 saccade_stop_inds = round(interp1(used_inds,1:length(used_inds),interp_sac_stop_inds(used_saccade_set)))';
 
 saccade_stop_inds(isnan(saccade_stop_inds)) = length(used_inds);
+saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 used_is_blink = ET_data.is_blink(used_saccade_set);
 
-saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
+if use_sacMods
+sac_amps = [saccades(:).amplitude];
+sac_direction = [saccades(:).direction];
+sac_durs = [saccades(:).duration];
+sac_prepos = reshape([saccades(:).pre_pos],[],length(saccades));
+sac_postpos = reshape([saccades(:).post_pos],[],length(saccades));
+sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
 
+sacburst_set = find([saccades(:).isi] < sacParams.sac_burst_isi | [saccades(:).next_isi] < sacParams.sac_burst_isi);
+micro_sacs = find([saccades(:).amplitude] < sacParams.micro_thresh & ~used_is_blink');
+
+msac_bursts = micro_sacs(ismember(micro_sacs,sacburst_set));
+if ~sacParams.include_bursts
+    micro_sacs(ismember(micro_sacs,sacburst_set)) = []; %eliminate microsacs that are part of a 'burst'
+end
+
+%guided saccades are those whose parallel component is large enough and
+%that aren't blinks (and whose duration is not too long to be suspicious
+big_sacs = find(abs(sac_deltaX) > sacParams.gsac_thresh & ~used_is_blink' & sac_durs <= sacParams.max_gsac_dur);
+
+
+%% MAKE TIME-EMBEDDED SAC PREDICTOR MATS
+slags = sacParams.slags;
+n_sac_bins = length(slags);
+Xsac = zeros(NT,length(slags));
+Xmsac = zeros(NT,length(slags));
+for ii = 1:n_sac_bins
+    cur_sac_target = saccade_start_inds(big_sacs) + slags(ii);
+    uu = find(cur_sac_target > 1 & cur_sac_target < NT);
+    cur_sac_target = cur_sac_target(uu);
+    cur_sac_target(all_trialvec(used_inds(cur_sac_target)) ~= saccade_trial_inds(big_sacs(uu))) = [];
+    Xsac(cur_sac_target,ii) = 1;
+    
+    cur_sac_target = saccade_start_inds(micro_sacs) + slags(ii);
+    uu = find(cur_sac_target > 1 & cur_sac_target < NT);
+    cur_sac_target = cur_sac_target(uu);
+    cur_sac_target(all_trialvec(used_inds(cur_sac_target)) ~= saccade_trial_inds(micro_sacs(uu))) = [];
+    Xmsac(cur_sac_target,ii) = 1;
+end
+end
 %% DEFINE FIXATIONS
 trial_start_inds = [1; find(diff(all_trialvec(used_inds)) ~= 0) + 1];
 trial_end_inds = [find(diff(all_trialvec(used_inds)) ~= 0); NT];
@@ -294,23 +346,6 @@ for ii = 1:(blink_buff+1)
 end
 in_blink_inds = logical(in_blink_inds);
 
-%% absorb block filter into spkNL offset parameter
-for cc = targs
-    if ~isempty(ModData(cc).bestGQM)
-        cur_mod = ModData(cc).bestGQM;
-        %absorb block-by-block offsets into overall spkNL offset param
-        cur_block_filt = cur_mod.mods(1).filtK;
-        cur_used_blocks = ModData(cc).unit_data.used_blocks;
-        poss_used_blocks = ModData(cc).unit_data.poss_used_blocks;
-        cur_used_blocks = find(ismember(cur_used_blocks,poss_used_blocks));
-        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks));
-        cur_mod.mods(1) = [];
-        GQM_mod{cc} = cur_mod;
-    else
-        GQM_mod{cc} = [];
-    end
-end
-
 %% get set of trials used for calcs, and construct TBT matrices
 use_trials = unique(all_trialvec(used_inds)); %set of potentially usable trials
 use_trials(ismember(use_trials,rpt_trials)) = []; %dont use repeat trials
@@ -331,6 +366,56 @@ EP_tbt = reshape(base_EP_est,target_uf,n_utrials);
 %TBT mats for sac and blink indicators
 inblink_tbt = reshape(in_blink_inds(full_uinds),target_uf,n_utrials);
 insac_tbt = reshape(in_sac_inds(full_uinds),target_uf,n_utrials);
+
+if use_sacMods
+Xmsac = Xmsac(full_uinds,:);
+Xmsac_tbt = reshape(Xmsac,target_uf,n_utrials,length(slags));
+end
+%% absorb block filter into spkNL offset parameter
+    
+%COMPUTE XMAT
+cur_shift_stimmat_up = all_stimmat_up;
+for i=1:length(full_uinds)
+    cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor(i),2);
+end
+all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_full);
+all_Xmat_shift = all_Xmat_shift(used_inds(full_uinds),use_kInds_up);
+
+
+for cc = targs
+    fprintf('Refitting spk NLs for model %d/%d\n',cc,max(targs));
+    cur_Robs = Robs_mat(full_uinds,cc);
+    uinds = find(~isnan(cur_Robs));
+    if ~isempty(ModData(cc).bestGQM)
+        cur_mod = ModData(cc).bestGQM;
+        cur_mod.mods(1) = []; %eliminate block filter
+        cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs,all_Xmat_shift,[],uinds); %refit spk NL
+        
+%         %absorb block-by-block offsets into overall spkNL offset param
+%         cur_block_filt = cur_mod.mods(1).filtK;
+%         cur_used_blocks = ModData(cc).unit_data.used_blocks;
+%         poss_used_blocks = ModData(cc).unit_data.poss_used_blocks;
+%         cur_used_blocks = find(ismember(cur_used_blocks,poss_used_blocks));
+%         cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks));
+%         cur_mod.mods(1) = [];
+        GQM_mod{cc} = cur_mod;
+        
+        if use_sacMods
+        %refit spk NL for saccade model
+        [~,~,~,~,~,fgint] = NMMmodel_eval(cur_mod,[],all_Xmat_shift);
+        stimG = sum(fgint,2);
+        tr_stim{1} = stimG;
+        tr_stim{2} = Xmsac; %saccade timing indicator matrix
+        tr_stim{3} = reshape(bsxfun(@times,Xmsac,reshape(stimG,[],1)), size(stimG,1),[]);
+        cur_sac_mod = sacMod(cc).msac_post_mod;
+        cur_sac_mod = NMMfit_logexp_spkNL(cur_sac_mod,cur_Robs,tr_stim,[],uinds);
+        sac_mod{cc} = cur_sac_mod;
+        end
+    else
+        GQM_mod{cc} = [];
+        
+    end
+end
 
 %%
 % poss_SDs = [0:0.025:0.2 robust_std_dev(base_EP_est*sp_dx)];
@@ -355,6 +440,14 @@ binned_PSTH_vars = nan(length(targs),length(poss_ubins),length(poss_SDs));
 binned_tot_vars = nan(length(targs),length(poss_ubins),length(poss_SDs));
 binned_tot_avgs = nan(length(targs),length(poss_ubins),length(poss_SDs));
 simRpt_FF_ests = nan(length(targs),length(poss_ubins),length(poss_SDs));
+
+if use_sacMods
+Sep_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
+Sep_rates = nan(length(full_uinds),length(targs));
+Sep_rates2 = nan(length(full_uinds),length(targs));
+Strue_rate_cov = nan(length(targs),length(targs),length(tlags),length(poss_SDs));
+end
+
 for sd = 1:length(poss_SDs)
     fprintf('SD %d of %d\n',sd,length(poss_SDs));
     
@@ -378,12 +471,25 @@ for sd = 1:length(poss_SDs)
         cc = targs(ss);
         if isstruct(GQM_mod{cc})
             [~,~,ep_rates(:,ss)] = NMMmodel_eval(GQM_mod{cc},[],all_Xmat_shift);
+            
+            if use_sacMods
+            [~,~,~,~,~,fgint] = NMMmodel_eval(sacMod(cc).base_mod,[],all_Xmat_shift);
+            stimG = sum(fgint,2);
+            tr_stim{1} = stimG;
+            tr_stim{2} = Xmsac; %saccade timing indicator matrix
+            tr_stim{3} = reshape(bsxfun(@times,Xmsac,reshape(stimG,[],1)), size(stimG,1),[]);
+            [~,~,Sep_rates(:,ss)] = NMMmodel_eval(sac_mod{cc},[],tr_stim);
+            end
         end
     end
     ep_spks = poissrnd(ep_rates);
     cur_avg_rates = nanmean(ep_rates(uset1,:));
     ep_rates = bsxfun(@minus,ep_rates,cur_avg_rates);
-        
+    if use_sacMods
+    cur_Savg_rates = nanmean(Sep_rates(uset1,:));
+    Sep_rates = bsxfun(@minus,Sep_rates,cur_Savg_rates);
+    end
+    
     %sample again from the same ET distribution but randomly permute trial
     %assignments
     tperm = randperm(n_utrials);
@@ -395,6 +501,11 @@ for sd = 1:length(poss_SDs)
     cur_insac = insac_tbt(:,tperm);
     cur_insac = cur_insac(:);
     uset2 = ~cur_inblink;
+    
+    if use_sacMods
+        cur_Xmsac = Xmsac_tbt(:,tperm,:);
+    cur_Xmsac = reshape(cur_Xmsac,[],length(slags));
+    end
     
     fin_shift_cor2 = round(cur_EP2);
     fin_shift_cor2(fin_shift_cor2 > max_shift) = max_shift;
@@ -411,25 +522,48 @@ for sd = 1:length(poss_SDs)
         cc = targs(ss);
         if ~isempty(GQM_mod{cc})
             [~,~,ep_rates2(:,ss)] = NMMmodel_eval(GQM_mod{cc},[],all_Xmat_shift);
+            
+            if use_sacMods
+            [~,~,~,~,~,fgint] = NMMmodel_eval(sacMod(cc).base_mod,[],all_Xmat_shift);
+            stimG = sum(fgint,2);
+            tr_stim{1} = stimG;
+            tr_stim{2} = cur_Xmsac; %saccade timing indicator matrix
+            tr_stim{3} = reshape(bsxfun(@times,cur_Xmsac,reshape(stimG,[],1)), size(stimG,1),[]);
+            [~,~,Sep_rates2(:,ss)] = NMMmodel_eval(sac_mod{cc},[],tr_stim);
+            end
         end
     end
     ep_spks2 = poissrnd(ep_rates2);
     ep_rates2 = bsxfun(@minus,ep_rates2,nanmean(ep_rates2(uset2,:)));
-        
+    if use_sacMods
+    Sep_rates2 = bsxfun(@minus,Sep_rates2,nanmean(Sep_rates2(uset2,:)));
+    end
     %shiftify the second rate matrix
     mod_rates_shifted = nan(length(full_uinds),length(targs),length(tlags));
     for tt = 1:length(tlags)
         mod_rates_shifted(:,:,tt) = shift_matrix_Nd(ep_rates2,-tlags(tt),1);
+    end
+    if use_sacMods
+    Smod_rates_shifted = nan(length(full_uinds),length(targs),length(tlags));
+    for tt = 1:length(tlags)
+        Smod_rates_shifted(:,:,tt) = shift_matrix_Nd(Sep_rates2,-tlags(tt),1);
+    end
     end
     
     cur_uset = uset1 & uset2;
     %compute EP-contaminated covariances
     for ll = 1:length(tlags)
         ep_rate_cov(:,:,ll,sd) = squeeze(mod_rates_shifted(cur_uset,:,ll))'*ep_rates(cur_uset,:)/length(cur_uset);
-    end
+        if use_sacMods
+        Sep_rate_cov(:,:,ll,sd) = squeeze(Smod_rates_shifted(cur_uset,:,ll))'*Sep_rates(cur_uset,:)/length(cur_uset);
+        end
+   end
     %compute true covariances
     for ll = 1:length(tlags)
         true_rate_cov(:,:,ll,sd) = squeeze(mod_rates_shifted(cur_uset,:,ll))'*ep_rates2(cur_uset,:)/length(cur_uset);
+        if use_sacMods
+        Strue_rate_cov(:,:,ll,sd) = squeeze(Smod_rates_shifted(cur_uset,:,ll))'*Sep_rates2(cur_uset,:)/length(cur_uset);
+        end
    end
 %     
 %     cur_ep_rates = bsxfun(@plus,ep_rates,cur_avg_rates); %add back in avg rates
@@ -470,7 +604,7 @@ for sd = 1:length(poss_SDs)
         binned_PSTH_vars(:,pp,sd) = nanmean(new_ep_rates(new_include,:).*new_ep_rates2(new_include,:));
         binned_tot_vars(:,pp,sd) = nanvar(new_ep_rates(new_include,:));
 %         ep_FF_est(:,pp,sd) = (cur_rate_vars - cur_PSTH_vars + new_ep_avgrates)./new_ep_avgrates;
-        binned_tot_avgs(:,pp,sd) = nanmean(new_ep_rates(new_include,:));
+        binned_tot_avgs(:,pp,sd) = new_ep_avgrates;
         
         new_ep_spks = bsxfun(@minus,new_ep_spks,nanmean(new_ep_spks(new_include,:)));
         new_ep_spks2 = bsxfun(@minus,new_ep_spks2,nanmean(new_ep_spks2(new_include,:)));
@@ -542,6 +676,14 @@ ep_alpha_funs = nan(length(targs),length(poss_SDs));
 for ss = 1:length(targs)
     true_sig_vars(ss,:) = squeeze(true_rate_cov(ss,ss,max_tlag+1,:));
     ep_alpha_funs(ss,:) = squeeze(ep_rate_cov(ss,ss,max_tlag+1,:))./true_sig_vars(ss,:)';
+end
+if use_sacMods
+Strue_sig_vars = nan(length(targs),length(poss_SDs));
+Sep_alpha_funs = nan(length(targs),length(poss_SDs));
+for ss = 1:length(targs)
+    Strue_sig_vars(ss,:) = squeeze(Strue_rate_cov(ss,ss,max_tlag+1,:));
+    Sep_alpha_funs(ss,:) = squeeze(Sep_rate_cov(ss,ss,max_tlag+1,:))./Strue_sig_vars(ss,:)';
+end
 end
 
 uset = full_uinds(~in_blink_inds(full_uinds));
