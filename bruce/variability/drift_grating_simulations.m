@@ -292,29 +292,47 @@ end
 targs(targs > length(ModData)) = [];
 
 %% MARK INDICES DURING BLINKS AND SACCADES
-sac_buff = round(0.06/dt);
-sac_delay = round(0.04/dt);
+sac_buff = round(0.05/dt);
+sac_delay = round(0.03/dt);
 blink_buff = round(0.1/dt);
 
-in_sac_inds = zeros(NT,1);
-nblink_start_inds = saccade_start_inds(~used_is_blink);
-for ii = 1:(sac_buff+1)
-    cur_inds = nblink_start_inds + sac_delay + (ii-1);
-    uu = find(cur_inds <= NT);
-    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(nblink_start_inds(uu)))) = [];
-    in_sac_inds(cur_inds(uu)) = 1;
-end
-in_sac_inds = logical(in_sac_inds);
+% in_sac_inds = zeros(NT,1);
+% nblink_start_inds = saccade_start_inds(~used_is_blink);
+% for ii = 1:(sac_buff+1)
+%     cur_inds = nblink_start_inds + sac_delay + (ii-1);
+%     uu = find(cur_inds <= NT);
+%     uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(nblink_start_inds(uu)))) = [];
+%     in_sac_inds(cur_inds(uu)) = 1;
+% end
+% in_sac_inds = logical(in_sac_inds);
+% 
+% blink_start_inds = saccade_start_inds(used_is_blink);
+% in_blink_inds = zeros(NT,1);
+% for ii = 1:(blink_buff+1)
+%     cur_inds = blink_start_inds + sac_delay + (ii-1);
+%     uu = find(cur_inds <= NT);
+%     uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(blink_start_inds(uu)))) = [];
+%     in_blink_inds(cur_inds(uu)) = 1;
+% end
+% in_blink_inds = logical(in_blink_inds);
 
-blink_start_inds = saccade_start_inds(used_is_blink);
-in_blink_inds = zeros(NT,1);
-for ii = 1:(blink_buff+1)
-    cur_inds = blink_start_inds + sac_delay + (ii-1);
-    uu = find(cur_inds <= NT);
-    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(blink_start_inds(uu)))) = [];
-    in_blink_inds(cur_inds(uu)) = 1;
+in_sac_inds = false(NT,1);
+nblink_start_inds = saccade_start_inds(~used_is_blink);
+nblink_stop_inds = saccade_stop_inds(~used_is_blink);
+for ii = 1:length(nblink_start_inds)
+   cur_inds = (nblink_start_inds(ii):(nblink_stop_inds(ii) + sac_buff)) + sac_delay; 
+   cur_inds(cur_inds > NT) = [];
+   in_sac_inds(cur_inds) = true;
 end
-in_blink_inds = logical(in_blink_inds);
+
+in_blink_inds = false(NT,1);
+blink_start_inds = saccade_start_inds(used_is_blink);
+blink_stop_inds = saccade_stop_inds(used_is_blink);
+for ii = 1:length(blink_start_inds)
+   cur_inds = (blink_start_inds(ii):(blink_stop_inds(ii) + blink_buff)) + sac_delay; 
+   cur_inds(cur_inds > NT) = [];
+   in_blink_inds(cur_inds) = true;
+end
 
 %% absorb block filter into spkNL offset parameter
 for cc = targs
@@ -403,10 +421,9 @@ poss_grate_sf = [1 2 4];
 poss_grate_tf = [2 4 8];
 
 clear epscale*
-poss_EP_scales = 1;
-% for ep = 1:length(poss_EP_scales)
-EP_scale = 1;
-%     EP_scale = poss_EP_scales(ep)
+target_EP_SD = 0.1;
+EP_scale = target_EP_SD/robust_std_dev(EP_tbt(:));
+full_EP_orth = EP_scale*EP_tbt(:);
 
 xax = (1:nPix_us)*sp_dx;
 nf = 375;
@@ -424,7 +441,6 @@ for sf = 1:length(poss_grate_sf)
         base_dg = sin(2*pi*(gr_sf*XX + gr_tf*TT));
         base_dg_rev = sin(2*pi*(gr_sf*XX - gr_tf*TT));
         
-        full_EP_orth = EP_scale*EP_tbt(:);
         
         [XX,TT,RR] = meshgrid(xax,tax,1:n_utrials); 
         flip_trials = rand(n_utrials,1) > 0.5; %randomly set half of trials to have opposite grating direction
@@ -448,8 +464,9 @@ for sf = 1:length(poss_grate_sf)
             [~,~,cur_prate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat);
             gint(inblink_tbt(:),:) = nan;
             gint(insac_tbt(:),:) = nan;
-            contrast_scale = mean(test_gSD{cc})/mean(nanstd(gint)); %adjust the contrast of the grating to match the mean SD of filter outputs 
-            
+%             contrast_scale = mean(test_gSD{cc})/mean(nanstd(gint)); %adjust the contrast of the grating to match the mean SD of filter outputs 
+            contrast_scale = 1;
+
             [~,~,pred_rate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat*contrast_scale);
             rpt_prates(:,:,cc) = reshape(pred_rate,(nf),n_utrials);
             
@@ -473,10 +490,22 @@ for sf = 1:length(poss_grate_sf)
         rpt_prates(1:throwout_win,:,:) = [];
         rpt_prates_noSac(1:throwout_win,:,:) = [];
         
+        pref_revdir = nanmean(base_prates_R) > nanmean(base_prates); %these units prefer the opposite motion direction
+        dir_selectivity = abs(nanmean(base_prates_R) - nanmean(base_prates))./(nanmean(base_prates_R) + nanmean(base_prates));
+        base_prates(:,pref_revdir) = base_prates_R(:,pref_revdir);
+        
+        amp_spectra = fft(base_prates)/size(base_prates,1);
+        amp_spectra = abs(amp_spectra(1:size(base_prates,1)/2+1,:));
+        f = 1/dt/2*linspace(0,1,size(base_prates,1)/2+1);
+        first_harmonic = interp1(f,amp_spectra,gr_tf);
+        second_harmonic = interp1(f,amp_spectra,2*gr_tf);
+        F1F0 = 2*first_harmonic./amp_spectra(1,:);
+        F2F1 = second_harmonic./first_harmonic;
+ 
         %% compute across-trial stats at different time resolutions
         
-        [PSTH_vars,tot_vars,tot_means,FF_ests,PSTH_vars_R,tot_vars_R,tot_means_R,FF_ests_R] = deal(nan(length(poss_ubins),length(targs)));
-        [PSTH_vars_NS,tot_vars_NS,tot_means_NS,FF_ests_NS,PSTH_vars_NS_R,tot_vars_NS_R,tot_means_NS_R,FF_ests_NS_R] = deal(nan(length(poss_ubins),length(targs)));
+        [PSTH_vars,tot_vars,tot_means,FF_ests] = deal(nan(length(poss_ubins),length(targs)));
+        [PSTH_vars_NS,tot_vars_NS,tot_means_NS,FF_ests_NS] = deal(nan(length(poss_ubins),length(targs)));
         for pp = 1:length(poss_ubins)
             bin_usfac = poss_ubins(pp);
             n_newbins = floor((nf-throwout_win)/bin_usfac);
@@ -491,56 +520,50 @@ for sf = 1:length(poss_grate_sf)
             new_ep_rates = squeeze(nanmean(new_ep_rates,4))*bin_usfac;
             new_ep_rates_NS = squeeze(nanmean(new_ep_rates_NS,4))*bin_usfac;
             
-            at_avgs = squeeze(nanmean(new_ep_rates(:,flip_trials,:),2));
-            at_vars = squeeze(nanvar(new_ep_rates(:,flip_trials,:),[],2));
+            tot_vars(pp,:) = nanvar(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
+            tot_means(pp,:) = nanmean(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
+            tot_vars(pp,pref_revdir) = nanvar(reshape(new_ep_rates(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+            tot_means(pp,pref_revdir) = nanmean(reshape(new_ep_rates(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+            tot_vars_NS(pp,:) = nanvar(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
+            tot_means_NS(pp,:) = nanmean(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
+            tot_vars_NS(pp,pref_revdir) = nanvar(reshape(new_ep_rates_NS(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+            tot_means_NS(pp,pref_revdir) = nanmean(reshape(new_ep_rates_NS(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+
+            at_avgs = squeeze(nanmean(new_ep_rates(:,~flip_trials,:),2));
+            at_vars = squeeze(nanvar(new_ep_rates(:,~flip_trials,:),[],2));
+            at_avgs(:,pref_revdir) = squeeze(nanmean(new_ep_rates(:,flip_trials,pref_revdir),2));
+            at_vars(:,pref_revdir) = squeeze(nanvar(new_ep_rates(:,flip_trials,pref_revdir),[],2));
+
             PSTH_vars(pp,:) = nanvar(at_avgs);
-            tot_vars(pp,:) = nanvar(reshape(new_ep_rates(:,flip_trials,:),[],length(targs)));
-            tot_means(pp,:) = nanmean(reshape(new_ep_rates(:,flip_trials,:),[],length(targs)));
             FF_ests(pp,:) = nanmean((at_avgs + at_vars)./at_avgs);
             
-            at_avgs_R = squeeze(nanmean(new_ep_rates(:,~flip_trials,:),2));
-            at_vars_R = squeeze(nanvar(new_ep_rates(:,~flip_trials,:),[],2));
-            PSTH_vars_R(pp,:) = nanvar(at_avgs_R);
-            tot_vars_R(pp,:) = nanvar(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
-            tot_means_R(pp,:) = nanmean(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
-            FF_ests_R(pp,:) = nanmean((at_avgs_R + at_vars_R)./at_avgs_R);
-            
-            at_avgs_NS = squeeze(nanmean(new_ep_rates_NS(:,flip_trials,:),2));
-            at_vars_NS = squeeze(nanvar(new_ep_rates_NS(:,flip_trials,:),[],2));
+            at_avgs_NS = squeeze(nanmean(new_ep_rates_NS(:,~flip_trials,:),2));
+            at_vars_NS = squeeze(nanvar(new_ep_rates_NS(:,~flip_trials,:),[],2));
+            at_avgs_NS(:,pref_revdir) = squeeze(nanmean(new_ep_rates_NS(:,flip_trials,pref_revdir),2));
+            at_vars_NS(:,pref_revdir) = squeeze(nanvar(new_ep_rates_NS(:,flip_trials,pref_revdir),[],2));
+           
             PSTH_vars_NS(pp,:) = nanvar(at_avgs_NS);
-            tot_vars_NS(pp,:) = nanvar(reshape(new_ep_rates_NS(:,flip_trials,:),[],length(targs)));
-            tot_means_NS(pp,:) = nanmean(reshape(new_ep_rates_NS(:,flip_trials,:),[],length(targs)));
             FF_ests_NS(pp,:) = nanmean((at_avgs_NS + at_vars_NS)./at_avgs_NS);
-            
-            at_avgs_NS_R = squeeze(nanmean(new_ep_rates_NS(:,~flip_trials,:),2));
-            at_vars_NS_R = squeeze(nanvar(new_ep_rates_NS(:,~flip_trials,:),[],2));
-            PSTH_vars_NS_R(pp,:) = nanvar(at_avgs_NS_R);
-            tot_vars_NS_R(pp,:) = nanvar(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
-            tot_means_NS_R(pp,:) = nanmean(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
-            FF_ests_NS_R(pp,:) = nanmean((at_avgs_NS_R + at_vars_NS_R)./at_avgs_NS_R);
         end
         
         %%
         for cc = 1:length(targs)
             grate_Cdata(cc).PSTH_vars(sf,tf,:) = PSTH_vars(:,cc);
-            grate_Cdata(cc).PSTH_vars_R(sf,tf,:) = PSTH_vars_R(:,cc);
             grate_Cdata(cc).PSTH_vars_NS(sf,tf,:) = PSTH_vars_NS(:,cc);
-            grate_Cdata(cc).PSTH_vars_NS_R(sf,tf,:) = PSTH_vars_NS_R(:,cc);
             
             grate_Cdata(cc).tot_vars(sf,tf,:) = tot_vars(:,cc);
-            grate_Cdata(cc).tot_vars_R(sf,tf,:) = tot_vars_R(:,cc);
             grate_Cdata(cc).tot_vars_NS(sf,tf,:) = tot_vars_NS(:,cc);
-            grate_Cdata(cc).tot_vars_NS_R(sf,tf,:) = tot_vars_NS_R(:,cc);
             
             grate_Cdata(cc).tot_means(sf,tf,:) = tot_means(:,cc);
-            grate_Cdata(cc).tot_means_R(sf,tf,:) = tot_means_R(:,cc);
             grate_Cdata(cc).tot_means_NS(sf,tf,:) = tot_means_NS(:,cc);
-            grate_Cdata(cc).tot_means_NS_R(sf,tf,:) = tot_means_NS_R(:,cc);
             
             grate_Cdata(cc).FF_ests(sf,tf,:) = FF_ests(:,cc);
-            grate_Cdata(cc).FF_ests_R(sf,tf,:) = FF_ests_R(:,cc);
             grate_Cdata(cc).FF_ests_NS(sf,tf,:) = FF_ests_NS(:,cc);
-            grate_Cdata(cc).FF_ests_NS_R(sf,tf,:) = FF_ests_NS_R(:,cc);
+            
+            grate_Cdata(cc).F1F0(sf,tf) = F1F0(cc);
+            grate_Cdata(cc).F2F1(sf,tf) = F2F1(cc);
+            grate_Cdata(cc).pref_revdir(sf,tf) = pref_revdir(cc);
+            grate_Cdata(cc).dir_selectivity(sf,tf) = dir_selectivity(cc);
         end
         
     end

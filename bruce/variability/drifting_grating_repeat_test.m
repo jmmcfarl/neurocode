@@ -3,9 +3,10 @@ clear all
 
 global Expt_name monk_name bar_ori rec_type
 
-Expt_name = 'M009';
+Expt_name = 'M014';
 monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
+bar_ori = 40; %bar orientation to use (only for UA or single-ori-LP recs)
+rec_number = 1;
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -28,6 +29,14 @@ elseif strcmp(Expts{firste}.Header.DataType,'Spike2')
 end
 
 
+if strcmp(Expt_name,'M011')
+    rec_block_range =1:21; %M011
+elseif strcmp(Expt_name,'M012')
+    rec_block_range = 1:27;
+else
+    rec_block_range = nan;
+end
+
 %%
 if strcmp(rec_type,'LP')
     params.n_probes = 24;
@@ -44,6 +53,10 @@ end
 
 load([data_dir '/stims/expt_data.mat']); %load in stim-alignment meta-data
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
+if rec_number > 1
+    rec_block_range = setdiff(1:length(Expts),rec_block_range);
+    cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
+end
 
 %%
 min_trial_dur = 0.75;
@@ -155,7 +168,7 @@ else
 end
 [all_binned_mua,all_binned_sua,Clust_data,all_su_spk_times,~,all_mu_spk_times] = ...
     get_binned_spikes(cluster_dir,all_spk_times,all_clust_ids,all_spk_inds,...
-    all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params);
+    all_t_axis,all_t_bin_edges,all_bin_edge_pts,cur_block_set,all_blockvec,clust_params,rec_block_range);
 SU_probes = Clust_data.SU_probes;
 SU_numbers = Clust_data.SU_numbers;
 
@@ -256,17 +269,18 @@ interp_lfps = interp1(full_lfp_taxis,full_lfps,all_t_axis);
 trial_lfps = reshape(interp_lfps,nf/stim_fs/dt,[],params.n_probes);
 trial_lfps(isnan(trial_lfps)) = 0;
 %%
-% tf = 2;
-% trial_set = find(all_trial_tf == tf);
-% 
-% params.Fs = 1/dt;
-% params.tapers = [2 3];
-% params.trialave = 1;
-% 
-% clear S
-% for ii = 1:params.n_probes
-%    [S(ii,:),f] = mtspectrumc(squeeze(trial_lfps(:,trial_set,ii)),params); 
-% end
+addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
+tf = 4;
+trial_set = find(all_trial_tf == tf);
+
+params.Fs = 1/dt;
+params.tapers = [2 3];
+params.trialave = 1;
+
+clear S
+for ii = 1:params.n_probes
+   [S(ii,:),f] = mtspectrumc(squeeze(trial_lfps(:,trial_set,ii)),params); 
+end
 
 %%
 tf = 8;
@@ -309,7 +323,7 @@ chunks_per_trial = floor(nf/stim_fs/dt/frame_period)-1;
 pts_per_trial = chunks_per_trial*frame_period;
 avg_mua_fp = reshape(cur_avg_mua(frame_period + (1:pts_per_trial),:),frame_period,[]);
 
-use_lfp_ch = 5;
+use_lfp_ch = 15;
 avg_phase_signal = reshape(lfp_phase(frame_period + (1:pts_per_trial),:,use_lfp_ch),frame_period,[]);
 cent_pt = round(frame_period/2);
 central_phase = avg_phase_signal(cent_pt,:);
@@ -345,13 +359,12 @@ end
 
 % cur_avg_sua = sm_avg_sua(:,trial_set);
 cur_avg_sua = avg_sua(:,trial_set);
-
 frame_period = round(1/tf/dt);
 chunks_per_trial = floor(nf/stim_fs/dt/frame_period)-1;
 pts_per_trial = chunks_per_trial*frame_period;
 avg_sua_fp = reshape(cur_avg_sua(frame_period + (1:pts_per_trial),:),frame_period,[]);
 
-use_lfp_ch = 12;
+use_lfp_ch = 15;
 avg_phase_signal = reshape(lfp_phase(frame_period + (1:pts_per_trial),:,use_lfp_ch),frame_period,[]);
 cent_pt = round(frame_period/2);
 central_phase = avg_phase_signal(cent_pt,:);
@@ -359,6 +372,7 @@ central_phase = avg_phase_signal(cent_pt,:);
 
 hangle = angle(hilbert(avg_phase_signal));
 [~,central_phase_frames] = max(hangle);
+% [~,central_phase_frames] = max(avg_phase_signal);
 % binned_central_phase_frames = round(binned_central_phase/(2*pi)*frame_period);
 avg_phase_aligned = avg_phase_signal;
 avg_sua_aligned = avg_sua_fp;
@@ -369,23 +383,23 @@ end
 
 
 
-n_phase_bins = 20;
-bin_edges = round(linspace(1,size(avg_mua_fp,2),n_phase_bins+1));
-binned_avg_phase = nan(n_phase_bins,frame_period);
-binned_avg_sua = nan(n_phase_bins,frame_period);
-for ii = 1:n_phase_bins
-    cur_range = bin_edges(ii):bin_edges(ii+1);
-    binned_avg_phase(ii,:) = mean(avg_phase_signal(:,phase_sort(cur_range)),2);
-    binned_avg_sua(ii,:) = mean(avg_sua_fp(:,phase_sort(cur_range)),2);
-end
-
-hangle = angle(hilbert(binned_avg_phase'))';
-[~,binned_central_phase_frames] = max(hangle,[],2);
-% binned_central_phase_frames = round(binned_central_phase/(2*pi)*frame_period);
-binned_avg_phase_aligned = binned_avg_phase;
-binned_avg_sua_aligned = binned_avg_sua;
-for ii = 1:n_phase_bins
-    binned_avg_phase_aligned(ii,:) = circshift(binned_avg_phase(ii,:)',-binned_central_phase_frames(ii))';
-    binned_avg_sua_aligned(ii,:) = circshift(binned_avg_sua(ii,:)',-binned_central_phase_frames(ii))';
-end
-
+% n_phase_bins = 20;
+% bin_edges = round(linspace(1,size(avg_mua_fp,2),n_phase_bins+1));
+% binned_avg_phase = nan(n_phase_bins,frame_period);
+% binned_avg_sua = nan(n_phase_bins,frame_period);
+% for ii = 1:n_phase_bins
+%     cur_range = bin_edges(ii):bin_edges(ii+1);
+%     binned_avg_phase(ii,:) = mean(avg_phase_signal(:,phase_sort(cur_range)),2);
+%     binned_avg_sua(ii,:) = mean(avg_sua_fp(:,phase_sort(cur_range)),2);
+% end
+% 
+% hangle = angle(hilbert(binned_avg_phase'))';
+% [~,binned_central_phase_frames] = max(hangle,[],2);
+% % binned_central_phase_frames = round(binned_central_phase/(2*pi)*frame_period);
+% binned_avg_phase_aligned = binned_avg_phase;
+% binned_avg_sua_aligned = binned_avg_sua;
+% for ii = 1:n_phase_bins
+%     binned_avg_phase_aligned(ii,:) = circshift(binned_avg_phase(ii,:)',-binned_central_phase_frames(ii))';
+%     binned_avg_sua_aligned(ii,:) = circshift(binned_avg_sua(ii,:)',-binned_central_phase_frames(ii))';
+% end
+% 

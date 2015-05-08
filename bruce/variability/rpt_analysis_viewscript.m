@@ -7,16 +7,17 @@ expt_oris = [80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 160 nan; 40 nan; 
 expt_mname = repmat({'lem'},1,length(Expt_list));
 expt_rnum = ones(length(Expt_list),2);
 
-Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013'});
-expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan]);
-expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe'});
-expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1]);
+Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013','M014'});
+expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan; 40 nan]);
+expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe','jbe'});
+expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1; 1 1]);
 
 fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 
 %% load repeat trial data
 close all
-base_sname = 'rpt_variability_compact';
+% base_sname = 'rpt_variability_compact';
+base_sname = 'rpt_variability_compact_multDT';
 
 Ccnt = 1;
 Pcnt = 1;
@@ -38,48 +39,53 @@ for Elist_cnt = 1:length(Expt_list)
             end
             load(sname);
                                  
-            for cc = 1:length(EP_data)
-                if ~isnan(EP_data(cc).ov_avg_BS)
-                    fprintf('Cell %d/%d\n',cc,length(EP_data));
+            for cc = 1:size(EP_data,1)
+                if ~isnan(EP_data(cc,1).ov_avg_BS)
+                    fprintf('Cell %d/%d\n',cc,size(EP_data,1));
                     
-                    EP_data(cc).monkey = monk_name;
-                    EP_data(cc).Expt_num = str2num(Expt_name(2:end));
-                    EP_data(cc).bar_ori = bar_ori;
-                     EP_data(cc).rec_number = rec_number;
-                    EP_data(cc).cell_ID = Ccnt;
-                    all_Cdata = cat(1,all_Cdata,EP_data(cc));
+                    EP_data(cc,1).monkey = monk_name;
+                    EP_data(cc,1).Expt_num = str2num(Expt_name(2:end));
+                    EP_data(cc,1).bar_ori = bar_ori;
+                     EP_data(cc,1).rec_number = rec_number;
+                    EP_data(cc,1).cell_ID = Ccnt;
+                    all_Cdata = cat(1,all_Cdata,EP_data(cc,:));
                     Ccnt = Ccnt + 1;                    
                 end
             end
             
-            cur_ucells = find(~isnan([EP_data(:).ov_avg_BS]));
-            for cc = 1:length(EP_pairs)
-                if all(ismember(EP_pairs(cc).ids,cur_ucells))
+            cur_ucells = find(~isnan([EP_data(:,1).ov_avg_BS]));
+            for cc = 1:size(EP_pairs,1)
+                if all(ismember(EP_pairs(cc,1).ids,cur_ucells))
 %                     fprintf('Cell Pair %d/%d\n',cc,length(EP_pairs));
                     
-                    EP_pairs(cc).monkey = monk_name;
-                    EP_pairs(cc).Expt_num = str2num(Expt_name(2:end));
-                    EP_pairs(cc).bar_ori = bar_ori;
-                    EP_pairs(cc).rec_number = rec_number;
-                    EP_pairs(cc).cell_IDs = [EP_data([EP_pairs(cc).ids]).cell_ID];
-                    all_Pdata = cat(1,all_Pdata,EP_pairs(cc));
+                    EP_pairs(cc,1).monkey = monk_name;
+                    EP_pairs(cc,1).Expt_num = str2num(Expt_name(2:end));
+                    EP_pairs(cc,1).bar_ori = bar_ori;
+                    EP_pairs(cc,1).rec_number = rec_number;
+                    EP_pairs(cc,1).cell_IDs = [EP_data([EP_pairs(cc,1).ids]).cell_ID];
+                    all_Pdata = cat(1,all_Pdata,EP_pairs(cc,:));
                     Pcnt = Pcnt + 1;
                 end
             end
         end
     end
 end
+%%
 
 % FOR CELLS RECORDED MULTIPLE TIMES, PICK BEST INSTANCE
-SU_numbers = arrayfun(@(x) x.unit_data.SU_number,all_Cdata);
-Expt_numbers = [all_Cdata(:).Expt_num]';
-Rec_numbers = [all_Cdata(:).rec_number]';
+SU_numbers = arrayfun(@(x) x.unit_data.SU_number,all_Cdata(:,1));
+
+Expt_numbers = [all_Cdata(:,1).Expt_num]';
+Rec_numbers = [all_Cdata(:,1).rec_number]';
 to_eliminate = [];
-for ii = 1:length(all_Cdata)
+for ii = 1:size(all_Cdata,1)
     curset = find(SU_numbers == SU_numbers(ii) & Expt_numbers == Expt_numbers(ii) & Rec_numbers == Rec_numbers(ii));
     if length(curset) > 1
-        cur_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_Cdata(curset));
-        avg_rates = arrayfun(@(x) x.unit_data.avg_rate,all_Cdata(curset));
+        cur_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_Cdata(curset,1));
+        null_xvLLs = arrayfun(@(x) x.nullMod.xvLLimp,all_Cdata(curset,1));
+        cur_xvLLs = cur_xvLLs - null_xvLLs;
+        
+        avg_rates = arrayfun(@(x) x.unit_data.avg_rate,all_Cdata(curset,1));
         xvLL_rate = cur_xvLLs.*avg_rates;
         
 %         [~,best_ind] = max(avg_rates);
@@ -90,16 +96,16 @@ for ii = 1:length(all_Cdata)
 end
 
 to_eliminate = unique(to_eliminate);
-fprintf('Eliminating %d/%d duplicate SUs (multiple oris)\n',length(to_eliminate),length(all_Cdata));
-all_Cdata(to_eliminate) = [];
-pair_IDs = cat(1,all_Pdata.cell_IDs);
-all_Pdata(any(ismember(pair_IDs,to_eliminate),2)) = [];
+fprintf('Eliminating %d/%d duplicate SUs (multiple oris)\n',length(to_eliminate),size(all_Cdata,1));
+all_Cdata(to_eliminate,:) = [];
+pair_IDs = cat(1,all_Pdata(:,1).cell_IDs);
+all_Pdata(any(ismember(pair_IDs,to_eliminate),2),:) = [];
 
 % FOR SAME SUS RECORDED ON MULTIPLE SESSIONS WITH DIFFERENT ED
 dup_SUs = [12 1 5; 12 3 8]; %[Expt_num r2_SU_Number r1_SU_number]
-SU_numbers = arrayfun(@(x) x.unit_data.SU_number,all_Cdata);
-Expt_numbers = [all_Cdata(:).Expt_num]';
-Rec_numbers = [all_Cdata(:).rec_number]';
+SU_numbers = arrayfun(@(x) x.unit_data.SU_number,all_Cdata(:,1));
+Expt_numbers = [all_Cdata(:,1).Expt_num]';
+Rec_numbers = [all_Cdata(:,1).rec_number]';
 
 to_eliminate = [];
 for ii = 1:size(dup_SUs,1)
@@ -107,8 +113,10 @@ for ii = 1:size(dup_SUs,1)
    cur_unit_2 = find(Expt_numbers == dup_SUs(ii,1) & Rec_numbers == 1 & SU_numbers == dup_SUs(ii,3));
    curset = [cur_unit_1 cur_unit_2];
    if length(curset) == 2
-        cur_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_Cdata(curset));
-        avg_rates = arrayfun(@(x) x.unit_data.avg_rate,all_Cdata(curset));
+        cur_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_Cdata(curset,1));
+        null_xvLLs = arrayfun(@(x) x.nullMod.xvLLimp,all_Cdata(curset,1));
+        cur_xvLLs = cur_xvLLs - null_xvLLs;
+        avg_rates = arrayfun(@(x) x.unit_data.avg_rate,all_Cdata(curset,1));
         xvLL_rate = cur_xvLLs.*avg_rates;
 %         [~,best_ind] = max(avg_rates);
         [~,best_ind] = max(xvLL_rate);
@@ -117,21 +125,28 @@ for ii = 1:size(dup_SUs,1)
    end
 end
 
-fprintf('Eliminating %d/%d duplicate SUs (multiple recs)\n',length(to_eliminate),length(all_Cdata));
-elim_CIDs = [all_Cdata(to_eliminate).cell_ID];
-all_Cdata(to_eliminate) = [];
-pair_IDs = cat(1,all_Pdata.cell_IDs);
-all_Pdata(any(ismember(pair_IDs,elim_CIDs),2)) = [];
+fprintf('Eliminating %d/%d duplicate SUs (multiple recs)\n',length(to_eliminate),size(all_Cdata,1));
+elim_CIDs = [all_Cdata(to_eliminate,1).cell_ID];
+all_Cdata(to_eliminate,:) = [];
+pair_IDs = cat(1,all_Pdata(:,1).cell_IDs);
+all_Pdata(any(ismember(pair_IDs,elim_CIDs),2),:) = [];
 
 %% extract SU properties and select units for analysis
+poss_bin_dts = EP_params.poss_bin_dts;
+poss_eps_sizes = EP_params.poss_eps_sizes;
+n_SUs = size(all_Cdata,1);
 
-all_ntrials = arrayfun(@(x) sum(x.n_utrials),all_Cdata);
-all_avgrates = [all_Cdata(:).ov_avg_BS]'/EP_params.base_dt;
+all_ntrials = arrayfun(@(x) sum(x.n_utrials),all_Cdata(:,1));
+all_avgrates = [all_Cdata(:,1).ov_avg_BS]'/poss_bin_dts(1);
 all_spline_vars = arrayfun(@(x) x.spline_pred_looEP(1),all_Cdata);
 all_spline_vars_noLOO = arrayfun(@(x) x.spline_pred_baseEP(1),all_Cdata);
 
-all_psth_vars = [all_Cdata(:).pair_psth_var]';
-all_ball_vars = cat(2,all_Cdata.eps_ball_var)';
+all_psth_vars = arrayfun(@(x) x.pair_psth_var,all_Cdata);
+all_bar_vars = nan(n_SUs,length(poss_bin_dts),length(poss_eps_sizes));
+for ee = 1:length(poss_eps_sizes)
+    all_ball_vars(:,:,ee) = arrayfun(@(x) x.eps_ball_var(ee),all_Cdata);
+end
+
 all_ball_alphas = bsxfun(@rdivide,all_psth_vars,all_ball_vars);
 all_spline_alphas = all_psth_vars./all_spline_vars;
 all_spline_alphas_noLOO = all_psth_vars./all_spline_vars_noLOO;
@@ -140,37 +155,39 @@ all_mod_psth_vars = arrayfun(@(x) mean(x.mod_psth_vars),all_Cdata);
 all_mod_tot_vars = arrayfun(@(x) mean(x.mod_tot_vars),all_Cdata);
 all_mod_alphas = all_mod_psth_vars./all_mod_tot_vars;
 
-all_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_Cdata);
-all_SU_Lratio = arrayfun(@(x) x.unit_data.SU_Lratio,all_Cdata);
-all_SU_isodist = arrayfun(@(x) x.unit_data.SU_isodist,all_Cdata);
-all_SU_dprime = arrayfun(@(x) x.unit_data.SU_dprime,all_Cdata);
-all_SU_rate_stability = arrayfun(@(x) x.unit_data.rate_stability_cv,all_Cdata);
+all_psth_FF = arrayfun(@(x) x.psth_FF,all_Cdata);
+all_spline_FF = arrayfun(@(x) x.spline_FF,all_Cdata);
 
-all_psth_FF = [all_Cdata(:).psth_FF];
-all_spline_FF = [all_Cdata(:).spline_FF];
+all_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_Cdata(:,1));
+all_null_xvLLs = arrayfun(@(x) x.nullMod.xvLLimp,all_Cdata(:,1));
+all_mod_xvLLimps = all_mod_xvLLs - all_null_xvLLs;
 
-all_monkey = {all_Cdata(:).monkey};
-all_CID = [all_Cdata(:).cell_ID];
+all_SU_Lratio = arrayfun(@(x) x.unit_data.SU_Lratio,all_Cdata(:,1));
+all_SU_isodist = arrayfun(@(x) x.unit_data.SU_isodist,all_Cdata(:,1));
+all_SU_dprime = arrayfun(@(x) x.unit_data.SU_dprime,all_Cdata(:,1));
+all_SU_rate_stability = arrayfun(@(x) x.unit_data.rate_stability_cv,all_Cdata(:,1));
 
-pair_IDs = cat(1,all_Pdata.cell_IDs);
+RF_ecc = arrayfun(@(x) x.tune_props.RF_ecc,all_Cdata(:,1));
+RF_width = 2*arrayfun(@(x) x.tune_props.RF_sigma,all_Cdata(:,1));
+% RF_PSF = arrayfun(@(x) x.tune_props.RF_FSF,all_Cdata(:,1));
+RF_PSF = arrayfun(@(x) x.tune_props.RF_gSF,all_Cdata(:,1));
+RF_PRM = arrayfun(@(x) x.tune_props.PRM,all_Cdata(:,1));
+
+all_monkey = {all_Cdata(:,1).monkey};
+all_CID = [all_Cdata(:,1).cell_ID];
+
+pair_IDs = cat(1,all_Pdata(:,1).cell_IDs);
 pair_matches = nan(size(pair_IDs));
 for ii = 1:size(pair_IDs,1)
-    pair_matches(ii,1) = find(all_CID==pair_IDs(ii,1));
+    pair_matches(ii,1) = find(all_CID == pair_IDs(ii,1));
     pair_matches(ii,2) = find(all_CID == pair_IDs(ii,2));
 end
-
-
-RF_ecc = arrayfun(@(x) x.tune_props.RF_ecc,all_Cdata);
-RF_width = 2*arrayfun(@(x) x.tune_props.RF_sigma,all_Cdata);
-% RF_PSF = arrayfun(@(x) x.tune_props.RF_FSF,all_Cdata);
-RF_PSF = arrayfun(@(x) x.tune_props.RF_gSF,all_Cdata);
-RF_PRM = arrayfun(@(x) x.tune_props.PRM,all_Cdata);
 
 
 min_nTrials = 25;
 min_avgRate = 5;
 min_xvLL = 0;
-uset = find(all_ntrials >= min_nTrials & all_avgrates >= min_avgRate & all_mod_xvLLs > min_xvLL);
+uset = find(all_ntrials >= min_nTrials & all_avgrates >= min_avgRate & all_mod_xvLLimps > min_xvLL);
 upairs = find(all(ismember(pair_IDs,all_CID(uset)),2) & pair_IDs(:,1) ~= pair_IDs(:,2));
 upairs_acorr = find(all(ismember(pair_IDs,all_CID(uset)),2) & pair_IDs(:,1) == pair_IDs(:,2));
 
@@ -180,6 +197,7 @@ fprintf('Using %d SUs, %d pairs\n',length(uset),length(upairs));
 close all
 
 mSize = 10;
+dt_ind = 1;
 
 f1 = figure(); hold on
 jbe_units = uset(strcmp(all_monkey(uset),'jbe'));
@@ -187,21 +205,24 @@ lem_units = uset(strcmp(all_monkey(uset),'lem'));
 % plot(all_mod_alphas(lem_units),all_spline_alphas(lem_units),'o');
 % plot(all_mod_alphas(jbe_units),all_spline_alphas(jbe_units),'ro');
 
-plot(all_mod_alphas(lem_units),all_ball_alphas(lem_units,1),'.','markersize',mSize);
-plot(all_mod_alphas(jbe_units),all_ball_alphas(jbe_units,1),'r.','markersize',mSize);
+% plot(all_mod_alphas(lem_units,dt_ind),all_ball_alphas(lem_units,1,dt_ind),'.','markersize',mSize);
+% plot(all_mod_alphas(jbe_units,dt_ind),all_ball_alphas(jbe_units,1,dt_ind),'r.','markersize',mSize);
+plot(all_mod_alphas(lem_units,dt_ind),all_spline_alphas(lem_units,dt_ind),'.','markersize',mSize);
+plot(all_mod_alphas(jbe_units,dt_ind),all_spline_alphas(jbe_units,dt_ind),'r.','markersize',mSize);
 line([0 1],[0 1],'color','k');
 xlabel('Model-predicted alpha');
 ylabel('Direct estimate alpha');
 legend('LEM','JBE','Location','Southeast');
 
-[a,b] = corr(all_mod_alphas(uset),all_ball_alphas(uset,1),'type','pearson');
+% [a,b] = corr(all_mod_alphas(uset,dt_ind),all_ball_alphas(uset,1,dt_ind),'type','pearson');
+[a,b] = corr(all_mod_alphas(uset,dt_ind),all_spline_alphas(uset,dt_ind),'type','pearson');
 title(sprintf('corr: %.3f\n',a));
 
-fig_width = 4; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Model_vs_direct_alpha.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Model_vs_direct_alpha.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
 
 %% DIRECT ESTIMATES OF ALPHA VS RF PROPERTIES
 close all
@@ -239,43 +260,44 @@ plot(RF_PRM(uset),all_ball_alphas(uset,1),'.','markersize',mSize)
 title(sprintf('PRM corr; %.3f, p %.2g\n',a,b));
 xlabel('PRM');
 
-fig_width = 8; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Direct_alpha_vs_RF.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% fig_width = 8; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Direct_alpha_vs_RF.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
 
 %% COMPARE DIRECT FF ESTIMATES
 close all
 
 mSize = 10;
+dt_ind = 3;
 
 f1 = figure();
-plot(all_psth_FF(uset),all_spline_FF(uset),'.','markersize',mSize)
+plot(all_psth_FF(uset,dt_ind),all_spline_FF(uset,dt_ind),'.','markersize',mSize)
 line([0 2],[0 2],'color','k');
 line([0 2],[1 1],'color','k','linestyle','--');
 line([1 1],[0 2],'color','k','linestyle','--');
 xlabel('PSTH-based FF');
 ylabel('EP-corrected FF');
 
-SNR = all_ball_vars(uset,1)./(all_avgrates(uset)*EP_params.base_dt);
-FF_diff = all_psth_FF(uset) - all_spline_FF(uset);
-f2 = figure();
-plot(SNR,FF_diff,'.','markersize',mSize);
-xlabel('SNR');
-ylabel('FF difference');
+% SNR = all_ball_vars(uset,1)./(all_avgrates(uset)*EP_params.base_dt);
+% FF_diff = all_psth_FF(uset) - all_spline_FF(uset);
+% f2 = figure();
+% plot(SNR,FF_diff,'.','markersize',mSize);
+% xlabel('SNR');
+% ylabel('FF difference');
 
-fig_width = 4; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Direct_FF_compare.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-
-fig_width = 4; rel_height = 1;
-figufy(f2);
-fname = [fig_dir 'Direct_FF_SNR_compare.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Direct_FF_compare.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
+% 
+% fig_width = 4; rel_height = 1;
+% figufy(f2);
+% fname = [fig_dir 'Direct_FF_SNR_compare.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
 
 %% direct acorr estimation
 close all
@@ -298,27 +320,28 @@ line([0 0.1],[0 0],'color','k','linestyle','--');
 xlabel('Time lag (s)');
 ylabel('Autocorrelation');
 
-fig_width = 4; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Direct_acorr.pdf'];
-exportfig(1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Direct_acorr.pdf'];
+% exportfig(1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
 
 %% xcorr analysis
 close all
 
 all_Cvars = arrayfun(@(x) mean(x.tot_var),all_Cdata);
 
-all_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.tot_xcovar,1),all_Pdata(upairs),'uniformoutput',0)));
-bad_pairs = find(isnan(all_tot_xcovs(:,11)));
+all_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.tot_xcovar,1),all_Pdata(upairs,:),'uniformoutput',0)));
+% bad_pairs = find(isnan(all_tot_xcovs(:,11)));
+bad_pairs = find(isnan(all_tot_xcovs(:,1)));
 upairs(bad_pairs) = []; all_tot_xcovs(bad_pairs,:) = [];
 
-all_psth_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.pair_xcovar,1),all_Pdata(upairs),'uniformoutput',0)));
+all_psth_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.pair_xcovar,1),all_Pdata(upairs,:),'uniformoutput',0)));
 % all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar,1),all_Pdata(upairs),'uniformoutput',0)));
 % all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar,1),all_Pdata(upairs),'uniformoutput',0)));
-all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar_LOO,1),all_Pdata(upairs),'uniformoutput',0)));
+all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar_LOO,1),all_Pdata(upairs,:),'uniformoutput',0)));
 
-all_norms = sqrt(all_Cvars(pair_matches(upairs,1)).*all_Cvars(pair_matches(upairs,2)));
+all_norms = sqrt(all_Cvars(pair_matches(upairs,1),:).*all_Cvars(pair_matches(upairs,2),:));
 
 all_psth_noisecorr = bsxfun(@rdivide,all_tot_xcovs - all_psth_xcovs,all_norms);
 all_EP_noisecorr = bsxfun(@rdivide,all_tot_xcovs - all_EP_xcovs,all_norms);
