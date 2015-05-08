@@ -3,9 +3,9 @@
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M296';
+% Expt_name = 'M266';
 % monk_name = 'lem';
-% bar_ori = 45; %bar orientation to use (only for UA recs)
+% bar_ori = 80; %bar orientation to use (only for UA recs)
 
 poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
 fit_unCor = false; %use eye correction
@@ -280,9 +280,16 @@ else
 end
 
 %%
+% mod_stim_params(1) = NMMcreate_stim_params([flen use_nPix_us],dt);
+mod_stim_params(1) = NMMcreate_stim_params([n_blocks],dt);
+% Xmat{1} = all_Xmat_shift(used_inds,use_kInds_up);
+Xmat{1} = Xblock(used_inds,:);
+
+%%
 cd(save_dir)
 load(save_name);
 %%
+silent = 1;
 for cc = targs
     fprintf('Starting model fits for unit %d\n',cc);
     
@@ -294,34 +301,47 @@ for cc = targs
         use_trials = unique(all_trialvec(used_inds(cc_uinds))); %set of potentially usable trials
         use_trials(ismember(use_trials,rpt_trials)) = []; %dont use repeat trials
         
-        %create sets of training and XV trials
-        nuse_trials = length(use_trials);
-        n_xv_trials = round(xv_frac*nuse_trials);
-        xv_trials = randperm(nuse_trials);
-        xv_trials(n_xv_trials+1:end) = [];
-        xv_trials = use_trials(xv_trials);
-        tr_trials = setdiff(use_trials,xv_trials);
-        n_tr_trials = length(tr_trials);
-        fprintf('Initializing models with %d training trials and %d xval trials\n',n_tr_trials,n_xv_trials);
+        xv_trials = ModData(cc).unit_data.xv_trials;
+        tr_trials = ModData(cc).unit_data.tr_trials;
+        
+%         %create sets of training and XV trials
+%         nuse_trials = length(use_trials);
+%         n_xv_trials = round(xv_frac*nuse_trials);
+%         xv_trials = randperm(nuse_trials);
+%         xv_trials(n_xv_trials+1:end) = [];
+%         xv_trials = use_trials(xv_trials);
+%         tr_trials = setdiff(use_trials,xv_trials);
+%         n_tr_trials = length(tr_trials);
+%         fprintf('Initializing models with %d training trials and %d xval trials\n',n_tr_trials,n_xv_trials);
         
         cur_tr_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
         cur_xv_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
         cur_full_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),use_trials));
         
         %% COMPUTE UNIT DATA
-        used_blocks = unique(all_blockvec(used_inds(cc_uinds)));
-        poss_used_blocks = unique(all_blockvec(used_inds));
-        ModData(cc).unit_data.avg_rate = nanmean(cur_Robs)/dt;
-        ModData(cc).unit_data.tot_spikes = nansum(cur_Robs);
-        block_rates = nan(ModData(cc).unit_data.n_used_blocks,1);
-        for ii = 1:ModData(cc).unit_data.n_used_blocks
-            block_rates(ii) = nanmean(cur_Robs(all_blockvec(used_inds(cc_uinds)) == used_blocks(ii)));
-        end
-        ModData(cc).unit_data.rate_stability_cv = std(block_rates)/mean(block_rates);
-        ModData(cc).unit_data.block_rates = block_rates/dt;
-        ModData(cc).unit_data.used_blocks = used_blocks;
-        ModData(cc).unit_data.poss_used_blocks = poss_used_blocks;
+%         used_blocks = unique(all_blockvec(used_inds(cc_uinds)));
+%         poss_used_blocks = unique(all_blockvec(used_inds));
+%         ModData(cc).unit_data.avg_rate = nanmean(cur_Robs)/dt;
+%         ModData(cc).unit_data.tot_spikes = nansum(cur_Robs);
+%         block_rates = nan(ModData(cc).unit_data.n_used_blocks,1);
+%         for ii = 1:ModData(cc).unit_data.n_used_blocks
+%             block_rates(ii) = nanmean(cur_Robs(all_blockvec(used_inds(cc_uinds)) == used_blocks(ii)));
+%         end
+%         ModData(cc).unit_data.rate_stability_cv = std(block_rates)/mean(block_rates);
+%         ModData(cc).unit_data.block_rates = block_rates/dt;
+%         ModData(cc).unit_data.used_blocks = used_blocks;
+%         ModData(cc).unit_data.poss_used_blocks = poss_used_blocks;
         
+        
+                %%
+        nullMod = NMMinitialize_model(mod_stim_params,1,{'lin'},[],1);
+        nullMod = NMMfit_filters(nullMod,cur_Robs,Xmat,[],cur_tr_inds,silent);
+        nullMod = NMMfit_logexp_spkNL(nullMod,cur_Robs,Xmat,[],cur_tr_inds);
+        [nullMod_xvLL,null_xvLL] = NMMeval_model(nullMod,cur_Robs,Xmat,[],cur_xv_inds);
+        nullMod.xvLLimp = (nullMod_xvLL - null_xvLL)/log(2);
+
+        ModData(cc).nullMod = nullMod;
+
     end
 end
 

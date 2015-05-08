@@ -3,9 +3,9 @@ close all
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M012';
+Expt_name = 'M014';
 monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA recs)
+bar_ori = 40; %bar orientation to use (only for UA recs)
 rec_number = 1;
 
 use_MUA = false;

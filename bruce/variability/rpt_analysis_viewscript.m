@@ -37,7 +37,7 @@ for Elist_cnt = 1:length(Expt_list)
                sname = strcat(sname,sprintf('_r%d',rec_number)); 
             end
             load(sname);
-                          
+                                 
             for cc = 1:length(EP_data)
                 if ~isnan(EP_data(cc).ov_avg_BS)
                     fprintf('Cell %d/%d\n',cc,length(EP_data));
@@ -215,6 +215,7 @@ plot(RF_ecc(uset),all_ball_alphas(uset,1),'.','markersize',mSize)
 [a,b] = corr(RF_ecc(uset),all_ball_alphas(uset,1),'type','spearman');
 title(sprintf('ECC corr; %.3f, p %.2g\n',a,b));
 xlabel('Eccentricity (deg)');
+xlim([0 5]);
 
 subplot(2,2,2)
 % plot(RF_width(uset),all_spline_alphas(uset),'o')
@@ -336,12 +337,20 @@ xx = linspace(-0.3,0.3,100);
 plot(xx,r1(1) + r1(2)*xx,'k')
 xlim(xl1); ylim(xl1);
 line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+xlabel('Signal corr');
+ylabel('Noise corr');
+title('PSTH-based');
+
 subplot(2,2,2);hold on
 plot(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11),'r.','markersize',mSize)
 r2 = robustfit(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11));
 plot(xx,r2(1) + r2(2)*xx,'g')
 xlim(xl1); ylim(xl1);
 line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+xlabel('Signal corr');
+ylabel('Noise corr');
+title('EP-corrected');
+
 subplot(2,2,3);hold on
 plot(all_psth_sigcorr(:,11),all_psth_noisecorr(:,11),'.','markersize',mSize)
 r1 = robustfit(all_psth_sigcorr(:,11),all_psth_noisecorr(:,11));
@@ -349,12 +358,19 @@ xx = linspace(-0.2,0.2,100);
 plot(xx,r1(1) + r1(2)*xx,'k')
 xlim(xl2); ylim(xl2);
 line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+xlabel('Signal corr');
+ylabel('Noise corr');
+title('PSTH-based');
+
 subplot(2,2,4);hold on
 plot(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11),'r.','markersize',mSize)
 r2 = robustfit(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11));
 plot(xx,r2(1) + r2(2)*xx,'g')
 xlim(xl2); ylim(xl2);
 line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+xlabel('Signal corr');
+ylabel('Noise corr');
+title('EP-corrected');
 
 
 dt = EP_params.base_dt;
@@ -422,6 +438,97 @@ figufy(f2);
 fname = [fig_dir 'Xcorr_functions.pdf'];
 exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
+
+%%
+close all
+
+pair_id = 161;
+Expt_num = all_Pdata(pair_id).Expt_num;
+bar_ori = all_Pdata(pair_id).bar_ori;
+dname = sprintf('~/Analysis/bruce/M%.3d/models/corrected_models_comp_ori%d',Expt_num,bar_ori)
+temp = load(dname,'modFitParams');
+sp_dx = temp.modFitParams.sp_dx;
+mod_dt = temp.modFitParams.dt;
+dt = EP_params.base_dt;
+
+f1 = figure(); 
+subplot(2,1,1);
+hold on
+plot(tlags*dt,mean(all_Pdata(pair_id).tot_xcovar,1),'k','linewidth',2);
+plot(tlags*dt,mean(all_Pdata(pair_id).pair_xcovar,1),'r','linewidth',2);
+plot(tlags*dt,mean(all_Pdata(pair_id).EP_xcovar,1),'b','linewidth',2);
+xlabel('Time (s)');
+ylabel('Correlation');
+subplot(2,1,2);
+hold on
+plot(tlags*dt,mean(all_Pdata(pair_id).mod_tot_covar,1),'k','linewidth',2);
+plot(tlags*dt,mean(all_Pdata(pair_id).mod_psth_covar,1),'r','linewidth',2);
+xlabel('Time (s)');
+ylabel('Correlation');
+
+xr = [-0.4 0.4];
+
+c1 = find([all_Cdata(:).cell_ID] == all_Pdata(pair_id).cell_IDs(1));
+c2 = find([all_Cdata(:).cell_ID] == all_Pdata(pair_id).cell_IDs(2));
+[f2,c1_dims,mod_filts1,mod_signs1] = plot_mod_filters(all_Cdata(c1).bestGQM,sp_dx,mod_dt);
+[f3,c2_dims,mod_filts2,mod_signs2] = plot_mod_filters(all_Cdata(c2).bestGQM,sp_dx,mod_dt);
+figure(f2);
+ch = get(f2,'children');
+for ii = 1:length(ch)
+    if strcmp(get(ch(ii),'type'),'axes')
+    xlim(ch(ii),xr);
+    end
+end
+c1_n_wins = length(ch);
+
+ch = get(f3,'children');
+for ii = 1:length(ch)
+    if strcmp(get(ch(ii),'type'),'axes')
+    xlim(ch(ii),xr);
+    end
+end
+c2_n_wins = length(ch);
+
+eq1 = find(mod_signs1(2:end) == 1) + 1;
+eq2 = find(mod_signs2(2:end) == 1) + 1;
+nPix = size(mod_filts1,2); flen = size(mod_filts1,1);
+xax = (1:nPix)*sp_dx; xax = xax - mean(xax);
+tax = (0:(flen-1))*dt + dt/2; tax = tax*1e3;
+f4 = figure();
+subplot(2,1,1);
+imagesc(xax,tax,sqrt(squeeze(sum(mod_filts1(:,:,eq1).^2,3))));
+set(gca,'ydir','normal'); xlim(xr);
+xlabel('Rel position (deg)');
+ylabel('Time lag (ms)');
+subplot(2,1,2);
+imagesc(xax,tax,sqrt(squeeze(sum(mod_filts2(:,:,eq2).^2,3))));
+set(gca,'ydir','normal'); xlim(xr);
+xlabel('Rel position (deg)');
+ylabel('Time lag (ms)');
+
+fig_width = 4; rel_height = 1.6;
+figufy(f1);
+fname = [fig_dir sprintf('Xcorr_examp%d.pdf',pair_id)];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% fig_width = 3*c1_dims(2); rel_height = c1_dims(1)/c1_dims(2)*0.9;
+% figufy(f2);
+% fname = [fig_dir sprintf('Xcorr_examp%d_mod1.pdf',pair_id)];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f2);
+% 
+% fig_width = 3*c2_dims(2); rel_height = c2_dims(1)/c2_dims(1)*0.9;
+% figufy(f3);
+% fname = [fig_dir sprintf('Xcorr_examp%d_mod2.pdf',pair_id)];
+% exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f3);
+
+fig_width = 4; rel_height = 2;
+figufy(f4);
+fname = [fig_dir sprintf('Xcorr_examp%d_efp.pdf',pair_id)];
+exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f4);
 
 %% load in model-based calculations
 
@@ -697,36 +804,62 @@ xlim([0 0.2])
 xlabel('Eye position SD (deg)');
 ylabel('Alpha');
 
+f3 = figure(); 
+hold on
+plot(poss_SDs,mod_alpha_funs(MD_uset,1:end-1),'r','linewidth',0.5);
+errorbar(poss_SDs,nanmean(mod_alpha_funs(MD_uset,1:end-1)),nanstd(mod_alpha_funs(MD_uset,1:end-1)),'k','linewidth',3);
+xlim([0 0.2])
+xlabel('Eye position SD (deg)');
+ylabel('Alpha');
+ylim([0 1]);
 
 f2 = figure(); 
 subplot(2,1,1);
-hist(actual_EP_SDs(MD_uset),30);
+hist(actual_EP_SDs(MD_uset),20);
 xlim([0 0.2]);
 xlabel('Eye position SD (deg)');
 ylabel('Number of units');
 
-avg_sp_fit = spline(poss_SDs,nanmean(mod_alpha_funs(MD_uset,1:end-1)),actual_EP_SDs(MD_uset));
-strong_sp_fit = spline(poss_SDs,nanmean(mod_alpha_funs(strong_set,1:end-1)),actual_EP_SDs(MD_uset));
-weak_sp_fit = spline(poss_SDs,nanmean(mod_alpha_funs(weak_set,1:end-1)),actual_EP_SDs(MD_uset));
-cur_bin_edges = linspace(0,1,50);
-subplot(2,1,2); hold on
-stairs(cur_bin_edges,histc(avg_sp_fit,cur_bin_edges)/length(MD_uset),'b');
-stairs(cur_bin_edges,histc(strong_sp_fit,cur_bin_edges)/length(MD_uset),'r');
-stairs(cur_bin_edges,histc(weak_sp_fit,cur_bin_edges)/length(MD_uset),'k');
+% avg_sp_fit = spline(poss_SDs,nanmean(mod_alpha_funs(MD_uset,1:end-1)),actual_EP_SDs(MD_uset));
+% strong_sp_fit = spline(poss_SDs,nanmean(mod_alpha_funs(strong_set,1:end-1)),actual_EP_SDs(MD_uset));
+% weak_sp_fit = spline(poss_SDs,nanmean(mod_alpha_funs(weak_set,1:end-1)),actual_EP_SDs(MD_uset));
+% cur_bin_edges = linspace(0,1,50);
+% subplot(2,1,2); hold on
+% stairs(cur_bin_edges,histc(avg_sp_fit,cur_bin_edges)/length(MD_uset),'b');
+% stairs(cur_bin_edges,histc(strong_sp_fit,cur_bin_edges)/length(MD_uset),'r');
+% stairs(cur_bin_edges,histc(weak_sp_fit,cur_bin_edges)/length(MD_uset),'k');
+% xlim([0 1]);
+% xlabel('Alpha');
+% ylabel('Relative frequency');
+
+alpha_CVs = nan(length(MD_uset),1);
+for  ii = 1:length(MD_uset)
+    sp_vals = spline(poss_SDs,mod_alpha_funs(MD_uset(ii),1:end-1),actual_EP_SDs(MD_uset));
+    alpha_CVs(ii) = nanstd(sp_vals)/nanmean(sp_vals);
+end
+subplot(2,1,2);
+plot(mod_alpha_funs(MD_uset,poss_SDs==0.1),alpha_CVs,'.','markersize',10);
 xlim([0 1]);
 xlabel('Alpha');
-ylabel('Relative frequency');
+ylabel('Alpha CV');
 
-fig_width = 4; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Alpha_vs_EPSD.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
 
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Alpha_vs_EPSD.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
+% 
 fig_width = 4; rel_height = 2;
 figufy(f2);
 fname = [fig_dir 'Alpha_vs_EPSD_dists.pdf'];
 exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+
+fig_width = 4; rel_height = 1;
+figufy(f3);
+fname = [fig_dir 'Alpha_vs_EPSD_shade.pdf'];
+exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 
 %% Grating simulation fano factors
 close all
