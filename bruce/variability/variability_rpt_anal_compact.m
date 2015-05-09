@@ -310,26 +310,44 @@ fprintf('Using %d repeat trials, %d sequences\n',tot_nrpts,length(params.rpt_see
 rpt_trial_block = [trial_data(all_rpt_trials).block_nums];
 
 %% IDENTIFY TIMES WITHIN SACCADES AND BLINKS
-sac_buff = round(0.06/params.dt); EP_params.sac_buff = sac_buff; %window of data to exclude during saccades
+sac_buff = round(0.05/params.dt); EP_params.sac_buff = sac_buff; %window of data to exclude during saccades
 sac_delay = round(0.03/params.dt); EP_params.sac_delay = sac_delay; %shift exclusion window to account for neural delay
 blink_buff = round(0.1/params.dt); EP_params.blink_buff = blink_buff; %window for excluding blinks
 
-in_sac_inds = zeros(NT,1);
+% in_sac_inds = zeros(NT,1);
+% nblink_start_inds = saccade_start_inds(~used_is_blink);
+% for ii = 1:(sac_buff+1)
+%     cur_inds = nblink_start_inds + sac_delay + (ii-1);
+%     uu = find(cur_inds <= NT);
+%     uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(nblink_start_inds(uu)))) = [];
+%     in_sac_inds(cur_inds(uu)) = 1;
+% end
+% 
+% blink_start_inds = saccade_start_inds(used_is_blink);
+% in_blink_inds = zeros(NT,1);
+% for ii = 1:(blink_buff+1)
+%     cur_inds = blink_start_inds + sac_delay + (ii-1);
+%     uu = find(cur_inds <= NT);
+%     uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(blink_start_inds(uu)))) = [];
+%     in_blink_inds(cur_inds(uu)) = 1;
+% end
+
+in_sac_inds = false(NT,1);
 nblink_start_inds = saccade_start_inds(~used_is_blink);
-for ii = 1:(sac_buff+1)
-    cur_inds = nblink_start_inds + sac_delay + (ii-1);
-    uu = find(cur_inds <= NT);
-    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(nblink_start_inds(uu)))) = [];
-    in_sac_inds(cur_inds(uu)) = 1;
+nblink_stop_inds = saccade_stop_inds(~used_is_blink);
+for ii = 1:length(nblink_start_inds)
+   cur_inds = (nblink_start_inds(ii):(nblink_stop_inds(ii) + sac_buff)) + sac_delay; 
+   cur_inds(cur_inds > NT) = [];
+   in_sac_inds(cur_inds) = true;
 end
 
+in_blink_inds = false(NT,1);
 blink_start_inds = saccade_start_inds(used_is_blink);
-in_blink_inds = zeros(NT,1);
-for ii = 1:(blink_buff+1)
-    cur_inds = blink_start_inds + sac_delay + (ii-1);
-    uu = find(cur_inds <= NT);
-    uu(all_trialvec(used_inds(cur_inds(uu))) ~= all_trialvec(used_inds(blink_start_inds(uu)))) = [];
-    in_blink_inds(cur_inds(uu)) = 1;
+blink_stop_inds = saccade_stop_inds(used_is_blink);
+for ii = 1:length(blink_start_inds)
+   cur_inds = (blink_start_inds(ii):(blink_stop_inds(ii) + blink_buff)) + sac_delay; 
+   cur_inds(cur_inds > NT) = [];
+   in_blink_inds(cur_inds) = true;
 end
 
 used_rpt_inds = find(ismember(all_trialvec(used_inds),all_rpt_trials)); %indices of repeat trials within used_inds vector
@@ -763,13 +781,15 @@ for bbb = 1:length(poss_bin_dts)
         
         avg_temp_var = squeeze(nanmean(nanvar(new_BS_ms(:,cur_trial_set,:)))); %avg (across trials) of across-time variance
         psth_var_cor = psth_var.*(n_utrials'./(n_utrials'-1)) - avg_temp_var'./n_utrials'; %sahani linden correction for PSTH sampling noise
-        
+
+        avg_acrossTrial_var = squeeze(nanmean(nanvar(new_BS_ms(:,cur_trial_set,:),[],2)));
         trial_avg_var = squeeze(nanvar(trial_avg_BS)); %variance of trial-avg rates
         
         for cc = 1:length(targs)
             EP_data(cc,bbb).psths(rr,:) = psths(:,cc);
             EP_data(cc,bbb).psth_var(rr) = psth_var(cc);
             EP_data(cc,bbb).psth_var_cor(rr) = psth_var_cor(cc);
+            EP_data(cc,bbb).across_trial_var(rr) = avg_acrossTrial_var(cc);
             EP_data(cc,bbb).tot_var(rr) = tot_resp_var(cc);
             EP_data(cc,bbb).trial_avg_var(rr) = trial_avg_var(cc);
         end

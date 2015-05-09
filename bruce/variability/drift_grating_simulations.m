@@ -464,8 +464,8 @@ for sf = 1:length(poss_grate_sf)
             [~,~,cur_prate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat);
             gint(inblink_tbt(:),:) = nan;
             gint(insac_tbt(:),:) = nan;
-%             contrast_scale = mean(test_gSD{cc})/mean(nanstd(gint)); %adjust the contrast of the grating to match the mean SD of filter outputs 
-            contrast_scale = 1;
+            contrast_scale = mean(test_gSD{cc})/mean(nanstd(gint)); %adjust the contrast of the grating to match the mean SD of filter outputs 
+%             contrast_scale = 1;
 
             [~,~,pred_rate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat*contrast_scale);
             rpt_prates(:,:,cc) = reshape(pred_rate,(nf),n_utrials);
