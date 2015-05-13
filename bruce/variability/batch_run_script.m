@@ -13,10 +13,10 @@ expt_rnum = ones(length(Expt_list),2);
 % expt_mname = cat(2,expt_mname,repmat({'jbe'},1,8));
 % expt_rnum = cat(1,expt_rnum,ones(8,2));
 
-Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013'});
-expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan]);
-expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe'});
-expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1]);
+Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013','M014'});
+expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan; 40 nan]);
+expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe','jbe'});
+expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1';1 1]);
 
 %%
 % batch_function = 'fit_corrected_models_compactData';

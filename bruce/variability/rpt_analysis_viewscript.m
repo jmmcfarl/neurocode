@@ -17,7 +17,7 @@ fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 %% load repeat trial data
 close all
 % base_sname = 'rpt_variability_compact';
-base_sname = 'rpt_variability_compact_multDT';
+base_sname = 'rpt_variability_compact_multDT_subTrial';
 
 Ccnt = 1;
 Pcnt = 1;
@@ -198,6 +198,7 @@ close all
 
 mSize = 10;
 dt_ind = 1;
+ball_eps_ind = 1;
 
 f1 = figure(); hold on
 jbe_units = uset(strcmp(all_monkey(uset),'jbe'));
@@ -205,8 +206,8 @@ lem_units = uset(strcmp(all_monkey(uset),'lem'));
 % plot(all_mod_alphas(lem_units),all_spline_alphas(lem_units),'o');
 % plot(all_mod_alphas(jbe_units),all_spline_alphas(jbe_units),'ro');
 
-% plot(all_mod_alphas(lem_units,dt_ind),all_ball_alphas(lem_units,1,dt_ind),'.','markersize',mSize);
-% plot(all_mod_alphas(jbe_units,dt_ind),all_ball_alphas(jbe_units,1,dt_ind),'r.','markersize',mSize);
+% plot(all_mod_alphas(lem_units,dt_ind),all_ball_alphas(lem_units,ball_eps_ind,dt_ind),'.','markersize',mSize);
+% plot(all_mod_alphas(jbe_units,dt_ind),all_ball_alphas(jbe_units,ball_eps_ind,dt_ind),'r.','markersize',mSize);
 plot(all_mod_alphas(lem_units,dt_ind),all_spline_alphas(lem_units,dt_ind),'.','markersize',mSize);
 plot(all_mod_alphas(jbe_units,dt_ind),all_spline_alphas(jbe_units,dt_ind),'r.','markersize',mSize);
 line([0 1],[0 1],'color','k');
@@ -214,7 +215,7 @@ xlabel('Model-predicted alpha');
 ylabel('Direct estimate alpha');
 legend('LEM','JBE','Location','Southeast');
 
-% [a,b] = corr(all_mod_alphas(uset,dt_ind),all_ball_alphas(uset,1,dt_ind),'type','pearson');
+% [a,b] = corr(all_mod_alphas(uset,dt_ind),all_ball_alphas(uset,ball_eps_ind,dt_ind),'type','pearson');
 [a,b] = corr(all_mod_alphas(uset,dt_ind),all_spline_alphas(uset,dt_ind),'type','pearson');
 title(sprintf('corr: %.3f\n',a));
 
@@ -270,7 +271,8 @@ xlabel('PRM');
 close all
 
 mSize = 10;
-dt_ind = 3;
+dt_ind = 1;
+poss_bin_dts = EP_params.poss_bin_dts;
 
 f1 = figure();
 plot(all_psth_FF(uset,dt_ind),all_spline_FF(uset,dt_ind),'.','markersize',mSize)
@@ -280,7 +282,15 @@ line([1 1],[0 2],'color','k','linestyle','--');
 xlabel('PSTH-based FF');
 ylabel('EP-corrected FF');
 
-% SNR = all_ball_vars(uset,1)./(all_avgrates(uset)*EP_params.base_dt);
+FF_diffs = all_psth_FF(uset,:) - all_spline_FF(uset,:);
+avg_spkprobs = arrayfun(@(x) x.ov_avg_BS,all_Cdata(uset,:));
+SNR = all_spline_vars(uset,:)./avg_spkprobs;
+f2 = figure(); hold on
+errorbar(poss_bin_dts,nanmean(FF_diffs),nanstd(FF_diffs)/sqrt(length(uset)),'o-');
+errorbar(poss_bin_dts,nanmean(all_spline_alphas(uset,:)),nanstd(all_spline_alphas(uset,:))/sqrt(length(uset)),'ro-')
+errorbar(poss_bin_dts,nanmean(SNR),nanstd(SNR)/sqrt(length(uset)),'ko-')
+
+
 % FF_diff = all_psth_FF(uset) - all_spline_FF(uset);
 % f2 = figure();
 % plot(SNR,FF_diff,'.','markersize',mSize);
@@ -326,141 +336,208 @@ ylabel('Autocorrelation');
 % exportfig(1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % % close(f1);
 
-%% xcorr analysis
+%%
 close all
 
-all_Cvars = arrayfun(@(x) mean(x.tot_var),all_Cdata);
-
 all_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.tot_xcovar,1),all_Pdata(upairs,:),'uniformoutput',0)));
-% bad_pairs = find(isnan(all_tot_xcovs(:,11)));
 bad_pairs = find(isnan(all_tot_xcovs(:,1)));
 upairs(bad_pairs) = []; all_tot_xcovs(bad_pairs,:) = [];
+all_mod_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.mod_tot_covar,1),all_Pdata(upairs,:),'uniformoutput',0)));
+all_mod_psth_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.mod_psth_covar,1),all_Pdata(upairs,:),'uniformoutput',0)));
 
 all_psth_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.pair_xcovar,1),all_Pdata(upairs,:),'uniformoutput',0)));
-% all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar,1),all_Pdata(upairs),'uniformoutput',0)));
-% all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar,1),all_Pdata(upairs),'uniformoutput',0)));
-all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar_LOO,1),all_Pdata(upairs,:),'uniformoutput',0)));
+% all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.spline_xcovar_LOO,1),all_Pdata(upairs,:),'uniformoutput',0)));
+all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.eps_xcovar_LOO(2),1),all_Pdata(upairs,:),'uniformoutput',0)));
+all_xcov_norms = cat(1,cell2mat(arrayfun(@(x) mean(x.at_var_norm),all_Pdata(upairs,:),'uniformoutput',0)));
 
-all_norms = sqrt(all_Cvars(pair_matches(upairs,1),:).*all_Cvars(pair_matches(upairs,2),:));
+all_tot_xcorrs = bsxfun(@rdivide,all_tot_xcovs,all_xcov_norms);
+all_EP_xcorrs = bsxfun(@rdivide,all_EP_xcovs,all_xcov_norms);
+all_psth_xcorrs = bsxfun(@rdivide,all_psth_xcovs,all_xcov_norms);
 
-all_psth_noisecorr = bsxfun(@rdivide,all_tot_xcovs - all_psth_xcovs,all_norms);
-all_EP_noisecorr = bsxfun(@rdivide,all_tot_xcovs - all_EP_xcovs,all_norms);
-all_psth_sigcorr = bsxfun(@rdivide,all_psth_xcovs,all_norms);
-all_EP_sigcorr = bsxfun(@rdivide,all_EP_xcovs,all_norms);
+xr = [-0.7 0.7];
+xx = linspace(xr(1),xr(2),100);
+poss_bin_dts = EP_params.poss_bin_dts;
+for bb = 1:3
+    psth_robust_fit(bb,:) = robustfit(all_psth_xcorrs(:,bb),all_tot_xcorrs(:,bb));
+    EP_robust_fit(bb,:) = robustfit(all_EP_xcorrs(:,bb),all_tot_xcorrs(:,bb));
+    psth_reg_fit(bb,:) = regress(all_tot_xcorrs(:,bb),[ones(length(upairs),1) all_psth_xcorrs(:,bb)]);
+    EP_reg_fit(bb,:) = regress(all_tot_xcorrs(:,bb),[ones(length(upairs),1) all_EP_xcorrs(:,bb)]);
+    
+    subplot(2,2,bb); hold on
+    plot(all_psth_xcorrs(:,bb),all_tot_xcorrs(:,bb),'r.')
+    plot(all_EP_xcorrs(:,bb),all_tot_xcorrs(:,bb),'.')
+    line(xr,xr,'color','k');
+    xlim(xr); ylim(xr)
+    plot(xx,psth_robust_fit(bb,1) + xx*psth_robust_fit(bb,2),'r--')
+    plot(xx,EP_robust_fit(bb,1) + xx*EP_robust_fit(bb,2),'b--')
+end
 
 xl1 = [-0.3 0.3]; 
 xl2 = [-0.1 0.1];
 mSize = 8;
-
-f1 = figure();
-subplot(2,2,1);hold on
-plot(all_psth_sigcorr(:,11),all_psth_noisecorr(:,11),'.','markersize',mSize)
-r1 = robustfit(all_psth_sigcorr(:,11),all_psth_noisecorr(:,11));
-xx = linspace(-0.3,0.3,100);
-plot(xx,r1(1) + r1(2)*xx,'k')
-xlim(xl1); ylim(xl1);
-line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
-xlabel('Signal corr');
-ylabel('Noise corr');
-title('PSTH-based');
-
-subplot(2,2,2);hold on
-plot(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11),'r.','markersize',mSize)
-r2 = robustfit(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11));
-plot(xx,r2(1) + r2(2)*xx,'g')
-xlim(xl1); ylim(xl1);
-line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
-xlabel('Signal corr');
-ylabel('Noise corr');
-title('EP-corrected');
-
-subplot(2,2,3);hold on
-plot(all_psth_sigcorr(:,11),all_psth_noisecorr(:,11),'.','markersize',mSize)
-r1 = robustfit(all_psth_sigcorr(:,11),all_psth_noisecorr(:,11));
-xx = linspace(-0.2,0.2,100);
-plot(xx,r1(1) + r1(2)*xx,'k')
-xlim(xl2); ylim(xl2);
-line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
-xlabel('Signal corr');
-ylabel('Noise corr');
-title('PSTH-based');
-
-subplot(2,2,4);hold on
-plot(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11),'r.','markersize',mSize)
-r2 = robustfit(all_EP_sigcorr(:,11),all_EP_noisecorr(:,11));
-plot(xx,r2(1) + r2(2)*xx,'g')
-xlim(xl2); ylim(xl2);
-line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
-xlabel('Signal corr');
-ylabel('Noise corr');
-title('EP-corrected');
+cent_lag = find(tlags == 0);
 
 
-dt = EP_params.base_dt;
- sig_yl = [-0.05 0.075];
- EP_base_sigcorrs = all_EP_sigcorr(:,tlags==0);
- %  negcorr_set = find(EP_base_sigcorrs <= prctile(EP_base_sigcorrs,25));
- %  poscorr_set = find(EP_base_sigcorrs >= prctile(EP_base_sigcorrs,75));
- cthresh = 0.025;
- negcorr_set = find(EP_base_sigcorrs <= -cthresh);
- poscorr_set = find(EP_base_sigcorrs >= cthresh);
- f2 = figure();
- subplot(2,2,1);
- shadedErrorBar(tlags*dt,nanmean(all_psth_sigcorr(poscorr_set,:)),nanstd(all_psth_sigcorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
- hold on
-  shadedErrorBar(tlags*dt,nanmean(all_psth_sigcorr(negcorr_set,:)),nanstd(all_psth_sigcorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
- ylim(sig_yl);
- line([-0.1 0.1],[0 0],'color','k');
- title('PSTH signal correlation');
- xlabel('Time (s)');
- ylabel('Correlation');
- subplot(2,2,2);
- shadedErrorBar(tlags*dt,nanmean(all_EP_sigcorr(poscorr_set,:)),nanstd(all_EP_sigcorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
- hold on
-  shadedErrorBar(tlags*dt,nanmean(all_EP_sigcorr(negcorr_set,:)),nanstd(all_EP_sigcorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
- ylim(sig_yl);
- line([-0.1 0.1],[0 0],'color','k');
- title('EP-corrected signal correlation');
-  xlabel('Time (s)');
- ylabel('Correlation');
- subplot(2,2,3);
- shadedErrorBar(tlags*dt,nanmean(all_psth_noisecorr(poscorr_set,:)),nanstd(all_psth_noisecorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
- hold on
-  shadedErrorBar(tlags*dt,nanmean(all_psth_noisecorr(negcorr_set,:)),nanstd(all_psth_noisecorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
- ylim(sig_yl);
- line([-0.1 0.1],[0 0],'color','k');
- title('PSTH noise correlation');
- xlabel('Time (s)');
- ylabel('Correlation');
- subplot(2,2,4);
- shadedErrorBar(tlags*dt,nanmean(all_EP_noisecorr(poscorr_set,:)),nanstd(all_EP_noisecorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
- hold on
-  shadedErrorBar(tlags*dt,nanmean(all_EP_noisecorr(negcorr_set,:)),nanstd(all_EP_noisecorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
- ylim(sig_yl);
- line([-0.1 0.1],[0 0],'color','k');
- title('EP-corrected noise correlation');
- xlabel('Time (s)');
- ylabel('Correlation');
-  
-  %  utlags = find(abs(tlags) <= 3);
-%  psth_slope = nan(length(upairs),1);
-%  ep_slope = nan(length(upairs),1);
-%  for ii = 1:length(upairs)
-%      psth_slope(ii) = regress(all_psth_noisecorr(ii,utlags)',all_psth_sigcorr(ii,utlags)');
-%      ep_slope(ii) = regress(all_EP_noisecorr(ii,utlags)',all_EP_sigcorr(ii,utlags)');
-%  end
- 
-fig_width = 8; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Xcorr_scatter.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
-
-fig_width = 8; rel_height = 1;
-figufy(f2);
-fname = [fig_dir 'Xcorr_functions.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+all_EP_noisecorrs = bsxfun(@rdivide,(all_tot_xcovs - all_EP_xcovs),all_xcov_norms);
+all_psth_noisecorrs = bsxfun(@rdivide,(all_tot_xcovs - all_psth_xcovs),all_xcov_norms);
+%% xcorr analysis
+% % close all
+% 
+% % all_Cvars = arrayfun(@(x) mean(x.tot_var),all_Cdata);
+% % all_Cvars = arrayfun(@(x) mean(x.across_trial_var),all_Cdata);
+% 
+% all_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.tot_xcovar,1),all_Pdata(upairs,:),'uniformoutput',0)));
+% % bad_pairs = find(isnan(all_tot_xcovs(:,11)));
+% bad_pairs = find(isnan(all_tot_xcovs(:,1)));
+% upairs(bad_pairs) = []; all_tot_xcovs(bad_pairs,:) = [];
+% all_mod_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.mod_tot_covar,1),all_Pdata(upairs,:),'uniformoutput',0)));
+% all_mod_psth_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.mod_psth_covar,1),all_Pdata(upairs,:),'uniformoutput',0)));
+% 
+% boot_samp = 1;
+% eps_ind = 2;
+% all_psth_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.pair_xcovar(boot_samp),1),all_Pdata(upairs,:),'uniformoutput',0)));
+% % all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar,1),all_Pdata(upairs,:),'uniformoutput',0)));
+% all_EP_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_xcovar_LOO(:,boot_samp,eps_ind),1),all_Pdata(upairs,:),'uniformoutput',0)));
+% all_xcov_norms = cat(1,cell2mat(arrayfun(@(x) mean(x.at_var_norm),all_Pdata(upairs,:),'uniformoutput',0)));
+% 
+% % all_norms = sqrt(all_Cvars(pair_matches(upairs,1),:).*all_Cvars(pair_matches(upairs,2),:));
+% 
+% all_tot_corrs = bsxfun(@rdivide,all_tot_xcovs,all_xcov_norms);
+% all_psth_noise_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.psth_noisecov_ests(boot_samp),1),all_Pdata(upairs,:),'uniformoutput',0)));
+% all_EP_noise_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.EP_noisecov_LOO_ests(:,boot_samp,eps_ind),1),all_Pdata(upairs,:),'uniformoutput',0)));
+% all_psth_noisecorr = bsxfun(@rdivide,all_psth_noise_xcovs,all_xcov_norms);
+% all_EP_noisecorr = bsxfun(@rdivide,all_EP_noise_xcovs,all_xcov_norms);
+% % all_psth_noisecorr = bsxfun(@rdivide,all_tot_xcovs - all_psth_xcovs,all_xcov_norms);
+% % all_EP_noisecorr = bsxfun(@rdivide,all_tot_xcovs - all_EP_xcovs,all_xcov_norms);
+% all_psth_sigcorr = bsxfun(@rdivide,all_psth_xcovs,all_xcov_norms);
+% all_EP_sigcorr = bsxfun(@rdivide,all_EP_xcovs,all_xcov_norms);
+% % all_psth_sigcorr = bsxfun(@rdivide,all_mod_psth_xcovs,all_norms);
+% % all_EP_sigcorr = bsxfun(@rdivide,all_mod_tot_xcovs,all_norms);
+% 
+% xl1 = [-0.3 0.3]; 
+% xl2 = [-0.1 0.1];
+% mSize = 8;
+% cent_lag = find(tlags == 0);
+% bin_ind = 1;
+% 
+% % f1 = figure();
+% % subplot(2,2,1);hold on
+% % plot(all_psth_sigcorr(:,bin_ind,cent_lag),all_psth_noisecorr(:,bin_ind,cent_lag),'.','markersize',mSize)
+% % r1 = robustfit(all_psth_sigcorr(:,bin_ind,cent_lag),all_psth_noisecorr(:,bin_ind,cent_lag));
+% % xx = linspace(-0.3,0.3,100);
+% % plot(xx,r1(1) + r1(2)*xx,'k')
+% % xlim(xl1); ylim(xl1);
+% % line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+% % xlabel('Signal corr');
+% % ylabel('Noise corr');
+% % title('PSTH-based');
+% % 
+% % subplot(2,2,2);hold on
+% % plot(all_EP_sigcorr(:,bin_ind,cent_lag),all_EP_noisecorr(:,bin_ind,cent_lag),'r.','markersize',mSize)
+% % r2 = robustfit(all_EP_sigcorr(:,bin_ind,cent_lag),all_EP_noisecorr(:,bin_ind,cent_lag));
+% % plot(xx,r2(1) + r2(2)*xx,'g')
+% % xlim(xl1); ylim(xl1);
+% % line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+% % xlabel('Signal corr');
+% % ylabel('Noise corr');
+% % title('EP-corrected');
+% % 
+% % subplot(2,2,3);hold on
+% % plot(all_psth_sigcorr(:,bin_ind,cent_lag),all_psth_noisecorr(:,bin_ind,cent_lag),'.','markersize',mSize)
+% % r1 = robustfit(all_psth_sigcorr(:,bin_ind,cent_lag),all_psth_noisecorr(:,bin_ind,cent_lag));
+% % xx = linspace(-0.2,0.2,100);
+% % plot(xx,r1(1) + r1(2)*xx,'k')
+% % xlim(xl2); ylim(xl2);
+% % line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+% % xlabel('Signal corr');
+% % ylabel('Noise corr');
+% % title('PSTH-based');
+% % 
+% % subplot(2,2,4);hold on
+% % plot(all_EP_sigcorr(:,bin_ind,cent_lag),all_EP_noisecorr(:,bin_ind,cent_lag),'r.','markersize',mSize)
+% % r2 = robustfit(all_EP_sigcorr(:,bin_ind,cent_lag),all_EP_noisecorr(:,bin_ind,cent_lag));
+% % plot(xx,r2(1) + r2(2)*xx,'g')
+% % xlim(xl2); ylim(xl2);
+% % line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],xl1,'color','k','linestyle','--');
+% % xlabel('Signal corr');
+% % ylabel('Noise corr');
+% % title('EP-corrected');
+% 
+% poss_bin_dts = EP_params.poss_bin_dts;
+% [psth_signoise_corr,EP_signoise_corr] = deal(nan(length(poss_bin_dts),1));
+% for tt = 1:length(poss_bin_dts)
+%    psth_signoise_corr(tt) = corr(all_psth_sigcorr(:,tt,cent_lag),all_psth_noisecorr(:,tt,cent_lag),'type','spearman');
+% %    EP_signoise_corr(tt) = corr(all_EP_sigcorr(:,tt,cent_lag),all_EP_noisecorr(:,tt,cent_lag),'type','spearman');
+%    EP_signoise_corr(tt) = corr(all_EP_sigcorr(:,tt,cent_lag),all_EP_noisecorr(:,tt,cent_lag),'type','spearman');
+% %    psth_signoise_corr(tt) = corr(all_psth_sigcorr(:,tt,cent_lag),all_psth_noisecorr(:,tt,cent_lag),'type','pearson');
+% %    EP_signoise_corr(tt) = corr(all_EP_sigcorr(:,tt,cent_lag),all_EP_noisecorr(:,tt,cent_lag),'type','pearson');
+% end
+% 
+% % dt = EP_params.base_dt;
+% %  sig_yl = [-0.05 0.075];
+% %  EP_base_sigcorrs = all_EP_sigcorr(:,tlags==0);
+% %  %  negcorr_set = find(EP_base_sigcorrs <= prctile(EP_base_sigcorrs,25));
+% %  %  poscorr_set = find(EP_base_sigcorrs >= prctile(EP_base_sigcorrs,75));
+% %  cthresh = 0.025;
+% %  negcorr_set = find(EP_base_sigcorrs <= -cthresh);
+% %  poscorr_set = find(EP_base_sigcorrs >= cthresh);
+% %  f2 = figure();
+% %  subplot(2,2,1);
+% %  shadedErrorBar(tlags*dt,nanmean(all_psth_sigcorr(poscorr_set,:)),nanstd(all_psth_sigcorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
+% %  hold on
+% %   shadedErrorBar(tlags*dt,nanmean(all_psth_sigcorr(negcorr_set,:)),nanstd(all_psth_sigcorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
+% %  ylim(sig_yl);
+% %  line([-0.1 0.1],[0 0],'color','k');
+% %  title('PSTH signal correlation');
+% %  xlabel('Time (s)');
+% %  ylabel('Correlation');
+% %  subplot(2,2,2);
+% %  shadedErrorBar(tlags*dt,nanmean(all_EP_sigcorr(poscorr_set,:)),nanstd(all_EP_sigcorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
+% %  hold on
+% %   shadedErrorBar(tlags*dt,nanmean(all_EP_sigcorr(negcorr_set,:)),nanstd(all_EP_sigcorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
+% %  ylim(sig_yl);
+% %  line([-0.1 0.1],[0 0],'color','k');
+% %  title('EP-corrected signal correlation');
+% %   xlabel('Time (s)');
+% %  ylabel('Correlation');
+% %  subplot(2,2,3);
+% %  shadedErrorBar(tlags*dt,nanmean(all_psth_noisecorr(poscorr_set,:)),nanstd(all_psth_noisecorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
+% %  hold on
+% %   shadedErrorBar(tlags*dt,nanmean(all_psth_noisecorr(negcorr_set,:)),nanstd(all_psth_noisecorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
+% %  ylim(sig_yl);
+% %  line([-0.1 0.1],[0 0],'color','k');
+% %  title('PSTH noise correlation');
+% %  xlabel('Time (s)');
+% %  ylabel('Correlation');
+% %  subplot(2,2,4);
+% %  shadedErrorBar(tlags*dt,nanmean(all_EP_noisecorr(poscorr_set,:)),nanstd(all_EP_noisecorr(poscorr_set,:))/sqrt(length(poscorr_set)),{'color','r'});
+% %  hold on
+% %   shadedErrorBar(tlags*dt,nanmean(all_EP_noisecorr(negcorr_set,:)),nanstd(all_EP_noisecorr(negcorr_set,:))/sqrt(length(negcorr_set)),{'color','b'});
+% %  ylim(sig_yl);
+% %  line([-0.1 0.1],[0 0],'color','k');
+% %  title('EP-corrected noise correlation');
+% %  xlabel('Time (s)');
+% %  ylabel('Correlation');
+%   
+%   %  utlags = find(abs(tlags) <= 3);
+% %  psth_slope = nan(length(upairs),1);
+% %  ep_slope = nan(length(upairs),1);
+% %  for ii = 1:length(upairs)
+% %      psth_slope(ii) = regress(all_psth_noisecorr(ii,utlags)',all_psth_sigcorr(ii,utlags)');
+% %      ep_slope(ii) = regress(all_EP_noisecorr(ii,utlags)',all_EP_sigcorr(ii,utlags)');
+% %  end
+%  
+% % fig_width = 8; rel_height = 1;
+% % figufy(f1);
+% % fname = [fig_dir 'Xcorr_scatter.pdf'];
+% % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % % close(f1);
+% % 
+% % fig_width = 8; rel_height = 1;
+% % figufy(f2);
+% % fname = [fig_dir 'Xcorr_functions.pdf'];
+% % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % % close(f1);
 
 %%
 close all
@@ -567,10 +644,10 @@ expt_oris = cat(1,expt_oris,[0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan]);
 expt_mname = cat(2,expt_mname,repmat({'jbe'},1,8));
 expt_rnum = cat(1,expt_rnum,ones(8,2));
 
-Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013'});
-expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan]);
-expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe'});
-expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1]);
+Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013','M014'});
+expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan;40 nan]);
+expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe','jbe'});
+expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1;1 1]);
 
 base_sname = 'model_variability_compact';
 base_gname = 'grating_sim';
@@ -608,7 +685,7 @@ for Elist_cnt = 1:length(Expt_list)
                     EP_data(cc).Expt_num = str2num(Expt_name(2:end));
                     EP_data(cc).bar_ori = bar_ori;
                     EP_data(cc).rec_number = rec_number;
-                    EP_data(cc).cell_ID = Ccnt;
+                    EP_data(cc).cell_ID = Mcnt;
                     EP_data(cc).ov_EP_xcov = ov_EP_data.EP_xcov;
                     EP_data(cc).ov_EP_lags = ov_EP_data.EP_lags;
                     
@@ -645,6 +722,9 @@ end
 to_eliminate = unique(to_eliminate);
 fprintf('Eliminating %d/%d duplicate SUs\n',length(to_eliminate),length(all_Mdata));
 all_Mdata(to_eliminate) = [];
+
+% FOR SAME SUS RECORDED ON MULTIPLE SESSIONS WITH DIFFERENT ED
+dup_SUs = [12 1 5; 12 3 8]; %[Expt_num r2_SU_Number r1_SU_number]
 
 %
 SU_numbers = arrayfun(@(x) x.ModData.unit_data.SU_number,all_Mdata);
@@ -891,25 +971,17 @@ poss_grate_sf = [1 2 4];
 poss_grate_tf = [2 4 8];
 
 grate_ubins = all_Mdata(1).grate_ubins;
-all_grate_alphas = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
 all_grate_FFs = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
-all_grate_PD = nan(length(MD_uset),length(poss_grate_sf),length(poss_grate_tf));
+all_grate_FFs_NS = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
+all_grate_F1F0 = nan(length(MD_uset),length(poss_grate_sf),length(poss_grate_tf));
+all_grate_F2F1 = nan(length(MD_uset),length(poss_grate_sf),length(poss_grate_tf));
 for sf_ind = 1:length(poss_grate_sf)
     for tf_ind = 1:length(poss_grate_tf)
         for ii = 1:length(MD_uset)
-            d1_var = all_Mdata(MD_uset(ii)).grate_data.tot_vars_NS(sf_ind,tf_ind,1);
-            d2_var = all_Mdata(MD_uset(ii)).grate_data.tot_vars_NS_R(sf_ind,tf_ind,1);
-            if d1_var > d2_var
-                PSTH_vars = all_Mdata(MD_uset(ii)).grate_data.PSTH_vars_NS(sf_ind,tf_ind,:);
-                tot_vars = all_Mdata(MD_uset(ii)).grate_data.tot_vars_NS(sf_ind,tf_ind,:);
-                all_grate_FFs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests_NS(sf_ind,tf_ind,:);
-                all_grate_PD(ii,sf_ind,tf_ind) = 1;
-            else
-                PSTH_vars = all_Mdata(MD_uset(ii)).grate_data.PSTH_vars_NS_R(sf_ind,tf_ind,:);
-                tot_vars = all_Mdata(MD_uset(ii)).grate_data.tot_vars_NS_R(sf_ind,tf_ind,:);
-                all_grate_FFs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests_NS_R(sf_ind,tf_ind,:);
-                all_grate_PD(ii,sf_ind,tf_ind) = 2;
-            end
+            all_grate_FFs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests(sf_ind,tf_ind,:);
+            all_grate_FFs_NS(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests_NS(sf_ind,tf_ind,:);
+            all_grate_F1F0(ii,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.F1F0(sf_ind,tf_ind);
+            all_grate_F2F1(ii,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.F2F1(sf_ind,tf_ind);
         end
     end
 end
@@ -919,16 +991,28 @@ cmap = [1 0 0; 0 0 1; 0 0 0];
 f1 = figure(); hold on
 for sf = 1:length(poss_grate_sf)
     for tf = 1:length(poss_grate_tf)
-        plot(grate_ubins*.01,squeeze(nanmean(all_grate_FFs(:,:,sf,tf))),'linewidth',lwidths(sf),'color',cmap(tf,:));
+%         plot(grate_ubins*.01,squeeze(nanmean(all_grate_FFs(:,:,sf,tf))),'linewidth',lwidths(sf),'color',cmap(tf,:));
+        plot(grate_ubins*.01,squeeze(nanmean(all_grate_FFs_NS(:,:,sf,tf))),'linewidth',lwidths(sf),'color',cmap(tf,:));
     end
 end
 xlabel('Time binning (s)');
 ylabel('Fano factor');
 
-fig_width = 4; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Grating_FF.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+
+cur_sf = 2;
+cur_tf = 2;
+cur_tbin = 5;
+f2 = figure(); hold on
+plot(all_grate_F1F0(:,cur_sf,cur_tf),all_grate_FFs_NS(:,cur_tbin,cur_sf,cur_tf),'.')
+% r = robustfit(all_grate_F1F0(:,cur_sf,cur_tf),all_grate_FFs_NS(:,cur_tbin,cur_sf,cur_tf));
+% r = regress(all_grate_FFs_NS(:,cur_tbin,cur_sf,cur_tf),[ones(length(MD_uset),1) all_grate_F1F0(:,cur_sf,cur_tf)]);
+% xx = linspace(0,1.5,50);
+% plot(xx,r(1)+r(2)*xx,'r')
+
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Grating_FF.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 
 %% 
 SU_numbers = arrayfun(@(x) x.unit_data.SU_number,all_Cdata(uset));
