@@ -1500,8 +1500,8 @@ search_range = [0 max(up_lagax)];
 % cur_O(cur_sigE(peak_earlier(cur_sigE) == 1)) = true;
 
 %plot E-filter temp-kernel timing vs sac-suppression timing
-xl = [0.02 0.08];
-yl = [0.02 0.16];
+xl = [0.025 0.08];
+yl = [0.025 0.16];
 mS = 3;
 f1 = figure(); hold on
 plot(Ekern_time(include),gsac_inhtime(include),'b.','markersize',12);
@@ -1527,7 +1527,7 @@ SU_exptnums = [all_SU_data(cur_SUs).expt_num];
 % plot(Ikern_time,gsac_exctime,'.')
 % plot(Ikern_time(cur_sigE),gsac_exctime(cur_sigE),'r.');
 
-% %PRINT PLOTS
+%PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'Supp_Stim_timing_scatter_new.pdf'];
@@ -1791,14 +1791,14 @@ ylabel('Inhibitory inputs');
 % ylabel('Sac suppression');
 
 f5 = figure(); hold on
-xx = linspace(-75,75,25);
+xx = linspace(-100,100,30);
 gain_diff_hist = histc(1e3*(Egain_time-Igain_time),xx);
 gain_diff_hist = gain_diff_hist/sum(gain_diff_hist);
 kern_diff_hist = histc((Ekern_time-Ikern_time),xx);
 kern_diff_hist = kern_diff_hist/sum(kern_diff_hist);
-stairs(xx,gain_diff_hist,'k');
-stairs(xx,kern_diff_hist,'r');
-xlim([-75 75]);
+stairs(xx,gain_diff_hist,'r');
+stairs(xx,kern_diff_hist,'k');
+xlim([-100 100]);
 
 % % % %PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
