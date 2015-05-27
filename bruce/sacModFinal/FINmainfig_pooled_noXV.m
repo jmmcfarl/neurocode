@@ -2743,6 +2743,7 @@ n_use_units = sum(~isnan(gsac_gain_nan(:,:,1)));
 ulags = n_use_units >= min_used_units;
 avg_gains(~ulags,:) = nan;
 
+%plot population avg gain function
 f1 = figure();
 imagescnan(slags*dt,tax,avg_gains)
 caxis([0.6 1.4])
@@ -2836,7 +2837,7 @@ end
 %population and an example neuron
 n_used_units = sum(~isnan(gkern_times));
 gkern_times_nan = gkern_times;
-gkern_times_nan(:,n_used_units < min_used_units) = nan;
+gkern_times_nan(:,n_used_units < min_used_units) = nan; %set to nan for latencies where we don't have enough usable SUs.
 % all_preds(:,n_used_units < min_used_units) = nan;
 f2 = figure(); hold on
 % shadedErrorBar(1:flen,nanmedian(gkern_times),iqr(gkern_times),{'color','r'});
@@ -2844,7 +2845,7 @@ f2 = figure(); hold on
 % shadedErrorBar(tax,nanmean(gkern_times),nanstd(gkern_times)./sqrt(n_used_units),{'color','b'});
 h = errorbar(tax,nanmean(gkern_times_nan),nanstd(gkern_times_nan)./sqrt(n_used_units),'o-');
 plot(tax,gkern_times(ex_cell,:),'ro');
-xx = linspace(0.02,0.1,100); yy = xx*cell_slope(ex_cell) + cell_offset(ex_cell);
+xx = linspace(0.02,0.1,100); yy = xx*cell_slope(ex_cell) + cell_offset(ex_cell); %get regression slope for the example SU
 plot(xx,yy,'r-');
 % plot(1:flen,gkern_times,'k.')
 line([0 0.14],[0 0.14]+0.0,'color','k');
@@ -2873,7 +2874,7 @@ imagescnan(slags*dt,tax,squeeze(gsac_gain_nan(ex_cell,:,:)))
 hold on
 xx = linspace(-0.05,0.2,100); yy = (xx-cell_offset(ex_cell))/cell_slope(ex_cell);
 plot(xx,yy,'w','linewidth',2);
-plot(gkern_times(ex_cell,:),tax,'ro','linewidth',1);
+plot(gkern_times(ex_cell,:),tax,'ro','linewidth',1); %overlay plot of detected peak suppression times at each latency
 caxis([0.2 1.8])
 ylim([0 0.12]);
 xlabel('Time since saccade onset (s)');

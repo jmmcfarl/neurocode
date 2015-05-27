@@ -1,14 +1,14 @@
-% clear all
-% close all
+clear all
+close all
 
 addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M012';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-% rec_number = 2;
+Expt_name = 'M296';
+monk_name = 'lem';
+bar_ori = 45; %bar orientation to use (only for UA recs)
+rec_number = 1;
 % %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40]
 

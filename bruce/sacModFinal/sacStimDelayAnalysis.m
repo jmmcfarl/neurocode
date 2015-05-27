@@ -911,33 +911,39 @@ for cc = targs
                 %                 [~,~,basemod_pred_rate,cur_gint,~,fgint] = NMMeval_model(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds));
                 %                 single_mod_filts(ff,:,:) = [single_mod.mods(:).filtK];
                 %
-                cur_filts = all_filts(cur_kInds,:);
+                
+                %initialize filters of a model using only stimulus latency
+                %ff
+                cur_filts = all_filts(cur_kInds,:); %these are indices of stim elements at latency ff
                 init_filts = cell(length(cur_mod_signs),1);
                 for ii = 1:length(cur_mod_signs)
                     init_filts{ii} = cur_filts(:,ii);
                 end
                 single_mod = NMMinitialize_model(cur_stim_params,cur_mod_signs,cur_NL_types,[],ones(length(cur_mod_signs),1),init_filts);
-                single_mod_filts(ff,:,:) = [single_mod.mods(:).filtK];
-                [~, ~, ~, ~, ~,fgint] = NMMmodel_eval(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds));
-                temp_sp(1:length(cur_mod_signs)) = NMMcreate_stim_params([1 1]);
+                single_mod_filts(ff,:,:) = [single_mod.mods(:).filtK]; %store stim filters
+                [~, ~, ~, ~, ~,fgint] = NMMmodel_eval(single_mod,cur_Robs,all_Xmat_shift(:,cur_kInds)); %get output of each filter
+                temp_sp(1:length(cur_mod_signs)) = NMMcreate_stim_params([1 1]); %initialize stim param struct (treating the scalar valued filter outputs as the stim)
+                
+                %make output of each filter into a cell array
                 fout = cell(length(cur_mod_signs),1);
                 for ii = 1:length(cur_mod_signs)
                     fout{ii} = fgint(:,ii);
                 end
+                %initialize a model carrying weights on each stim filter output
                 single_mod = NMMinitialize_model(temp_sp,cur_mod_signs,repmat({'lin'},length(cur_mod_signs),1),[],1:length(cur_mod_signs));
-                single_mod.spk_NL_params = cur_rGQM.spk_NL_params;
-                single_mod = NMMfit_filters(single_mod,cur_Robs,fout,[],[],silent);
-                [~,~,basemod_pred_rate,cur_gint,~,fgint] = NMMeval_model(single_mod,cur_Robs,fout);
+                single_mod.spk_NL_params = cur_rGQM.spk_NL_params; %get estimated spk NL function
+                single_mod = NMMfit_filters(single_mod,cur_Robs,fout,[],any_sac_inds,silent); %fit scalar weights on the output of each stim filter
+                [~,~,basemod_pred_rate,cur_gint,~,fgint] = NMMeval_model(single_mod,cur_Robs,fout); %get outputs of this reweighted model
                 
-                fgint = bsxfun(@times,fgint,cur_mod_signs);
+                fgint = bsxfun(@times,fgint,cur_mod_signs); %sign-corrected output of each filter slice
                 
                 %output of stim model
-                stimG = sum(fgint,2);
+                stimG = sum(fgint,2); %total output
                 single_gSD(ff) = std(stimG); %SD of generating signal as measure of modulation by stimuli at this latency
                 single_rCV(ff) = std(basemod_pred_rate)/mean(basemod_pred_rate); %CV of firing rate as a measure of modulation by stimuli at this latency
 
-                %%
-                normStimG = nanzscore(stimG);
+                %% model-free analysis of saccade modulation.
+                normStimG = nanzscore(stimG); %normalize generating signal
                 mdpt = nanmedian(normStimG); %median of gen signal
                 quarts = prctile(normStimG,[25 75]); %quartiles
                 [slag_stas,high_avg,low_avg,hq_avg,lq_avg] = deal(nan(length(slags),1));
@@ -987,22 +993,24 @@ for cc = targs
                 sacDelay(cc).white_avg(ff,:) = white_avg;
                 sacDelay(cc).black_avg(ff,:) = black_avg;
                 
-                %%
+                %% FIT GAIN/OFFSET MODEL
                 n_slags = size(cur_Xsac,2);
                 n_gains = size(stimG,2);
                 
                 sac_stim_params(1) = NMMcreate_stim_params(n_gains);
                 sac_stim_params(2) = NMMcreate_stim_params(n_slags);
                 
-                tr_stim{1} = stimG;
+                tr_stim{1} = stimG; %total output of stim model
                 tr_stim{2} = cur_Xsac; %saccade timing indicator matrix
-                tr_stim{3} = reshape(bsxfun(@times,cur_Xsac,reshape(stimG,[],1,n_gains)), size(stimG,1),[]);
+                tr_stim{3} = reshape(bsxfun(@times,cur_Xsac,reshape(stimG,[],1,n_gains)), size(stimG,1),[]); %product of saccade indicator matrix and gen signal
                 sac_stim_params(3) = NMMcreate_stim_params([n_slags n_gains]);
                 
                 mod_signs = [1 1 1];
                 Xtargets = [1 2 3];
                 NL_types = {'lin','lin','lin'};
-                silent =1;
+                silent = 1;
+                %set lower tolerances to ensure convergence, even for
+                %latencies where likelihood is very flat
                 optim_params.optTol = 1e-8;
                 optim_params.progTol = 1e-11;
                 sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(mod_signs),1));
@@ -1025,7 +1033,7 @@ for cc = targs
                 cur_mod = NMMfit_filters(cur_mod,cur_Robs,tr_stim,[],any_sac_inds,silent,optim_params,[],[2 3]); %estimate saccade filters
                 gain_filts(ff,:) = cur_mod.mods(3).filtK;
                 offset_filts(ff,:) = cur_mod.mods(2).filtK;
-                base_gweights(ff) = cur_mod.mods(1).filtK;
+                base_gweights(ff) = cur_mod.mods(1).filtK; 
                 %                 modmods{ff} = cur_mod;
                 
                 %                 %now for post-filtering sim spikes
@@ -1049,11 +1057,12 @@ for cc = targs
                 %                 presim_offset_filts(ff,:) = cur_mod.mods(2).filtK;
                 
             end
+            %% STORE RESULTS
             sacDelay(cc).single_mod_filts = single_mod_filts;
             sacDelay(cc).gain_filts = gain_filts;
             sacDelay(cc).offset_filts = offset_filts;
-            sacDelay(cc).single_gSD = single_gSD;
-            sacDelay(cc).single_rCV = single_rCV;
+            sacDelay(cc).single_gSD = single_gSD; %SD of gen signal
+            sacDelay(cc).single_rCV = single_rCV; %CV of predicted firing rate
             sacDelay(cc).base_gweights = base_gweights;
             
             sacDelay(cc).flen_stas = all_flen_stas;
