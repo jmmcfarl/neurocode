@@ -896,6 +896,7 @@ for cc = targs
             single_mod_filts = nan(flen,use_nPix_us,length(cur_mod_signs));
             [base_gweights, single_gSD,single_rCV] = deal(nan(flen,1));
             [all_flen_stas,all_high_avgs,all_low_avgs,all_hq_avgs,all_lq_avgs] = deal(nan(flen,length(slags)));
+            [sac_gains,sac_offsets] = deal(nan(flen,length(slags)));
             for ff = 1:flen
                 fprintf('fitting single-latency model %d/%d\n',ff,flen);
                 cur_kInds = find(Tinds(:) == ff); %stimulus indices with this time lag
@@ -1036,6 +1037,16 @@ for cc = targs
                 base_gweights(ff) = cur_mod.mods(1).filtK; 
                 %                 modmods{ff} = cur_mod;
                 
+                %fit linear regression based gain/offset parameters
+                [~,~,pred_rate] = NMMeval_model(cur_mod,cur_Robs,tr_stim,[],any_sac_inds);
+                for ss = 1:length(slags)
+                    cur_tp = find(cur_Xsac(any_sac_inds,ss) == 1); %all times when there was a saccade at latency tau
+                    
+                    rr = regress(pred_rate(cur_tp),[ones(length(cur_tp),1) basemod_pred_rate(any_sac_inds(cur_tp))]);
+                    sac_gains(ff,ss) = rr(2);
+                    sac_offsets(ff,ss) = rr(1);
+                end
+                
                 %                 %now for post-filtering sim spikes
                 %                 cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets,init_filts);
                 %                 cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
@@ -1064,6 +1075,9 @@ for cc = targs
             sacDelay(cc).single_gSD = single_gSD; %SD of gen signal
             sacDelay(cc).single_rCV = single_rCV; %CV of predicted firing rate
             sacDelay(cc).base_gweights = base_gweights;
+            
+            sacDelay(cc).sac_gains = sac_gains;
+            sacDelay(cc).sac_offsets = sac_offsets;
             
             sacDelay(cc).flen_stas = all_flen_stas;
             sacDelay(cc).high_avgs = all_high_avgs;

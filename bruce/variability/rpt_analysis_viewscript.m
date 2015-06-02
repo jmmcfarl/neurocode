@@ -222,11 +222,23 @@ ylabel('Direct estimate alpha');
 [a,b] = corr(all_mod_alphas(uset,dt_ind),all_spline_alphas(uset,dt_ind),'type','pearson');
 title(sprintf('corr: %.3f\n',a));
 
+f2 = figure();
+hist(all_spline_alphas(uset,dt_ind),20)
+xlim([0 1])
+xlabel('Alpha')
+ylabel('SUs')
+
 % fig_width = 4; rel_height = 1;
 % figufy(f1);
 % fname = [fig_dir 'Model_vs_direct_alpha.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % % close(f1);
+
+fig_width = 4; rel_height = 0.8;
+figufy(f2);
+fname = [fig_dir 'Direct_alpha_dist.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 %% DIRECT ESTIMATES OF ALPHA VS RF PROPERTIES
 close all
@@ -806,13 +818,17 @@ xvLLimp = arrayfun(@(x) x.ModData.bestGQM.xvLLimp,all_Mdata);
 
 actual_EP_SDs = arrayfun(@(x) x.poss_SDs(end),all_Mdata);
 
-mod_alpha_funs = cat(1,all_Mdata.alpha_funs);
+mod_alpha_funs = 1-cat(1,all_Mdata.alpha_funs);
 
 min_avgRate = 5;
 min_xvLL = 0;
 % uset = find(all_avgrates >= min_avgRate & RF_ecc > 1);
 MD_uset = find(all_avgrates >= min_avgRate & xvLLimp > min_xvLL);
 
+%%
+f1 = figure();
+hist(mod_alpha_funs(MD_uset,end),25);
+xlim([0 1]);
 %% plot model-predicted alphas vs RF properties
 close all
 poss_SDs = all_Mdata(1).poss_SDs;

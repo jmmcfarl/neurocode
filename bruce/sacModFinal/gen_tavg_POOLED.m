@@ -149,7 +149,7 @@ ylabel('Relative frequency');
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
 
-%% COMPUTE SAC DURATION DISTRIBUTION USING NEW DURATION DEFINITION
+%% COMPUTE SAC DURATION DISTRIBUTION USING NEW DURATION DEFINITION (excludes coil transients at the end of some sacs)
 
 dur_bin_cents = all_data(1).dur_bin_cents;
 dur_dx = median(diff(dur_bin_cents));
@@ -177,10 +177,12 @@ for ii = 1:length(unique_expts)
 end
 
 f2 = figure; hold on
-h1 = shadedErrorBar(dur_bin_cents,mean(expt_gsac_durdist),std(expt_gsac_durdist)/sqrt(length(unique_expts)),{'color','b'});
-h2 = shadedErrorBar(dur_bin_cents,mean(expt_msac_durdist),std(expt_msac_durdist)/sqrt(length(unique_expts)),{'color','r'});
-xlabel('Duration (s)');
+h1 = shadedErrorBar(dur_bin_cents*1e3,mean(expt_gsac_durdist),std(expt_gsac_durdist)/sqrt(length(unique_expts)),{'color','b'});
+h2 = shadedErrorBar(dur_bin_cents*1e3,mean(expt_msac_durdist),std(expt_msac_durdist)/sqrt(length(unique_expts)),{'color','r'});
+xlabel('Duration (ms)');
 ylabel('Relative frequency');
+
+xlim([0 60]);
 
 % %PRINT PLOTS
 % fig_width = 3.5; rel_height = 0.8;
@@ -188,7 +190,7 @@ ylabel('Relative frequency');
 % fname = [fig_dir 'Gsac_msac_dur_dists_new.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
-
+% 
 %%
 % all_gsac_tavg = [all_data(:).gsac_tavg_eyespeed]';
 % all_msac_tavg = [all_data(:).msac_tavg_eyespeed]';
@@ -233,9 +235,14 @@ ylabel('Fixation disparity (deg)');
 
 %%
 eye_tax = all_data(1).raw_eye_lags;
-gsac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.gsac_rawtavg_eyespeed',all_data,'uniformoutput',0));
-msac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.msac_rawtavg_eyespeed',all_data,'uniformoutput',0));
 
+%triggered average speed profiles at ET-res
+gsac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.gsac_rawtavg_eyespeed,all_data,'uniformoutput',0));
+msac_rawtavg_eyespeed = cell2mat(arrayfun(@(x) x.msac_rawtavg_eyespeed,all_data,'uniformoutput',0));
+
+%avg orthogonal velocity profile separately for saccades with positive and
+%negative displacements (or large positive and large negative
+%displacements)
 gsac_pos_orthvel = cell2mat(arrayfun(@(x) x.gsac_pos_orthvel',all_data,'uniformoutput',0));
 gsac_neg_orthvel = cell2mat(arrayfun(@(x) x.gsac_neg_orthvel',all_data,'uniformoutput',0));
 gsac_large_pos_orthvel = cell2mat(arrayfun(@(x) x.gsac_large_pos_orthvel',all_data,'uniformoutput',0));
@@ -243,6 +250,11 @@ gsac_large_neg_orthvel = cell2mat(arrayfun(@(x) x.gsac_large_neg_orthvel',all_da
 gsac_small_pos_orthvel = cell2mat(arrayfun(@(x) x.gsac_small_pos_orthvel',all_data,'uniformoutput',0));
 gsac_small_neg_orthvel = cell2mat(arrayfun(@(x) x.gsac_small_neg_orthvel',all_data,'uniformoutput',0));
 
+gsac_orthspeed_proj = cell2mat(arrayfun(@(x) x.gsac_orthproj_eyespeed,all_data,'uniformoutput',0));
+gsac_orthspeed_proj_acc = cell2mat(arrayfun(@(x) x.gsac_orthproj_eyespeed_accurate,all_data,'uniformoutput',0));
+gsac_orthspeed_proj_inacc = cell2mat(arrayfun(@(x) x.gsac_orthproj_eyespeed_inaccurate,all_data,'uniformoutput',0));
+
+%flip sign on negative and avg together with positive displacements
 gsac_orthvel = 0.5*gsac_pos_orthvel - 0.5*gsac_neg_orthvel;
 gsac_large_orthvel = 0.5*gsac_large_pos_orthvel - 0.5*gsac_large_neg_orthvel;
 gsac_small_orthvel = 0.5*gsac_small_pos_orthvel - 0.5*gsac_small_neg_orthvel;
@@ -261,6 +273,7 @@ gsac_inac_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,avg_inaccurate_orth);
 gsac_ac_orthspeed = bsxfun(@times,gsac_rawtavg_eyespeed,avg_accurate_orth);
 
 [expt_gsac_eyespeed,expt_msac_eyespeed,expt_gsac_avgorthspeed,expt_gsac_inaccorthspeed,expt_gsac_accorthspeed] = deal(nan(length(unique_expts),length(eye_tax)));
+[expt_gsac_avgPorthspeed,expt_gsac_inaccPorthspeed,expt_gsac_accPorthspeed] = deal(nan(length(unique_expts),length(eye_tax)));
 [expt_avg_orth,expt_inacc_orth,expt_acc_orth] = deal(nan(length(unique_expts),1));
 for ii = 1:length(unique_expts)
     eset = find(expt_nums == unique_expts(ii));
@@ -269,6 +282,9 @@ for ii = 1:length(unique_expts)
     expt_gsac_avgorthspeed(ii,:) = mean(gsac_avg_orthspeed(eset,:),1);
     expt_gsac_inaccorthspeed(ii,:) = mean(gsac_inac_orthspeed(eset,:),1);
     expt_gsac_accorthspeed(ii,:) = mean(gsac_ac_orthspeed(eset,:),1);
+    expt_gsac_avgPorthspeed(ii,:) = mean(gsac_orthspeed_proj(eset,:),1);
+    expt_gsac_inaccPorthspeed(ii,:) = mean(gsac_orthspeed_proj_inacc(eset,:),1);
+    expt_gsac_accPorthspeed(ii,:) = mean(gsac_orthspeed_proj_acc(eset,:),1);
     expt_avg_orth(ii) = mean(gsac_avg_orth_frac(eset));
     expt_inacc_orth(ii) = mean(avg_inaccurate_orth(eset));
     expt_acc_orth(ii) = mean(avg_accurate_orth(eset));
@@ -310,8 +326,11 @@ line([-0.02 0.08],[10 10],'color','b','linestyle','--');
 
 %%
 orth_trajects.tax = eye_tax;
-orth_trajects.avg_orth_speed = mean(expt_gsac_avgorthspeed);
-orth_trajects.avg_inac_speed = mean(expt_gsac_inaccorthspeed);
-orth_trajects.avg_acc_speed = mean(expt_gsac_accorthspeed);
-dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
+% orth_trajects.avg_orth_speed = mean(expt_gsac_avgorthspeed);
+% orth_trajects.avg_inac_speed = mean(expt_gsac_inaccorthspeed);
+% orth_trajects.avg_acc_speed = mean(expt_gsac_accorthspeed);
+orth_trajects.avg_orth_speed = mean(expt_gsac_avgPorthspeed);
+orth_trajects.avg_inac_speed = mean(expt_gsac_inaccPorthspeed);
+orth_trajects.avg_acc_speed = mean(expt_gsac_accPorthspeed);
+dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories_FIN';
 save(dname,'orth_trajects');

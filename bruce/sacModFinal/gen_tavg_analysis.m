@@ -1,11 +1,11 @@
-clear all
-close all
+% clear all
+% close all
 
 addpath('~/James_scripts/CircStat2011f/')
 global Expt_name bar_ori
 
-Expt_name = 'G086';
-bar_ori = 0;
+% Expt_name = 'G086';
+% bar_ori = 0;
 
 include_bursts = 0;
 
@@ -559,7 +559,8 @@ maxlag = round(0.5/dt);
 [gen_data.msac_gsac_xcorr,acorr_lags] = xcov(binned_gsac_sm,binned_msac_sm,maxlag,'coeff');
 gen_data.acorr_lags = acorr_lags*dt;
 
-%%
+%% different saccade triggered average speed profiles
+%different velocity components relative to bar stimuli
 orth_vel = [zeros(1,2); diff(corrected_eye_vals(:,[2 4]))]*et_params.eye_fs;
 orth_vel = mean(orth_vel(:,logical(use_coils)),2);
 par_vel = [zeros(1,2); diff(corrected_eye_vals(:,[1 3]))]*et_params.eye_fs;
@@ -573,15 +574,20 @@ raw_msac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(mi
 % [gen_data.gsac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_sac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
 % [gen_data.msac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(all_eye_speed,raw_msac_start_inds,round(0.15*et_params.eye_fs),round(0.15*et_params.eye_fs));
 
-[gen_data.gsac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(tot_vel,raw_sac_start_inds,round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
-[gen_data.msac_rawtavg_eyespeed,eye_tavg_lags] = get_event_trig_avg_v3(tot_vel,raw_msac_start_inds,round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
+%get raw triggered average speed profiles
+[gen_data.gsac_rawtavg_eyespeed,eye_tavg_lags,~,~,gsac_speed_mat] = get_event_trig_avg_v3(tot_vel,raw_sac_start_inds,round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs),2);
+gen_data.msac_rawtavg_eyespeed = get_event_trig_avg_v3(tot_vel,raw_msac_start_inds,round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
 gen_data.raw_eye_lags = eye_tavg_lags/et_params.eye_fs;
 
+%separate orthoganol velocity profiles for saccades with positive and
+%negative orthogonal displacements
 gsac_pos_orth = find(sac_deltaY(gsac_set) > 0);
 gsac_neg_orth = find(sac_deltaY(gsac_set) < 0);
 [gen_data.gsac_pos_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(gsac_pos_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
 [gen_data.gsac_neg_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(gsac_neg_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
 
+%median split of orthogonal displacement (also for both pos and neg displ
+%sacs)
 med_pos_orth = median(sac_deltaY(gsac_set(gsac_pos_orth)));
 large_pos_orth = gsac_pos_orth(sac_deltaY(gsac_set(gsac_pos_orth)) > med_pos_orth);
 small_pos_orth = gsac_pos_orth(sac_deltaY(gsac_set(gsac_pos_orth)) < med_pos_orth);
@@ -589,10 +595,17 @@ med_neg_orth = median(sac_deltaY(gsac_set(gsac_neg_orth)));
 large_neg_orth = gsac_neg_orth(sac_deltaY(gsac_set(gsac_neg_orth)) < med_neg_orth);
 small_neg_orth = gsac_neg_orth(sac_deltaY(gsac_set(gsac_neg_orth)) > med_neg_orth);
 
+%fraction of saccade in the orthogonal direction
 gsac_delta_Y_frac = sac_deltaY(gsac_set)./sqrt(sac_deltaY(gsac_set).^2 + sac_deltaX(gsac_set).^2);
 gen_data.gsac_delta_orth = sac_deltaY(gsac_set);
 gen_data.gsac_delta_Y_frac = gsac_delta_Y_frac;
 
+%compute fraction of each sac velocity profile in the orthogonal direction, and
+%compute avg
+gsac_orth_vel_proj = bsxfun(@times,gsac_speed_mat,abs(gsac_delta_Y_frac'));
+gen_data.gsac_orthproj_eyespeed = mean(gsac_orth_vel_proj);
+
+%separate avg velocity profiles
 [gen_data.gsac_large_pos_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(large_pos_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
 [gen_data.gsac_small_pos_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(small_pos_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
 [gen_data.gsac_large_neg_orthvel] = get_event_trig_avg_v3(orth_vel,raw_sac_start_inds(large_neg_orth),round(0.05*et_params.eye_fs),round(0.1*et_params.eye_fs));
@@ -605,14 +618,17 @@ gen_data.eye_lags = tavg_lags*dt;
 
 %%
 %classify guided saccades as having large or small orthogonal component
-med_ocomp = nanmedian(abs(sac_deltaY(gsac_set)));
-large_ocomp = gsac_set(abs(sac_deltaY(gsac_set)) > med_ocomp);
-small_ocomp = gsac_set(abs(sac_deltaY(gsac_set)) < med_ocomp);
+med_ocomp = nanmedian(abs(sac_deltaY(gsac_set))); %median orthogonal displacement
+large_ocomp = find(abs(sac_deltaY(gsac_set)) > med_ocomp);
+small_ocomp = find(abs(sac_deltaY(gsac_set)) < med_ocomp);
 
-avg_locomp = nanmean(abs(sac_deltaY(large_ocomp)));
-avg_socomp = nanmean(abs(sac_deltaY(small_ocomp)));
+%average displacement in each group
+avg_locomp = nanmean(abs(sac_deltaY(gsac_set(large_ocomp))));
+avg_socomp = nanmean(abs(sac_deltaY(gsac_set(small_ocomp))));
 
-
+%% avg velocity profiles for accurate and inaccurate sacs
+gen_data.gsac_orthproj_eyespeed_accurate = mean(gsac_orth_vel_proj(small_ocomp,:));
+gen_data.gsac_orthproj_eyespeed_inaccurate = mean(gsac_orth_vel_proj(large_ocomp,:));
 %% COMPUTE SACCADE DURATION DISTRIBUTIONS AND STATS
 vel_x = [zeros(1,2); diff(all_eye_vals(:,[1 3]))]*et_params.eye_fs;
 vel_y = [zeros(1,2); diff(all_eye_vals(:,[2 4]))]*et_params.eye_fs;
@@ -620,18 +636,20 @@ vel_x = mean(vel_x(:,logical(use_coils)),2);
 vel_y = mean(vel_y(:,logical(use_coils)),2);
 sac_angles = [saccades(:).direction];
 
+%redefine saccade end point using higher speed threshold to avoid
+%high-frequency artifacts after saccade
 new_gsac_speedthresh = 10;
 raw_sac_start_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).start_time]));
 raw_sac_stop_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).stop_time]));
 raw_sac_peak_inds = round(interp1(all_eye_ts,1:length(all_eye_ts),[saccades(gsac_set).peak_time]));
 new_gsac_durs = nan(size(gsac_set));
 for ii = 1:length(new_gsac_durs)
-    cur_inds = (raw_sac_start_inds(ii)):(raw_sac_stop_inds(ii)+2);
+    cur_inds = (raw_sac_start_inds(ii)):(raw_sac_stop_inds(ii)+2); 
     %     new_gsac_durs(ii) = sum(tot_vel(cur_inds) >= new_gsac_speedthresh);
-    ploc = raw_sac_peak_inds(ii)-raw_sac_start_inds(ii)+1;
+    ploc = raw_sac_peak_inds(ii)-raw_sac_start_inds(ii)+1; %location of peak velocity time
     cur_vel = all_eye_speed(cur_inds);
 %     [~,ploc] = max(cur_vel);
-    ep = find(cur_vel(ploc:end) <= new_gsac_speedthresh,1) + ploc-1;
+    ep = find(cur_vel(ploc:end) <= new_gsac_speedthresh,1) + ploc-1; %find first time when saccade velocity is below the threshold
     new_gsac_durs(ii) = ep-1;
 end
 new_gsac_durs = new_gsac_durs/et_params.eye_fs;

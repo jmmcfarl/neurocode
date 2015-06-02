@@ -1,6 +1,6 @@
 
 %
-% clear all
+clear all
 addpath('~/James_scripts/bruce/eye_tracking_improvements//');
 addpath('~/James_scripts/bruce/processing/');
 addpath('~/James_scripts/bruce/saccade_modulation/');
@@ -9,9 +9,9 @@ addpath('~/James_scripts/TentBasis2D/');
 
 global Expt_name bar_ori use_MUA
 
-% Expt_name = 'M296';
-% use_MUA = false;
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'M296';
+use_MUA = false;
+bar_ori = 0; %bar orientation to use (only for UA recs)
 
 fit_unCor = false;
 fit_subMod = true;
@@ -33,12 +33,19 @@ mod_data_name = 'corrected_models2';
 %temporal smoothness reg params used in final analysis
 cent_off_d2T = 100;
 cent_gain_d2T = 50; 
+cent_TB_lambda = 10;
 
 dt = 0.01;
 backlag = round(0.1/dt);
 forlag = round(0.3/dt);
 slags = -backlag:forlag;
 n_sac_bins = length(slags);
+
+TB_params.xbuff = 3;
+TB_params.n_Gbins = 35; %number of bins for TB model
+TB_params.G_lambdas = 100; %d2G reg parameter for TB model (smoothness in g-dimension)
+TB_params.backlag = backlag;
+TB_params.forlag = forlag;
 
 micro_thresh = 1; %max amp of microsac (deg)
 EP_bounds = 1;%eye position boundary (deg from central FP)
@@ -869,6 +876,27 @@ for cc = targs
             cur_mod.xvLLimp = offset_xvLLimp;
             sacStimProc(cc).offset_mod = cur_mod;
             
+            %% NOW FIT GAIN-ONLY MODEL
+            tr_stim{3} = reshape(bsxfun(@times,cur_Xsac,reshape(stimG,[],1,n_gains)), size(stimG,1),[]);
+            sac_stim_params(3) = NMMcreate_stim_params([n_slags n_gains]);
+            
+            mod_signs = [1 1];
+            Xtargets = [1 3];
+            NL_types = {'lin','lin'};
+            sac_reg_params = NMMcreate_reg_params('boundary_conds',repmat([Inf 0 0],length(mod_signs),1));
+            
+            cur_mod = NMMinitialize_model(sac_stim_params,mod_signs,NL_types,sac_reg_params,Xtargets);
+            cur_mod.mods(1).filtK(:) = 1; %initialize base gains to 1
+            cur_mod.spk_NL_params = cur_rGQM.spk_NL_params;
+            cur_mod = NMMadjust_regularization(cur_mod,[2],'lambda_d2T',cent_gain_d2T);
+            cur_mod = NMMfit_filters(cur_mod,cur_Robs,tr_stim,[],tr_sac_inds,1);
+            cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs,tr_stim,[],tr_sac_inds);
+            
+            [LL, nullLL, pred_rate] = NMMeval_model( cur_mod, cur_Robs, tr_stim, [], xv_sac_inds);
+            gain_xvLLimp = (LL-nullLL)/log(2);
+            cur_mod.xvLLimp = gain_xvLLimp;
+            sacStimProc(cc).gain_mod = cur_mod;
+            
             %% NOW FIT GAIN + OFFSET MODEL
             tr_stim{3} = reshape(bsxfun(@times,cur_Xsac,reshape(stimG,[],1,n_gains)), size(stimG,1),[]);
             sac_stim_params(3) = NMMcreate_stim_params([n_slags n_gains]);
@@ -889,7 +917,34 @@ for cc = targs
             [LL, nullLL, pred_rate] = NMMeval_model( cur_mod, cur_Robs, tr_stim, [], xv_sac_inds);
             gain_xvLLimp = (LL-nullLL)/log(2);
             cur_mod.xvLLimp = gain_xvLLimp;
-            sacStimProc(cc).gain_mod = cur_mod;
+            sacStimProc(cc).gain_offset_mod = cur_mod;
+            
+            %% CREATE TENT_BASIS MODEL OF SACCADE-MODULATION
+            fprintf('Estimating tent-basis model\n');
+            xbuff = 3; %add a lag-axis buffer to the model to minimize the impact of any boundary effects (with smoothing)
+            
+            Xtick = -(backlag+TB_params.xbuff+1/2):(1):(forlag+TB_params.xbuff+1/2);
+            n_sbins = length(Xtick);
+            
+            %compute a single-valued 'time-since-saccade' parameter
+            cur_sac_starts = saccade_start_inds(big_sacs);
+            cur_sac_stops = saccade_stop_inds(big_sacs);
+            t_since_sac_start = nan(NT,1);
+            temp_cnt = zeros(NT,1);
+            for ii = 1:length(cur_sac_starts)
+                prev_tstart = find(trial_start_inds <= cur_sac_starts(ii),1,'last');
+                next_tstop = find(trial_end_inds >= cur_sac_starts(ii),1,'first');
+                cur_inds = (cur_sac_starts(ii) - backlag - xbuff):(cur_sac_starts(ii) + forlag + xbuff);
+                cur_uset = find(cur_inds > trial_start_inds(prev_tstart) & cur_inds < trial_end_inds(next_tstop));
+                %             t_since_sac_start(cur_inds(cur_uset)) = slags(cur_uset);
+                t_since_sac_start(cur_inds(cur_uset)) = Xtick(cur_uset)+0.5;
+                temp_cnt(cur_inds(cur_uset)) = temp_cnt(cur_inds(cur_uset)) + 1;
+            end
+            
+            %estimate xval R2 for different linear models of the predicted
+            %rate r(g,tau)
+            sacStimProc(cc).TB_rate_R2 = get_TB_gain_offset_R2(cur_Robs,norm_stimG,t_since_sac_start(cc_uinds),TB_params,cur_Xsac,basemod_pred_rate,...
+                cent_TB_lambda,base_tr_inds,base_xv_inds);
         end
     else
         sacStimProc(cc).used = false;

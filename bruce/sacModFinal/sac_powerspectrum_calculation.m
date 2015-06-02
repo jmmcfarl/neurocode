@@ -3,10 +3,11 @@ close all
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
 
-type = 'avg'; %avg worst or best, determines which velocity profile to use
+type = 'worst'; %avg worst or best, determines which velocity profile to use
 
 %%
-dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
+% dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
+dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories_FIN';
 load(dname);
 
 %pick out chunk of velocity profile to use
@@ -22,9 +23,9 @@ switch type
         orth_velprof = orth_trajects.avg_inac_speed;
 end
 % orth_velprof = orth_trajects.avg_inac_speed;
-use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur));
-sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1));
-orth_velprof = orth_velprof(use_chunk);
+use_chunk = find(sac_tax >= beg_offset & sac_tax <= (beg_offset + chunk_dur)); %indices of velocity profile to use
+sac_tax = sac_tax(use_chunk) - sac_tax(use_chunk(1)); %centered time-axis
+orth_velprof = orth_velprof(use_chunk); 
 
 %% load in phosphor response trace, and sample enough repeats to cover the simulated trial
 load ~/Data/bruce/misc/ViewsonicFrame.mat
@@ -36,18 +37,18 @@ phosphor_t = phosphor_t(use_seg); phosphor_lum = phosphor_lum(use_seg);
 
 phosphor_lum = phosphor_lum/max(phosphor_lum); %scale to have max value of 1
 
-n_traces_per_trial = 5;
+n_traces_per_trial = 5; %just make sure this covers the used velocity profile
 phosphor_lum = repmat(phosphor_lum,n_traces_per_trial,1);
 phosphor_t = (1:length(phosphor_lum))'/phosphor_Fs;
 
 %% resample both phosphor trace and velocity profile onto sufficiently dense time axis
-trial_Fs = 5e3;
+trial_Fs = 5e3; %sample frequency used for calculation
 
 Trial_Tax = 1/trial_Fs:1/trial_Fs:max(sac_tax);
 interp_velprof = interp1(sac_tax,orth_velprof,Trial_Tax);
 interp_phosphor = interp1(phosphor_t,phosphor_lum,Trial_Tax);
 
-Trial_Dur = 0.03;
+Trial_Dur = 0.03; %duration of segment used for computing power spectra
 ep = find(Trial_Tax >= Trial_Dur,1);
 interp_velprof = interp_velprof(1:ep);
 interp_phosphor = interp_phosphor(1:ep);
@@ -74,9 +75,9 @@ ylabel('Orthogonal eye speed (deg/sec)');
 
 %%
 
-n_rpts = 100; %number of times to repeat simulation for averaging
+n_rpts = 200; %number of times to repeat simulation for averaging
 frame_dur = 0.01; %duration of each stimulus frame
-Ntrials = 1;%number of simulated trials to pool for calculating FFT at higher temp freq sampling
+Ntrials = 50;%number of simulated trials to pool for calculating FFT at higher temp freq sampling
 Nframes = ceil(Trial_Dur/frame_dur); %number of stimulus frames per trial
 wi = 2; %width of stimulus (deg)
 bar_width = 0.0565; %width of individual bars (deg)
@@ -89,7 +90,7 @@ pix_size = nbars*bar_width/npix; %pixel size (deg)
 dd = 12; %bar density
 
 H = fspecial('gaussian',5,1); %circular gaussian window for slight frequency smoothing
-%%
+%% cycle through n_rpts calculations 
 for nn = 1:n_rpts
     fprintf('Sim rpt %d of %d\n',nn,n_rpts);
     
@@ -112,8 +113,8 @@ for nn = 1:n_rpts
     stim_up = repmat(stim_up,[1 1 1 temp_usfac]);
     stim_up = permute(stim_up,[4 1 2 3]);
     % stim_up = reshape(stim_up,[],npix,Ntrials);
-    %% simulate frame-by-frame translation, egiven eye velocity
-    vel_in_pix = round(interp_velprof/trial_Fs/pix_size);
+    %% simulate frame-by-frame translation, given eye velocity
+    vel_in_pix = round(interp_velprof/trial_Fs/pix_size); %speed in pixels per time sample
     stim_up_trans = stim_up;
     for jj = 1:Nframes
         for ii = 2:temp_usfac
@@ -121,12 +122,14 @@ for nn = 1:n_rpts
         end
     end
     
-    %these pixels could have zeros introduced from the image translation
+    %these pixels could have zeros introduced from the image translation,
+    %so eliminate them
     buffer_win = round(0.4/pix_size);
     stim_up_trans(:,:,1:buffer_win,:) = [];
     stim_up(:,:,1:buffer_win,:) = [];
     npix = size(stim_up,3);
     
+    %put back into TxP matrix
     stim_up_trans = reshape(stim_up_trans,[],npix,Ntrials);
     stim_up = reshape(stim_up,[],npix,Ntrials);
     
@@ -134,27 +137,33 @@ for nn = 1:n_rpts
     stim_up_trans = bsxfun(@times,stim_up_trans,interp_phosphor');
     stim_up = bsxfun(@times,stim_up,interp_phosphor');
     
+    %if using multiple 'trials' need to reformat
     stim_up_trans = permute(stim_up_trans,[1 3 2]);
     stim_up = permute(stim_up,[1 3 2]);
     stim_up_trans = reshape(stim_up_trans,[],npix);
     stim_up = reshape(stim_up,[],npix);
+    
     %% compute and store ffts
-    NT = length(Trial_Tax)*Ntrials;
-    niqf_x = 1/(2*pix_size);
-    niqf_t = trial_Fs/2;
+    NT = length(Trial_Tax)*Ntrials; %length of data segments
+    niqf_x = 1/(2*pix_size); %spatial nyquist
+    niqf_t = trial_Fs/2; %temporal nyquist
+    
+    %frequency axes
     fx = linspace(-niqf_x,niqf_x,npix);
     ft = linspace(-niqf_t,niqf_t,NT);
     [FX,FT] = meshgrid(fx,ft);
     
-    dft = 2*niqf_t/NT;
-    dfx = 2*niqf_x/npix;
-    PP = abs(fftshift(fft2(stim_up)));
-    PP_trans = abs(fftshift(fft2(stim_up_trans)));
+    dft = 2*niqf_t/NT; %temporal freq resolution
+    dfx = 2*niqf_x/npix; %spatial freq resolution
+    PP = abs(fftshift(fft2(stim_up))); %amplitude spectrum for original stim
+    PP_trans = abs(fftshift(fft2(stim_up_trans))); %amplitude spectrum for translated stim
     
+    %save frequencies below max freq
     fxu = find(abs(fx) <= 200);
     ftu = find(abs(ft) <= 200);
     
-    PP = filter2(H,PP);
+    %aply slight Gaussian smoothing and store
+    PP = filter2(H,PP); 
     PP_trans = filter2(H,PP_trans);
     all_PP(nn,:,:) = PP(ftu,fxu);
     all_PP_eye(nn,:,:) = PP_trans(ftu,fxu);
@@ -162,8 +171,8 @@ for nn = 1:n_rpts
 end
 
 %%
-% sname = [fig_dir 'pspec_calcs_' type];
-% save(sname,'fx','ft','fxu','ftu','all_PP','all_PP_eye');
+sname = [fig_dir 'pspec_calcs_FIN_' type];
+save(sname,'fx','ft','fxu','ftu','all_PP','all_PP_eye');
 
 %%
 avg_PP = squeeze(nanmean(all_PP));

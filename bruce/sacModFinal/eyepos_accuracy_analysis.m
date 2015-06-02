@@ -741,8 +741,8 @@ if length(used_inds) ~= length(cur_drift_post_mean)
     error('ET data mismatch!');
 end
 
-fix_disp = abs(fin_tot_corr*sp_dx);
-%%
+fix_disp = abs(fin_tot_corr*sp_dx); %absolute disparity relative to fixation target
+%% loop over possible time lags and compute the average fixation disparity
 gsac_fix_disp = nan(length(slags));
 for ii = 1:length(slags)
     temp = find(Xsac(:,ii) == 1);
