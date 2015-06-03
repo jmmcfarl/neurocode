@@ -3,13 +3,15 @@ close all
 type_set = {'worst','avg','best'};
 cmap = [1 0 0; 0 0 0; 0 0 1];
 
-fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
+% fig_dir = '/Users/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
+fig_dir = '/home/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
 f1 = figure(); hold on
 
 %%
 f2 = figure();
 
-dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
+% dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';
+dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories_FIN';
 load(dname);
 
 %% load in phosphor response trace, and sample enough repeats to cover the simulated trial
@@ -22,7 +24,7 @@ phosphor_t = phosphor_t(use_seg); phosphor_lum = phosphor_lum(use_seg);
 
 phosphor_lum = phosphor_lum/max(phosphor_lum); %scale to have max value of 1
 
-n_traces_per_trial = 5;
+n_traces_per_trial = 2;
 phosphor_lum = repmat(phosphor_lum,n_traces_per_trial,1);
 phosphor_t = (1:length(phosphor_lum))'/phosphor_Fs;
 %%
@@ -33,39 +35,40 @@ for tt = 1:length(type_set)
     fprintf('Computing for type %s\n',type_set{tt});
     type = type_set{tt};
     
-    sname = [fig_dir 'pspec_calcs_' type];
+%     sname = [fig_dir 'pspec_calcs_' type];
+    sname = [fig_dir 'pspec_calcs_FIN_' type];
     load([sname '.mat']);
     
     %% compute relative modulation of amplitude spectrum
-    avg_pow = squeeze(nanmean(all_PP.^2));
-    avg_pow_eye = squeeze(nanmean(all_PP_eye.^2));
+    avg_pow = squeeze(nanmean(all_PP.^2)); %power spectrum during fixation
+    avg_pow_eye = squeeze(nanmean(all_PP_eye.^2)); %power spectrum during saccaddes
     
     %     avg_pow = filter2(H,avg_pow);
     %     avg_pow_eye = filter2(H,avg_pow_eye);
     
+    %avg together power spectrum for the two eye directions
     avg_pow_eye = 0.5*avg_pow_eye + 0.5*flipud(avg_pow_eye);
-    avg_amp_eye = sqrt(avg_pow_eye);
-    avg_amp = sqrt(avg_pow);
+    avg_amp_eye = sqrt(avg_pow_eye); %amplitude spectrum during saccades
+    avg_amp = sqrt(avg_pow); %amplitude spectrum during fixation
     
+    %relative change in amp spectrum during saccades
     rel_amp_diff = (avg_amp_eye - avg_amp)./avg_amp;
     
-    %%
+    %% load the preferred spatial frequencies of all the units used in analysis
     sname = '~/Analysis/bruce/FINsac_mod/used_unit_SFs.mat';
     load(sname);
     
-    %%
+    %% find change in temporal amplitude spectrum at each neuron's preferred SF
     [XX,TT] = meshgrid(fx(fxu),ft(ftu));
-    % V1 = interp2(XX,TT,rel_amp_diff,used_unit_gSFs,ft(ftu),'bilinear');
     V1 = interp2(XX,TT,rel_amp_diff,used_unit_FSFs,ft(ftu),'bilinear');
-    % f1 = figure();
     
     %% slightly smooth in temporal frequency
-    tfreq_smoothwin = round(tfreq_smooth/median(diff(ft)));
     V1_smoothed = V1;
+    tfreq_smoothwin = round(tfreq_smooth/median(diff(ft)));
     for ii = 1:length(used_unit_FSFs)
         V1_smoothed(:,ii) = jmm_smooth_1d_cor(V1_smoothed(:,ii),tfreq_smoothwin);
     end
-    %%
+    %% plot avg (and SEM) across SUs
     figure(f1);
     shadedErrorBar(ft(ftu),mean(V1_smoothed,2),std(V1_smoothed,[],2)/sqrt(length(used_unit_gSFs)),{'color',cmap(tt,:)});
     
@@ -126,21 +129,21 @@ line([0 0],yl,'color','k','linestyle','--');
 xlabel('Temporal frequency (Hz)');
 ylabel('Change in amplitude spectrum (fold-difference)');
 
-% fig_width = 6; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'stimulus_temporal_spectra.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% % close(f1);
+fig_width = 6; rel_height = 0.8;
+figufy(f1);
+fname = [fig_dir 'stimulus_temporal_spectra.pdf'];
+exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %%
 figure(f2);
 subplot(2,1,1);
 ylim([0 1]);
 
-% %PRINT PLOTS
-% fig_width = 6; rel_height = 1.2;
-% figufy(f2);
-% fname = [fig_dir 'eyespeed_phosphor_profiles.pdf'];
-% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% % close(f2);
+%PRINT PLOTS
+fig_width = 6; rel_height = 1.2;
+figufy(f2);
+fname = [fig_dir 'eyespeed_phosphor_profiles.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 

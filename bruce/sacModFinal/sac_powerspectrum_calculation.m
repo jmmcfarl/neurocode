@@ -3,7 +3,7 @@ close all
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/pspec_simulation/';
 
-type = 'worst'; %avg worst or best, determines which velocity profile to use
+type = 'best'; %avg worst or best, determines which velocity profile to use
 
 %%
 % dname = '~/Analysis/bruce/FINsac_mod/orth_eyetrajectories';

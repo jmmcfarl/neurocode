@@ -652,6 +652,8 @@ EIprc = prctile(EIrat,[33 50 67]);
 enh_units = find(EIrat >= EIprc(2));
 sup_units = find(EIrat <= EIprc(2));
 
+[r_E,p_E] = corr(SSI_Ifact,gsac_Efact,'type','spearman');
+[r_I,p_I] = corr(SSI_Ifact,gsac_Ifact,'type','spearman');
 
 close all
 
@@ -769,6 +771,8 @@ rankprc = prctile(rankfact,[33 50 67]);
 enh_units = find(rankfact >= rankprc(2));
 sup_units = find(rankfact <= rankprc(2));
 
+[r_E,p_E] = corr(SSI_Ifact,gsac_Efact,'type','spearman');
+[r_I,p_I] = corr(SSI_Ifact,gsac_Ifact,'type','spearman');
 
 close all
 
@@ -2833,7 +2837,7 @@ base_lags = find(slags <= 0);
 
 %get the model-predicted firing rate CV for each latency
 all_CVs = cell2mat(arrayfun(@(x) x.sac_delay.single_rCV',all_SU_data(cur_SUs),'uniformoutput',0));
-min_CV = 0.06; %.05
+min_CV = 0.06; 
 
 ex_cell = 32; %SU number of example cell
 
@@ -2853,7 +2857,10 @@ for ff = 1:flen;
     gsac_gain(:,ff,:) = cur_gains;
 end
 
-uset = all_CVs > min_CV; %only use neurons/latencies where there was a min amount of modulation
+% poss_ulags = find(tax < 0.125);
+% LL = meshgrid(1:flen,1:length(cur_SUs)); %matrix storing lags 
+% uset = all_CVs > min_CV & ismember(LL,poss_ulags); %only use neurons/latencies where there was a min amount of modulation
+uset = all_CVs > min_CV ; %only use neurons/latencies where there was a min amount of modulation
 uset_full = repmat(uset,[1 1 length(slags)]);
 gsac_gain_nan = gsac_gain;
 gsac_gain_nan(~uset_full) = nan; %only use cell/latencies that have enough stimulus modulation
@@ -2876,7 +2883,7 @@ ylim([0 0.12]);
 xlabel('Time since saccade onset (s)');
 ylabel('Stimulus latency (s)');
 set(gca,'ydir','normal');
-xlim([-0.05 0.2]);
+xlim([-0.05 0.15]);
 colorbar
 line([0 0.12],[0 0.12],'color','k');
 line([0 0],[0 0.12],'color','k','linestyle','--');
@@ -2946,7 +2953,6 @@ gkern_times(~uset) = nan; %use only cases where there is sufficient modulation
 for ii = 1:length(cur_SUs)
     curset = find(~isnan(gkern_times(ii,:)));
     if length(curset) >= min_pts %must be at least a certain number of significant latencies
-        ii
         cell_corr(ii) = corr((1:length(curset))',gkern_times(ii,curset)','type','spearman');
         temp = robustfit(tax(curset),gkern_times(ii,curset)');
 %         temp = robustfit(gkern_times(ii,curset)',tax(curset));
@@ -2999,13 +3005,13 @@ imagescnan(slags*dt,tax,squeeze(gsac_gain_nan(ex_cell,:,:)))
 hold on
 xx = linspace(-0.05,0.2,100); yy = (xx-cell_offset(ex_cell))/cell_slope(ex_cell);
 plot(xx,yy,'w','linewidth',2);
-plot(gkern_times(ex_cell,:),tax,'ro','linewidth',1); %overlay plot of detected peak suppression times at each latency
+plot(gkern_times(ex_cell,:),tax,'r.','markersize',12); %overlay plot of detected peak suppression times at each latency
 caxis([0.2 1.8])
 ylim([0 0.12]);
 xlabel('Time since saccade onset (s)');
 ylabel('Stimulus latency (s)');
 set(gca,'ydir','normal');
-xlim([-0.05 0.2]);
+xlim([-0.05 0.15]);
 line([0 0.12],[0 0.12],'color','k');
 line([0 0],[0 0.12],'color','k','linestyle','--');
 colorbar
@@ -3014,7 +3020,7 @@ colorbar
 % end
 
 % % PRINT PLOTS
-% fig_width = 3.5; rel_height = 0.8;
+% fig_width = 3.5; rel_height = 0.7;
 % figufy(f1);
 % fname = [fig_dir 'gsac_stimlatency_gainmod.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -3037,7 +3043,7 @@ colorbar
 % fname = [fig_dir sprintf('gsac_stimlatency_excell%d.pdf',ex_cell)];
 % exportfig(f4,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f4);
-
+% 
 %% FORWARD CORR SACMOD GAIN TIMING ANALYSIS
 sm_win = 1;
 flen = 15;
