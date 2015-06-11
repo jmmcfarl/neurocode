@@ -3,8 +3,8 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name monk_name rec_type Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M014';
-monk_name = 'jbe';
+Expt_name = 'M320';
+monk_name = 'lem';
 rec_type = 'LP';
 
 rec_number = 1;
@@ -220,8 +220,8 @@ end
 % ca = caxis();
 % caxis([2 ca(2)]);
 
-%% CHECK SPIKE CORRELATIONS
-block_num = 40;
+%% CHECK ALL SPIKE CORRELATIONS
+block_num = 31;
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
 load(cur_dat_name,'Clusters');
 if strcmp(rec_type,'UA')
@@ -288,9 +288,51 @@ caxis([0 1]);
 colorbar;
 
 clear binned_spikes
+
+%% CHECK SPECIFIC SPIKE CORRELATIONS
+block_num = 31;
+check_pair = [31 33];
+
+cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
+load(cur_dat_name,'Clusters');
+if strcmp(rec_type,'UA')
+    sfile = [data_dir sprintf('/Expt%d.p%dFullV.mat',raw_block_nums(block_num),1)];
+    [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile, false, [100 nan],1);
+elseif strcmp(rec_type,'LP')
+    sfile_name = [data_dir sprintf('/Expt%dFullV.mat',raw_block_nums(block_num))];
+    if Vloaded ~= raw_block_nums(block_num)
+        fprintf('Loading data file %s\n',sfile_name);
+        [loadedData.V,loadedData.Vtime,loadedData.Fs] = Load_FullV(sfile_name, false, [100 nan],1:n_probes);
+        Vloaded = raw_block_nums(block_num);
+    end
+end
+
+bin_width = 0.001;
+t_axis = loadedData.Vtime(1):bin_width:loadedData.Vtime(end);
+binned_spikes = [];
+for ii = 1:length(check_pair)
+    cur_su_ind = check_pair(ii)
+    cur_probe = SU_clust_data(cur_su_ind).probe_num;
+    cur_spk_set = Clusters{cur_probe}.spike_clusts == SU_clust_data(cur_su_ind).cluster_label;
+    cur_spk_times = Clusters{cur_probe}.times(cur_spk_set);
+    cur_binned_spikes = hist(cur_spk_times,t_axis);
+    binned_spikes = [binned_spikes cur_binned_spikes'];
+end
+
+cond_p1 = nan;
+cond_p2 = cond_p1;
+f_is_spike = binned_spikes(:,1) > 0;
+s_is_spike = binned_spikes(:,2) > 0;
+cond_p1 = sum(binned_spikes(f_is_spike,2) > 0)/sum(f_is_spike);
+cond_p2 = sum(binned_spikes(s_is_spike,1) > 0)/sum(s_is_spike);
+cur_prob = max(cond_p1,cond_p2);
+
+fprintf('Max conditional probability: %.4f\n',cur_prob);
+clear binned_spikes
+
 %% COMPARE spike waveforms for pair of clusters on a given pair of adjacent probes
-block_num = 30;
-pair = [6 7];
+block_num = 31;
+pair = [32 34];
 spk_pts = [-12:27];
 
 cur_dat_name = [base_save_dir sprintf('/Block%d_Clusters.mat',block_num)];
@@ -402,6 +444,8 @@ switch Expt_name
     case 'M014'
         init_use_SUs = [7 16 21 22 24];
         
+    case 'M320'
+        init_use_SUs = [1 4 6 7 8 9 10 11 12 13 17 19 21 22 23 24 26 28 29 30 33 34];
         
     case 'G029'
         init_use_SUs = [2 4 5 9 14 23 24 31 39 47 49 55 63 66 70 71 80 81]; %G029 %CHECKED
@@ -603,6 +647,35 @@ switch Expt_name
         SU_ID_mat([22 28],21) = nan;
         SU_ID_mat([12],22) = nan;
         SU_ID_mat([16],24) = nan;
+        
+    case 'M320'
+        SU_ID_mat([1:22],6) = nan;
+        SU_ID_mat([1:4 23:25],7) = nan;
+
+        %units 8 and 9 are the same
+        SU_ID_mat([1:12],8) = nan;
+        SU_ID_mat([13:end],9) = nan;
+        SU_ID_mat(~isnan(SU_ID_mat(:,9)),9) = SU_ID_mat(find(~isnan(SU_ID_mat(:,8)),1),8); 
+   
+        SU_ID_mat([1:18 34:end],10) = nan; %for blocks 1-18 this cluster is a mixture of two SUs
+         SU_ID_mat([40],11) = nan; 
+         SU_ID_mat([1:6],13) = nan; 
+         SU_ID_mat([1],21) = nan; 
+         SU_ID_mat([1:18],22) = nan; 
+         SU_ID_mat([1:12],23) = nan; 
+         
+         SU_ID_mat([1 32],24) = nan; 
+         SU_ID_mat([1 3],26) = nan; 
+
+        %units 28 and 29 are the same
+        SU_ID_mat([1:30],28) = nan;
+        SU_ID_mat([31:end],29) = nan;
+        SU_ID_mat(~isnan(SU_ID_mat(:,29)),29) = SU_ID_mat(find(~isnan(SU_ID_mat(:,28)),1),28);
+        
+        SU_ID_mat([1 ],30) = nan;
+        SU_ID_mat([2:7],33) = nan;
+        SU_ID_mat([1],34) = nan;
+
 end
 
 % figure;
@@ -682,7 +755,7 @@ SU_target_blocks = target_blocks;
 save(fname,'SU_clust_data','SU_ID_mat','SU_target_blocks','SU_allBlock_Data');
 
 
-%% CREATE SCATTERPLOTS FOR EACH BLOCK [STILL DOESN"T WORK FOR SUS THAT ARE CLUSTERED ON MULTIPLE PROBES ACROSS BLOCKS]
+%% CREATE SCATTERPLOTS FOR EACH BLOCK 
 fin_save_dir = [base_save_dir '/final'];
 if ~exist(fin_save_dir,'dir')
     mkdir(fin_save_dir);

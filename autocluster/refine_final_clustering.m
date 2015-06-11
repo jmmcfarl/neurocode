@@ -1,7 +1,10 @@
 all_target_blocks = 1:40;
+fprintf('Loading Ref_Clusters\n');
+rclust_name = [base_save_dir '/Ref_Clusters.mat'];
+load(rclust_name);
 
 %% JUST PLOT CLUSTER
-block_num = 10;
+block_num = 4;
 probe_num = 15;
 spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_num)];
 plot_GMM_cluster(block_num,probe_num,spk_data_name);
@@ -43,12 +46,12 @@ split_GMM_component_dimspec(block_num,probe_num,use_proj,use_2d);
 %% CYCLE THROUGH CLUSTER PLOTS and do split/delete operations
 close all
 
-probe_num = 23;
+probe_num = 15;
 block_num = RefClusters{probe_num}.base_block;
 spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_num)];
 f1 = plot_GMM_cluster(block_num,probe_num,spk_data_name);
 
-target_blocks = setdiff(8:19,block_num);
+target_blocks = setdiff(5:40,block_num);
 for bb = 1:length(target_blocks)
     block_num = target_blocks(bb);
     spk_data_name = [spkdata_dir Expt_name sprintf('_p%d_blk%d.mat',probe_num,block_num)];

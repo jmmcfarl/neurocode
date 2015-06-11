@@ -110,7 +110,7 @@ xlim([-0.2 0]);
 % fname = [fig_dir 'ppsim_filter.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
-
+% 
 %% plot effective kernels
 xr = [-0.05 0.15];
 f4 = figure();
@@ -161,7 +161,7 @@ ylabel('Stimulus latency (s)');
 % 
 
 %%
-plot_lags = [0.045 .075];
+plot_lags = [0.055 .085];
 cmap = jet(length(plot_lags));
 f6 = figure();
 for ii = 1:length(plot_lags)
@@ -180,11 +180,11 @@ subplot(2,1,2);
     plot(-lag_tax,base_tkern,'k');
 xlim([-0.2 0]);
 
-% fig_width = 4; rel_height = 1.6;
-% figufy(f6);
-% fname = [fig_dir 'ppsim_examp_effkerns.pdf'];
-% exportfig(f6,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f6);
+fig_width = 4; rel_height = 1.6;
+figufy(f6);
+fname = [fig_dir 'ppsim_examp_effkerns.pdf'];
+exportfig(f6,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f6);
 
 
 %%
