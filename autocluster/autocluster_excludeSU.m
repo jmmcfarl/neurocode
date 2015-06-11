@@ -104,6 +104,8 @@ if strcmpi(keep,'y')
     %     newCluster.iso_dists = new_isos;
     %     newCluster.Lratios = new_Lrats;
     
+    orig_params = Clusters{probe_num}.params;
+    params.outlier_thresh = orig_params.outlier_thresh; %use original outlier detection threshold
     [~,spike_features,spike_xy,Spikes] = apply_clustering(loadedData,clusterDetails,params,1);
     
     n_comps = length(clusterDetails.cluster_labels) + length(exclude_SUs);
@@ -111,6 +113,7 @@ if strcmpi(keep,'y')
     [GMM_obj, distance,all_comp_idx,all_clust_labels,cluster_stats] = ...
         GMM_fit(Spikes.V,spike_features,n_comps,params,n_comps);
     newCluster = clusterDetails;
+    newCluster.params = params;
     newCluster.gmm_fit = GMM_obj;
     newCluster.comp_idx = all_comp_idx;
     newCluster.cluster_labels = all_clust_labels;
@@ -127,13 +130,15 @@ if strcmpi(keep,'y')
     resp = input('Keep new clustering (y/n, d for cluster dump)?','s');
     if strcmpi(resp,'Y')
         fprintf('Saving cluster details\n');
+            rclust_dat_name = [base_save_dir '/Ref_Clusters.mat'];
+            load(rclust_dat_name);
+        newCluster.base_block = RefClusters{probe_num}.base_block;
         Clusters{probe_num} = newCluster;
+%         Clusters{probe_num}.base_block = RefCl
         save(cur_clust_data,'Clusters');
         
         if block_num == RefClusters{probe_num}.base_block
             fprintf('Saving to RefClusters\n');
-            rclust_dat_name = [base_save_dir '/Ref_Clusters.mat'];
-            load(rclust_dat_name);
             RefClusters{probe_num} = newCluster;
             save(rclust_dat_name,'RefClusters');
             

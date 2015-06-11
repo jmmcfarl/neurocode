@@ -14,7 +14,7 @@ use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-track
 exclude_sacs = true; EP_params.exclude_sacs = exclude_sacs;
 sub_trialavgs = true; EP_params.sub_trialavgs = sub_trialavgs; %subtract out trial avg spike counts
 
-poss_us_change = [0.5 1 2]; %possible scaling factors to apply to the original stimulus bar size
+poss_us_change = [0.5 1 2 3 4]; %possible scaling factors to apply to the original stimulus bar size
 
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
 
@@ -261,8 +261,6 @@ for ii = 1:length(blink_start_inds)
     in_blink_inds(cur_inds) = true;
 end
 
-in_sac_inds = reshape(in_sac_inds,used_nf,n_trials);
-in_blink_inds = reshape(in_blink_inds,used_nf,n_trials);
 in_sac_inds(isnan(in_sac_inds)) = 0; in_blink_inds(isnan(in_blink_inds)) = 0;
 in_sac_inds = logical(in_sac_inds); in_blink_inds = logical(in_blink_inds);
 
@@ -296,7 +294,7 @@ full_uinds = find(ismember(all_trialvec(used_inds),use_trials));
 n_used_utrials = length(full_uinds)/target_uf;
 
 %matrix of trial-by-trial EP estimates
-fin_shift_cor = round(post_mean_EP/modFitParams.sp_dx);
+fin_shift_cor = round(post_mean_EP(full_uinds)/modFitParams.sp_dx);
 EP_tbt = reshape(fin_shift_cor,target_uf,n_used_utrials);
 
 %TBT mats for sac and blink indicators

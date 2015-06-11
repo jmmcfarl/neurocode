@@ -1,4 +1,4 @@
-function [] = plot_GMM_cluster(block_num,probe_num,precomp_spike_data)
+function [f1] = plot_GMM_cluster(block_num,probe_num,precomp_spike_data)
 
 if nargin < 3
     precomp_spike_data = [];
@@ -62,13 +62,13 @@ for ii = 1:N_sus
     leg_cnt = leg_cnt + 1;
     end
 end
-xl = xlim(); yl = ylim();
 cmap = jet(length(cluster.cluster_labels));
 for ii = 1:length(cluster.cluster_labels)
     plot_gaussian_2d(cluster.gmm_xyMeans(ii,:)',squeeze(cluster.gmm_xySigma(:,:,ii)),[2],'r',2);
 end
 legend(h,leg_labels);
 axis tight
+xl = xlim(); yl = ylim();
 
 subplot(2,1,2);hold on
 [handles, details] = DensityPlot_jmm(spike_xy(:,1),spike_xy(:,2),'sqrtsc','ynormal','sd',[1 1]);

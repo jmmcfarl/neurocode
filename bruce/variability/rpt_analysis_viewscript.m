@@ -18,6 +18,9 @@ fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 close all
 % base_sname = 'rpt_variability_compact';
 base_sname = 'rpt_variability_compact_multDT_subTrial';
+% base_sname = 'rpt_variability_compact_wsims';
+
+base_sim_name = 'rpt_variability_barsize_sim';
 
 Ccnt = 1;
 Pcnt = 1;
@@ -35,10 +38,17 @@ for Elist_cnt = 1:length(Expt_list)
             
             sname = [data_dir base_sname sprintf('_ori%d',bar_ori)];
             if rec_number > 1
-               sname = strcat(sname,sprintf('_r%d',rec_number)); 
+                sname = strcat(sname,sprintf('_r%d',rec_number));
             end
             load(sname);
-                                 
+            EP_params.do_xcorrs = true;
+
+            sim_name = [data_dir base_sim_name sprintf('_ori%d',bar_ori)];
+            if rec_number > 1
+                sim_name = strcat(sim_name,sprintf('_r%d',rec_number));
+            end
+            load(sim_name);
+            
             for cc = 1:size(EP_data,1)
                 if ~isnan(EP_data(cc,1).ov_avg_BS)
                     fprintf('Cell %d/%d\n',cc,size(EP_data,1));
@@ -46,30 +56,36 @@ for Elist_cnt = 1:length(Expt_list)
                     EP_data(cc,1).monkey = monk_name;
                     EP_data(cc,1).Expt_num = str2num(Expt_name(2:end));
                     EP_data(cc,1).bar_ori = bar_ori;
-                     EP_data(cc,1).rec_number = rec_number;
+                    EP_data(cc,1).rec_number = rec_number;
                     EP_data(cc,1).cell_ID = Ccnt;
+                   
+                    EP_data(cc,1).sim_data = EP_sim_data(cc);
+                    
                     all_Cdata = cat(1,all_Cdata,EP_data(cc,:));
-                    Ccnt = Ccnt + 1;                    
+                    Ccnt = Ccnt + 1;
                 end
             end
             
-            cur_ucells = find(~isnan([EP_data(:,1).ov_avg_BS]));
-            for cc = 1:size(EP_pairs,1)
-                if all(ismember(EP_pairs(cc,1).ids,cur_ucells))
-%                     fprintf('Cell Pair %d/%d\n',cc,length(EP_pairs));
-                    
-                    EP_pairs(cc,1).monkey = monk_name;
-                    EP_pairs(cc,1).Expt_num = str2num(Expt_name(2:end));
-                    EP_pairs(cc,1).bar_ori = bar_ori;
-                    EP_pairs(cc,1).rec_number = rec_number;
-                    EP_pairs(cc,1).cell_IDs = [EP_data([EP_pairs(cc,1).ids]).cell_ID];
-                    all_Pdata = cat(1,all_Pdata,EP_pairs(cc,:));
-                    Pcnt = Pcnt + 1;
+            if EP_params.do_xcorrs
+                cur_ucells = find(~isnan([EP_data(:,1).ov_avg_BS]));
+                for cc = 1:size(EP_pairs,1)
+                    if all(ismember(EP_pairs(cc,1).ids,cur_ucells))
+                        %                     fprintf('Cell Pair %d/%d\n',cc,length(EP_pairs));
+                        
+                        EP_pairs(cc,1).monkey = monk_name;
+                        EP_pairs(cc,1).Expt_num = str2num(Expt_name(2:end));
+                        EP_pairs(cc,1).bar_ori = bar_ori;
+                        EP_pairs(cc,1).rec_number = rec_number;
+                        EP_pairs(cc,1).cell_IDs = [EP_data([EP_pairs(cc,1).ids]).cell_ID];
+                        all_Pdata = cat(1,all_Pdata,EP_pairs(cc,:));
+                        Pcnt = Pcnt + 1;
+                    end
                 end
             end
         end
     end
 end
+
 %%
 
 % FOR CELLS RECORDED MULTIPLE TIMES, PICK BEST INSTANCE
@@ -98,8 +114,10 @@ end
 to_eliminate = unique(to_eliminate);
 fprintf('Eliminating %d/%d duplicate SUs (multiple oris)\n',length(to_eliminate),size(all_Cdata,1));
 all_Cdata(to_eliminate,:) = [];
+if EP_params.do_xcorrs
 pair_IDs = cat(1,all_Pdata(:,1).cell_IDs);
 all_Pdata(any(ismember(pair_IDs,to_eliminate),2),:) = [];
+end
 
 % FOR SAME SUS RECORDED ON MULTIPLE SESSIONS WITH DIFFERENT ED
 dup_SUs = [12 1 5; 12 3 8]; %[Expt_num r2_SU_Number r1_SU_number]
@@ -128,9 +146,10 @@ end
 fprintf('Eliminating %d/%d duplicate SUs (multiple recs)\n',length(to_eliminate),size(all_Cdata,1));
 elim_CIDs = [all_Cdata(to_eliminate,1).cell_ID];
 all_Cdata(to_eliminate,:) = [];
+if EP_params.do_xcorrs
 pair_IDs = cat(1,all_Pdata(:,1).cell_IDs);
 all_Pdata(any(ismember(pair_IDs,elim_CIDs),2),:) = [];
-
+end
 %% extract SU properties and select units for analysis
 poss_bin_dts = EP_params.poss_bin_dts;
 poss_eps_sizes = EP_params.poss_eps_sizes;
@@ -178,22 +197,54 @@ RF_PRM = arrayfun(@(x) x.tune_props.PRM,all_Cdata(:,1));
 all_monkey = {all_Cdata(:,1).monkey};
 all_CID = [all_Cdata(:,1).cell_ID];
 
+if EP_params.do_xcorrs
 pair_IDs = cat(1,all_Pdata(:,1).cell_IDs);
 pair_matches = nan(size(pair_IDs));
 for ii = 1:size(pair_IDs,1)
     pair_matches(ii,1) = find(all_CID == pair_IDs(ii,1));
     pair_matches(ii,2) = find(all_CID == pair_IDs(ii,2));
 end
-
+end
 
 min_nTrials = 25;
 min_avgRate = 5;
 min_xvLL = 0;
 uset = find(all_ntrials >= min_nTrials & all_avgrates >= min_avgRate & all_mod_xvLLimps > min_xvLL);
+if EP_params.do_xcorrs
 upairs = find(all(ismember(pair_IDs,all_CID(uset)),2) & pair_IDs(:,1) ~= pair_IDs(:,2));
 upairs_acorr = find(all(ismember(pair_IDs,all_CID(uset)),2) & pair_IDs(:,1) == pair_IDs(:,2));
-
 fprintf('Using %d SUs, %d pairs\n',length(uset),length(upairs));
+else
+    fprintf('Using %d SUs\n',length(uset));
+end
+
+%%
+close all
+
+all_sim_alphas = 1-cell2mat(arrayfun(@(x) [x.mod_sim_stats(:).spline_alpha],all_Cdata(:,1),'uniformoutput',0));
+avg_sim_alphas = mean(all_sim_alphas,2);
+std_sim_alphas = std(all_sim_alphas,[],2);
+f1 = figure;
+plot(all_mod_alphas(uset),avg_sim_alphas(uset),'.')
+line([0 1],[0 1],'color','r');
+
+all_sim_tvars = cell2mat(arrayfun(@(x) [x.mod_sim_stats(:).spline_vars],all_Cdata(:,1),'uniformoutput',0));
+avg_sim_tvars = mean(all_sim_tvars,2);
+std_sim_tvars = std(all_sim_tvars,[],2);
+
+all_sim_tvar_err = bsxfun(@minus,all_sim_tvars,all_mod_tot_vars);
+all_sim_tvar_err = bsxfun(@rdivide,all_sim_tvar_err,all_mod_tot_vars)*100;
+all_sim_tvar_err_sd = std(all_sim_tvar_err,[],2);
+
+f2 = figure;
+plot(all_mod_tot_vars(uset),avg_sim_tvars(uset),'.')
+line([0 1],[0 1],'color','r');
+
+f3 = figure();
+subplot(2,2,1)
+plot(all_avgrates(uset),all_sim_tvar_err_sd(uset),'.');
+subplot(2,2,2)
+plot(all_ntrials(uset),all_sim_tvar_err_sd(uset),'.');
 
 %% compare model-predicted and direct estimates of alpha
 close all
@@ -239,6 +290,17 @@ figufy(f2);
 fname = [fig_dir 'Direct_alpha_dist.pdf'];
 exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
+
+%% LOOK AT DEPENDENCE OF MODEL_PREDICTED ALPHA ON BAR WIDTH
+alpha_set = 1-cell2mat(arrayfun(@(x) x.sim_data.alphas',all_Cdata(uset),'uniformoutput',0));
+
+cent_us_val = find(poss_us_change == 1);
+rel_alpha_change = bsxfun(@rdivide,alpha_set,alpha_set(:,cent_us_val));
+f1 = figure();
+subplot(2,1,1)
+errorbar(poss_us_change,nanmean(rel_alpha_change),nanstd(rel_alpha_change));
+subplot(2,1,2)
+errorbar(poss_us_change,nanmean(alpha_set),nanstd(alpha_set));
 
 %% DIRECT ESTIMATES OF ALPHA VS RF PROPERTIES
 close all
@@ -1032,46 +1094,43 @@ fname = [fig_dir 'Alpha_vs_EPSD_shade.pdf'];
 exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 
 %% Grating simulation fano factors
-close all
+% close all
 
 poss_grate_sf = [1 2 4];
 poss_grate_tf = [2 4 8];
+use_NS = false;
 
 grate_ubins = all_Mdata(1).grate_ubins;
 all_grate_FFs = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
-all_grate_FFs_NS = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
 all_grate_F1F0 = nan(length(MD_uset),length(poss_grate_sf),length(poss_grate_tf));
-all_grate_F2F1 = nan(length(MD_uset),length(poss_grate_sf),length(poss_grate_tf));
-all_grate_mRs_NS = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
 all_grate_mRs = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
 for sf_ind = 1:length(poss_grate_sf)
     for tf_ind = 1:length(poss_grate_tf)
         for ii = 1:length(MD_uset)
-            all_grate_FFs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests(sf_ind,tf_ind,:);
-            all_grate_FFs_NS(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests_NS(sf_ind,tf_ind,:);
             all_grate_F1F0(ii,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.F1F0(sf_ind,tf_ind);
-            all_grate_F2F1(ii,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.F2F1(sf_ind,tf_ind);
-            all_grate_mRs_NS(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_means_NS(sf_ind,tf_ind,:);
-            all_grate_mRs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_means(sf_ind,tf_ind,:);
+            
+            if use_NS
+                all_grate_FFs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests_NS(sf_ind,tf_ind,:);
+                all_grate_mRs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_means_NS(sf_ind,tf_ind,:);
+            else
+                all_grate_mRs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_means(sf_ind,tf_ind,:);
+                all_grate_FFs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.FF_ests(sf_ind,tf_ind,:);
+            end
         end
     end
 end
 
 %subtract off 1 to get FF bias due to EM
 all_grate_FFs = all_grate_FFs - 1;
-all_grate_FFs_NS = all_grate_FFs_NS - 1;
 
-% [~,pref_SF] = max(all_grate_mRs_NS,[],3);
 [~,pref_SF] = max(all_grate_mRs,[],3);
 pref_SF = squeeze(pref_SF);
-grate_FFs_NS = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
 grate_FFs = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
 grate_F1F0 = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
 grate_mRs = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
 for tt = 1:length(grate_ubins)
     for tf = 1:length(poss_grate_tf)
         for ii = 1:length(MD_uset)
-            grate_FFs_NS(ii,tt,tf) = all_grate_FFs_NS(ii,tt,pref_SF(ii,tt,tf),tf);
             grate_FFs(ii,tt,tf) = all_grate_FFs(ii,tt,pref_SF(ii,tt,tf),tf);
              grate_mRs(ii,tt,tf) = all_grate_mRs(ii,tt,pref_SF(ii,tt,tf),tf);
            grate_F1F0(ii,tf) = all_grate_F1F0(ii,pref_SF(ii,1,tf),tf);
@@ -1083,30 +1142,29 @@ parafov_units = find(RF_ecc(MD_uset) >= 2);
 
 lwidths = [1 2 4];
 cmap = [1 0 0; 0 0 1; 0 0 0];
-% f1 = figure(); hold on
-% for sf = 1:length(poss_grate_sf)
-%     for tf = 1:length(poss_grate_tf)
-% %         plot(grate_ubins*.01,squeeze(nanmean(all_grate_FFs(:,:,sf,tf))),'linewidth',lwidths(sf),'color',cmap(tf,:));
-%         plot(grate_ubins*.01,squeeze(nanmean(all_grate_FFs_NS(:,:,sf,tf))),'linewidth',lwidths(sf),'color',cmap(tf,:));
-%     end
-% end
-% xlabel('Time binning (s)');
-% ylabel('Fano factor');
-
-f1 = figure(); hold on
-for tf = 1:length(poss_grate_tf)
-% plot(grate_ubins*.01,squeeze(nanmean(grate_FFs_NS(:,:,tf))),'linewidth',2,'color',cmap(tf,:));
-plot(grate_ubins*.01,squeeze(nanmean(grate_FFs(:,:,tf))),'o-','markersize',8,'linewidth',2,'color',cmap(tf,:));
-% plot(grate_ubins*.01,squeeze(nanmean(grate_FFs(parafov_units,:,tf))),'--','linewidth',1,'color',cmap(tf,:));
+f3 = figure(); hold on
+for sf = 1:length(poss_grate_sf)
+    for tf = 1:length(poss_grate_tf)
+        plot(grate_ubins*.01,squeeze(nanmean(all_grate_FFs(:,:,sf,tf))),'linewidth',lwidths(sf),'color',cmap(tf,:));
+    end
 end
-set(gca,'xscale','log'); xlim([0.0075 1.2]);
 xlabel('Time binning (s)');
 ylabel('Fano factor bias');
 
+% f1 = figure(); hold on
+% for tf = 1:length(poss_grate_tf)
+% plot(grate_ubins*.01,squeeze(nanmean(grate_FFs(:,:,tf))),'o-','markersize',8,'linewidth',2,'color',cmap(tf,:));
+% % plot(grate_ubins*.01,squeeze(nanmean(grate_FFs(parafov_units,:,tf))),'--','linewidth',1,'color',cmap(tf,:));
+% end
+% set(gca,'xscale','log'); xlim([0.0075 1.2]);
+% xlabel('Time binning (s)');
+% ylabel('Fano factor bias');
+
 cur_tf = 2;
+cur_sf = 2;
 cur_tbin = find(grate_ubins*0.01 == 0.1);
 f2 = figure(); hold on
-plot(grate_F1F0(:,cur_tf),grate_FFs(:,cur_tbin,cur_tf),'.','markersize',10)
+plot(all_grate_F1F0(:,cur_sf,cur_tf),all_grate_FFs(:,cur_tbin,cur_sf,cur_tf),'.','markersize',10)
 % plot(grate_F1F0(parafov_units,cur_tf),grate_FFs(parafov_units,cur_tbin,cur_tf),'ro','markersize',2)
 xlabel('F1/F0');
 ylabel('Fano factor bias');
@@ -1121,15 +1179,78 @@ ylabel('Fano factor bias');
 % xx = linspace(0,1.5,50);
 % plot(xx,r(1)+r(2)*xx,'r')
 
-fig_width = 4; rel_height = 1;
-figufy(f1);
-fname = [fig_dir 'Grating_FF.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% fig_width = 4; rel_height = 1;
+% figufy(f1);
+% fname = [fig_dir 'Grating_FF.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% 
+% fig_width = 4; rel_height = 1;
+% figufy(f2);
+% fname = [fig_dir 'Grating_FF_vs_F1F0.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 
-fig_width = 4; rel_height = 1;
-figufy(f2);
-fname = [fig_dir 'Grating_FF_vs_F1F0.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+%% Grating simulation alphas
+% close all
+
+poss_grate_sf = [1 2 4];
+poss_grate_tf = [2 4 8];
+use_NS = false;
+
+grate_ubins = all_Mdata(1).grate_ubins;
+all_grate_tot_vars = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
+all_grate_psth_vars = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
+all_grate_F1F0 = nan(length(MD_uset),length(poss_grate_sf),length(poss_grate_tf));
+all_grate_mRs = nan(length(MD_uset),length(grate_ubins),length(poss_grate_sf),length(poss_grate_tf));
+for sf_ind = 1:length(poss_grate_sf)
+    for tf_ind = 1:length(poss_grate_tf)
+        for ii = 1:length(MD_uset)
+                all_grate_F1F0(ii,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.F1F0(sf_ind,tf_ind);
+            if use_NS
+                all_grate_tot_vars(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_vars_NS(sf_ind,tf_ind,:);
+                all_grate_psth_vars(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.PSTH_vars_NS(sf_ind,tf_ind,:);
+                all_grate_mRs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_means_NS(sf_ind,tf_ind,:);
+            else
+                all_grate_mRs(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_means(sf_ind,tf_ind,:);
+                all_grate_tot_vars(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.tot_vars(sf_ind,tf_ind,:);
+                all_grate_psth_vars(ii,:,sf_ind,tf_ind) = all_Mdata(MD_uset(ii)).grate_data.PSTH_vars(sf_ind,tf_ind,:);
+            end
+        end
+    end
+end
+
+
+[~,pref_SF] = max(all_grate_mRs,[],3);
+pref_SF = squeeze(pref_SF);
+grate_tot_vars = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
+grate_psth_vars = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
+grate_F1F0 = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
+grate_mRs = nan(length(MD_uset),length(grate_ubins),length(poss_grate_tf));
+for tt = 1:length(grate_ubins)
+    for tf = 1:length(poss_grate_tf)
+        for ii = 1:length(MD_uset)
+            grate_tot_vars(ii,tt,tf) = all_grate_tot_vars(ii,tt,pref_SF(ii,tt,tf),tf);
+            grate_psth_vars(ii,tt,tf) = all_grate_psth_vars(ii,tt,pref_SF(ii,tt,tf),tf);
+             grate_mRs(ii,tt,tf) = all_grate_mRs(ii,tt,pref_SF(ii,tt,tf),tf);
+           grate_F1F0(ii,tf) = all_grate_F1F0(ii,pref_SF(ii,1,tf),tf);
+        end
+    end
+end
+
+grate_alphas = grate_psth_vars./grate_tot_vars;
+all_grate_alphas = all_grate_psth_vars./all_grate_tot_vars;
+
+lwidths = [1 2 4];
+cmap = [1 0 0; 0 0 1; 0 0 0];
+f1 = figure(); hold on
+for sf = 1:length(poss_grate_sf)
+    for tf = 1:length(poss_grate_tf)
+        plot(grate_ubins*.01,squeeze(nanmean(all_grate_alphas(:,:,sf,tf))),'linewidth',lwidths(sf),'color',cmap(tf,:));
+    end
+end
+xlabel('Time binning (s)');
+ylabel('Alpha');
+
+
 
 %% 
 SU_numbers = arrayfun(@(x) x.unit_data.SU_number,all_Cdata(uset));

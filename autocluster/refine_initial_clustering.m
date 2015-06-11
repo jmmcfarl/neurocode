@@ -1,8 +1,8 @@
 
 %% RETRIGGERING
-block_num = 40;
-probe_num = 24;
-trig_rate = 300;
+block_num = 31;
+probe_num = 15;
+target_rate = 250;
 trig_sign = -1;
 reapply = 0;
 clear add_params
@@ -13,11 +13,11 @@ fprintf('Loading Ref_Clusters\n');
 rclust_name = [base_save_dir '/Ref_Clusters.mat'];
 load(rclust_name);
 
-Cdump = retrigger_and_cluster(RefClusters,block_num,probe_num,trig_rate,trig_sign,reapply,add_params);
+Cdump = retrigger_and_cluster(RefClusters,block_num,probe_num,target_rate,trig_sign,reapply,add_params);
 
 %% SPLIT COMPONENTS
-block_num = 15;
-probe_num = 8;
+block_num = 31;
+probe_num =  15;
 split_GMM_component(block_num,probe_num);
 
 %% DELETE COMPONENT
@@ -26,13 +26,13 @@ probe_num = 5;
 delete_GMM_component(block_num,probe_num);
 
 %% EXCLUSION CLUSTERING
-block_num = 38;
-probe_num = 17;
+block_num = 31;
+probe_num = 15;
 exclude_SUs = [2];
 
 clear clust_params
 clust_params.outlier_thresh = 5;
-clust_params.trig_rate = 150;
+clust_params.target_rate = 200;
 autocluster_excludeSU(block_num,probe_num,exclude_SUs,clust_params);
 
 %% CYCLE THROUGH PROJECTIONS

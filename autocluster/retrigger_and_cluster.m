@@ -66,6 +66,7 @@ if strcmpi(resp,'Y')
     if block_num == RefClusters{probe_num}.base_block
         fprintf('Saving to RefClusters\n');
         rclust_dat_name = [base_save_dir '/Ref_Clusters.mat'];
+        cluster_details.base_block = RefClusters{probe_num}.base_block;
         RefClusters{probe_num} = cluster_details;
         save(rclust_dat_name,'RefClusters');
         

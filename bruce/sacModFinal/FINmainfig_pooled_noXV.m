@@ -7,8 +7,8 @@ include_bursts = 0;
 
 fig_dir = '/home/james/Analysis/bruce/FINsac_mod/figures/';
 base_sname = 'sacStimProcFin_noXV'; %main stim-proc analysis
-% base_tname = 'sac_trig_avg_data4'; %this data set has all the bootsrap an
-base_tname = 'sac_trig_avg_data5'; %trig-avg firing rate data
+base_tname = 'sac_trig_avg_data4'; %this data set has all the bootsrap an
+% base_tname = 'sac_trig_avg_data5'; %trig-avg firing rate data
 base_yname = 'sacTypeDep_noXV'; %saccade type-dependent data
 % base_iname = 'sac_info_timing_noXV3'; %info-timing analysis
 base_dname = 'sacStimDelay_noXV2'; %new single-latency sac-mod analysis
@@ -1447,10 +1447,17 @@ ylabel('Offset');
 %of post-model over a sac-mod null model)
 rel_LLimps = (pre_LLs - post_LLs)./(post_LLs - off_LLs);
 f3 = figure();
-hist(rel_LLimps,15);
+nbins = 20;
+xbin_edges = linspace(-0.9,0.9,nbins+1);
+xbin_cents = 0.5*xbin_edges(1:end-1) + 0.5*xbin_edges(2:end);
+nn = histc(rel_LLimps,xbin_edges);
+h = bar(xbin_cents,nn(1:end-1));
 h = findobj(gca,'type','patch');
 set(h,'facecolor','k','edgecolor','w');
 xlim([-0.9 0.9]);
+yl = ylim();
+line([0 0],yl,'color','k');
+line([0 0]+nanmedian(rel_LLimps),yl,'color','r');
 % boxplot(rel_LLimps);
 % hold on
 
@@ -1469,7 +1476,7 @@ xlim([-0.9 0.9]);
 % % fname = [fig_dir 'Gsac_pre_post_OFFSET.pdf'];
 % % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % % close(f2);
-% %
+%
 % figufy(f3);
 % fname = [fig_dir 'Gsac_pre_post_LLhist.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -2830,11 +2837,6 @@ close all
 cur_SUs = find(avg_rates >= min_rate & N_gsacs >= min_Nsacs & mod_xvLLimps > min_xvLLimp);
 base_lags = find(slags <= 0); 
 
-% %get the SD of the generating signal for models at each latency
-% all_SDs = cell2mat(arrayfun(@(x) x.sac_delay.single_gSD',all_SU_data(cur_SUs),'uniformoutput',0));
-% all_SDs = bsxfun(@rdivide,all_SDs,max(all_SDs,[],2));
-% min_SD_frac = 0.2;
-
 %get the model-predicted firing rate CV for each latency
 all_CVs = cell2mat(arrayfun(@(x) x.sac_delay.single_rCV',all_SU_data(cur_SUs),'uniformoutput',0));
 min_CV = 0.06; 
@@ -2894,37 +2896,6 @@ slags_up = linspace(slags(1),slags(end),200);
 % avg_gains_up(ulags,:) = spline(slags,avg_gains(ulags,:),slags_up);
 % [avg_gain_peakamps,avg_gain_peaklocs] = min(avg_gains_up,[],2); %get timing of 
 
-% yr = [0.6 1.1];
-% ulag_range = 3:10;
-% cmap = jet(length(ulag_range));
-% f1 = figure(); hold on
-% for ii = 1:length(ulag_range)
-%     plot(slags_up*dt,avg_gains_up(ulag_range(ii),:),'color',cmap(ii,:),'linewidth',1);
-%     line([0 0]+slags_up(avg_gain_peaklocs(ulag_range(ii)))*dt,yr,'color',cmap(ii,:));
-%     %     shadedErrorBar(slags*dt,avg_gains(ulag_range(ii),:),sem_gains(ulag_range(ii),:),{'color',cmap(ii,:)});
-%     plot(slags_up(avg_gain_peaklocs(ulag_range(ii)))*dt,avg_gain_peakamps(ulag_range(ii)),'o','color',cmap(ii,:),'linewidth',2)
-% end
-% xlim([-0.05 0.2])
-% ylim(yr);
-% line([0 0],yr,'color','k','linestyle','--');
-% line([-0.1 0.3],[1 1],'color','k','linestyle','--');
-% xlabel('Time (s)');
-% ylabel('Gain');
-% % 
-% %hyperparameter selection
-% post_lambda_off = 4;
-% post_lambda_gain = 3;
-% 
-% %pre and post gain kernels
-% gsac_post_gain = 1+cell2mat(arrayfun(@(x) x.sacStimProc.gsac_post_mod{post_lambda_off,post_lambda_gain}.mods(3).filtK',all_SU_data(cur_SUs),'uniformoutput',0));
-% %noramlize gain kernels
-% gsac_post_gain = bsxfun(@rdivide,gsac_post_gain,mean(gsac_post_gain(:,base_lags),2));
-% avg_post_gain = mean(gsac_post_gain);
-% 
-% post_gain_up = spline(slags,avg_post_gain,slags_up);
-% plot(slags_up*dt,post_gain_up,'k--','linewidth',2);
-
-
 search_range = [0. 0.2];
 resh_gsac_gain = reshape(permute(gsac_gain,[3 1 2]),length(slags),[]);
 %spline interpolate all gain kernels and find peaks
@@ -2939,8 +2910,7 @@ for ff = 1:flen
     gkern_amps(:,ff) = cur_gkern_max;
     gkern_times(:,ff) = cur_gkern_time;
 end
-% uset = all_SDs > min_SD_frac;
-% uset = all_CVs > min_CV;
+
 gkern_times(~uset) = nan; %use only cases where there is sufficient modulation
 % noise_SDs = squeeze(std(gsac_gain(:,:,base_lags),[],3));
 % min_SNR = 0;
@@ -2985,18 +2955,23 @@ xlabel('Stimulus latency (s)');
 ylabel('Suppression timing (s)');
 
 %plot the distribution of slopes
-xe = linspace(-2.5,2.5,30);
-nn = histc(cell_slope,xe);
-% xe = linspace(-1,1,50);
-% nn = histc(cell_corr,xe);
+n_bins = 20;
+bin_edges = linspace(-2.25,2.25,n_bins+1);
+bin_centers = 0.5*bin_edges(1:end-1) + 0.5*bin_edges(2:end);
+nn = histc(cell_slope,bin_edges);
 f3 = figure();
-stairs(xe,nn,'b','linewidth',2);
+% stairs(xe,nn,'b','linewidth',2);
+h=bar(bin_centers,nn(1:end-1));
+h = findobj(gca,'type','patch');
+set(h,'facecolor','k','edgecolor','w');
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line([1 1],yl,'color','r','linestyle','--');
+line([0 0]+nanmedian(cell_slope),yl,'color','b');
 axis tight
 xlabel('Slope');
 ylabel('Counts');
+
 
 %plot the set of gain kernels for an example neuron
 % for ex_cell = 1:84
@@ -3037,7 +3012,7 @@ colorbar
 % fname = [fig_dir 'gsac_stimlatency_gainmod_slopedist.pdf'];
 % exportfig(f3,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f3);
-% 
+
 % fig_width = 3.5; rel_height = 0.7;
 % figufy(f4);
 % fname = [fig_dir sprintf('gsac_stimlatency_excell%d.pdf',ex_cell)];

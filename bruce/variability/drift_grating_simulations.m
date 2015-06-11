@@ -1,12 +1,12 @@
-% clear all
-% close all
+clear all
+close all
 
 global Expt_name bar_ori monk_name rec_type
 
-% Expt_name = 'M012';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-% rec_number = 1;
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
 use_MUA = false;
 fit_unCor = false;
@@ -420,14 +420,15 @@ poss_ubins = [1 2 5 10 20 40 80 100];
 poss_grate_sf = [1 2 4];
 poss_grate_tf = [2 4 8];
 
+%make scaled eye position data
 clear epscale*
-target_EP_SD = 0.1;
+target_EP_SD = 0.1; %eye position SD (deg)
 EP_scale = target_EP_SD/robust_std_dev(EP_tbt(:));
 full_EP_orth = EP_scale*EP_tbt(:);
 
-xax = (1:nPix_us)*sp_dx;
-nf = 375;
-tax  = (1:nf)*params.dt;
+xax = (1:nPix_us)*modFitParams.sp_dx; %position axis for stim
+nf = 375; %number of frames per trial
+tax  = (1:nf)*params.dt; %time axis 
 throwout_win = 0.15/params.dt; %exclude this amount of data from the beginning of each trial to handle edge effects
 
 for sf = 1:length(poss_grate_sf)
@@ -438,9 +439,8 @@ for sf = 1:length(poss_grate_sf)
         gr_tf = poss_grate_tf(tf);
         
         [XX,TT] = meshgrid(xax,tax);
-        base_dg = sin(2*pi*(gr_sf*XX + gr_tf*TT));
-        base_dg_rev = sin(2*pi*(gr_sf*XX - gr_tf*TT));
-        
+        base_dg = sin(2*pi*(gr_sf*XX + gr_tf*TT)); %base (static EP) drift grate
+        base_dg_rev = sin(2*pi*(gr_sf*XX - gr_tf*TT)); %grating moving in opposite direction
         
         [XX,TT,RR] = meshgrid(xax,tax,1:n_utrials); 
         flip_trials = rand(n_utrials,1) > 0.5; %randomly set half of trials to have opposite grating direction
@@ -448,10 +448,11 @@ for sf = 1:length(poss_grate_sf)
         TT = reshape(permute(TT,[1 3 2]),[],length(xax));
         XX = reshape(permute(XX,[1 3 2]),[],length(xax));
         
+        %eye-position corrected drifting grating
         drift_grating = sin(2*pi*(gr_sf*bsxfun(@plus,XX,full_EP_orth) + gr_tf*TT));
-        
+       
         %% compute firing rate output of each model neuron
-        
+        %create time-embedded stimuli
         Xmat = create_time_embedding(drift_grating,stim_params);
         base_Xmat = create_time_embedding(base_dg,stim_params);
         base_Xmat_rev = create_time_embedding(base_dg_rev,stim_params);
@@ -461,49 +462,45 @@ for sf = 1:length(poss_grate_sf)
         rpt_prates = nan(nf,n_utrials,length(targs));
         for cc = 1:length(targs)
             if ~isempty(GQM_mod{targs(cc)})
-            [~,~,cur_prate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat);
-            gint(inblink_tbt(:),:) = nan;
-            gint(insac_tbt(:),:) = nan;
-            contrast_scale = mean(test_gSD{cc})/mean(nanstd(gint)); %adjust the contrast of the grating to match the mean SD of filter outputs 
-%             contrast_scale = 1;
-
-            [~,~,pred_rate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat*contrast_scale);
-            rpt_prates(:,:,cc) = reshape(pred_rate,(nf),n_utrials);
-            
-            %these are the firing rates in response to the unperturbed
-            %(left and rightward) gratings
-            [~,~,base_prates(:,cc)] = NMMeval_model(GQM_mod{targs(cc)},[],base_Xmat*contrast_scale);
-            [~,~,base_prates_R(:,cc)] = NMMeval_model(GQM_mod{targs(cc)},[],base_Xmat_rev*contrast_scale);
+                [~,~,pred_rate,~,gint] = NMMeval_model(GQM_mod{targs(cc)},[],Xmat);
+                rpt_prates(:,:,cc) = reshape(pred_rate,nf,n_utrials);
+                
+                %these are the firing rates in response to the unperturbed
+                %(left and rightward) gratings
+                [~,~,base_prates(:,cc)] = NMMeval_model(GQM_mod{targs(cc)},[],base_Xmat);
+                [~,~,base_prates_R(:,cc)] = NMMeval_model(GQM_mod{targs(cc)},[],base_Xmat_rev);
             end
         end
         
         base_prates(1:throwout_win,:) = [];
         base_prates_R(1:throwout_win,:) = [];
         
-        rpt_prates = reshape(rpt_prates,[],length(targs));
-        rpt_prates(inblink_tbt(:),:) = nan;
+        %find preferred direction for each cell
+        pref_revdir = nanmean(base_prates_R) > nanmean(base_prates); %these units prefer the opposite motion direction
+        dir_selectivity = abs(nanmean(base_prates_R) - nanmean(base_prates))./(nanmean(base_prates_R) + nanmean(base_prates)); %strength of dir selectivity
+        base_prates(:,pref_revdir) = base_prates_R(:,pref_revdir); %take the baseline psth at the pref dir
+        
+        rpt_prates = reshape(rpt_prates,[],length(targs));        
+        rpt_prates(inblink_tbt(:),:) = nan;  %nan out times during blinks
         rpt_prates_noSac = rpt_prates; %make a copy of the tbt firing rates with intrasac data nanned out
         rpt_prates_noSac(insac_tbt(:),:) = nan;
+        
         rpt_prates = reshape(rpt_prates,[],n_utrials,length(targs));
         rpt_prates_noSac = reshape(rpt_prates_noSac,[],n_utrials,length(targs));
         
         rpt_prates(1:throwout_win,:,:) = [];
-        rpt_prates_noSac(1:throwout_win,:,:) = [];
+        rpt_prates_noSac(1:throwout_win,:,:) = [];        
         
-        pref_revdir = nanmean(base_prates_R) > nanmean(base_prates); %these units prefer the opposite motion direction
-        dir_selectivity = abs(nanmean(base_prates_R) - nanmean(base_prates))./(nanmean(base_prates_R) + nanmean(base_prates));
-        base_prates(:,pref_revdir) = base_prates_R(:,pref_revdir);
-        
+        %compute power spectra of baseline psths to measure f1/f0
         amp_spectra = fft(base_prates)/size(base_prates,1);
         amp_spectra = abs(amp_spectra(1:size(base_prates,1)/2+1,:));
         f = 1/dt/2*linspace(0,1,size(base_prates,1)/2+1);
-        first_harmonic = interp1(f,amp_spectra,gr_tf);
+        first_harmonic = interp1(f,amp_spectra,gr_tf); %find first and sec harmonics 
         second_harmonic = interp1(f,amp_spectra,2*gr_tf);
-        F1F0 = 2*first_harmonic./amp_spectra(1,:);
-        F2F1 = second_harmonic./first_harmonic;
+        F1F0 = 2*first_harmonic./amp_spectra(1,:); %factor of 2 is makes it a one-sided amp-spec value
+        F2F1 = second_harmonic./first_harmonic; %don't need factor of 2 here because they're both 2-sided values.
  
         %% compute across-trial stats at different time resolutions
-        
         [PSTH_vars,tot_vars,tot_means,FF_ests] = deal(nan(length(poss_ubins),length(targs)));
         [PSTH_vars_NS,tot_vars_NS,tot_means_NS,FF_ests_NS] = deal(nan(length(poss_ubins),length(targs)));
         for pp = 1:length(poss_ubins)
@@ -517,36 +514,42 @@ for sf = 1:length(poss_grate_sf)
                 new_ep_rates(:,:,:,ii) = rpt_prates(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
                 new_ep_rates_NS(:,:,:,ii) = rpt_prates_noSac(ii:bin_usfac:(ii+bin_usfac*(n_newbins-1)),:,:);
             end
-            new_ep_rates = squeeze(nanmean(new_ep_rates,4))*bin_usfac;
-            new_ep_rates_NS = squeeze(nanmean(new_ep_rates_NS,4))*bin_usfac;
             
+            %this ensures that any bin which had any amount of blink or sac
+            %is not counted. We lose lots of larger time bins, but taking
+            %nanmeans over larger bins creates problems
+            new_ep_rates = squeeze(mean(new_ep_rates,4))*bin_usfac; 
+            new_ep_rates_NS = squeeze(mean(new_ep_rates_NS,4))*bin_usfac;
+            
+            %first compute stats for one grating direction (without
+            %time-reversal)
             tot_vars(pp,:) = nanvar(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
             tot_means(pp,:) = nanmean(reshape(new_ep_rates(:,~flip_trials,:),[],length(targs)));
-            tot_vars(pp,pref_revdir) = nanvar(reshape(new_ep_rates(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
-            tot_means(pp,pref_revdir) = nanmean(reshape(new_ep_rates(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
             tot_vars_NS(pp,:) = nanvar(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
             tot_means_NS(pp,:) = nanmean(reshape(new_ep_rates_NS(:,~flip_trials,:),[],length(targs)));
-            tot_vars_NS(pp,pref_revdir) = nanvar(reshape(new_ep_rates_NS(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
-            tot_means_NS(pp,pref_revdir) = nanmean(reshape(new_ep_rates_NS(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
-
-            at_avgs = squeeze(nanmean(new_ep_rates(:,~flip_trials,:),2));
-            at_vars = squeeze(nanvar(new_ep_rates(:,~flip_trials,:),[],2));
-            at_avgs(:,pref_revdir) = squeeze(nanmean(new_ep_rates(:,flip_trials,pref_revdir),2));
-            at_vars(:,pref_revdir) = squeeze(nanvar(new_ep_rates(:,flip_trials,pref_revdir),[],2));
-
-            PSTH_vars(pp,:) = nanvar(at_avgs);
-            FF_ests(pp,:) = nanmean((at_avgs + at_vars)./at_avgs);
-            
+            at_avgs = squeeze(nanmean(new_ep_rates(:,~flip_trials,:),2)); %across-trial averages
+            at_vars = squeeze(nanvar(new_ep_rates(:,~flip_trials,:),[],2)); %across-trial vars
             at_avgs_NS = squeeze(nanmean(new_ep_rates_NS(:,~flip_trials,:),2));
             at_vars_NS = squeeze(nanvar(new_ep_rates_NS(:,~flip_trials,:),[],2));
+
+            %recompute stats for neurons that prefer opposite grating
+            %direction
+            tot_vars(pp,pref_revdir) = nanvar(reshape(new_ep_rates(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+            tot_means(pp,pref_revdir) = nanmean(reshape(new_ep_rates(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+            tot_vars_NS(pp,pref_revdir) = nanvar(reshape(new_ep_rates_NS(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+            tot_means_NS(pp,pref_revdir) = nanmean(reshape(new_ep_rates_NS(:,flip_trials,pref_revdir),[],sum(pref_revdir)));
+            at_avgs(:,pref_revdir) = squeeze(nanmean(new_ep_rates(:,flip_trials,pref_revdir),2));
+            at_vars(:,pref_revdir) = squeeze(nanvar(new_ep_rates(:,flip_trials,pref_revdir),[],2));
             at_avgs_NS(:,pref_revdir) = squeeze(nanmean(new_ep_rates_NS(:,flip_trials,pref_revdir),2));
             at_vars_NS(:,pref_revdir) = squeeze(nanvar(new_ep_rates_NS(:,flip_trials,pref_revdir),[],2));
-           
+            
+            PSTH_vars(pp,:) = nanvar(at_avgs);
+            FF_ests(pp,:) = nanmean((at_avgs + at_vars)./at_avgs);           
             PSTH_vars_NS(pp,:) = nanvar(at_avgs_NS);
             FF_ests_NS(pp,:) = nanmean((at_avgs_NS + at_vars_NS)./at_avgs_NS);
         end
         
-        %%
+        %% store stats for each cell separately
         for cc = 1:length(targs)
             grate_Cdata(cc).PSTH_vars(sf,tf,:) = PSTH_vars(:,cc);
             grate_Cdata(cc).PSTH_vars_NS(sf,tf,:) = PSTH_vars_NS(:,cc);

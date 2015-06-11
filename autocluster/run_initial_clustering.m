@@ -3,10 +3,9 @@ close all
 addpath('~/James_scripts/autocluster/');
 
 global data_dir base_save_dir init_save_dir Expt_name Vloaded n_probes loadedData raw_block_nums
-Expt_name = 'M014';
-monk_name = 'jbe';
+Expt_name = 'M320';
+monk_name = 'lem';
 rec_type = 'LP'; %or UA
-% rec_number = 1;
 rec_number = 1;
 
 % data_loc = '/media/NTlab_data2/Data/bruce/';
@@ -66,7 +65,7 @@ plot(sum_trial_durs,'ro-');
 figure;
 plot(ed,'o-');
 %%
-poss_base_blocks = [18 30 40]; %set of blocks to try fitting initial models on
+poss_base_blocks = [4 13 22 31]; %set of blocks to try fitting initial models on
 target_probes = 1:n_probes;
 if isfield(Expts{1}.Header,'exptno')
 raw_block_nums = cellfun(@(X) X.Header.exptno,Expts,'uniformoutput',1); %block numbering for EM/LFP data sometimes isnt aligned with Expts struct
