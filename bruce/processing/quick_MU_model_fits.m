@@ -1,8 +1,8 @@
 clear all
 close all
 
-monName = 'jbe';
-Expt_name = 'M014';
+monName = 'lem';
+Expt_name = 'M320';
 data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
 % data_dir = ['~/Data/bruce/' Expt_name];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];

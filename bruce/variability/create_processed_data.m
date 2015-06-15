@@ -6,9 +6,9 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M014';
-monk_name = 'jbe';
-bar_ori = 40; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'M320';
+monk_name = 'lem';
+bar_ori = 100; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
 if strcmp(Expt_name,'M011')
@@ -19,7 +19,7 @@ else
     rec_block_range = nan;
 end
 
-% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60 11-160 12-0]
+% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60 11-160 12-0 13-100 14-40 320-100]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -91,6 +91,8 @@ if strcmp(rec_type,'LP')
             bar_ori = 100;
         case 14
             bar_ori = 40;
+        case 320
+            bar_ori = 100;
     end
 end
 
