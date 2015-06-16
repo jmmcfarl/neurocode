@@ -63,11 +63,11 @@ pc_scores = AllV*pc_coeffs;
 %% INITIAL CLUSTERING IN PC SPACE
 if ismember(1,params.try_features)
     n_comps = 2;
-    pc_ks = nan(D,1);
-    for ii = 1:D
-        pc_ks(ii) = lillie_KSstat(pc_scores(:,ii));
-    end
-    [~,use_pcs] = sort(pc_ks,'descend');
+%     pc_ks = nan(D,1);
+%     for ii = 1:D
+%         pc_ks(ii) = lillie_KSstat(pc_scores(:,ii));
+%     end
+%     [~,use_pcs] = sort(pc_ks,'descend');
 %     use_pcs = use_pcs(1:params.n_pcs);
      use_pcs = 1:params.n_pcs;
    
