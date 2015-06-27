@@ -7,7 +7,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 % monk_name = 'lem';
 % bar_ori = 80; %bar orientation to use (only for UA recs)
 
-poss_smoothreg_scalefacs = logspace(log10(0.01),log10(100),10); %possible scale factors to apply to smoothness reg strength
+poss_smoothreg_scalefacs = logspace(-2,2,10); %possible scale factors to apply to smoothness reg strength
 fit_unCor = false; %use eye correction
 use_MUA = false; %use MUA in model-fitting
 fit_rect = false; %split quad linear filter into two rectified

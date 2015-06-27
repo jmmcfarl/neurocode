@@ -1,15 +1,15 @@
-clear all
+% clear all
 
 addpath('~/James_scripts/bruce/eye_tracking/');
 addpath('~/James_scripts/bruce/processing/');
 
-global Expt_name bar_ori use_LOOXV monk_name rec_type
+global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-Expt_name = 'M320';
-monk_name = 'lem';
-use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
-bar_ori = 100; %bar orientation to use (only for UA recs)
-rec_number = 1;
+% Expt_name = 'M011';
+% monk_name = 'jbe';
+% use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
+% bar_ori = 160; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -41,6 +41,7 @@ load(data_name);
 recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init,
 use_sac_kerns = 1; %use sac-modulation kernels
+model_pop_avg = 1; %include an explicit model of population avg (and use it as a predictor in unit models)
 
 %%
 if strcmp(rec_type,'LP')
@@ -111,8 +112,8 @@ if rec_number > 1
     cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
 end
 
-mod_data_name = 'full_eyetrack_initmods_test';
-anal_name = 'full_eyetrack_test';
+mod_data_name = 'full_eyetrack_initmods_test2';
+anal_name = 'full_eyetrack_test2';
 
 %if using coil initialization
 if use_measured_pos == 1
@@ -170,8 +171,8 @@ elseif Expt_num == 12
     end
 end
 
-%for bar widths bigger than 0.08 degrees do additional spatial upsampling
-if mode(expt_data.expt_dw)/params.scale_fac > 0.08
+%for bar widths bigger than this do additional spatial upsampling
+if mode(expt_data.expt_dw)/params.scale_fac > 1.5*.0565
     add_usfac = 2;
 else
     add_usfac = 1;
@@ -509,6 +510,7 @@ xv_inds = find(ismember(all_trialvec(used_inds),xv_trials));
 %%
 % make Robs_mat
 tot_sus = size(all_binned_sua,2);
+tot_nUnits = length(su_probes) + n_probes;
 Robs_mat = nan(length(used_inds),n_probes + tot_sus);
 for ss = 1:size(Robs_mat,2)
     if ss > n_probes
@@ -518,10 +520,19 @@ for ss = 1:size(Robs_mat,2)
     end
 end
 
+if model_pop_avg
+    pop_rate = nanmean(Robs_mat,2);
+    Robs_mat = [Robs_mat pop_rate];
+    tot_nUnits = tot_nUnits + 1;
+    n_block_filts = n_blocks + 1;
+else
+    n_block_filts = n_blocks;
+end
+
 %% EVALUATE LLS, FIT SPK NLS, EVALUATE NULL_LLS AND THRESHOLD LL IMP VALUES TO GET USABLE UNITS
 cd(anal_dir);
 mod_stim_params(1) = NMMcreate_stim_params([flen use_nPix_us/add_usfac],dt);
-mod_stim_params(2) = NMMcreate_stim_params([n_blocks 1],dt);
+mod_stim_params(2) = NMMcreate_stim_params([n_block_filts 1],dt);
 if use_sac_kerns
     mod_stim_params(3) = NMMcreate_stim_params(n_sac_bins,dt);
     mod_stim_params(4) = NMMcreate_stim_params(n_sac_bins,dt);
@@ -544,8 +555,6 @@ if unique(expt_data.expt_dds) == 12
     base_lambda_L1 = base_lambda_L1/2;
     init_lambda_d2XT = init_lambda_d2XT/5;
 end
-
-% add_usfac = spatial_usfac/init_spatial_usfac; %amount of spatial up-sampling we need to do beyond the baseline amount (2)
 
 %initial optimization tolerances
 init_optim_p.optTol = 1e-5; init_optim_p.progTol = 1e-9;
@@ -573,6 +582,10 @@ init_d2XT = [init_lambda_d2XT*ones(n_squared_filts+1,1); 0;];
 init_L2 = [zeros(n_squared_filts+1,1); block_L2];
 init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT,'lambda_L2',init_L2);
 
+%range of smoothness regularization 'rescaling' to try
+% poss_lambda_scales = logspace(-2,2,5);
+poss_lambda_scales = 1;
+
 %create X matrix
 if add_usfac > 1
     %if doing additional spatial up-sampling use tent basis functions
@@ -582,32 +595,40 @@ if add_usfac > 1
 else
     X{1} = all_Xmat_us(used_inds,use_kInds_up);
 end
-X{2} = Xblock(used_inds,:);
+if model_pop_avg
+    X{2} = [Xblock(used_inds,:) pop_rate];
+else
+    X{2} = [Xblock(used_inds,:)];
+end
 if use_sac_kerns
     X{3} = Xsac;
     X{4} = Xmsac;
 end
 
 if ~exist(['./' mod_data_name '.mat'],'file') || recompute_init_mods == 1
-    tot_nUnits = length(su_probes) + n_probes;
     all_mod_SU = zeros(tot_nUnits,1);
     all_mod_SUnum = zeros(tot_nUnits,1);
     [all_mod_xvLLimp,all_mod_LLimp,null_LL,null_xvLL] = deal(nan(tot_nUnits,1));
     for ss = 1:tot_nUnits
-        fprintf('Computing base LLs for Unit %d of %d\n',ss,n_probes+tot_sus);
+        fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
         cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
         cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
         all_modfit_inds = union(cur_tr_inds,cur_xv_inds);
         tr_NT = length(cur_tr_inds);
         xv_NT = length(cur_xv_inds);
         
-        if ss > n_probes
+        if ss > n_probes && ss <= length(su_probes) + n_probes
             all_mod_SU(ss) = su_probes(ss-n_probes);
             all_mod_SUnum(ss) = SU_numbers(ss-n_probes);
         end
         if ~isempty(cur_tr_inds)
             Robs = Robs_mat(:,ss);
                 
+            if model_pop_avg && ss == tot_nUnits
+               mod_stim_params(2).stim_dims(1) = n_blocks;
+               X{2} = [Xblock(used_inds,:)];
+            end
+            
             %estimate null model
             if use_sac_kerns
                 null_mod = NMMinitialize_model(mod_stim_params,[1 1 1],repmat({'lin'},1,3),null_reg_params,[2 3 4]);
@@ -630,12 +651,11 @@ if ~exist(['./' mod_data_name '.mat'],'file') || recompute_init_mods == 1
             
             %% scan a range of smoothness regularization strengths and pick the best using xval
             cur_lambda_d2XT = arrayfun(@(x) x.reg_params.lambda_d2XT,init_gqm.mods(1:n_squared_filts+1));
-            poss_lambda_scales = logspace(-2,2,5);
             new_gqm = init_gqm;
             new_gqm_xvLL = nan(length(poss_lambda_scales),1);
             fprintf('Fitting model at reg scale: ');
             clear all_gqms
-            for ll = 1:length(poss_lambda_scales)
+            for ll = 1:length(poss_lambda_scales) %loop over possible range of smoothness lambdas
                 fprintf('%d ',ll);
                 new_lambda_d2XT = cur_lambda_d2XT*poss_lambda_scales(ll);
                 new_gqm = NMMadjust_regularization(new_gqm,find(Xtargets==1),'lambda_d2XT',new_lambda_d2XT);
@@ -671,11 +691,13 @@ if ~exist(['./' mod_data_name '.mat'],'file') || recompute_init_mods == 1
             all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(up_gqm,Robs,X,[],all_modfit_inds);
             
             null_LL(ss) = NMMeval_model(null_mod,Robs,X,[],all_modfit_inds);
-            LL = NMMeval_model(up_gqm,Robs,X,[],all_modfit_inds);
+            LL = NMMeval_model(all_mod_fits_withspkNL(ss),Robs,X,[],all_modfit_inds);
             all_mod_LLimp(ss) = (LL - null_LL(ss))/log(2);
             
         end        
     end
+    
+    %%
     save(mod_data_name,'all_mod*','all_nullmod','Clust_data','null_xvLL','null_LL','*_trials');
 else
     fprintf('Loading pre-computed initial models\n');
@@ -685,7 +707,9 @@ end
 %%
 %reconstruct uncorrected stimulus
 all_Xmat_us = create_time_embedding(all_stimmat_up,stim_params_us);
-
+if model_pop_avg
+    X{2} = [Xblock(used_inds,:) pop_rate];
+end
 %% SELECT USABLE UNITS AND make Robs_mat
 % usable_units = find(all_mod_xvLLimp > 0);
 usable_units = find(~isnan(all_mod_xvLLimp));
@@ -700,12 +724,19 @@ n_tr_chs = length(tr_set);
 poss_blocks = 1:(n_blocks-1);
 Robs_mat = Robs_mat(:,tr_set);
 
+all_modfit_inds = union(tr_inds,xv_inds);
+
 %% DIAGNOSTICS
 full_prates = nan(NT,n_tr_chs);
 full_nullrates = nan(NT,n_tr_chs);
-for cc = 1:n_tr_chs
+if model_pop_avg
+    max_cc = n_tr_chs - 1;
+else 
+    max_cc = n_tr_chs;
+end
+for cc = 1:max_cc
     [~,~,full_prates(:,cc)] = NMMeval_model(all_mod_fits_withspkNL(tr_set(cc)),Robs_mat(:,cc),X);
-    [~,~,full_nullrates(:,cc)] = NMMmodel_eval(all_nullmod(tr_set(cc)),Robs_mat(:,cc),X);
+    [~,~,full_nullrates(:,cc)] = NMMeval_model(all_nullmod(tr_set(cc)),Robs_mat(:,cc),X);
 end
 full_modLL = Robs_mat.*log(full_prates) - full_prates;
 full_nullLL = Robs_mat.*log(full_nullrates) - full_nullrates;
@@ -713,9 +744,11 @@ full_LLimp = full_modLL-full_nullLL;
 
 trial_blocknums = nan(nuse_trials,1);
 trial_LLimp = nan(nuse_trials,n_tr_chs);
+trial_avg_rates = nan(nuse_trials,n_tr_chs);
 for tt = 1:nuse_trials
     cur_used_inds = find(all_trialvec(used_inds) == use_trials(tt));
     trial_LLimp(tt,:) = nanmean(full_LLimp(cur_used_inds,:));
+    trial_avg_rates(tt,:) = nanmean(Robs_mat(cur_used_inds,:));
 end
 trial_LLimp_zscore = nanzscore(trial_LLimp);
 
@@ -870,7 +903,6 @@ end
 it_mods{1} = all_mod_fits;
 it_mods_spkNL{1} = all_mod_fits_withspkNL;
 it_LLimp(1,:) = all_mod_LLimp;
-it_fix_sigma(1) = fix_prior_sigma;
 if use_LOOXV > 0
     it_LLimp_LOO(length(loo_set),1,:) = all_mod_LLimp;
     for xv = 1:length(loo_set)
@@ -882,8 +914,8 @@ for nn = 1:n_fix_inf_it
     fprintf('Inferring fixation corrections, iter %d of %d\n',nn,n_fix_inf_it);
     
     %% PREPROCESS MODEL COMPONENTS
-    filt_bank = zeros(n_tr_chs,klen_us,n_squared_filts+1);
-    lin_kerns = nan(n_tr_chs,n_blocks);
+    filt_bank = zeros(n_tr_chs,klen_us/add_usfac,n_squared_filts+1);
+    lin_kerns = nan(n_tr_chs,n_block_filts);
     if use_sac_kerns
         sac_kerns = nan(n_tr_chs,n_sac_bins);
         msac_kerns = nan(n_tr_chs,n_sac_bins);
@@ -895,7 +927,11 @@ for nn = 1:n_fix_inf_it
         n_used_filts = size(cur_k,2);
         filt_bank(ss,:,1:n_used_filts) = cur_k;
         mod_spkNL_params(ss,:) = it_mods_spkNL{nn}(tr_set(ss)).spk_NL_params(1:3);
-        lin_kerns(ss,:) = it_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+        cur_lin_filt = it_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+        lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
+        if model_pop_avg && tr_set(ss) == tot_nUnits
+           lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself 
+        end
         if use_sac_kerns
             sac_kerns(ss,:) = it_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
             msac_kerns(ss,:) = it_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -904,7 +940,7 @@ for nn = 1:n_fix_inf_it
     filt_bank = permute(filt_bank,[2 1 3]);
     
     %indicator predictions
-    block_out = Xblock(used_inds,:)*lin_kerns';
+    block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
     if use_sac_kerns
         sac_out = Xsac*sac_kerns';
         msac_out = Xmsac*msac_kerns';
@@ -1034,6 +1070,10 @@ for nn = 1:n_fix_inf_it
         cur_unit_ind = find(tr_set == cur_cell);
         cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
                 
+        if tr_set(ss) == tot_nUnits && model_pop_avg
+            X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+        end
+        
         it_mods{nn+1}(cur_cell) = it_mods{nn}(cur_cell);
         it_mods{nn+1}(cur_cell) = NMMfit_filters(it_mods{nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
             X,[],cur_fit_inds,silent); %fit stimulus filters
@@ -1050,14 +1090,17 @@ for nn = 1:n_fix_inf_it
             fprintf('Original: %.4f  New: %.4f\n',all_mod_LLimp(cur_cell),it_LLimp(nn+1,cur_cell));
         end
     end
-    
+    %set lin-filt predictor back to include pop-rate if needed
+    if model_pop_avg
+            X{2} = [Xblock(used_inds,:) pop_rate];
+    end
     if use_LOOXV > 0
         for xv = 1:length(loo_set)
             fprintf('Fixation iter %d, LOO %d of %d\n',nn,xv,length(loo_set));
             cur_uset = setdiff(1:n_tr_chs,loo_set(xv)); %set of used units
             n_uset = length(cur_uset);
-            filt_bank = zeros(n_uset,klen_us,n_squared_filts+1);
-            lin_kerns = nan(n_uset,n_blocks);
+            filt_bank = zeros(n_uset,klen_us/add_usfac,n_squared_filts+1);
+            lin_kerns = nan(n_uset,n_block_filts);
             if use_sac_kerns
                 sac_kerns = nan(n_uset,n_sac_bins);
                 msac_kerns = nan(n_uset,n_sac_bins);
@@ -1069,7 +1112,11 @@ for nn = 1:n_fix_inf_it
                 n_used_filts = size(cur_k,2);
                 filt_bank(ss,:,1:n_used_filts) = cur_k;
                 mod_spkNL_params(ss,:) = it_mods_spkNL_LOO{xv,nn}(tr_set(cur_uset(ss))).spk_NL_params(1:3);
-                lin_kerns(ss,:) = it_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+                cur_lin_filt = it_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+                lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
+                if model_pop_avg && tr_set(ss) == tot_nUnits
+                    lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+                end
                 if use_sac_kerns
                     sac_kerns(ss,:) = it_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                     msac_kerns(ss,:) = it_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
@@ -1204,7 +1251,11 @@ for nn = 1:n_fix_inf_it
                 fprintf('LOO %d/%d, Refitting model %d of %d\n',xv,length(loo_set),ss,length(tr_set));
                 cur_unit_ind = find(tr_set == cur_cell);
                 cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
-                                
+                
+                if tr_set(ss) == tot_nUnits && model_pop_avg
+                    X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+                end
+
                 it_mods_LOO{xv,nn+1}(cur_cell) = it_mods{nn+1}(cur_cell);
                 it_mods_LOO{xv,nn+1}(cur_cell) = NMMfit_filters(it_mods_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
                     X,[],cur_fit_inds,silent); %fit stimulus filters
@@ -1212,8 +1263,12 @@ for nn = 1:n_fix_inf_it
                 %refit spk NL
                 it_mods_spkNL_LOO{xv,nn+1}(cur_cell) = NMMfit_logexp_spkNL(it_mods_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);
                 
-                newLL = NMMmodel_eval(it_mods_spkNL_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);                
+                newLL = NMMeval_model(it_mods_spkNL_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);                
                 it_LLimp_LOO(xv,nn+1,cur_cell) = (newLL - null_LL(cur_cell))/log(2);
+            end
+            
+            if model_pop_avg
+                X{2} = [Xblock(used_inds,:) pop_rate];
             end
         end
     end
@@ -1243,11 +1298,13 @@ for nn = 1:n_drift_inf_it
         end
         all_Xmat_up_fixcor = create_time_embedding(all_shift_stimmat_up,stim_params_us);
         all_Xmat_up_fixcor = all_Xmat_up_fixcor(used_inds,:);
+    elseif nn == 1
+       all_Xmat_up_fixcor = all_Xmat_up_fixcor(used_inds,:); 
     end
     
     %% PREPROCESS MODEL COMPONENTS
-    filt_bank = zeros(n_tr_chs,klen_us,n_squared_filts+1);
-    lin_kerns = nan(n_tr_chs,n_blocks);
+    filt_bank = zeros(n_tr_chs,klen_us/add_usfac,n_squared_filts+1);
+    lin_kerns = nan(n_tr_chs,n_block_filts);
     if use_sac_kerns
         sac_kerns = nan(n_tr_chs,n_sac_bins);
         msac_kerns = nan(n_tr_chs,n_sac_bins);
@@ -1259,7 +1316,11 @@ for nn = 1:n_drift_inf_it
         n_used_filts = size(cur_k,2);
         filt_bank(ss,:,1:n_used_filts) = cur_k;
         mod_spkNL_params(ss,:) = dit_mods_spkNL{nn}(tr_set(ss)).spk_NL_params(1:3);
-        lin_kerns(ss,:) = dit_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+        cur_lin_kerns = dit_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+        lin_kerns(ss,1:length(cur_lin_kerns)) = cur_lin_kerns;
+        if model_pop_avg && tr_set(ss) == tot_nUnits
+           lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself 
+        end
         if use_sac_kerns
             sac_kerns(ss,:) = dit_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
             msac_kerns(ss,:) = dit_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -1268,7 +1329,7 @@ for nn = 1:n_drift_inf_it
     filt_bank = permute(filt_bank,[2 1 3]);
     
     %indicator predictions
-    block_out = Xblock(used_inds,:)*lin_kerns';
+    block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
     if use_sac_kerns
         sac_out = Xsac*sac_kerns';
         msac_out = Xmsac*msac_kerns';
@@ -1434,18 +1495,25 @@ for nn = 1:n_drift_inf_it
         cur_unit_ind = find(tr_set == cur_cell);
         cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
                 
+        if tr_set(ss) == tot_nUnits && model_pop_avg
+            X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+        end
+        
         dit_mods{nn+1}(cur_cell) = dit_mods{nn}(cur_cell);
         dit_mods{nn+1}(cur_cell) = NMMfit_filters(dit_mods{nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
             X,[],cur_fit_inds,silent); %fit stimulus filters
         
         dit_mods_spkNL{nn+1}(cur_cell) = NMMfit_logexp_spkNL(dit_mods{nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);
         
-        newLL = NMMmodel_eval(dit_mods_spkNL{nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);
+        newLL = NMMeval_model(dit_mods_spkNL{nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);
         dit_LLimp(nn+1,cur_cell) = (newLL - null_LL(cur_cell))/log(2);
         
         fprintf('Original: %.5f  Prev: %.5f  New: %.5f\n',all_mod_LLimp(cur_cell),dit_LLimp(nn,cur_cell),dit_LLimp(nn+1,cur_cell));
     end
     
+    if model_pop_avg
+          X{2} = [Xblock(used_inds,:) pop_rate]; %for modeling pop-avg dont use the pop-avg as a predictor        
+    end
     %%
     if use_LOOXV > 0
         for xv = 1:length(loo_set)
@@ -1465,8 +1533,8 @@ for nn = 1:n_drift_inf_it
             %% PREPROCESS MODEL COMPONENTS
             cur_uset = setdiff(1:n_tr_chs,loo_set(xv));
             n_uset = length(cur_uset);
-            filt_bank = zeros(n_uset,klen_us,n_squared_filts+1);
-            lin_kerns = nan(n_uset,n_blocks);
+            filt_bank = zeros(n_uset,klen_us/add_usfac,n_squared_filts+1);
+            lin_kerns = nan(n_uset,n_block_filts);
             if use_sac_kerns
                 sac_kerns = nan(n_uset,n_sac_bins);
                 msac_kerns = nan(n_uset,n_sac_bins);
@@ -1478,7 +1546,11 @@ for nn = 1:n_drift_inf_it
                 n_used_filts = size(cur_k,2);
                 filt_bank(ss,:,1:n_used_filts) = cur_k;
                 mod_spkNL_params(ss,:) = dit_mods_spkNL_LOO{xv,nn}(tr_set(cur_uset(ss))).spk_NL_params(1:3);
-                lin_kerns(ss,:) = dit_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+                cur_lin_kerns = dit_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+                lin_kerns(ss,1:length(cur_lin_kerns)) = cur_lin_kerns;
+                if model_pop_avg && tr_set(ss) == tot_nUnits
+                    lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+                end
                 if use_sac_kerns
                     sac_kerns(ss,:) = dit_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                     msac_kerns(ss,:) = dit_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
@@ -1637,9 +1709,9 @@ for nn = 1:n_drift_inf_it
             X{1} = create_time_embedding(all_shift_stimmat_up,stim_params_us);
             
             if add_usfac > 1
-               X{1} = tb_proc_stim(X{1}(used_inds,use_kInds_up),add_usfac,flen); 
+                X{1} = tb_proc_stim(X{1}(used_inds,use_kInds_up),add_usfac,flen);
             else
-            X{1} = X{1}(used_inds,use_kInds_up);
+                X{1} = X{1}(used_inds,use_kInds_up);
             end
             %% REFIT XV CELLS
             silent = 1;
@@ -1648,16 +1720,24 @@ for nn = 1:n_drift_inf_it
                 fprintf('Drift LOO %d/%d, Refitting model %d of %d\n',xv,length(loo_set),ss,length(tr_set));
                 cur_unit_ind = find(tr_set == cur_cell);
                 cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
-                                
+                
+                if tr_set(ss) == tot_nUnits && model_pop_avg
+                    X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+                end
+
                 dit_mods_LOO{xv,nn+1}(cur_cell) = dit_mods{nn+1}(cur_cell);
                 dit_mods_LOO{xv,nn+1}(cur_cell) = NMMfit_filters(dit_mods_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
                     X,[],cur_fit_inds,silent); %fit stimulus filters
                 
                 dit_mods_spkNL_LOO{xv,nn+1}(cur_cell) = NMMfit_logexp_spkNL(dit_mods_LOO{xv,nn+1}(cur_cell),Robs_mat(X,cur_unit_ind),X,[],cur_fit_inds);
                 
-                newLL = NMMmodel_eval(dit_mods_spkNL_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);
+                newLL = NMMeval_model(dit_mods_spkNL_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),X,[],cur_fit_inds);
                 dit_LLimp_LOO(xv,nn+1,cur_cell) = (newLL - null_LL(cur_cell))/log(2);
                 %                 fprintf('Original: %.5f  Prev: %.5f  New: %.5f\n',all_mod_LLimp(cur_cell),dit_LLimp(nn,cur_cell),dit_LLimp(nn+1,cur_cell));
+            end
+            
+            if model_pop_avg
+               X{2} = [Xblock(used_inds,:) pop_rate]; 
             end
         end
     end
@@ -1668,7 +1748,8 @@ et_params = struct('beg_buffer',params.beg_buffer,'end_buffer',params.end_buffer
     'use_nPix',use_nPix,'flen',flen,'dt',dt,'drift_jump_sigma',drift_jump_sigma,'drift_prior_sigma',drift_prior_sigma,...
     'fix_prior_sigma',fix_prior_sigma,'fix_noise_sigma',fix_noise_sigma,'drift_noise_sigma',drift_noise_sigma,...
     'drift_dsf',drift_dsf,'n_fix_inf_it',n_fix_inf_it,'n_drift_inf_it',n_drift_inf_it,'use_sac_kerns',use_sac_kerns,'shifts',shifts,...
-    'use_measured_pos',use_measured_pos,'sac_bincents',sac_bincents,'spatial_usfac',spatial_usfac,'sac_shift',sac_shift,'use_coils',params.use_coils,'sp_dx',sp_dx);
+    'use_measured_pos',use_measured_pos,'sac_bincents',sac_bincents,'spatial_usfac',spatial_usfac,'add_usfac',add_usfac,...
+    'sac_shift',sac_shift,'use_coils',params.use_coils,'sp_dx',sp_dx,'model_pop_avg',model_pop_avg);
 
 et_rand_fixpos = rand_fixpos;
 et_used_inds = used_inds;
@@ -1688,13 +1769,13 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 % fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
 % fin_fix_std(~isnan(fix_ids)) = it_fix_post_std(end,fix_ids(~isnan(fix_ids)));
 % fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
-%
+% 
 % fin_fix_corr = fin_fix_corr*sp_dx;
 % fin_fix_std = fin_fix_std*sp_dx;
-%
+% 
 % fin_drift_corr = drift_post_mean(end,:)*sp_dx;
 % fin_drift_std = drift_post_std(end,:)*sp_dx;
-%
+% 
 % for ii = 1:length(trial_start_inds)
 %     cur_inds = trial_start_inds(ii):trial_end_inds(ii);
 %     fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
@@ -1702,14 +1783,14 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 % end
 % fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
 % fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
-%
-%
+% 
+% 
 % fin_tot_corr = fin_fix_corr + fin_drift_corr;
 % fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
-%
+% 
 
 %%
-% close all
+% % close all
 % n_trials = length(unique(all_trialvec));
 % for tt = 1:n_trials
 %     % for tt = [96 137 154 179 376 409]
@@ -1726,7 +1807,7 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 %             h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
 %             %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
 %             %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
-%
+% 
 %             %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
 %             xlim([0 dur]);
 %             ylim([-0.5 0.5]);
@@ -1742,58 +1823,80 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 % end
 %
 %%
-close all
-f1 = figure();
-f2 = figure();
-f3 = figure();
-for ss = 1:length(tr_set)
-    % sbeg = find(all_mod_SU(tr_set) > 0,1);
-    % for ss = sbeg:length(tr_set)
-    ss
-    init_mod = all_mod_fits(tr_set(ss));
-    xtargs = [init_mod.mods(:).Xtarget];
-    kmat = [init_mod.mods(xtargs == 1).filtK];
-    figure(f1); clf
-    subplot(2,2,1)
-    imagesc(reshape(kmat(:,1),flen,use_nPix_us));
-    ca = max(abs(kmat(:,1))); caxis([-ca ca]);
-    for ii = 1:(size(kmat,2)-1)
-        subplot(2,2,2+ii)
-        imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us));
-        ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
-    end
-    colormap(gray)
-    
-    fin_mod = it_mods{end}(tr_set(ss));
-    xtargs = [fin_mod.mods(:).Xtarget];
-    kmat = [fin_mod.mods(xtargs == 1).filtK];
-    figure(f2); clf
-    subplot(2,2,1)
-    imagesc(reshape(kmat(:,1),flen,use_nPix_us));
-    ca = max(abs(kmat(:,1))); caxis([-ca ca]);
-    for ii = 1:(size(kmat,2)-1)
-        subplot(2,2,2+ii)
-        imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us));
-        ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
-    end
-    colormap(gray)
-    
-    fin_mod = dit_mods{end}(tr_set(ss));
-    xtargs = [fin_mod.mods(:).Xtarget];
-    kmat = [fin_mod.mods(xtargs == 1).filtK];
-    figure(f3); clf
-    subplot(2,2,1)
-    imagesc(reshape(kmat(:,1),flen,use_nPix_us));
-    ca = max(abs(kmat(:,1))); caxis([-ca ca]);
-    for ii = 1:(size(kmat,2)-1)
-        subplot(2,2,2+ii)
-        imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us));
-        ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
-    end
-    colormap(gray)
-    
-    fprintf('Cell %d of %d\n',ss,length(tr_set));
-    fprintf('Original: %.4f Fin-fix: %.4f Fin: %.4f\n',all_mod_LLimp(tr_set(ss)),it_LLimp(end,tr_set(ss)),dit_LLimp(end,tr_set(ss)));
-    pause
-end
+% % close all
+% f1 = figure();
+% f2 = figure();
+% f3 = figure();
+% f4 = figure();
+% f5 = figure();
+% for ss = 1:length(tr_set)
+%     % sbeg = find(all_mod_SU(tr_set) > 0,1);
+%     % for ss = sbeg:length(tr_set)
+%     ss
+%     init_mod = all_mod_fits(tr_set(ss));
+%     xtargs = [init_mod.mods(:).Xtarget];
+%     kmat = [init_mod.mods(xtargs == 1).filtK];
+%     figure(f1); clf
+%     subplot(2,2,1)
+%     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
+%     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
+%     for ii = 1:(size(kmat,2)-1)
+%         subplot(2,2,2+ii)
+%         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
+%         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
+%     end
+%     colormap(gray)
+%     
+% %     fin_mod = it_mods{2}(tr_set(ss));
+% %     xtargs = [fin_mod.mods(:).Xtarget];
+% %     kmat = [fin_mod.mods(xtargs == 1).filtK];
+% %     figure(f2); clf
+% %     subplot(2,2,1)
+% %     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
+% %     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
+% %     for ii = 1:(size(kmat,2)-1)
+% %         subplot(2,2,2+ii)
+% %         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
+% %         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
+% %     end
+% %     colormap(gray)
+%     
+%     fin_mod = it_mods{end}(tr_set(ss));
+%     xtargs = [fin_mod.mods(:).Xtarget];
+%     kmat = [fin_mod.mods(xtargs == 1).filtK];
+%     figure(f3); clf
+%     subplot(2,2,1)
+%     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
+%     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
+%     for ii = 1:(size(kmat,2)-1)
+%         subplot(2,2,2+ii)
+%         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
+%         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
+%     end
+%     colormap(gray)
+% 
+%     fin_mod = dit_mods{end}(tr_set(ss));
+%     xtargs = [fin_mod.mods(:).Xtarget];
+%     kmat = [fin_mod.mods(xtargs == 1).filtK];
+%     figure(f4); clf
+%     subplot(2,2,1)
+%     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
+%     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
+%     for ii = 1:(size(kmat,2)-1)
+%         subplot(2,2,2+ii)
+%         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
+%         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
+%     end
+%     colormap(gray)
+%     
+% %     figure(f5); clf
+% %     plot(1:n_fix_inf_it+1,it_LLimp(:,tr_set(ss)),'o-');
+% %     hold on
+% %     plot((n_fix_inf_it+1):(n_fix_inf_it+n_drift_inf_it+1),dit_LLimp(:,tr_set(ss)),'ro-');
+%     
+%     fprintf('Cell %d of %d\n',ss,length(tr_set));
+%     fprintf('Original: %.4f Next-fix: %.4f  Fin-fix: %.4f Fin: %.4f\n',all_mod_LLimp(tr_set(ss)),it_LLimp(2,tr_set(ss)),...
+%         it_LLimp(end,tr_set(ss)),dit_LLimp(end,tr_set(ss)));
+%     pause
+% end
 

@@ -53,6 +53,7 @@ if ~isempty(Uindx)
     Xstims{nn} = Xstims{nn}(Uindx,:);
   end
   Robs = RobsFULL(Uindx);
+  NT = size(Xstims{1},1);
 end
 
 % Make sure Robs is a column vector
