@@ -7,9 +7,10 @@ global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
 % Expt_name = 'M011';
 % monk_name = 'jbe';
-% use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 % bar_ori = 160; %bar orientation to use (only for UA recs)
 % rec_number = 1;
+
+use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
 Expt_num = str2num(Expt_name(2:end));
 
