@@ -36,7 +36,7 @@ fprintf('Loading %s\n',data_name);
 load(data_name);
 
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init,
-use_fixation_models = 1; %also make EP inference using models fit with only fixation-corrections
+use_fixation_models = 0; %also make EP inference using models fit with only fixation-corrections
 
 %%
 if strcmp(rec_type,'LP')
@@ -520,7 +520,6 @@ for ss = 1:n_tr_chs
     
     %for models of the pop-avg rate dont include it as a predictor
     if model_pop_avg && tr_set(ss) == tot_nUnits
-        fin_stim_params(2).stim_dims(1) = n_blocks;
         X{2} = [Xblock(used_inds,:)];
     end
 
@@ -584,12 +583,24 @@ if use_LOOXV > 0
         all_Xmat_cor = create_time_embedding(cur_shift_stimmat_up,stim_params_us);
         X{1} = tb_proc_stim(all_Xmat_cor(used_inds,use_kInds_up),new_add_usfac,flen);
         
+        if model_pop_avg
+            X{2} = [Xblock(used_inds,:) pop_rate];
+        else
+            X{2} = Xblock(used_inds,:);
+        end
+
         %refit set of models to this LOO eye position data
         for ss = 1:n_tr_chs
             fprintf('Computing base LLs for Unit %d of %d\n',ss,n_tr_chs);
             cur_fit_inds = fit_inds(~isnan(Robs_mat(fit_inds,ss)));
             Robs = Robs_mat(:,ss);
             null_mod = all_nullmod(tr_set(ss));
+            
+            %for models of the pop-avg rate dont include it as a predictor
+            if model_pop_avg && tr_set(ss) == tot_nUnits
+                X{2} = [Xblock(used_inds,:)];
+            end
+
             if ~isempty(cur_fit_inds) && nansum(Robs) > 0
                 
                 %get models fit with drift corrections
@@ -718,7 +729,7 @@ all_Xmat_up_fixcor = all_Xmat_up_fixcor(used_inds,:);
 n_stim_mods = sum([all_drift_fits(1).mods(:).Xtarget] == 1);
 mod_signs = [all_drift_fits(1).mods(:).sign];
 filt_bank = zeros(n_tr_chs,klen_us/new_add_usfac,n_stim_mods);
-lin_kerns = nan(n_tr_chs,n_blocks);
+lin_kerns = nan(n_tr_chs,n_block_filts);
 if use_sac_kerns
     sac_kerns = nan(n_tr_chs,n_sac_bins);
     msac_kerns = nan(n_tr_chs,n_sac_bins);
@@ -730,7 +741,12 @@ for ss = 1:n_tr_chs
     n_used_filts = size(cur_k,2);
     filt_bank(ss,:,1:n_used_filts) = cur_k;
     mod_spkNL_params(ss,:) = all_drift_fits_withspkNL(tr_set(ss)).spk_NL_params(1:3);
-    lin_kerns(ss,:) = all_drift_fits(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+    
+    cur_lin_filt = all_drift_fits(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+    lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
+    if model_pop_avg && tr_set(ss) == tot_nUnits
+        lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+    end
     if use_sac_kerns
         sac_kerns(ss,:) = all_drift_fits(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
         msac_kerns(ss,:) = all_drift_fits(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -739,7 +755,11 @@ end
 filt_bank = permute(filt_bank,[2 1 3]);
 
 %indicator predictions
-block_out = Xblock(used_inds,:)*lin_kerns';
+if model_pop_avg
+    block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+else
+    block_out = Xblock(used_inds,:)*lin_kerns';
+end
 if use_sac_kerns
     sac_out = Xsac*sac_kerns';
     msac_out = Xmsac*msac_kerns';
@@ -892,7 +912,7 @@ if use_LOOXV > 0
         cur_uset = setdiff(1:n_tr_chs,loo_set(xv));
         n_uset = length(cur_uset);
         filt_bank = zeros(n_uset,klen_us/new_add_usfac,n_stim_mods);
-        lin_kerns = nan(n_uset,n_blocks);
+        lin_kerns = nan(n_uset,n_block_filts);
         if use_sac_kerns
             sac_kerns = nan(n_uset,n_sac_bins);
             msac_kerns = nan(n_uset,n_sac_bins);
@@ -904,7 +924,12 @@ if use_LOOXV > 0
             n_used_filts = size(cur_k,2);
             filt_bank(ss,:,1:n_used_filts) = cur_k;
             mod_spkNL_params(ss,:) = all_drift_fits_withspkNL_LOO(xv,tr_set(cur_uset(ss))).spk_NL_params(1:3);
-            lin_kerns(ss,:) = all_drift_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+            
+            cur_lin_filt = all_drift_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+            lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
+            if model_pop_avg && tr_set(ss) == tot_nUnits
+                lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+            end
             if use_sac_kerns
                 sac_kerns(ss,:) = all_drift_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                 msac_kerns(ss,:) = all_drift_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
@@ -913,7 +938,11 @@ if use_LOOXV > 0
         filt_bank = permute(filt_bank,[2 1 3]);
         
         %indicator predictions
+        if model_pop_avg
+        block_out = [Xblock(used_inds,:)*lin_kerns pop_rate]';
+        else
         block_out = Xblock(used_inds,:)*lin_kerns';
+        end
         if use_sac_kerns
             sac_out = Xsac*sac_kerns';
             msac_out = Xmsac*msac_kerns';
@@ -1063,7 +1092,7 @@ if use_fixation_models
     n_stim_mods = sum([all_fix_fits(1).mods(:).Xtarget] == 1);
     mod_signs = [all_fix_fits(1).mods(:).sign];
     filt_bank = zeros(n_tr_chs,klen_us/new_add_usfac,n_stim_mods);
-    lin_kerns = nan(n_tr_chs,n_blocks);
+    lin_kerns = nan(n_tr_chs,n_block_filts);
     if use_sac_kerns
         sac_kerns = nan(n_tr_chs,n_sac_bins);
         msac_kerns = nan(n_tr_chs,n_sac_bins);
@@ -1075,7 +1104,12 @@ if use_fixation_models
         n_used_filts = size(cur_k,2);
         filt_bank(ss,:,1:n_used_filts) = cur_k;
         mod_spkNL_params(ss,:) = all_fix_fits_withspkNL(tr_set(ss)).spk_NL_params(1:3);
-        lin_kerns(ss,:) = all_fix_fits(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+        
+        cur_lin_filt = all_fix_fits(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
+        lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
+        if model_pop_avg && tr_set(ss) == tot_nUnits
+            lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+        end
         if use_sac_kerns
             sac_kerns(ss,:) = all_fix_fits(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
             msac_kerns(ss,:) = all_fix_fits(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -1084,7 +1118,11 @@ if use_fixation_models
     filt_bank = permute(filt_bank,[2 1 3]);
     
     %indicator predictions
+    if model_pop_avg
+    block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+    else
     block_out = Xblock(used_inds,:)*lin_kerns';
+    end
     if use_sac_kerns
         sac_out = Xsac*sac_kerns';
         msac_out = Xmsac*msac_kerns';
@@ -1237,7 +1275,7 @@ if use_fixation_models
             cur_uset = setdiff(1:n_tr_chs,loo_set(xv));
             n_uset = length(cur_uset);
             filt_bank = zeros(n_uset,klen_us/new_add_usfac,n_stim_mods);
-            lin_kerns = nan(n_uset,n_blocks);
+            lin_kerns = nan(n_uset,n_block_filts);
             if use_sac_kerns
                 sac_kerns = nan(n_uset,n_sac_bins);
                 msac_kerns = nan(n_uset,n_sac_bins);
@@ -1249,7 +1287,12 @@ if use_fixation_models
                 n_used_filts = size(cur_k,2);
                 filt_bank(ss,:,1:n_used_filts) = cur_k;
                 mod_spkNL_params(ss,:) = all_fix_fits_withspkNL_LOO(xv,tr_set(cur_uset(ss))).spk_NL_params(1:3);
-                lin_kerns(ss,:) = all_fix_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+                
+                cur_lin_filt = all_fix_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
+                lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
+                if model_pop_avg && tr_set(ss) == tot_nUnits
+                    lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+                end
                 if use_sac_kerns
                     sac_kerns(ss,:) = all_fix_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                     msac_kerns(ss,:) = all_fix_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
@@ -1258,7 +1301,11 @@ if use_fixation_models
             filt_bank = permute(filt_bank,[2 1 3]);
             
             %indicator predictions
+            if model_pop_avg
+            block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+            else
             block_out = Xblock(used_inds,:)*lin_kerns';
+            end
             if use_sac_kerns
                 sac_out = Xsac*sac_kerns';
                 msac_out = Xmsac*msac_kerns';
