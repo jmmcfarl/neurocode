@@ -941,7 +941,11 @@ for nn = 1:n_fix_inf_it
     filt_bank = permute(filt_bank,[2 1 3]);
     
     %indicator predictions
-    block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+    if model_pop_avg
+        block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+    else
+        block_out = Xblock(used_inds,:)*lin_kerns';
+    end
     if use_sac_kerns
         sac_out = Xsac*sac_kerns';
         msac_out = Xmsac*msac_kerns';
@@ -1126,7 +1130,11 @@ for nn = 1:n_fix_inf_it
             filt_bank = permute(filt_bank,[2 1 3]);
             
             %indicator predictions
-            block_out = Xblock(used_inds,:)*lin_kerns';
+            if model_pop_avg
+                block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+            else
+                block_out = Xblock(used_inds,:)*lin_kerns';
+            end
             if use_sac_kerns
                 sac_out = Xsac*sac_kerns';
                 msac_out = Xmsac*msac_kerns';
@@ -1330,7 +1338,11 @@ for nn = 1:n_drift_inf_it
     filt_bank = permute(filt_bank,[2 1 3]);
     
     %indicator predictions
+    if model_pop_avg
     block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+    else
+    block_out = Xblock(used_inds,:)*lin_kerns';
+    end
     if use_sac_kerns
         sac_out = Xsac*sac_kerns';
         msac_out = Xmsac*msac_kerns';
@@ -1560,7 +1572,11 @@ for nn = 1:n_drift_inf_it
             filt_bank = permute(filt_bank,[2 1 3]);
             
             %indicator predictions
+            if model_pop_avg
+             block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
+           else
             block_out = Xblock(used_inds,:)*lin_kerns';
+            end
             if use_sac_kerns
                 sac_out = Xsac*sac_kerns';
                 msac_out = Xmsac*msac_kerns';

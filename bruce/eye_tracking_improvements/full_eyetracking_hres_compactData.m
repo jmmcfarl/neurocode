@@ -1,13 +1,13 @@
 clear all
 
-global Expt_name bar_ori use_LOOXV monk_name rec_type
+global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
 Expt_name = 'M012';
 monk_name = 'jbe';
-use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 bar_ori = 0; %bar orientation to use (only for UA recs)
 rec_number = 1;
 
+use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -108,10 +108,10 @@ if rec_number > 1
 end
 
 
-mod_data_name = 'full_eyetrack_initmods';
-old_anal_name = 'full_eyetrack';
-% mod_data_name = 'full_eyetrack_initmods_test';
-% old_anal_name = 'full_eyetrack_test';
+% mod_data_name = 'full_eyetrack_initmods';
+% old_anal_name = 'full_eyetrack';
+mod_data_name = 'full_eyetrack_initmods_test2';
+old_anal_name = 'full_eyetrack_test2';
 
 %if using coil initialization
 if use_measured_pos == 1
@@ -148,6 +148,8 @@ if rec_number > 1
 end
 
 load([anal_dir '/' old_anal_name],'et_params');
+
+model_pop_avg = et_params.model_pop_avg;
 %%
 
 use_nPix = et_params.use_nPix;
@@ -388,9 +390,10 @@ nuse_trials = length(use_trials);
 
 fit_inds = find(ismember(all_trialvec(used_inds),use_trials));
 
-%%
-% make Robs_mat
+%% make Robs_mat
+ 
 tot_sus = size(all_binned_sua,2);
+tot_nUnits = length(su_probes) + n_probes;
 Robs_mat = nan(length(used_inds),n_probes + tot_sus);
 for ss = 1:size(Robs_mat,2)
     if ss > n_probes
@@ -399,6 +402,17 @@ for ss = 1:size(Robs_mat,2)
         Robs_mat(:,ss) = all_binned_mua(used_inds,ss);
     end
 end
+
+%if modeling the population avg rate 
+if model_pop_avg
+    pop_rate = nanmean(Robs_mat,2);
+    Robs_mat = [Robs_mat pop_rate];
+    tot_nUnits = tot_nUnits + 1;
+    n_block_filts = n_blocks + 1;
+else
+    n_block_filts = n_blocks;
+end
+
 
 %% DEFINE POINTS TO ALLOW RAPID CHANGES (TRIAL STARTS AFTER SACCADES)
 %push the effects of saccades forward in time
@@ -472,7 +486,11 @@ n_tr_chs = length(tr_set);
 poss_blocks = 1:(n_blocks-1);
 Robs_mat = Robs_mat(:,tr_set);
 
-X{2} = Xblock(used_inds,:);
+if model_pop_avg
+    X{2} = [Xblock(used_inds,:) pop_rate];
+else
+    X{2} = Xblock(used_inds,:);
+end
 if use_sac_kerns
     X{3} = Xsac;
     X{4} = Xmsac;
@@ -482,7 +500,7 @@ X{1} = tb_proc_stim(all_Xmat_cor(used_inds,use_kInds_up),new_add_usfac,flen);
 
 %% EVALUATE LLS, FIT SPK NLS, EVALUATE NULL_LLS AND THRESHOLD LL IMP VALUES TO GET USABLE UNITS
 fin_stim_params(1) = NMMcreate_stim_params([flen use_nPix_us/new_add_usfac],dt);
-fin_stim_params(2) = NMMcreate_stim_params([n_blocks 1],dt);
+fin_stim_params(2) = NMMcreate_stim_params([n_block_filts 1],dt);
 if use_sac_kerns
     fin_stim_params(3) = NMMcreate_stim_params(n_sac_bins,dt);
     fin_stim_params(4) = NMMcreate_stim_params(n_sac_bins,dt);
@@ -499,6 +517,13 @@ for ss = 1:n_tr_chs
     cur_fit_inds = fit_inds(~isnan(Robs_mat(fit_inds,ss)));
     Robs = Robs_mat(:,ss);
     null_mod = all_nullmod(tr_set(ss));
+    
+    %for models of the pop-avg rate dont include it as a predictor
+    if model_pop_avg && tr_set(ss) == tot_nUnits
+        fin_stim_params(2).stim_dims(1) = n_blocks;
+        X{2} = [Xblock(used_inds,:)];
+    end
+
     if ~isempty(cur_fit_inds) && nansum(Robs) > 0
         
         %get models fit with drift corrections
