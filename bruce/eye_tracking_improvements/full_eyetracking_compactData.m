@@ -23,10 +23,11 @@ end
 Edata_file = strcat(data_dir,'/',monk_name,Expt_name,'Expts');
 load(Edata_file);
 
+fused = find(cellfun(@(x) length(x),Expts) > 0,1,'first');
 %is this a laminar probe or utah array rec?
-if strcmp(Expts{1}.Header.DataType,'GridData 96')
+if strcmp(Expts{fused}.Header.DataType,'GridData 96')
     rec_type = 'UA';
-elseif strcmp(Expts{1}.Header.DataType,'Spike2')
+elseif strcmp(Expts{fused}.Header.DataType,'Spike2')
     rec_type = 'LP';
 end
 
@@ -112,8 +113,8 @@ if rec_number > 1
     cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
 end
 
-mod_data_name = 'full_eyetrack_initmods_test2';
-anal_name = 'full_eyetrack_test2';
+mod_data_name = 'full_eyetrack_initmods_FIN';
+anal_name = 'full_eyetrack_FIN';
 
 %if using coil initialization
 if use_measured_pos == 1
@@ -546,7 +547,7 @@ block_L2 = 1; %small L2 penalty on block filter kernels
 
 %baseline regularization strengths
 base_lambda_d2XT = 100;
-base_lambda_L1 = 10;
+base_lambda_L1 = 5;
 init_lambda_d2XT = 100;
 %if using sparser stimuli, reduce base reg strenghts to approximately
 %account for difference in stimulus marginal variance
@@ -583,8 +584,7 @@ init_L2 = [zeros(n_squared_filts+1,1); block_L2];
 init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT,'lambda_L2',init_L2);
 
 %range of smoothness regularization 'rescaling' to try
-% poss_lambda_scales = logspace(-2,2,5);
-poss_lambda_scales = 1;
+poss_lambda_scales = logspace(-2,2,10);
 
 %create X matrix
 if add_usfac > 1
@@ -1749,7 +1749,7 @@ et_params = struct('beg_buffer',params.beg_buffer,'end_buffer',params.end_buffer
     'fix_prior_sigma',fix_prior_sigma,'fix_noise_sigma',fix_noise_sigma,'drift_noise_sigma',drift_noise_sigma,...
     'drift_dsf',drift_dsf,'n_fix_inf_it',n_fix_inf_it,'n_drift_inf_it',n_drift_inf_it,'use_sac_kerns',use_sac_kerns,'shifts',shifts,...
     'use_measured_pos',use_measured_pos,'sac_bincents',sac_bincents,'spatial_usfac',spatial_usfac,'add_usfac',add_usfac,...
-    'sac_shift',sac_shift,'use_coils',params.use_coils,'sp_dx',sp_dx,'model_pop_avg',model_pop_avg);
+    'sac_shift',sac_shift,'use_coils',params.use_coils,'sp_dx',sp_dx,'model_pop_avg',model_pop_avg,'poss_lambda_scales',poss_lambda_scales);
 
 et_rand_fixpos = rand_fixpos;
 et_used_inds = used_inds;
