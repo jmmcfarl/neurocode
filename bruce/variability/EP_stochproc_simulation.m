@@ -1,10 +1,11 @@
 % close all
 clear all
 
-fig_dir = '/home/james/Analysis/bruce/variability/stoch_proc_sim/';
+% fig_dir = '/home/james/Analysis/bruce/variability/stoch_proc_sim/';
+fig_dir = '/Users/james/Analysis/bruce/variability/stoch_proc_sim/';
 
-stim_type = 'grating';
-% stim_type = 'rls';
+% stim_type = 'grating';
+stim_type = 'rls';
 %%
 if strcmp(stim_type,'grating')
 gr_sf = 4;
@@ -181,6 +182,8 @@ ylabel('Relative amplitude');
 % close(f1);
 
 %% plot example rate(E) functions
+xrange = [-2 2];
+
 f2 = figure();
 subplot(2,1,1);
 plot(xax,simple_rate(:,1));
@@ -188,7 +191,7 @@ hold on
 plot(xax,simple_psth(:,1),'k');
 xlabel('Eye position');
 ylabel('Rate');
-xlim([-1 1]);
+xlim(xrange);
 
 subplot(2,1,2);
 plot(xax,complex_rate(:,1));
@@ -196,7 +199,7 @@ hold on
 plot(xax,complex_psth(:,1),'k');
 xlabel('Eye position');
 ylabel('Rate');
-xlim([-1 1]);
+xlim(xrange);
 
 fig_width = 4; rel_height = 1.6;
 figufy(f2);
@@ -273,3 +276,9 @@ legendCell = cellstr(num2str(sigma_vals', 'N=%.3f'));
 legend(legendCell,'location','southeast')
 xlabel('Spatial frequency (cyc/deg)');
 ylabel('Alpha');
+
+fig_width = 4; rel_height = 0.8;
+figufy(f6);
+fname = [fig_dir 'Grating_alphas.pdf'];
+exportfig(f6,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f6);

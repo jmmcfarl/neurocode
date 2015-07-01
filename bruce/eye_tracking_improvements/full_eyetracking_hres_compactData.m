@@ -1,7 +1,7 @@
 % clear all
-% 
-% global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
-% 
+
+global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
+
 % Expt_name = 'M005';
 % monk_name = 'jbe';
 % bar_ori = 50; %bar orientation to use (only for UA recs)
