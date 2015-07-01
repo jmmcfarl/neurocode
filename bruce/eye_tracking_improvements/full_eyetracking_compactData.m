@@ -590,9 +590,7 @@ poss_lambda_scales = logspace(-2,2,10);
 %create X matrix
 if add_usfac > 1
     %if doing additional spatial up-sampling use tent basis functions
-    if add_usfac > 1
-        X{1} = tb_proc_stim(all_Xmat_us(used_inds,use_kInds_up),add_usfac,flen);
-    end
+    X{1} = tb_proc_stim(all_Xmat_us(used_inds,use_kInds_up),add_usfac,flen);
 else
     X{1} = all_Xmat_us(used_inds,use_kInds_up);
 end

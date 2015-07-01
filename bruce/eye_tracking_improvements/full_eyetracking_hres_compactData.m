@@ -1,13 +1,13 @@
-clear all
+% clear all
+% 
+% global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
+% 
+% Expt_name = 'M005';
+% monk_name = 'jbe';
+% bar_ori = 50; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
-global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
-
-Expt_name = 'M012';
-monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA recs)
-rec_number = 1;
-
-use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
+use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -110,8 +110,8 @@ end
 
 % mod_data_name = 'full_eyetrack_initmods';
 % old_anal_name = 'full_eyetrack';
-mod_data_name = 'full_eyetrack_initmods_test2';
-old_anal_name = 'full_eyetrack_test2';
+mod_data_name = 'full_eyetrack_initmods_FIN';
+old_anal_name = 'full_eyetrack_FIN';
 
 %if using coil initialization
 if use_measured_pos == 1
@@ -161,6 +161,7 @@ else
     xv_type = 'uni';
 end
 
+bar_dw = mode(expt_data.expt_dw)/params.scale_fac;
 old_spatial_usfac = et_params.spatial_usfac;
 spatial_usfac = old_spatial_usfac*2;
 new_add_usfac = spatial_usfac/2; %how much tent-basis spatial up-sampling to use
@@ -447,7 +448,7 @@ end
 %%
 cd(anal_dir)
 
-fprintf('Loading pre-computed initial models\n');
+fprintf('Loading base eye-tracking data\n');
 load(mod_data_name);
 load(old_anal_name,'dit_mods*','it_mods*','et_tr_set','it_fix_post_mean*','drift_post_mean*','it_fix_post_std*','drift_post_std*');
 old_drift_mods = dit_mods{end};
@@ -939,7 +940,7 @@ if use_LOOXV > 0
         
         %indicator predictions
         if model_pop_avg
-        block_out = [Xblock(used_inds,:)*lin_kerns pop_rate]';
+        block_out = [Xblock(used_inds,:) pop_rate]*lin_kerns';
         else
         block_out = Xblock(used_inds,:)*lin_kerns';
         end
@@ -1458,13 +1459,13 @@ save(hr_anal_name,'best_fix_*','*drift_post_*','fix_ids','dit_*','et_used_inds',
 % fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
 % fin_fix_std(~isnan(fix_ids)) = best_fix_std(end,fix_ids(~isnan(fix_ids)));
 % fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
-%
+% 
 % fin_fix_corr = fin_fix_corr*sp_dx;
 % fin_fix_std = fin_fix_std*sp_dx;
-%
+% 
 % fin_drift_corr = drift_post_mean(end,:)*sp_dx;
 % fin_drift_std = drift_post_std(end,:)*sp_dx;
-%
+% 
 % for ii = 1:length(trial_start_inds)
 %     cur_inds = trial_start_inds(ii):trial_end_inds(ii);
 %     fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
@@ -1472,11 +1473,11 @@ save(hr_anal_name,'best_fix_*','*drift_post_*','fix_ids','dit_*','et_used_inds',
 % end
 % fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
 % fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
-%
-%
+% 
+% 
 % fin_tot_corr = fin_fix_corr + fin_drift_corr;
 % fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
-%
+% 
 % %%
 % close all
 % n_trials = length(unique(all_trialvec));
@@ -1495,7 +1496,7 @@ save(hr_anal_name,'best_fix_*','*drift_post_*','fix_ids','dit_*','et_used_inds',
 %             h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
 %             %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
 %             %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
-%
+% 
 %             %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
 %             xlim([0 dur]);
 %             ylim([-0.5 0.5]);
@@ -1509,4 +1510,4 @@ save(hr_anal_name,'best_fix_*','*drift_post_*','fix_ids','dit_*','et_used_inds',
 %         end
 %     end
 % end
-%
+
