@@ -1,14 +1,14 @@
-clear all
-close all
+% clear all
+% close all
 
-global Expt_name bar_ori monk_name rec_type
+global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M010';
-monk_name = 'jbe';
-bar_ori = 60; %bar orientation to use (only for UA recs)
-rec_number = 1;
+% Expt_name = 'M010';
+% monk_name = 'jbe';
+% bar_ori = 60; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
-fit_unCor = false; %also fit models without eye corrections?
+fit_unCor = true; %also fit models without eye corrections?
 use_MUA = false; %use MUA in model-fitting
 fit_rect = false; %split quad linear filter into two rectified
 
@@ -464,7 +464,7 @@ for cc = targs
             cur_imp = Inf;
             while nEfilts < max_Emods && cur_imp > 0
                 cur_mod = bestGQM;
-                cur_mod = NMMadd_NLinput(cur_mod,'quad',1,1,0.1*randn(flen*use_nPix_us,1)); %add a quadratic filter
+                cur_mod = NMMadd_NLinput(cur_mod,'quad',1,1,0.1*randn(flen*use_nPix_us/add_usfac,1)); %add a quadratic filter
                 cur_mod.mods(end).reg_params = init_reg_params;
                 nEfilts = nEfilts + 1;
                 
@@ -494,7 +494,7 @@ for cc = targs
             cur_imp = Inf;
             while nIfilts < max_Imods && cur_imp > 0
                 cur_mod = bestGQM;
-                cur_mod = NMMadd_NLinput(cur_mod,'quad',-1,1,0.1*randn(flen*use_nPix_us,1)); %add inhibitory quad filter
+                cur_mod = NMMadd_NLinput(cur_mod,'quad',-1,1,0.1*randn(flen*use_nPix_us/add_usfac,1)); %add inhibitory quad filter
                 cur_mod.mods(end).reg_params = init_reg_params;
                 nIfilts = nIfilts + 1;
                 
