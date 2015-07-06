@@ -21,10 +21,11 @@ end
 Edata_file = strcat(data_dir,'/',monk_name,Expt_name,'Expts');
 load(Edata_file);
 
+fused = find(cellfun(@(x) length(x),Expts) > 0,1,'first');
 %is this a laminar probe or utah array rec?
-if strcmp(Expts{1}.Header.DataType,'GridData 96')
+if strcmp(Expts{fused}.Header.DataType,'GridData 96')
     rec_type = 'UA';
-elseif strcmp(Expts{1}.Header.DataType,'Spike2')
+elseif strcmp(Expts{fused}.Header.DataType,'Spike2')
     rec_type = 'LP';
 end
 
