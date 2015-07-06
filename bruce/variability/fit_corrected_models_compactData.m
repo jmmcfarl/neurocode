@@ -1,14 +1,14 @@
-% clear all
-% close all
+clear all
+close all
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M010';
-% monk_name = 'jbe';
-% bar_ori = 60; %bar orientation to use (only for UA recs)
-% rec_number = 1;
+Expt_name = 'M277';
+monk_name = 'lem';
+bar_ori = 70; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
-fit_unCor = true; %also fit models without eye corrections?
+fit_unCor = false; %also fit models without eye corrections?
 use_MUA = false; %use MUA in model-fitting
 fit_rect = false; %split quad linear filter into two rectified
 

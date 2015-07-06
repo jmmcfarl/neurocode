@@ -18,26 +18,26 @@ expt_rnum = cat(1,expt_rnum,ones(length(Expt_list),2));
 % expt_mname = cat(2,expt_mname,repmat({'jbe'},1,8));
 % expt_rnum = cat(1,expt_rnum,ones(8,2));
 
-% Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013','M014','M320'});
-% expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan; 40 nan; 100 nan]);
-% expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe','jbe','lem'});
-% expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1';1 1;1 1]);
+Expt_list = cat(2,Expt_list,{'M005','M309','M009','M010','M011','M012','M013','M014','M320'});
+expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 nan; 40 nan; 100 nan]);
+expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe','jbe','lem'});
+expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1';1 1;1 1]);
 
 %%
 % batch_function = 'fit_corrected_models_compactData';
 % batch_function = 'variability_model_compactData';
-% batch_function = 'variability_rpt_anal_compact';
+batch_function = 'variability_rpt_anal_compact';
 % batch_function = 'rpt_stimprops_sim_test';
 % batch_function = 'create_processed_data';
 % batch_function = 'full_eyetracking_hres_compactData_allSULOO';
 % batch_function = 'fix_modelfit_ModData';
 % batch_function = 'full_eyetracking_compactData';
-batch_function = 'full_eyetracking_hres_compactData';
+% batch_function = 'full_eyetracking_hres_compactData';
 % batch_function = 'drift_grating_simulations';
 % batch_function = 'add_unCorr_modfit';
 % batch_function = 'fit_microsac_models_compactData';
 
-for Elist_cnt = 5:length(Expt_list)
+for Elist_cnt = 1:length(Expt_list)
 % for Elist_cnt = 6
     Expt_name = Expt_list{Elist_cnt};
     monk_name = expt_mname{Elist_cnt}; 
