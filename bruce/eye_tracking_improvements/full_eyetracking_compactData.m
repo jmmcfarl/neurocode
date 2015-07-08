@@ -40,14 +40,15 @@ fprintf('Loading %s\n',data_name);
 load(data_name);
 
 
-mod_data_name = 'full_eyetrack_initmods_FIN';
-anal_name = 'full_eyetrack_FIN';
+mod_data_name = 'full_eyetrack_initmods_FIN_test2';
+anal_name = 'full_eyetrack_FIN_test2';
 
 %%
-recompute_init_mods = 0; %use existing initial models?
+recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init,
 use_sac_kerns = 1; %use sac-modulation kernels
 model_pop_avg = 1; %include an explicit model of population avg (and use it as a predictor in unit models)
+pop_avg_sigma = 0.1; %gaussian smoothing sigma for pop avg rates
 
 %%
 if strcmp(rec_type,'LP')
@@ -525,10 +526,17 @@ end
 
 if model_pop_avg
 %     pop_rate = nanmean(Robs_mat,2);
-%     pop_rate = nansum(Robs_mat,2);
-    pop_rate = nansum(Robs_mat(:,1:n_probes),2);
-    Robs_mat = [Robs_mat pop_rate];
-    tot_nUnits = tot_nUnits + 1;
+    
+    norm_rates = bsxfun(@minus,Robs_mat(:,1:n_probes),nanmean(Robs_mat(:,1:n_probes)));
+    norm_rates = bsxfun(@rdivide,norm_rates,nanstd(norm_rates));
+    for tt = 1:length(trial_data)
+       cur_trial_inds = find(all_trialvec(used_inds) == tt);
+       for ss = 1:n_probes
+          norm_rates(cur_trial_inds,ss) = jmm_smooth_1d_cor(norm_rates(cur_trial_inds,ss),round(pop_avg_sigma/dt));
+       end
+    end
+    pop_rate = nanmean(norm_rates);
+    
     n_block_filts = n_blocks + 1;
 else
     n_block_filts = n_blocks;
@@ -627,10 +635,10 @@ if ~exist(['./' mod_data_name '.mat'],'file') || recompute_init_mods == 1
         if ~isempty(cur_tr_inds)
             Robs = Robs_mat(:,ss);
                 
-            if model_pop_avg && ss == tot_nUnits
-               mod_stim_params(2).stim_dims(1) = n_blocks;
-               X{2} = [Xblock(used_inds,:)];
-            end
+%             if model_pop_avg && ss == tot_nUnits
+%                mod_stim_params(2).stim_dims(1) = n_blocks;
+%                X{2} = [Xblock(used_inds,:)];
+%             end
             
             %estimate null model
             if use_sac_kerns
@@ -707,32 +715,32 @@ else
     load(mod_data_name);
     
     %%
-    for ss = 1:tot_nUnits
-        fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
-        cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
-        cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
-        all_inds = find(~isnan(Robs_mat(:,ss)));
-        
-        if ~isempty(all_inds)
-            Robs = Robs_mat(:,ss);
-            
-            if model_pop_avg && ss == tot_nUnits
-                mod_stim_params(2).stim_dims(1) = n_blocks;
-                X{2} = [Xblock(used_inds,:)];
-            end
-            cur_mod = all_mod_fits(ss);
-            all_mod_fits(ss) = NMMfit_filters(cur_mod,Robs,X,[],all_inds,silent);
-            all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
-        end
-    end
+%     for ss = 1:tot_nUnits
+%         fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
+%         cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
+%         cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
+%         all_inds = find(~isnan(Robs_mat(:,ss)));
+%         
+%         if ~isempty(all_inds)
+%             Robs = Robs_mat(:,ss);
+%             
+%             if model_pop_avg && ss == tot_nUnits
+%                 mod_stim_params(2).stim_dims(1) = n_blocks;
+%                 X{2} = [Xblock(used_inds,:)];
+%             end
+%             cur_mod = all_mod_fits(ss);
+%             all_mod_fits(ss) = NMMfit_filters(cur_mod,Robs,X,[],all_inds,silent);
+%             all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
+%         end
+%     end
 end
 
 %%
 %reconstruct uncorrected stimulus
 all_Xmat_us = create_time_embedding(all_stimmat_up,stim_params_us);
-if model_pop_avg
-    X{2} = [Xblock(used_inds,:) pop_rate];
-end
+% if model_pop_avg
+%     X{2} = [Xblock(used_inds,:) pop_rate];
+% end
 %% SELECT USABLE UNITS AND make Robs_mat
 % usable_units = find(all_mod_xvLLimp > 0);
 usable_units = find(~isnan(all_mod_xvLLimp));
@@ -951,9 +959,9 @@ for nn = 1:n_fix_inf_it
         mod_spkNL_params(ss,:) = it_mods_spkNL{nn}(tr_set(ss)).spk_NL_params(1:3);
         cur_lin_filt = it_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
         lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
-        if model_pop_avg && tr_set(ss) == tot_nUnits
-           lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself 
-        end
+%         if model_pop_avg && tr_set(ss) == tot_nUnits
+%            lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself 
+%         end
         if use_sac_kerns
             sac_kerns(ss,:) = it_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
             msac_kerns(ss,:) = it_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -1099,9 +1107,9 @@ for nn = 1:n_fix_inf_it
         cur_unit_ind = find(tr_set == cur_cell);
         cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
                 
-        if tr_set(ss) == tot_nUnits && model_pop_avg
-            X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
-        end
+%         if tr_set(ss) == tot_nUnits && model_pop_avg
+%             X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+%         end
         
         it_mods{nn+1}(cur_cell) = it_mods{nn}(cur_cell);
         it_mods{nn+1}(cur_cell) = NMMfit_filters(it_mods{nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
@@ -1120,9 +1128,9 @@ for nn = 1:n_fix_inf_it
         end
     end
     %set lin-filt predictor back to include pop-rate if needed
-    if model_pop_avg
-            X{2} = [Xblock(used_inds,:) pop_rate];
-    end
+%     if model_pop_avg
+%             X{2} = [Xblock(used_inds,:) pop_rate];
+%     end
     if use_LOOXV > 0
         for xv = 1:length(loo_set)
             fprintf('Fixation iter %d, LOO %d of %d\n',nn,xv,length(loo_set));
@@ -1143,9 +1151,9 @@ for nn = 1:n_fix_inf_it
                 mod_spkNL_params(ss,:) = it_mods_spkNL_LOO{xv,nn}(tr_set(cur_uset(ss))).spk_NL_params(1:3);
                 cur_lin_filt = it_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
                 lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
-                if model_pop_avg && tr_set(ss) == tot_nUnits
-                    lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
-                end
+%                 if model_pop_avg && tr_set(ss) == tot_nUnits
+%                     lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+%                 end
                 if use_sac_kerns
                     sac_kerns(ss,:) = it_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                     msac_kerns(ss,:) = it_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
@@ -1285,9 +1293,9 @@ for nn = 1:n_fix_inf_it
                 cur_unit_ind = find(tr_set == cur_cell);
                 cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
                 
-                if tr_set(ss) == tot_nUnits && model_pop_avg
-                    X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
-                end
+%                 if tr_set(ss) == tot_nUnits && model_pop_avg
+%                     X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+%                 end
 
                 it_mods_LOO{xv,nn+1}(cur_cell) = it_mods{nn+1}(cur_cell);
                 it_mods_LOO{xv,nn+1}(cur_cell) = NMMfit_filters(it_mods_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
@@ -1300,9 +1308,9 @@ for nn = 1:n_fix_inf_it
                 it_LLimp_LOO(xv,nn+1,cur_cell) = (newLL - null_LL(cur_cell))/log(2);
             end
             
-            if model_pop_avg
-                X{2} = [Xblock(used_inds,:) pop_rate];
-            end
+%             if model_pop_avg
+%                 X{2} = [Xblock(used_inds,:) pop_rate];
+%             end
         end
     end
 end
@@ -1351,9 +1359,9 @@ for nn = 1:n_drift_inf_it
         mod_spkNL_params(ss,:) = dit_mods_spkNL{nn}(tr_set(ss)).spk_NL_params(1:3);
         cur_lin_kerns = dit_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
         lin_kerns(ss,1:length(cur_lin_kerns)) = cur_lin_kerns;
-        if model_pop_avg && tr_set(ss) == tot_nUnits
-           lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself 
-        end
+%         if model_pop_avg && tr_set(ss) == tot_nUnits
+%            lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself 
+%         end
         if use_sac_kerns
             sac_kerns(ss,:) = dit_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
             msac_kerns(ss,:) = dit_mods{nn}(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -1532,9 +1540,9 @@ for nn = 1:n_drift_inf_it
         cur_unit_ind = find(tr_set == cur_cell);
         cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
                 
-        if tr_set(ss) == tot_nUnits && model_pop_avg
-            X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
-        end
+%         if tr_set(ss) == tot_nUnits && model_pop_avg
+%             X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+%         end
         
         dit_mods{nn+1}(cur_cell) = dit_mods{nn}(cur_cell);
         dit_mods{nn+1}(cur_cell) = NMMfit_filters(dit_mods{nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
@@ -1548,9 +1556,9 @@ for nn = 1:n_drift_inf_it
         fprintf('Original: %.5f  Prev: %.5f  New: %.5f\n',all_mod_LLimp(cur_cell),dit_LLimp(nn,cur_cell),dit_LLimp(nn+1,cur_cell));
     end
     
-    if model_pop_avg
-          X{2} = [Xblock(used_inds,:) pop_rate]; %for modeling pop-avg dont use the pop-avg as a predictor        
-    end
+%     if model_pop_avg
+%           X{2} = [Xblock(used_inds,:) pop_rate]; %for modeling pop-avg dont use the pop-avg as a predictor        
+%     end
     %%
     if use_LOOXV > 0
         for xv = 1:length(loo_set)
@@ -1585,9 +1593,9 @@ for nn = 1:n_drift_inf_it
                 mod_spkNL_params(ss,:) = dit_mods_spkNL_LOO{xv,nn}(tr_set(cur_uset(ss))).spk_NL_params(1:3);
                 cur_lin_kerns = dit_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
                 lin_kerns(ss,1:length(cur_lin_kerns)) = cur_lin_kerns;
-                if model_pop_avg && tr_set(ss) == tot_nUnits
-                    lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
-                end
+%                 if model_pop_avg && tr_set(ss) == tot_nUnits
+%                     lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+%                 end
                 if use_sac_kerns
                     sac_kerns(ss,:) = dit_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                     msac_kerns(ss,:) = dit_mods_LOO{xv,nn}(tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
@@ -1762,9 +1770,9 @@ for nn = 1:n_drift_inf_it
                 cur_unit_ind = find(tr_set == cur_cell);
                 cur_fit_inds = all_modfit_inds(~isnan(Robs_mat(all_modfit_inds,cur_unit_ind)));
                 
-                if tr_set(ss) == tot_nUnits && model_pop_avg
-                    X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
-                end
+%                 if tr_set(ss) == tot_nUnits && model_pop_avg
+%                     X{2} = Xblock(used_inds,:); %for modeling pop-avg dont use the pop-avg as a predictor
+%                 end
 
                 dit_mods_LOO{xv,nn+1}(cur_cell) = dit_mods{nn+1}(cur_cell);
                 dit_mods_LOO{xv,nn+1}(cur_cell) = NMMfit_filters(dit_mods_LOO{xv,nn+1}(cur_cell),Robs_mat(:,cur_unit_ind),...
@@ -1777,9 +1785,9 @@ for nn = 1:n_drift_inf_it
                 %                 fprintf('Original: %.5f  Prev: %.5f  New: %.5f\n',all_mod_LLimp(cur_cell),dit_LLimp(nn,cur_cell),dit_LLimp(nn+1,cur_cell));
             end
             
-            if model_pop_avg
-               X{2} = [Xblock(used_inds,:) pop_rate]; 
-            end
+%             if model_pop_avg
+%                X{2} = [Xblock(used_inds,:) pop_rate]; 
+%             end
         end
     end
 end
