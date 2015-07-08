@@ -8,10 +8,10 @@ expt_oris = [];
 expt_mname = {};
 expt_rnum = [];
 
-Expt_list = cat(2,Expt_list,{'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'});
-expt_oris = cat(1,expt_oris,[80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 160 nan; 40 nan; 45 nan; 0 90]);
-expt_mname = cat(2,expt_mname,repmat({'lem'},1,length(Expt_list)));
-expt_rnum = cat(1,expt_rnum,ones(length(Expt_list),2));
+% Expt_list = cat(2,Expt_list,{'M266','M270','M275','M277','M281','M287','M289','M294','M296','M297'});
+% expt_oris = cat(1,expt_oris,[80 nan; 60 nan; 135 nan; 70 nan; 140 nan; 90 nan; 160 nan; 40 nan; 45 nan; 0 90]);
+% expt_mname = cat(2,expt_mname,repmat({'lem'},1,length(Expt_list)));
+% expt_rnum = cat(1,expt_rnum,ones(length(Expt_list),2));
 % 
 % Expt_list = cat(2,Expt_list,{'G085','G086','G087','G088','G089','G091','G093','G095'});
 % expt_oris = cat(1,expt_oris,[0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 90; 0 nan]);
@@ -37,8 +37,8 @@ batch_function = 'variability_rpt_anal_compact';
 % batch_function = 'add_unCorr_modfit';
 % batch_function = 'fit_microsac_models_compactData';
 
-for Elist_cnt = 1:length(Expt_list)
-% for Elist_cnt = 6
+% for Elist_cnt = 7:length(Expt_list)
+for Elist_cnt = 6
     Expt_name = Expt_list{Elist_cnt};
     monk_name = expt_mname{Elist_cnt}; 
     for bori_cnt = 1:2

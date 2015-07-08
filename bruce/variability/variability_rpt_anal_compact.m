@@ -1,14 +1,14 @@
-% clear all
+clear all
 % close all
 
 addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M320';
-% monk_name = 'lem';
-% bar_ori = 100; %bar orientation to use (only for UA recs)
-% rec_number = 1;
+Expt_name = 'M009';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 1;
 % %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
@@ -16,6 +16,7 @@ sname = 'rpt_variability_compact_FIN';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN_Rinit';
 et_anal_name = 'full_eyetrack_FIN_Rinit';
+% et_anal_name = 'full_eyetrack_Rinit';
 mod_name = 'corrected_models_comp_FIN';
 
 use_MUA = false; EP_params.use_MUA = use_MUA; %use MUA in model-fitting
@@ -312,6 +313,18 @@ if any(arrayfun(@(x) any(x.rpt_frames == 0),trial_data(all_rpt_trials))) %if the
     end
 end
 
+all_stim_mat = decompressTernNoise(stimComp);
+
+%find any trials where the stimulus isn't displayed
+temp_rpt_inds = used_inds(ismember(all_trialvec(used_inds),all_rpt_trials));
+test_mat = reshape(all_stim_mat(temp_rpt_inds,:),[],length(all_rpt_trials),size(all_stim_mat,2));
+bad_stim_trials = find(all(all(test_mat == 0),3)); %these trials have all 0 values
+if ~isempty(bad_stim_trials)
+    fprintf('Eliminating %d/%d bad stim trials\n',length(bad_stim_trials),length(all_rpt_trials));
+    all_rpt_trials(bad_stim_trials) = [];
+    rptframe_trials = find([trial_data(all_rpt_trials).nrpt_frames] > 0); %recompute which rpt trials have rpt frames
+end
+
 %keep track of which rpt sequence is displayed in each repeat trial
 all_rpt_seqnum = nan(size(all_rpt_trials));
 for ii = 1:n_rpt_seeds
@@ -419,7 +432,6 @@ end
 usedrpt_blanked = rpt_blanked(used_frame_inds,:);
 
 %% get stimulus xmat during repeat trials
-all_stim_mat = decompressTernNoise(stimComp);
 
 %spatial up-sampling of the stimulus
 full_nPix_us = modFitParams.spatial_usfac*params.full_nPix;
@@ -1133,7 +1145,7 @@ for bbb = 1:length(poss_bin_dts)
                     EP_data(cc,bbb).mod_psth_vars(rr) = mod_psth_vars(cc);
                     EP_data(cc,bbb).mod_psth_vars_cor(rr) = mod_psth_vars_cor(cc);
                     
-                    EP_data(cc,bbb).mod_ep_vars(rr) = mean(mod_cond_vars(:,cc));
+                    EP_data(cc,bbb).mod_ep_vars(rr) = nanmean(mod_cond_vars(:,cc));
                     EP_data(cc,bbb).mod_alphas(rr) = EP_data(cc,bbb).mod_psth_vars_cor(rr)/EP_data(cc,bbb).mod_tot_vars(rr);
                 end
             end
