@@ -1,9 +1,13 @@
-function [fig_props] = plot_NMM_filters_1d(nim,pix_ax,lag_ax,stim_Xtarg)
+function [fig_props] = plot_NMM_filters_1d(nim,pix_ax,lag_ax,stim_Xtarg,h)
 
 
 if nargin < 4 || isempty(stim_Xtarg)
     stim_Xtarg = 1;
 end
+if nargin < 5 
+    h = [];
+end
+
 stim_params = nim.stim_params(stim_Xtarg);
 nLags = stim_params.stim_dims(1);
 dt = stim_params.dt;
@@ -20,8 +24,12 @@ Xtargs = [nim.mods(:).Xtarget];
 stim_mods = find(Xtargs == stim_Xtarg);
 
 %% CREATE FIGURE SHOWING INDIVIDUAL SUBUNITS
-
-fig_props.h = figure();
+if isempty(h)
+    fig_props.h = figure();
+else
+    fig_props.h = h;
+    figure(h);
+end
 n_columns = max(round(sqrt(length(stim_mods)/2)),1);
 n_rows = ceil(length(stim_mods)/n_columns);
 

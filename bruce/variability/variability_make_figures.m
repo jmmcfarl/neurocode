@@ -55,7 +55,7 @@ for Elist_cnt = 1:length(Expt_list) %loop over all experiments in the list
                     EP_data(cc,1).bar_ori = bar_ori;
                     EP_data(cc,1).rec_number = rec_number;
                     EP_data(cc,1).cell_ID = cell_cnt; %give each cell a unique integer ID
-                    
+                                                 
                     %add to cell list
                     all_cell_data = cat(1,all_cell_data,EP_data(cc,:));
                     cell_cnt = cell_cnt + 1; %oincrement cell cnter
@@ -74,7 +74,7 @@ for Elist_cnt = 1:length(Expt_list) %loop over all experiments in the list
                         EP_pairs(cc,1).rec_number = rec_number;
                         EP_pairs(cc,1).cell_IDs = [EP_data([EP_pairs(cc,1).ids]).cell_ID]; %cell IDs for each cell in pair
                         EP_pairs(cc,1).pair_ID = pair_cnt;
-                        
+                                                
                         %add pair to list and increment cnter
                         all_pair_data = cat(1,all_pair_data,EP_pairs(cc,:));
                         pair_cnt = pair_cnt + 1;
@@ -229,6 +229,8 @@ close all
 f1 = figure(); hold on
 plot(Mod_alphas(:,mod_dt_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize);
 line([0 1],[0 1]);
+xlabel('Model alpha');
+ylabel('Direct alpha');
 
 [a,b] = corr(Mod_alphas(:,mod_dt_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','pearson');
 title(sprintf('corr: %.3f',a));
@@ -241,16 +243,23 @@ title(sprintf('corr: %.3f',a));
 
 %% compare rate variance captured by the model with direct estimates
 close all
-f1 = figure();hold on
+f1 = figure();
+subplot(2,1,1);hold on
 plot(Mod_tot_vars(:,mod_dt_ind),SU_ball_vars(:,direct_dt_ind,ball_ind),'.','markersize',mSize);
+
 line([0 1],[0 1]);
 % r = robustfit(Mod_tot_vars(:,mod_dt_ind),SU_ball_vars(:,direct_dt_ind,ball_ind));
 r = regress(SU_ball_vars(:,direct_dt_ind,ball_ind),[ones(length(SU_uset),1) Mod_tot_vars(:,mod_dt_ind)]);
 xax = linspace(0,1,100); plot(xax,r(1)+r(2)*xax,'r');
 
+xlabel('Model rate variance');
+ylabel('Direct rate variance');
+
 %model R2
 mod_R2 = Mod_tot_vars(:,mod_dt_ind)./SU_ball_vars(:,direct_dt_ind,ball_ind);
-
+subplot(2,1,2);hold on
+hist(mod_R2,25);
+xlabel('Model R2');
 %% analyze validation based on simulated spiking
 close all
 Mod_sim_alphas = nan(length(SU_uset),EP_params.sim_n_rpts);
@@ -324,6 +333,8 @@ ylabel('Alpha');
 
 f2 = figure();
 plot(RF_ecc,RF_width,'.','markersize',mSize);
+xlabel('RF ecc (deg)');
+ylabel('RF width (deg)');
 
 % fig_width = 8; rel_height = 1;
 % figufy(f1);
@@ -353,8 +364,9 @@ mod_avg_rates = arrayfun(@(x) nanmean(nanmean(x.mod_psths)),all_cell_data(SU_use
 mod_FF_bias = mod_acrossTrialVars./mod_avg_rates;
 
 f2 = figure(); hold on
-G = repmat(1:length(mod_bin_dts),length(SU_uset),1);
-boxplot_capped(mod_FF_bias(:),G(:),[10 90]) %make outer whiskers show these percentiles rather than full range
+errorbar(mod_bin_dts,mean(mod_FF_bias),std(mod_FF_bias),'o-');
+% G = repmat(1:length(mod_bin_dts),length(SU_uset),1);
+% boxplot_capped(mod_FF_bias(:),G(:),[10 90]) %make outer whiskers show these percentiles rather than full range
 
 % fig_width = 4; rel_height = 1;
 % figufy(f1);
@@ -367,6 +379,24 @@ boxplot_capped(mod_FF_bias(:),G(:),[10 90]) %make outer whiskers show these perc
 % fname = [fig_dir 'Direct_FF_tbin_compare.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % % close(f1);
+
+%%
+close all
+f1 = figure();
+f2 = figure();
+for ss = 1:length(SU_uset)
+    cur_cell = all_cell_data(SU_uset(ss),direct_dt_ind);
+    figure(f1); clf;
+    plot_NMM_filters_1d(cur_cell.bestGQM,[],[],[],f1);
+    
+    figure(f2); clf; hold on
+    plot(cur_cell.EP_bin_centers,cur_cell.var_ep_binned,'.');
+    seval = cur_cell.spline_looEP.evalAt(cur_cell.eval_xx);
+    plot(cur_cell.eval_xx,seval,'r');
+    
+    pause
+end
+
 
 %% direct acorr estimation
 close all

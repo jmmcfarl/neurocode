@@ -1,16 +1,16 @@
-clear all
+% clear all
 
 addpath('~/James_scripts/bruce/eye_tracking/');
 addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-Expt_name = 'M297';
-monk_name = 'lem';
-bar_ori = 0; %bar orientation to use (only for UA recs)
-rec_number = 1;
-
-use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
+% Expt_name = 'M320';
+% monk_name = 'lem';
+% bar_ori = 100; %bar orientation to use (only for UA recs)
+% rec_number = 1;
+% 
+use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -39,16 +39,15 @@ end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
-
-mod_data_name = 'full_eyetrack_initmods_FIN_test2';
-anal_name = 'full_eyetrack_FIN_test2';
+mod_data_name = 'full_eyetrack_initmods_FIN2';
+anal_name = 'full_eyetrack_FIN2';
 
 %%
 recompute_init_mods = 1; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init,
 use_sac_kerns = 1; %use sac-modulation kernels
 model_pop_avg = 1; %include an explicit model of population avg (and use it as a predictor in unit models)
-pop_avg_sigma = 0.1; %gaussian smoothing sigma for pop avg rates
+pop_avg_sigma = 0.05; %gaussian smoothing sigma for pop avg rates
 
 %%
 if strcmp(rec_type,'LP')
@@ -524,18 +523,19 @@ for ss = 1:size(Robs_mat,2)
     end
 end
 
-if model_pop_avg
-%     pop_rate = nanmean(Robs_mat,2);
-    
-    norm_rates = bsxfun(@minus,Robs_mat(:,1:n_probes),nanmean(Robs_mat(:,1:n_probes)));
-    norm_rates = bsxfun(@rdivide,norm_rates,nanstd(norm_rates));
-    for tt = 1:length(trial_data)
+if model_pop_avg    
+   norm_rates = Robs_mat(:,1:n_probes); %define pop rate over MUA only
+   for tt = 1:length(trial_data) %loop over trials
        cur_trial_inds = find(all_trialvec(used_inds) == tt);
-       for ss = 1:n_probes
+       for ss = 1:n_probes %smooth the spk cnt data with a Gaussian kernel
           norm_rates(cur_trial_inds,ss) = jmm_smooth_1d_cor(norm_rates(cur_trial_inds,ss),round(pop_avg_sigma/dt));
        end
-    end
-    pop_rate = nanmean(norm_rates);
+   end
+    
+    %zscore each MU
+    norm_rates = bsxfun(@minus,norm_rates,nanmean(norm_rates));
+    norm_rates = bsxfun(@rdivide,norm_rates,nanstd(norm_rates));
+    pop_rate = nanmean(norm_rates,2); %then avg
     
     n_block_filts = n_blocks + 1;
 else
@@ -596,8 +596,8 @@ init_L2 = [zeros(n_squared_filts+1,1); block_L2];
 init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT,'lambda_L2',init_L2);
 
 %range of smoothness regularization 'rescaling' to try
-% poss_lambda_scales = logspace(-2,2,10);
-poss_lambda_scales = 1;
+poss_lambda_scales = logspace(-2,2,10);
+% poss_lambda_scales = 1;
 
 %create X matrix
 if add_usfac > 1
@@ -715,24 +715,20 @@ else
     load(mod_data_name);
     
     %%
-%     for ss = 1:tot_nUnits
-%         fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
-%         cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
-%         cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
-%         all_inds = find(~isnan(Robs_mat(:,ss)));
-%         
-%         if ~isempty(all_inds)
-%             Robs = Robs_mat(:,ss);
-%             
-%             if model_pop_avg && ss == tot_nUnits
-%                 mod_stim_params(2).stim_dims(1) = n_blocks;
-%                 X{2} = [Xblock(used_inds,:)];
-%             end
-%             cur_mod = all_mod_fits(ss);
-%             all_mod_fits(ss) = NMMfit_filters(cur_mod,Robs,X,[],all_inds,silent);
-%             all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
-%         end
-%     end
+    for ss = 1:tot_nUnits
+        fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
+        cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
+        cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
+        all_inds = union(cur_tr_inds,cur_xv_inds);
+        
+        if ~isempty(all_inds)
+            Robs = Robs_mat(:,ss);
+            
+            cur_mod = all_mod_fits(ss);
+            all_mod_fits(ss) = NMMfit_filters(cur_mod,Robs,X,[],all_inds,silent,[],[],4);
+            all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
+        end
+    end
 end
 
 %%
@@ -1812,65 +1808,65 @@ cd(anal_dir);
 save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set','et_clust_data','et_saccades','et_is_blink','et_params','et_tr_trials','et_xv_trials','et_rand_fixpos');
 
 %%
-fin_fix_corr = nan(NT,1);
-fin_fix_std = nan(NT,1);
-fin_fix_corr(~isnan(fix_ids)) = it_fix_post_mean(end,fix_ids(~isnan(fix_ids)));
-fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
-fin_fix_std(~isnan(fix_ids)) = it_fix_post_std(end,fix_ids(~isnan(fix_ids)));
-fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
-
-fin_fix_corr = fin_fix_corr*sp_dx;
-fin_fix_std = fin_fix_std*sp_dx;
-
-fin_drift_corr = drift_post_mean(end,:)*sp_dx;
-fin_drift_std = drift_post_std(end,:)*sp_dx;
-
-for ii = 1:length(trial_start_inds)
-    cur_inds = trial_start_inds(ii):trial_end_inds(ii);
-    fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
-    fin_drift_std(cur_inds(1:end-sac_shift)) = fin_drift_std(cur_inds(sac_shift+1:end));
-end
-fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
-fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
-
-
-fin_tot_corr = fin_fix_corr + fin_drift_corr;
-fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
+% fin_fix_corr = nan(NT,1);
+% fin_fix_std = nan(NT,1);
+% fin_fix_corr(~isnan(fix_ids)) = it_fix_post_mean(end,fix_ids(~isnan(fix_ids)));
+% fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
+% fin_fix_std(~isnan(fix_ids)) = it_fix_post_std(end,fix_ids(~isnan(fix_ids)));
+% fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
+% 
+% fin_fix_corr = fin_fix_corr*sp_dx;
+% fin_fix_std = fin_fix_std*sp_dx;
+% 
+% fin_drift_corr = drift_post_mean(end,:)*sp_dx;
+% fin_drift_std = drift_post_std(end,:)*sp_dx;
+% 
+% for ii = 1:length(trial_start_inds)
+%     cur_inds = trial_start_inds(ii):trial_end_inds(ii);
+%     fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
+%     fin_drift_std(cur_inds(1:end-sac_shift)) = fin_drift_std(cur_inds(sac_shift+1:end));
+% end
+% fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
+% fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
+% 
+% 
+% fin_tot_corr = fin_fix_corr + fin_drift_corr;
+% fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
 
 
 %%
-% close all
-n_trials = length(unique(all_trialvec));
-for tt = 1:n_trials
-    fprintf('Trial %d/%d, Se: %d\n',tt,n_trials,trial_data(tt).se);
-    % for tt = [96 137 154 179 376 409]
-    uu = find(all_trialvec(used_inds) == tt);
-    if ~isempty(uu)
-        bt = all_t_axis(used_inds(uu(1)));
-        et = all_t_axis(used_inds(uu(end)));
-        dur = et-bt;
-        if dur > 3.5
-            hold on
-%             h1=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_fix_corr(uu),fin_fix_std(uu),{'color','m'});
-            h2=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_tot_corr(uu),fin_tot_std(uu),{'color','k'});
-            h3=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),2),'r','linewidth',2);
-            h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
-            %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
-            %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
-
-            %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
-            xlim([0 dur]);
-            ylim([-0.5 0.5]);
-            xlabel('Time (s)','fontsize',10);
-            ylabel('Orthoganol position (deg)','fontsize',10);
-            title(sprintf('Trial %d',tt));
-            set(gca,'fontsize',8,'fontname','arial');
-            fillPage(gcf,'papersize',[8 5]);
-            pause
-            clf
-        end
-    end
-end
+% % close all
+% n_trials = length(unique(all_trialvec));
+% for tt = 1:n_trials
+%     fprintf('Trial %d/%d, Se: %d\n',tt,n_trials,trial_data(tt).se);
+%     % for tt = [96 137 154 179 376 409]
+%     uu = find(all_trialvec(used_inds) == tt);
+%     if ~isempty(uu)
+%         bt = all_t_axis(used_inds(uu(1)));
+%         et = all_t_axis(used_inds(uu(end)));
+%         dur = et-bt;
+%         if dur > 3.5
+%             hold on
+% %             h1=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_fix_corr(uu),fin_fix_std(uu),{'color','m'});
+%             h2=shadedErrorBar(all_t_axis(used_inds(uu))-bt,fin_tot_corr(uu),fin_tot_std(uu),{'color','k'});
+%             h3=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),2),'r','linewidth',2);
+%             h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
+%             %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
+%             %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
+% 
+%             %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
+%             xlim([0 dur]);
+%             ylim([-0.5 0.5]);
+%             xlabel('Time (s)','fontsize',10);
+%             ylabel('Orthoganol position (deg)','fontsize',10);
+%             title(sprintf('Trial %d',tt));
+%             set(gca,'fontsize',8,'fontname','arial');
+%             fillPage(gcf,'papersize',[8 5]);
+%             pause
+%             clf
+%         end
+%     end
+% end
 
 %%
 % close all
@@ -1897,19 +1893,19 @@ end
 %     end
 %     colormap(gray)
 %     
-% %     fin_mod = it_mods{2}(tr_set(ss));
-% %     xtargs = [fin_mod.mods(:).Xtarget];
-% %     kmat = [fin_mod.mods(xtargs == 1).filtK];
-% %     figure(f2); clf
-% %     subplot(2,2,1)
-% %     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
-% %     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
-% %     for ii = 1:(size(kmat,2)-1)
-% %         subplot(2,2,2+ii)
-% %         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
-% %         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
-% %     end
-% %     colormap(gray)
+%     fin_mod = it_mods{2}(tr_set(ss));
+%     xtargs = [fin_mod.mods(:).Xtarget];
+%     kmat = [fin_mod.mods(xtargs == 1).filtK];
+%     figure(f2); clf
+%     subplot(2,2,1)
+%     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
+%     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
+%     for ii = 1:(size(kmat,2)-1)
+%         subplot(2,2,2+ii)
+%         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
+%         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
+%     end
+%     colormap(gray)
 %     
 %     fin_mod = it_mods{end}(tr_set(ss));
 %     xtargs = [fin_mod.mods(:).Xtarget];
