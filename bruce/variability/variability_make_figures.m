@@ -19,7 +19,8 @@ expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1; 1 1; 1 1]);
 fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 
 %% load repeat trial data
-base_sname = 'rpt_variability_compact_FIN';
+base_rname = 'rpt_variability_compact_FIN'; %rpt-trial data base
+base_sname = 'sim_variability_compact_FIN'; %sim-calc data base
 
 cell_cnt = 1;
 pair_cnt = 1;
@@ -32,13 +33,16 @@ for Elist_cnt = 1:length(Expt_list) %loop over all experiments in the list
         bar_ori = expt_oris(Elist_cnt,bori_cnt);
         rec_number = expt_rnum(Elist_cnt,bori_cnt);
         if ~isnan(bar_ori)
-            fprintf('Loading %s on Expt %s ori %d\n',base_sname,Expt_name,bar_ori);
+            fprintf('Loading %s on Expt %s ori %d\n',base_rname,Expt_name,bar_ori);
             data_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
             
+            rname = [data_dir base_rname sprintf('_ori%d',bar_ori)];
             sname = [data_dir base_sname sprintf('_ori%d',bar_ori)];
             if rec_number > 1
+                rname = strcat(rname,sprintf('_r%d',rec_number));
                 sname = strcat(sname,sprintf('_r%d',rec_number));
             end
+            load(rname);
             load(sname);
             
             %loop over cells for this rec
@@ -55,7 +59,11 @@ for Elist_cnt = 1:length(Expt_list) %loop over all experiments in the list
                     EP_data(cc,1).bar_ori = bar_ori;
                     EP_data(cc,1).rec_number = rec_number;
                     EP_data(cc,1).cell_ID = cell_cnt; %give each cell a unique integer ID
-                                                 
+                                     
+                    %add in simulated model-calcs
+                    EP_data(cc,1).sim_data = sim_data(cc);
+                    EP_data(cc,1).sim_params = sim_params;
+                    
                     %add to cell list
                     all_cell_data = cat(1,all_cell_data,EP_data(cc,:));
                     cell_cnt = cell_cnt + 1; %oincrement cell cnter
@@ -129,6 +137,7 @@ end
 cur_to_eliminate = find(Expt_numbers == 297 & bar_oris == 0);
 fprintf('Eliminating %d SUs from Expt 297 bar 0\n',length(cur_to_eliminate));
 to_eliminate = cat(1,to_eliminate,cur_to_eliminate);
+
 %%
 fprintf('Eliminating %d/%d duplicate SUs (multiple recs)\n',length(to_eliminate),size(all_cell_data,1));
 elim_CIDs = [all_cell_data(to_eliminate,1).cell_ID]; %IDs of cells being removed
@@ -152,7 +161,7 @@ direct_used_dts = find(ismember(poss_bin_dts,direct_bin_dts));
 %selection criteria
 min_nTrials = 25; %minimum number of repeat trials
 min_avgRate = 5; %minimum avg rate (Hz)
-min_xvLL = 0.01; %minimum model xval LL improvement over null
+min_xvLL = 0.0; %minimum model xval LL improvement over null
 
 SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(:,1));
 SU_avgRates = [all_cell_data(:,1).ov_avg_BS]'/direct_bin_dts(1); %compute avg rate using first time bin res
@@ -213,7 +222,7 @@ SU_ball_alphas = 1 - bsxfun(@rdivide,SU_psth_vars,SU_ball_vars);
 SU_spline_alphas = 1 - SU_psth_vars./SU_spline_vars;
 SU_spline_alphas_noLOO = 1 - SU_psth_vars./SU_spline_vars_noLOO;
 
-%% GENERAL SELECTION CRITERIA (dt, epsilon ball)
+%% GENERAL parameter values to use for plots (dt, epsilon ball)
 mSize = 10; %markersize
 dt_ind = 0.01; %which dt value to use
 ball_eps = 0.01; %which epsilon ball radius to use
@@ -223,45 +232,12 @@ mod_dt_ind = find(mod_bin_dts == dt_ind);
 direct_dt_ind = find(direct_bin_dts == dt_ind);
 ball_ind = find(poss_eps_sizes == ball_eps);
 
-%% compare model-predicted and direct estimates of alpha
-close all
-
-f1 = figure(); hold on
-plot(Mod_alphas(:,mod_dt_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize);
-line([0 1],[0 1]);
-xlabel('Model alpha');
-ylabel('Direct alpha');
-
-[a,b] = corr(Mod_alphas(:,mod_dt_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','pearson');
-title(sprintf('corr: %.3f',a));
-
-% fig_width = 4; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'Mod_vs_spline_alpha.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% % close(f1);
-
-%% compare rate variance captured by the model with direct estimates
-close all
-f1 = figure();
-subplot(2,1,1);hold on
-plot(Mod_tot_vars(:,mod_dt_ind),SU_ball_vars(:,direct_dt_ind,ball_ind),'.','markersize',mSize);
-
-line([0 1],[0 1]);
-% r = robustfit(Mod_tot_vars(:,mod_dt_ind),SU_ball_vars(:,direct_dt_ind,ball_ind));
-r = regress(SU_ball_vars(:,direct_dt_ind,ball_ind),[ones(length(SU_uset),1) Mod_tot_vars(:,mod_dt_ind)]);
-xax = linspace(0,1,100); plot(xax,r(1)+r(2)*xax,'r');
-
-xlabel('Model rate variance');
-ylabel('Direct rate variance');
-
-%model R2
-mod_R2 = Mod_tot_vars(:,mod_dt_ind)./SU_ball_vars(:,direct_dt_ind,ball_ind);
-subplot(2,1,2);hold on
-hist(mod_R2,25);
-xlabel('Model R2');
 %% analyze validation based on simulated spiking
 close all
+min_mod_var = 1e-4; %minimum model-predicted total rate variance (otherwise, relative error blows up)
+modSim_uset = find(Mod_tot_vars(:,mod_dt_ind) > min_mod_var);
+fprintf('Found %d/%d with sufficient rate var\n',length(modSim_uset),length(SU_uset));
+
 Mod_sim_alphas = nan(length(SU_uset),EP_params.sim_n_rpts);
 Mod_sim_ballvars = nan(length(SU_uset),EP_params.sim_n_rpts);
 for ii = 1:length(SU_uset)
@@ -269,29 +245,69 @@ for ii = 1:length(SU_uset)
     Mod_sim_ballvars(ii,:) = arrayfun(@(x) x.eps_vars(ball_ind),all_cell_data(SU_uset(ii),mod_dt_ind).mod_sim_stats);
 end
 
-%mean and SD
+%mean and SD of alpha and totvar estimates
 avg_sim_alphas = mean(Mod_sim_alphas,2);
 std_sim_alphas = std(Mod_sim_alphas,[],2);
 avg_sim_ballvars = mean(Mod_sim_ballvars,2);
 std_sim_ballvars = std(Mod_sim_ballvars,[],2);
 
-sim_bvar_err = bsxfun(@minus,Mod_sim_ballvars,Mod_tot_vars(:,mod_dt_ind));
-sim_bvar_err = bsxfun(@rdivide,sim_bvar_err,Mod_tot_vars(:,mod_dt_ind))*100;
-std_sim_bvar_err = std(sim_bvar_err,[],2);
+%relative bias in alpha estimates 
+alpha_bias = (avg_sim_alphas - Mod_alphas(:,mod_dt_ind))./Mod_alphas(:,mod_dt_ind);
 
-f1 = figure;
-plot(Mod_alphas(:,mod_dt_ind),avg_sim_alphas,'.','markersize',mSize)
-line([0 1],[0 1],'color','r');
+%relative uncertainty total variance estimates 
+bvar_rel_uncertainty = bsxfun(@rdivide,std_sim_ballvars,Mod_tot_vars(:,mod_dt_ind))*100; %relative uncertainty (%)
+alpha_rel_uncertainty = bsxfun(@rdivide,std_sim_alphas,Mod_alphas(:,mod_dt_ind))*100;
 
-f2 = figure;
-plot(Mod_tot_vars(:,mod_dt_ind),avg_sim_ballvars,'.')
-line([0 1],[0 1],'color','r');
+mod_dt = mod_bin_dts(mod_dt_ind);
 
-f3 = figure();
-subplot(2,1,1)
-plot(SU_avgRates,std_sim_bvar_err,'.');
-subplot(2,1,2)
-plot(SU_nTrials,std_sim_bvar_err,'.');
+f1 = figure();
+plot(Mod_tot_vars(modSim_uset,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(modSim_uset),'.');
+suff_trials = modSim_uset(SU_nTrials(modSim_uset) > 50); %set of units with at least 50 trials
+hold on
+plot(Mod_tot_vars(suff_trials,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(suff_trials),'r.');
+suff_trials = modSim_uset(SU_nTrials(modSim_uset) > 100); %set of units with at least 100 trials
+plot(Mod_tot_vars(suff_trials,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(suff_trials),'k.');
+set(gca,'xscale','log');
+xlabel('Rate variance (Hz^2)');
+ylabel('Relative uncertainty (%)');
+legend('All units','At least 50 trials','At least 100 trials');
+
+%% compare model-predicted and direct estimates of alpha
+close all
+
+f1 = figure(); hold on
+plot(Mod_alphas(modSim_uset,mod_dt_ind),SU_ball_alphas(modSim_uset,direct_dt_ind,ball_ind),'.','markersize',mSize);
+line([0 1],[0 1]);
+xlabel('Model alpha');
+ylabel('Direct alpha');
+
+[a,b] = corr(Mod_alphas(modSim_uset,mod_dt_ind),SU_ball_alphas(modSim_uset,direct_dt_ind,ball_ind),'type','pearson');
+title(sprintf('corr: %.3f',a));
+
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'Mod_vs_ball_alpha.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % close(f1);
+
+%% compare rate variance captured by the model with direct estimates
+close all
+f1 = figure();
+
+%plot distribution of model R2 values
+mod_R2 = Mod_tot_vars(modSim_uset,mod_dt_ind)./SU_ball_vars(modSim_uset,direct_dt_ind,ball_ind);
+nbins = 20;
+bin_width = range(mod_R2)/nbins;
+bin_edges = linspace(min(mod_R2)-bin_width/2,max(mod_R2)+bin_width/2,nbins + 1);
+bin_cents = 0.5*bin_edges(1:end-1) + 0.5*bin_edges(2:end);
+n = histc(mod_R2,bin_edges);
+h = bar(bin_cents,n(1:end-1));
+set(h,'barwidth',0.8,'faceColor','k');
+xlabel('Model R2');
+xlim(minmax(bin_edges));
+yl = ylim();
+line(median(mod_R2)+[0 0],yl,'color','b');
+
 
 %% DIRECT ESTIMATES OF ALPHA VS RF PROPERTIES
 close all
@@ -315,10 +331,10 @@ xlabel('RF width (deg)');
 ylabel('Alpha');
 
 subplot(2,2,3)
-plot(RF_FSF,SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize)
+plot(RF_gSF,SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize)
 % plot(RF_PSF(uset),all_ball_alphas(uset,1),'.','markersize',mSize)
 % [a,b] = corr(RF_PSF(uset),all_ball_alphas(uset,1),'type','spearman');
-[a,b] = corr(RF_FSF,SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','spearman');
+[a,b] = corr(RF_gSF,SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','spearman');
 title(sprintf('SF corr; %.3f, p %.2g',a,b));
 xlabel('Preferred SF (cyc/deg)');
 ylabel('Alpha');
@@ -356,17 +372,6 @@ line([1 1],[0 2],'color','k','linestyle','--');
 xlabel('PSTH-based FF');
 ylabel('EP-corrected FF');
 
-mod_totVars = arrayfun(@(x) nanmean(x.mod_tot_vars),all_cell_data(SU_uset,:));
-mod_psthVarsCor = arrayfun(@(x) nanmean(x.mod_psth_vars_cor),all_cell_data(SU_uset,:));
-mod_acrossTrialVars = mod_totVars - mod_psthVarsCor;
-% mod_acrossTrialVars = arrayfun(@(x) nanmean(x.mod_ep_vars),all_cell_data(SU_uset,:));
-mod_avg_rates = arrayfun(@(x) nanmean(nanmean(x.mod_psths)),all_cell_data(SU_uset,:));
-mod_FF_bias = mod_acrossTrialVars./mod_avg_rates;
-
-f2 = figure(); hold on
-errorbar(mod_bin_dts,mean(mod_FF_bias),std(mod_FF_bias),'o-');
-% G = repmat(1:length(mod_bin_dts),length(SU_uset),1);
-% boxplot_capped(mod_FF_bias(:),G(:),[10 90]) %make outer whiskers show these percentiles rather than full range
 
 % fig_width = 4; rel_height = 1;
 % figufy(f1);
@@ -379,6 +384,75 @@ errorbar(mod_bin_dts,mean(mod_FF_bias),std(mod_FF_bias),'o-');
 % fname = [fig_dir 'Direct_FF_tbin_compare.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % % close(f1);
+
+%% look at size of FF bias and alpha as a function of time window
+use_SD = 0.1;
+use_SD_ind = find(sim_params.poss_SDs == use_SD,1);
+
+sim_FF_bias = cell2mat(arrayfun(@(x) x.sim_data.FF_bias(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+sim_alpha = cell2mat(arrayfun(@(x) x.sim_data.alphas(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+
+sim_FF_rel = bsxfun(@rdivide,sim_FF_bias,sim_FF_bias(:,1));
+sim_alpha_rel = bsxfun(@rdivide,sim_alpha,sim_alpha(:,1));
+
+f1 = figure();
+% errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_FF_bias),nanstd(sim_FF_bias));
+errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_FF_rel),nanstd(sim_FF_rel));
+set(gca,'xscale','log');
+xlim([5 1500]);
+xlabel('Time window (ms)');
+ylabel('Fano Factor bias');
+
+% u_tbin = 0.1;
+% u_tbin_ind = find(sim_params.poss_ubins*poss_bin_dts(direct_dt_ind) == u_tbin);
+% sim_FF_vals = sim_FF_bias(:,u_tbin_ind);
+% sim_FF_vals_base = sim_FF_bias(:,1);
+% nbins = 20;
+% bin_edges = linspace(0,max(sim_FF_vals) + 0.01,nbins+1);
+% bin_cents = 0.5*bin_edges(1:end-1) + 0.5*bin_edges(2:end);
+% n = histc(sim_FF_vals,bin_edges);
+% n_base = histc(sim_FF_vals_base,bin_edges);
+% f2 = figure();
+% h = bar(bin_cents,n(1:end-1));
+% set(h,'barWidth',0.8,'faceColor','k');
+% xlabel('Relative Fano Factor bias');
+% ylabel('Cells');
+% 
+% f2b = figure();
+% h = bar(bin_cents,n_base(1:end-1));
+% set(h,'barWidth',0.8,'faceColor','k');
+% xlabel('Relative Fano Factor bias');
+% ylabel('Cells');
+% 
+
+f3 = figure();
+% errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_alpha),nanstd(sim_alpha));
+errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_alpha_rel),nanstd(sim_alpha_rel));
+set(gca,'xscale','log');
+xlim([5 1500]);
+xlabel('Time window (ms)');
+ylabel('Relative Alpha');
+
+%% look at FF bias and alpha as a function of EP SD
+sim_EP_SDs = arrayfun(@(x) x.sim_params.poss_SDs(end),all_cell_data(SU_uset,1));
+sim_FF_bias = cell2mat(arrayfun(@(x) x.sim_data.FF_bias(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+sim_alpha = cell2mat(arrayfun(@(x) x.sim_data.alphas(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+
+sim_FF_rel = bsxfun(@rdivide,sim_FF_bias(:,1:end-1),sim_FF_bias(:,end));
+sim_alpha_rel = bsxfun(@rdivide,sim_alpha(:,1:end-1),sim_alpha(:,end));
+
+f1 = figure();
+errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_FF_bias(:,1:end-1)),nanstd(sim_FF_bias(:,1:end-1)));
+
+f2 = figure();
+errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_alpha(:,1:end-1)),nanstd(sim_alpha(:,1:end-1)));
+
+f3 = figure();
+subplot(2,1,1);
+errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_FF_rel),nanstd(sim_FF_rel));
+subplot(2,1,2);
+errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_alpha_rel),nanstd(sim_alpha_rel));
+
 
 %%
 close all
@@ -768,7 +842,7 @@ expt_oris = cat(1,expt_oris,[50 nan; 120 nan; 0 nan; 60 nan; 160 160; 0 0; 100 n
 expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe','jbe'});
 expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1;1 1]);
 
-base_sname = 'model_variability_compact';
+base_rname = 'model_variability_compact';
 base_gname = 'grating_sim';
 
 Mcnt = 1;
@@ -780,10 +854,10 @@ for Elist_cnt = 1:length(Expt_list)
         bar_ori = expt_oris(Elist_cnt,bori_cnt);
         rec_number = expt_rnum(Elist_cnt,bori_cnt);
         if ~isnan(bar_ori)
-            fprintf('Loading %s on Expt %s ori %d\n',base_sname,Expt_name,bar_ori);
+            fprintf('Loading %s on Expt %s ori %d\n',base_rname,Expt_name,bar_ori);
             data_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
             
-            sname = [data_dir base_sname sprintf('_ori%d',bar_ori)];
+            sname = [data_dir base_rname sprintf('_ori%d',bar_ori)];
             if rec_number > 1
                sname = strcat(sname,sprintf('_r%d',rec_number)); 
             end

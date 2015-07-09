@@ -2,10 +2,10 @@ clear all
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-Expt_name = 'M012';
+Expt_name = 'M005';
 monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA recs)
-rec_number = 2;
+bar_ori = 50; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
@@ -111,8 +111,8 @@ end
 
 % mod_data_name = 'full_eyetrack_initmods';
 % old_anal_name = 'full_eyetrack';
-mod_data_name = 'full_eyetrack_initmods_FIN';
-old_anal_name = 'full_eyetrack_FIN';
+mod_data_name = 'full_eyetrack_initmods_FIN2';
+old_anal_name = 'full_eyetrack_FIN2';
 
 %if using coil initialization
 if use_measured_pos == 1
@@ -151,6 +151,7 @@ end
 load([anal_dir '/' old_anal_name],'et_params');
 
 model_pop_avg = et_params.model_pop_avg;
+pop_avg_sigma = 0.05;
 %%
 
 use_nPix = et_params.use_nPix;
@@ -405,16 +406,24 @@ for ss = 1:size(Robs_mat,2)
     end
 end
 
-%if modeling the population avg rate 
-if model_pop_avg
-    pop_rate = nanmean(Robs_mat,2);
-    Robs_mat = [Robs_mat pop_rate];
-    tot_nUnits = tot_nUnits + 1;
+if model_pop_avg    
+   norm_rates = Robs_mat(:,1:n_probes); %define pop rate over MUA only
+   for tt = 1:length(trial_data) %loop over trials
+       cur_trial_inds = find(all_trialvec(used_inds) == tt);
+       for ss = 1:n_probes %smooth the spk cnt data with a Gaussian kernel
+          norm_rates(cur_trial_inds,ss) = jmm_smooth_1d_cor(norm_rates(cur_trial_inds,ss),round(pop_avg_sigma/dt));
+       end
+   end
+    
+    %zscore each MU
+    norm_rates = bsxfun(@minus,norm_rates,nanmean(norm_rates));
+    norm_rates = bsxfun(@rdivide,norm_rates,nanstd(norm_rates));
+    pop_rate = nanmean(norm_rates,2); %then avg
+    
     n_block_filts = n_blocks + 1;
 else
     n_block_filts = n_blocks;
 end
-
 
 %% DEFINE POINTS TO ALLOW RAPID CHANGES (TRIAL STARTS AFTER SACCADES)
 %push the effects of saccades forward in time
@@ -520,10 +529,10 @@ for ss = 1:n_tr_chs
     Robs = Robs_mat(:,ss);
     null_mod = all_nullmod(tr_set(ss));
     
-    %for models of the pop-avg rate dont include it as a predictor
-    if model_pop_avg && tr_set(ss) == tot_nUnits
-        X{2} = [Xblock(used_inds,:)];
-    end
+%     %for models of the pop-avg rate dont include it as a predictor
+%     if model_pop_avg && tr_set(ss) == tot_nUnits
+%         X{2} = [Xblock(used_inds,:)];
+%     end
 
     if ~isempty(cur_fit_inds) && nansum(Robs) > 0
         
@@ -598,10 +607,10 @@ if use_LOOXV > 0
             Robs = Robs_mat(:,ss);
             null_mod = all_nullmod(tr_set(ss));
             
-            %for models of the pop-avg rate dont include it as a predictor
-            if model_pop_avg && tr_set(ss) == tot_nUnits
-                X{2} = [Xblock(used_inds,:)];
-            end
+%             %for models of the pop-avg rate dont include it as a predictor
+%             if model_pop_avg && tr_set(ss) == tot_nUnits
+%                 X{2} = [Xblock(used_inds,:)];
+%             end
 
             if ~isempty(cur_fit_inds) && nansum(Robs) > 0
                 
@@ -746,9 +755,9 @@ for ss = 1:n_tr_chs
     
     cur_lin_filt = all_drift_fits(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
     lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
-    if model_pop_avg && tr_set(ss) == tot_nUnits
-        lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
-    end
+%     if model_pop_avg && tr_set(ss) == tot_nUnits
+%         lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+%     end
     if use_sac_kerns
         sac_kerns(ss,:) = all_drift_fits(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
         msac_kerns(ss,:) = all_drift_fits(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -929,9 +938,9 @@ if use_LOOXV > 0
             
             cur_lin_filt = all_drift_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
             lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
-            if model_pop_avg && tr_set(ss) == tot_nUnits
-                lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
-            end
+%             if model_pop_avg && tr_set(ss) == tot_nUnits
+%                 lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+%             end
             if use_sac_kerns
                 sac_kerns(ss,:) = all_drift_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                 msac_kerns(ss,:) = all_drift_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;
@@ -1109,9 +1118,9 @@ if use_fixation_models
         
         cur_lin_filt = all_fix_fits(tr_set(ss)).mods(cur_Xtargs == 2).filtK;
         lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
-        if model_pop_avg && tr_set(ss) == tot_nUnits
-            lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
-        end
+%         if model_pop_avg && tr_set(ss) == tot_nUnits
+%             lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+%         end
         if use_sac_kerns
             sac_kerns(ss,:) = all_fix_fits(tr_set(ss)).mods(cur_Xtargs == 3).filtK;
             msac_kerns(ss,:) = all_fix_fits(tr_set(ss)).mods(cur_Xtargs == 4).filtK;
@@ -1292,9 +1301,9 @@ if use_fixation_models
                 
                 cur_lin_filt = all_fix_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 2).filtK;
                 lin_kerns(ss,1:length(cur_lin_filt)) = cur_lin_filt;
-                if model_pop_avg && tr_set(ss) == tot_nUnits
-                    lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
-                end
+%                 if model_pop_avg && tr_set(ss) == tot_nUnits
+%                     lin_kerns(ss,end) = 0; %not using pop-avg predictor for the pop-avg itself
+%                 end
                 if use_sac_kerns
                     sac_kerns(ss,:) = all_fix_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 3).filtK;
                     msac_kerns(ss,:) = all_fix_fits_LOO(xv,tr_set(cur_uset(ss))).mods(cur_Xtargs == 4).filtK;

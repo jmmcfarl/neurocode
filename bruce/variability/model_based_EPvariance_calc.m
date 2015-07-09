@@ -21,7 +21,7 @@ mod_name = 'corrected_models_comp_FIN';
 use_MUA = false; sim_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; sim_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 exclude_sacs = false; sim_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
-poss_SDs = [0.05:0.05:0.2];%range of possible EP SDs to test (last is the empirical)
+poss_SDs = [0.05:0.025:0.2];%range of possible EP SDs to test (last is the empirical)
 poss_ubins = [1 2 5 10 20 50 100]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]

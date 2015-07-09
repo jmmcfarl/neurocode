@@ -5,9 +5,9 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M012';
-monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'M297';
+monk_name = 'lem';
+bar_ori = 90; %bar orientation to use (only for UA recs)
 rec_number = 1;
 % %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
@@ -24,8 +24,8 @@ use_MUA = false; EP_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 exclude_sacs = false; EP_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
 sub_trialavgs = false; EP_params.sub_trialavgs = sub_trialavgs; %subtract out trial avg spike counts?
-do_xcorrs = false; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
-compute_sims = false; EP_params.compute_sims = compute_sims; %do simulated calcs for alphas
+do_xcorrs = true; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
+compute_sims = true; EP_params.compute_sims = compute_sims; %do simulated calcs for alphas
 compute_PF_rate = false;
 
 poss_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
@@ -35,7 +35,7 @@ mod_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.mod_bin_dts = mod_bin_dts; %pos
 max_tlag = 0; EP_params.max_tlag = max_tlag; %max time lag for computing xcorrs (units of dt bins)
 tlags = -max_tlag:max_tlag; EP_params.tlags = tlags; %range of time lags
 
-sim_n_rpts = 50; EP_params.sim_n_rpts = sim_n_rpts; %number of repeats for simulation calcs
+sim_n_rpts = 500; EP_params.sim_n_rpts = sim_n_rpts; %number of repeats for simulation calcs
 
 maxD_prc = 100; %maximum delta_X percentile to model with spline fit
 n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins; %number of quantiles of delta_X for binned estimates
@@ -1114,32 +1114,16 @@ for bbb = 1:length(poss_bin_dts)
                         end
                     end
                     
-                    %                 upts = find(cur_D <= knot_pts(end));
-                    %                 spline_DS = prctile(cur_D,maxD_prc/(n_spline_knots-1):maxD_prc/(n_spline_knots-1):(maxD_prc-maxD_prc/(n_spline_knots-1)));
-                    %                 knot_pts = [0 0 0 0 spline_DS maxD maxD maxD];
-                    %                 all_spline_pred = nan(length(eval_xx),length(targs),length(targs),length(tlags));
-                    %                 all_spline_pred_LOO1 = nan(length(eval_xx),length(targs),length(targs),length(tlags));
-                    %                 all_spline_pred_LOO2 = nan(length(eval_xx),length(targs),length(targs),length(tlags));
                     eps_ball_var_LOO1 = nan(length(poss_eps_sizes),length(targs),length(targs),length(tlags));
                     eps_ball_var_LOO2 = nan(length(poss_eps_sizes),length(targs),length(targs),length(tlags));
                     for cc1 = 1:length(targs) %loop over pairs of neurons
                         for cc2 = 1:length(targs)
                             for ll = 1:length(tlags)
-                                %                             cur_upts = upts(~isnan(cur_X(upts,cc1,cc2,ll)));
-                                %                             sp = fastBSpline.lsqspline(knot_pts,3,cur_D(cur_upts),cur_X(cur_upts,cc1,cc2,ll));
-                                %                             all_spline_pred(:,cc1,cc2,ll) = sp.evalAt(eval_xx);
                                 
                                 %find LOO indices of the units in this pair
                                 loo_ind1 = find(ismember(targs(cc1),loo_set));
                                 loo_ind2 = find(ismember(targs(cc2),loo_set));
-                                if ~isempty(loo_ind1) && ~isempty(loo_ind2)
-                                    %                                 cur_upts = find(cur_D_LOO(:,loo_ind1) <= knot_pts(end) & ~isnan(cur_X(:,cc1,cc2,ll)));
-                                    %                                 sp = fastBSpline.lsqspline(knot_pts,3,cur_D_LOO(cur_upts,loo_ind1),cur_X(cur_upts,cc1,cc2,ll));
-                                    %                                 all_spline_pred_LOO1(:,cc1,cc2,ll) = sp.evalAt(eval_xx);
-                                    %                                 cur_upts = find(cur_D_LOO(:,loo_ind2) <= knot_pts(end) & ~isnan(cur_X(:,cc1,cc2,ll)));
-                                    %                                 sp = fastBSpline.lsqspline(knot_pts,3,cur_D_LOO(cur_upts,loo_ind2),cur_X(cur_upts,cc1,cc2,ll));
-                                    %                                 all_spline_pred_LOO2(:,cc1,cc2,ll) = sp.evalAt(eval_xx);
-                                    
+                                if ~isempty(loo_ind1) && ~isempty(loo_ind2)                                    
                                     %compute epsilon-ball based covariances using these LOO EP deltaXs
                                     for bb = 1:length(poss_eps_sizes)
                                         curset = find(cur_D_LOO(:,loo_ind1) < poss_eps_sizes(bb));
@@ -1172,18 +1156,7 @@ for bbb = 1:length(poss_bin_dts)
                         %average covariance for this cell pair between using trial
                         %pairs ij in both orders
                         EP_pairs(cc,bbb).pair_xcovar(rr,:) = pair_xcovar(Cpairs(cc,1),Cpairs(cc,2),:);
-                        
-                        %                     EP_pairs(cc,bbb).spline_xcovar(rr,:,:) = 0.5*squeeze(all_spline_pred(1,Cpairs(cc,1),Cpairs(cc,2),:)) + ...
-                        %                         0.5*squeeze(all_spline_pred(1,Cpairs(cc,2),Cpairs(cc,1),:));
-                        %                     spline_xcovar_LOO1 = 0.5*squeeze(all_spline_pred_LOO1(1,Cpairs(cc,1),Cpairs(cc,2),:)) + ...
-                        %                         0.5*squeeze(all_spline_pred_LOO1(1,Cpairs(cc,2),Cpairs(cc,1),:));
-                        %                     spline_xcovar_LOO2 = 0.5*squeeze(all_spline_pred_LOO2(1,Cpairs(cc,1),Cpairs(cc,2),:)) + ...
-                        %                         0.5*squeeze(all_spline_pred_LOO2(1,Cpairs(cc,2),Cpairs(cc,1),:));
-                        %                     EP_pairs(cc,bbb).spline_xcovar_LOO(rr,:,:) = 0.5*spline_xcovar_LOO1 + 0.5*spline_xcovar_LOO2;
-                        %
-                        %                     EP_pairs(cc,bbb).splinefun_xcovar(rr,:,:) = 0.5*squeeze(all_spline_pred(:,Cpairs(cc,1),Cpairs(cc,2),:)) + ...
-                        %                         0.5*squeeze(all_spline_pred(:,Cpairs(cc,2),Cpairs(cc,1),:));
-                        
+
                         %histogram based covariance vs deltaX
                         EP_pairs(cc,bbb).xcovar_ep_binned(rr,:,:) = squeeze(var_ep_binned(:,Cpairs(cc,1),Cpairs(cc,2),:));
                         
@@ -1355,20 +1328,20 @@ for bbb = 1:length(poss_bin_dts)
                 
                 n_data_points = length(all_delta_X);
                 
-                %get spline knot points
-                spline_DS = prctile(all_delta_X,maxD_prc/(n_spline_knots-1):maxD_prc/(n_spline_knots-1):(maxD_prc-maxD_prc/(n_spline_knots-1)));
-                knot_pts = [0 0 0 0 spline_DS maxD maxD maxD];
+%                 %get spline knot points
+%                 spline_DS = prctile(all_delta_X,maxD_prc/(n_spline_knots-1):maxD_prc/(n_spline_knots-1):(maxD_prc-maxD_prc/(n_spline_knots-1)));
+%                 knot_pts = [0 0 0 0 spline_DS maxD maxD maxD];
                 
-                %for each cell compute the total rate variance from a
-                %spline regression
-                spline_tot_var = nan(1,length(targs));
-                for cc = 1:length(targs)
-                    upts = find(all_delta_X <= knot_pts(end) & ~isnan(all_X(:,cc)));
-                    sp = fastBSpline.lsqspline(knot_pts,3,all_delta_X(upts),all_X(upts,cc));
-                    spline_tot_var(cc) = sp.evalAt(0);
-                end
-                all_psth_vars = nanmean(all_X); %marginal avg Y*Y gives estimate of "PSTH variance"
-                spline_alpha_ests = all_psth_vars./spline_tot_var; %spline-based estimates of alpha
+%                 %for each cell compute the total rate variance from a
+%                 %spline regression
+%                 spline_tot_var = nan(1,length(targs));
+%                 for cc = 1:length(targs)
+%                     upts = find(all_delta_X <= knot_pts(end) & ~isnan(all_X(:,cc)));
+%                     sp = fastBSpline.lsqspline(knot_pts,3,all_delta_X(upts),all_X(upts,cc));
+%                     spline_tot_var(cc) = sp.evalAt(0);
+%                 end
+%                 all_psth_vars = nanmean(all_X); %marginal avg Y*Y gives estimate of "PSTH variance"
+%                 spline_alpha_ests = all_psth_vars./spline_tot_var; %spline-based estimates of alpha
                 
                 %compute epsilon-ball estimates
                 eps_ball_vars = nan(length(poss_eps_sizes),length(targs));
@@ -1380,10 +1353,10 @@ for bbb = 1:length(poss_bin_dts)
                 
                 for cc = 1:length(targs)
                     sim_stats(sr,cc).psth_vars = all_psth_vars(cc);
-                    sim_stats(sr,cc).spline_vars = spline_tot_var(cc);
+%                     sim_stats(sr,cc).spline_vars = spline_tot_var(cc);
                     sim_stats(sr,cc).eps_vars = eps_ball_vars(:,cc);
                     sim_stats(sr,cc).eps_alphas = all_psth_vars(cc)./eps_ball_vars(:,cc);
-                    sim_stats(sr,cc).spline_alpha = all_psth_vars(cc)/spline_tot_var(cc);
+%                     sim_stats(sr,cc).spline_alpha = all_psth_vars(cc)/spline_tot_var(cc);
                 end
             end
             
@@ -1396,57 +1369,57 @@ for bbb = 1:length(poss_bin_dts)
     end
     
     %% export trial-by-trial data for making figures
-    fig_dname = [anal_dir 'tbt_fig_data'];
-    fig_data.tbt_EP = tbt_EP;
-    fig_data.tbt_EP_emb = tbt_EP_emb;
-    fig_data.pred_rates = new_mod_prates;
-    fig_data.binned_spks = tbt_binned_spikes;
-    fig_data.binned_spks_nan = new_BS_ms;
-    fig_data.EP_data = EP_data;
-    fig_data.EP_params = EP_params;
-    fig_data.modFitParams = modFitParams;
-    
-    if compute_PF_rate
-        fig_data.PF_prates = all_mod_PF_prates;
-    end
-    
-    n_probes = 24;
-    trial_dur = 4;
-    poss_targs = (n_probes + 1):(n_probes + length(SU_numbers));
-    for ss = 1:length(targs)
-        cur_SU_ind = find(targs(ss) == poss_targs);
-        cur_spk_times = spike_data.SU_spk_times{cur_SU_ind};
-        for ii = 1:tot_nrpts
-            trial_start_time = trial_data(all_rpt_trials(ii)).start_times;
-            trial_spk_times = cur_spk_times(cur_spk_times >= trial_start_time & cur_spk_times <= (trial_start_time + trial_dur));
-            tbt_spk_times{ss,ii} = trial_spk_times - trial_start_time;
-        end
-    end
-    fig_data.tbt_spk_times = tbt_spk_times;
-    
-    %handle any trials with repeat frames
-    to_eliminate = [];
-    for ii = 1:length(rptframe_trials)
-        cur_trial = all_rpt_trials(rptframe_trials(ii));
-        cur_rpt_frames = trial_data(cur_trial).rpt_frames;
-        if all(cur_rpt_frames == 0) %zero values indicate which frame the trial really started on
-            spk_shift_amount = length(cur_rpt_frames)*dt_uf; %number of up-sampled time steps to shift by
-            for ss = 1:length(targs)
-                tbt_spk_times{ss,rptframe_trials(ii)} = tbt_spk_times{ss,rptframe_trials(ii)} + spk_shift_amount*bin_dt;
-            end
-        elseif ~any(cur_rpt_frames == 0) %in this case if there's a repeat frame in the middle of the trial, just remove the trial (for plotting purposes this would be a mess)
-            to_eliminate = [to_eliminate rptframe_trials(ii)];
-        end
-    end
-    
-    fig_data.tbt_spk_times(:,to_eliminate) = [];
-    fig_data.tbt_EP(:,to_eliminate) = [];
-    fig_data.tbt_EP_emb(:,to_eliminate) = [];
-    fig_data.pred_rates(:,to_eliminate,:) = [];
-    fig_data.binned_spks(:,to_eliminate,:) = [];
-    
-    fprintf('Saving %s\n',fig_dname);
-    save(fig_dname,'fig_data');
+%     fig_dname = [anal_dir 'tbt_fig_data'];
+%     fig_data.tbt_EP = tbt_EP;
+%     fig_data.tbt_EP_emb = tbt_EP_emb;
+%     fig_data.pred_rates = new_mod_prates;
+%     fig_data.binned_spks = tbt_binned_spikes;
+%     fig_data.binned_spks_nan = new_BS_ms;
+%     fig_data.EP_data = EP_data;
+%     fig_data.EP_params = EP_params;
+%     fig_data.modFitParams = modFitParams;
+%     
+%     if compute_PF_rate
+%         fig_data.PF_prates = all_mod_PF_prates;
+%     end
+%     
+%     n_probes = 24;
+%     trial_dur = 4;
+%     poss_targs = (n_probes + 1):(n_probes + length(SU_numbers));
+%     for ss = 1:length(targs)
+%         cur_SU_ind = find(targs(ss) == poss_targs);
+%         cur_spk_times = spike_data.SU_spk_times{cur_SU_ind};
+%         for ii = 1:tot_nrpts
+%             trial_start_time = trial_data(all_rpt_trials(ii)).start_times;
+%             trial_spk_times = cur_spk_times(cur_spk_times >= trial_start_time & cur_spk_times <= (trial_start_time + trial_dur));
+%             tbt_spk_times{ss,ii} = trial_spk_times - trial_start_time;
+%         end
+%     end
+%     fig_data.tbt_spk_times = tbt_spk_times;
+%     
+%     %handle any trials with repeat frames
+%     to_eliminate = [];
+%     for ii = 1:length(rptframe_trials)
+%         cur_trial = all_rpt_trials(rptframe_trials(ii));
+%         cur_rpt_frames = trial_data(cur_trial).rpt_frames;
+%         if all(cur_rpt_frames == 0) %zero values indicate which frame the trial really started on
+%             spk_shift_amount = length(cur_rpt_frames)*dt_uf; %number of up-sampled time steps to shift by
+%             for ss = 1:length(targs)
+%                 tbt_spk_times{ss,rptframe_trials(ii)} = tbt_spk_times{ss,rptframe_trials(ii)} + spk_shift_amount*bin_dt;
+%             end
+%         elseif ~any(cur_rpt_frames == 0) %in this case if there's a repeat frame in the middle of the trial, just remove the trial (for plotting purposes this would be a mess)
+%             to_eliminate = [to_eliminate rptframe_trials(ii)];
+%         end
+%     end
+%     
+%     fig_data.tbt_spk_times(:,to_eliminate) = [];
+%     fig_data.tbt_EP(:,to_eliminate) = [];
+%     fig_data.tbt_EP_emb(:,to_eliminate) = [];
+%     fig_data.pred_rates(:,to_eliminate,:) = [];
+%     fig_data.binned_spks(:,to_eliminate,:) = [];
+%     
+%     fprintf('Saving %s\n',fig_dname);
+%     save(fig_dname,'fig_data');
 end
 
 %%
