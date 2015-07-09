@@ -5,9 +5,9 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M296';
-monk_name = 'lem';
-bar_ori = 45; %bar orientation to use (only for UA recs)
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
 rec_number = 1;
 % %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
@@ -22,10 +22,11 @@ mod_name = 'corrected_models_comp_FIN';
 
 use_MUA = false; EP_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
-exclude_sacs = true; EP_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
+exclude_sacs = false; EP_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
 sub_trialavgs = false; EP_params.sub_trialavgs = sub_trialavgs; %subtract out trial avg spike counts?
 do_xcorrs = false; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
 compute_sims = false; EP_params.compute_sims = compute_sims; %do simulated calcs for alphas
+compute_PF_rate = false;
 
 poss_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
 direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
@@ -36,8 +37,8 @@ tlags = -max_tlag:max_tlag; EP_params.tlags = tlags; %range of time lags
 
 sim_n_rpts = 50; EP_params.sim_n_rpts = sim_n_rpts; %number of repeats for simulation calcs
 
-maxD_prc = 50; %maximum delta_X percentile to model with spline fit
-n_EP_bins = 50; EP_params.n_EP_bins = n_EP_bins; %number of quantiles of delta_X for binned estimates
+maxD_prc = 100; %maximum delta_X percentile to model with spline fit
+n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins; %number of quantiles of delta_X for binned estimates
 n_spline_knots = 4; EP_params.n_spline_knots = 4;  %number of spline knot pts
 poss_eps_sizes = [.005 .01 .02]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
 n_eval_pts = 100; EP_params.n_eval_pts = n_eval_pts; %number of points to evaluate spline fit
@@ -400,6 +401,7 @@ for cc = 1:length(targs) %loop over units used in analysis
         EP_data(cc,1).tune_props = ModData(targs(cc)).tune_props;
         EP_data(cc,1).bestGQM = ModData(targs(cc)).bestGQM;
         EP_data(cc,1).nullMod = ModData(targs(cc)).nullMod;
+        EP_data(cc,1).useMod = cur_mod;
         has_stim_mod(cc) = true;
     end
 end
@@ -482,6 +484,15 @@ all_Xmat_shift = all_Xmat_shift(ismember(full_rpt_inds,used_inds),use_kInds_up);
 if modFitParams.add_usfac > 1
     all_Xmat_shift = tb_proc_stim(all_Xmat_shift,modFitParams.add_usfac,modFitParams.flen);
 end
+
+if compute_PF_rate
+    all_Xmat_PF = create_time_embedding(all_stimmat_up(full_rpt_inds,:),stim_params_full); %incorporate time embedding for whole-trials on repeats
+    all_Xmat_PF = all_Xmat_PF(ismember(full_rpt_inds,used_inds),use_kInds_up); %take only usable repeat-trial data
+    %if using tent-basis spatial-upsampling
+    if modFitParams.add_usfac > 1
+        all_Xmat_PF = tb_proc_stim(all_Xmat_PF,modFitParams.add_usfac,modFitParams.flen);
+    end    
+end
 %% get model-predicted trial-by-trial firing rates
 all_mod_emp_prates = nan(length(used_rpt_inds),length(targs));
 for cc = 1:length(targs)
@@ -497,12 +508,22 @@ end
 all_mod_emp_prates = reshape(all_mod_emp_prates,used_nf,tot_nrpts,length(targs)); %convert to tr-x-tr
 all_mod_emp_prates_noEM = reshape(all_mod_emp_prates_noEM,used_nf,tot_nrpts,length(targs)); %convert to tr-x-tr
 
+if compute_PF_rate
+    all_mod_PF_prates = nan(length(used_rpt_inds),length(targs));
+    for cc = 1:length(targs)
+        if has_stim_mod(cc)
+            [~,~,all_mod_PF_prates(:,cc)] = NMMmodel_eval(stim_mod(cc),[],all_Xmat_PF);
+        end
+    end
+all_mod_PF_prates = reshape(all_mod_PF_prates,used_nf,tot_nrpts,length(targs));
+end
 %% shift model-predicted rates to realign repeats on trials with rpt frames
 if ~isempty(rptframe_trials)
     shifted_mod_prates = nan(nf,tot_nrpts,length(targs)); %buffer with nans to trial-length
     shifted_mod_prates_noEM = nan(nf,tot_nrpts,length(targs)); 
     shifted_mod_prates(used_frame_inds,:,:) = all_mod_emp_prates;
     shifted_mod_prates_noEM(used_frame_inds,:,:) = all_mod_emp_prates_noEM;
+    
     for ii = 1:length(rptframe_trials)
         cur_trial = all_rpt_trials(rptframe_trials(ii));
         cur_rpt_frames = trial_data(cur_trial).rpt_frames;
@@ -533,7 +554,10 @@ if ~isempty(rptframe_trials)
     shifted_mod_prates_noEM = reshape(shifted_mod_prates_noEM,length(used_frame_inds),tot_nrpts,length(targs));
     all_mod_emp_prates_noEM = shifted_mod_prates_noEM;   
 end
-
+if compute_PF_rate
+   nrptframe_trials = setdiff(1:length(all_rpt_trials),rptframe_trials);
+   all_mod_PF_prates = squeeze(all_mod_PF_prates(:,nrptframe_trials(1),:));
+end
 %% loop over possible time windows
 for bbb = 1:length(poss_bin_dts)
     bin_dt = poss_bin_dts(bbb);
@@ -587,6 +611,8 @@ for bbb = 1:length(poss_bin_dts)
             loo_tbt_EP_emb = cat(1,nan(params.beg_buffer/params.dt,tot_nrpts,emb_win,length(loo_set)),loo_tbt_EP_emb,nan(params.end_buffer/params.dt+1,tot_nrpts,emb_win,length(loo_set)));
             loo_tbt_EP_emb((nf+1):end,:,:,:) = [];
         end
+        tbt_EP = cat(1,nan(params.beg_buffer/params.dt,tot_nrpts),tbt_EP,nan(params.end_buffer/params.dt+1,tot_nrpts));
+        tbt_EP((nf+1):end,:) = [];
         for ii = 1:length(rptframe_trials) %loop over all rpt trials that have rpt frames
             cur_trial = all_rpt_trials(rptframe_trials(ii));
             cur_rpt_frames = trial_data(cur_trial).rpt_frames;
@@ -597,6 +623,7 @@ for bbb = 1:length(poss_bin_dts)
                 if ~isempty(loo_set)
                     loo_tbt_EP_emb(:,rptframe_trials(ii),:,:) = shift_matrix_Nd(loo_tbt_EP_emb(:,rptframe_trials(ii),:,:),shift_amount,1);
                 end
+                tbt_EP(:,rptframe_trials(ii)) = shift_matrix_Nd(tbt_EP(:,rptframe_trials(ii)),shift_amount,1);
             elseif ~any(cur_rpt_frames == 0) %otherwise, this variable stores the index of frames that were repeated
                 new_frame_ids = 1:nf; %index values to map onto
                 for jj = 1:length(cur_rpt_frames)
@@ -609,11 +636,13 @@ for bbb = 1:length(poss_bin_dts)
                 if ~isempty(loo_set)
                     loo_tbt_EP_emb(:,rptframe_trials(ii),:,:) = loo_tbt_EP_emb(new_frame_ids,rptframe_trials(ii),:,:);
                 end
+                tbt_EP(:,rptframe_trials(ii)) = tbt_EP(new_frame_ids,rptframe_trials(ii));
             else
                 error('mix of 0 and nonzero rpt frames'); %shouldnt be any of these
             end
         end
         tbt_EP_emb = tbt_EP_emb(used_frame_inds,:,:);
+        tbt_EP = tbt_EP(used_frame_inds,:);
         if ~isempty(loo_set); loo_tbt_EP_emb = loo_tbt_EP_emb(used_frame_inds,:,:,:); end
     end
     %convert to Tx1 arrays
@@ -622,6 +651,10 @@ for bbb = 1:length(poss_bin_dts)
     tbt_EP_emb(usedrpt_blanked(:),:) = nan;
     %flip back to trxtr arrays
     tbt_EP_emb = reshape(tbt_EP_emb,used_nf,tot_nrpts,emb_win);
+    
+%     tbt_EP = reshape(tbt_EP,[],1);
+%     tbt_EP(usedrpt_blanked(:),:) = nan;
+%     tbt_EP = reshape(tbt_EP,used_nf,tot_nrpts);
     
     if ~isempty(loo_set)
         loo_tbt_EP_emb = reshape(loo_tbt_EP_emb,[],emb_win,length(loo_set));
@@ -708,7 +741,7 @@ for bbb = 1:length(poss_bin_dts)
     spk_in_blink_inds(used_Tinds,:) = temp_spk_in_blink_inds;
     spk_in_sac_inds(used_Tinds,:) = temp_spk_in_sac_inds;
     
-    tbt_BS_ms = tbt_binned_spikes;%this will be the binned spike count array for analysis
+    tbt_BS_ms = tbt_binned_spikes; %this will be the binned spike count array for analysis
     
     tbt_BS_ms = reshape(tbt_BS_ms,[],length(targs)); %flip to Tx1
     tbt_BS_ms(spk_in_blink_inds(:),:) = nan;
@@ -735,6 +768,7 @@ for bbb = 1:length(poss_bin_dts)
             if all(cur_rpt_frames == 0) %zero values indicate which frame the trial really started on
                 spk_shift_amount = length(cur_rpt_frames)*dt_uf; %number of up-sampled time steps to shift by
                 tbt_BS_ms(:,rptframe_trials(ii),:) = shift_matrix_Nd(tbt_BS_ms(:,rptframe_trials(ii),:),spk_shift_amount,1);
+                tbt_binned_spikes(:,rptframe_trials(ii),:) = shift_matrix_Nd(tbt_binned_spikes(:,rptframe_trials(ii),:),spk_shift_amount,1);
                 
             elseif ~any(cur_rpt_frames == 0) %non-zero values indicate which frame was repeated
                 new_spike_frame_ids = 1:nf*dt_uf;
@@ -745,10 +779,14 @@ for bbb = 1:length(poss_bin_dts)
                     new_spike_frame_ids(target_inds) = new_spike_frame_ids(map_to);
                 end
                 tbt_BS_ms(:,rptframe_trials(ii),:) = tbt_BS_ms(new_spike_frame_ids,rptframe_trials(ii),:);
+                tbt_binned_spikes(:,rptframe_trials(ii),:) = tbt_binned_spikes(new_spike_frame_ids,rptframe_trials(ii),:);
             else
                 warning('mix of 0 and nonzero rpt frames');
             end
         end
+        tbt_binned_spikes = reshape(tbt_binned_spikes(used_Tinds,:,:),[],length(targs)); %flip to Tx1
+        tbt_binned_spikes(spk_rptblank_inds(:),:) = nan;%indices that need to be blanked because of repeat frames
+        tbt_binned_spikes = reshape(tbt_binned_spikes,length(used_Tinds),tot_nrpts,length(targs)); %flip back to trxtr
         
         tbt_BS_ms = reshape(tbt_BS_ms(used_Tinds,:,:),[],length(targs)); %flip to Tx1
         tbt_BS_ms(spk_rptblank_inds(:),:) = nan;%indices that need to be blanked because of repeat frames
@@ -1357,52 +1395,58 @@ for bbb = 1:length(poss_bin_dts)
         end
     end
     
-%     %% export trial-by-trial data for making figures
-%     fig_dname = [anal_dir 'tbt_fig_data'];
-%     fig_data.tbt_EP = tbt_EP;
-%     fig_data.tbt_EP_emb = tbt_EP_emb;
-%     fig_data.pred_rates = new_mod_prates;
-%     fig_data.binned_spks = new_BS_ms;
-%     fig_data.EP_data = EP_data;
-%     fig_data.EP_params = EP_params;
-%     
-%     n_probes = 24;
-%     trial_dur = 4;
-%     poss_targs = (n_probes + 1):(n_probes + length(SU_numbers));
-%     for ss = 1:length(targs)
-%         cur_SU_ind = find(targs(ss) == poss_targs);
-%         cur_spk_times = spike_data.SU_spk_times{cur_SU_ind};
-%         for ii = 1:tot_nrpts
-%             trial_start_time = trial_data(all_rpt_trials(ii)).start_times;
-%             trial_spk_times = cur_spk_times(cur_spk_times >= trial_start_time & cur_spk_times <= (trial_start_time + trial_dur));
-%             tbt_spk_times{ss,ii} = trial_spk_times - trial_start_time;
-%         end
-%     end
-%     fig_data.tbt_spk_times = tbt_spk_times;
-%     
-%     %handle any trials with repeat frames
-%     to_eliminate = [];
-%     for ii = 1:length(rptframe_trials)
-%         cur_trial = all_rpt_trials(rptframe_trials(ii));
-%         cur_rpt_frames = trial_data(cur_trial).rpt_frames;
-%         if all(cur_rpt_frames == 0) %zero values indicate which frame the trial really started on
-%             spk_shift_amount = length(cur_rpt_frames)*dt_uf; %number of up-sampled time steps to shift by
-%             for ss = 1:lenth(targs)
-%                 tbt_spk_times{ss,rptframe_trials(ii)} = tbt_spk_times{ss,rptframe_trials(ii)} + spk_shift_amount*bin_dt;
-%             end
-%         elseif ~any(cur_rpt_frames == 0) %in this case if there's a repeat frame in the middle of the trial, just remove the trial (for plotting purposes this would be a mess)
-%             to_eliminate = [to_eliminate rptframe_trials(ii)];
-%         end
-%     end
-%     
-%     fig_data.tbt_spk_times(:,to_eliminate) = [];
-%     fig_data.tbt_EP(:,to_eliminate) = [];
-%     fig_data.tbt_EP_emb(:,to_eliminate) = [];
-%     fig_data.pred_rates(:,to_eliminate,:) = [];
-%     fig_data.binned_spks(:,to_eliminate,:) = [];
-%     
-%     fprintf('Saving %s\n',fig_dname);
-%     save(fig_dname,'fig_data');
+    %% export trial-by-trial data for making figures
+    fig_dname = [anal_dir 'tbt_fig_data'];
+    fig_data.tbt_EP = tbt_EP;
+    fig_data.tbt_EP_emb = tbt_EP_emb;
+    fig_data.pred_rates = new_mod_prates;
+    fig_data.binned_spks = tbt_binned_spikes;
+    fig_data.binned_spks_nan = new_BS_ms;
+    fig_data.EP_data = EP_data;
+    fig_data.EP_params = EP_params;
+    fig_data.modFitParams = modFitParams;
+    
+    if compute_PF_rate
+        fig_data.PF_prates = all_mod_PF_prates;
+    end
+    
+    n_probes = 24;
+    trial_dur = 4;
+    poss_targs = (n_probes + 1):(n_probes + length(SU_numbers));
+    for ss = 1:length(targs)
+        cur_SU_ind = find(targs(ss) == poss_targs);
+        cur_spk_times = spike_data.SU_spk_times{cur_SU_ind};
+        for ii = 1:tot_nrpts
+            trial_start_time = trial_data(all_rpt_trials(ii)).start_times;
+            trial_spk_times = cur_spk_times(cur_spk_times >= trial_start_time & cur_spk_times <= (trial_start_time + trial_dur));
+            tbt_spk_times{ss,ii} = trial_spk_times - trial_start_time;
+        end
+    end
+    fig_data.tbt_spk_times = tbt_spk_times;
+    
+    %handle any trials with repeat frames
+    to_eliminate = [];
+    for ii = 1:length(rptframe_trials)
+        cur_trial = all_rpt_trials(rptframe_trials(ii));
+        cur_rpt_frames = trial_data(cur_trial).rpt_frames;
+        if all(cur_rpt_frames == 0) %zero values indicate which frame the trial really started on
+            spk_shift_amount = length(cur_rpt_frames)*dt_uf; %number of up-sampled time steps to shift by
+            for ss = 1:length(targs)
+                tbt_spk_times{ss,rptframe_trials(ii)} = tbt_spk_times{ss,rptframe_trials(ii)} + spk_shift_amount*bin_dt;
+            end
+        elseif ~any(cur_rpt_frames == 0) %in this case if there's a repeat frame in the middle of the trial, just remove the trial (for plotting purposes this would be a mess)
+            to_eliminate = [to_eliminate rptframe_trials(ii)];
+        end
+    end
+    
+    fig_data.tbt_spk_times(:,to_eliminate) = [];
+    fig_data.tbt_EP(:,to_eliminate) = [];
+    fig_data.tbt_EP_emb(:,to_eliminate) = [];
+    fig_data.pred_rates(:,to_eliminate,:) = [];
+    fig_data.binned_spks(:,to_eliminate,:) = [];
+    
+    fprintf('Saving %s\n',fig_dname);
+    save(fig_dname,'fig_data');
 end
 
 %%

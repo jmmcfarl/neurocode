@@ -37,7 +37,8 @@ batch_function = 'full_eyetracking_compactData';
 % batch_function = 'add_unCorr_modfit';
 % batch_function = 'fit_microsac_models_compactData';
 
-for Elist_cnt = 1:length(Expt_list)
+% for Elist_cnt = 1:length(Expt_list)
+for Elist_cnt = length(Expt_list):-1:1
 % for Elist_cnt = 6
     Expt_name = Expt_list{Elist_cnt};
     monk_name = expt_mname{Elist_cnt}; 
