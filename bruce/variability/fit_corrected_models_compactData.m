@@ -1,18 +1,18 @@
-clear all
-close all
+% clear all
+% close all
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M277';
-monk_name = 'lem';
-bar_ori = 70; %bar orientation to use (only for UA recs)
-rec_number = 1;
+% Expt_name = 'M277';
+% monk_name = 'lem';
+% bar_ori = 70; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
 fit_unCor = false; %also fit models without eye corrections?
 use_MUA = false; %use MUA in model-fitting
 fit_rect = false; %split quad linear filter into two rectified
 
-save_name = 'corrected_models_comp_FIN';
+save_name = 'corrected_models_comp_FIN2';
 if fit_unCor
     save_name = strcat(save_name,'_unCor');
 end
@@ -60,8 +60,8 @@ save_dir = ['~/Analysis/bruce/' Expt_name '/models'];
 if ~exist(save_dir,'dir')
     mkdir(save_dir);
 end
-et_mod_data_name = 'full_eyetrack_initmods_FIN_Rinit';
-et_anal_name = 'full_eyetrack_FIN_Rinit';
+et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
+et_anal_name = 'full_eyetrack_FIN2_Rinit';
 
 %if using coil info
 if any(params.use_coils > 0)
@@ -277,6 +277,7 @@ if strcmp(xv_type,'rpt')
     rpt_inds = find(ismember(all_trialvec(used_inds),rpt_trials));
 else
     rpt_trials = [];
+    rpt_inds = [];
 end
 
 %%
@@ -328,6 +329,7 @@ for cc = targs
         cur_tr_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
         cur_xv_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
         cur_full_inds = union(cur_tr_inds,cur_xv_inds);
+        cur_rpt_inds = rpt_inds(ismember(rpt_inds,cc_uinds));
         
         %% COMPUTE UNIT DATA
         unit_data.isLOO = ismember(cc,loo_set);
@@ -398,6 +400,7 @@ for cc = targs
         [nullMod_xvLL,null_xvLL] = NMMeval_model(nullMod,cur_Robs,Xmat,[],cur_xv_inds);
         nullMod.xvLLimp = (nullMod_xvLL - null_xvLL)/log(2);
         [nullMod_LL,null_LL] = NMMeval_model(nullMod_full,cur_Robs,Xmat,[],cur_full_inds);
+        [nullMod_rptLL,null_rptLL] = NMMeval_model(nullMod_full,cur_Robs,Xmat,[],cur_rpt_inds);
         
         %% FIT (eye-corrected) STIM-PROCESSING MODEL
         fprintf('Fitting stim models for unit %d\n',cc);
@@ -575,6 +578,8 @@ for cc = targs
             rel_filt_weights = std(fgint(:,stim_filt_set));
             bestGQM.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
             bestGQM.LLimp = (bestGQM_LL - nullMod_LL)/log(2);
+            bestGQM_rptLL = NMMeval_model(bestGQM_spkNL, cur_Robs, Xmat,[],cur_rpt_inds);
+            bestGQM.rptLLimp = (bestGQM_rptLL - nullMod_rptLL)/log(2); %store LL imp on rpt trials
             
             if fit_rect
                 rectGQM = NMMfit_filters(rectGQM,cur_Robs,Xmat,[],cur_full_inds,silent);
@@ -584,6 +589,8 @@ for cc = targs
                 rectGQM.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
                 rectGQM_spkNL = NMMfit_logexp_spkNL(rectGQM,cur_Robs,Xmat,[],cur_full_inds);
                 rectGQM.LLimp = (rectGQM_spkNL.LL_seq(end)-nullMod_LL)/log(2);
+                rectGQM_rptLL = NMMeval_model(rectGQM_spkNL, cur_Robs, Xmat,[],cur_rpt_inds);
+                rectGQM.rptLLimp = (rectGQM_rptLL - nullMod_rptLL)/log(2); %store LL imp on rpt trials
             end
         end
         

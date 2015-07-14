@@ -67,8 +67,10 @@ load(Edata_file);
 ff = find(cellfun(@(x) ~isempty(x),Expts),1);
 if strcmp(Expts{ff}.Header.DataType,'GridData 96')
     rec_type = 'UA';
+    n_probes = 96;
 elseif strcmp(Expts{ff}.Header.DataType,'Spike2')
     rec_type = 'LP';
+    n_probes = 24;
 end
 
 %load in packaged data
@@ -388,7 +390,7 @@ for cc = 1:length(targs) %loop over units used in analysis
     if ~isempty(ModData(targs(cc)).bestGQM) %if we have a model for this unit
         cur_mod = ModData(targs(cc)).bestGQM; %use the optimized GQM
         stim_mod_withblock(cc) = cur_mod;
-        
+                
         %remove the block-by-block variability in the model by
         %incorporating the avg output of the block-filter
         cur_block_filt = cur_mod.mods(1).filtK; %filter applied to the block index
@@ -480,7 +482,6 @@ if compute_PF_rate
 end
 %% get model-predicted trial-by-trial firing rates
 % make Robs_mat
-n_probes = 24;
 tot_sus = size(all_binned_sua,2);
 tot_nUnits = length(su_probes) + n_probes;
 Robs_mat = nan(length(used_inds),n_probes + tot_sus);
@@ -502,6 +503,8 @@ for cc = 1:length(targs)
         if ~isempty(loo_ind)
             cur_Robs = Robs_mat(used_rpt_inds,targs(cc));
             cur_uinds = find(~isnan(cur_Robs));
+            cur_rpt_trialset = unique(all_trialvec(used_inds(used_rpt_inds(cur_uinds))));
+            EP_data(cc,1).rpt_trialset = cur_rpt_trialset;
             
             cur_nullMod = ModData(targs(cc)).nullMod;
             
