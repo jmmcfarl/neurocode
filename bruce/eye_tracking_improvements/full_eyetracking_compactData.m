@@ -1,14 +1,14 @@
-% clear all
+clear all
 
 addpath('~/James_scripts/bruce/eye_tracking/');
 addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-% Expt_name = 'M012';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-% rec_number = 2;
+Expt_name = 'M297';
+monk_name = 'lem';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
@@ -717,20 +717,20 @@ else
     load(mod_data_name);
     
     %%
-    for ss = 1:tot_nUnits
-        fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
-        cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
-        cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
-        all_inds = union(cur_tr_inds,cur_xv_inds);
-        
-        if ~isempty(all_inds)
-            Robs = Robs_mat(:,ss);
-            
-            cur_mod = all_mod_fits(ss);
-            all_mod_fits(ss) = NMMfit_filters(cur_mod,Robs,X,[],all_inds,silent,[],[],4);
-            all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
-        end
-    end
+%     for ss = 1:tot_nUnits
+%         fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
+%         cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
+%         cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
+%         all_inds = union(cur_tr_inds,cur_xv_inds);
+%         
+%         if ~isempty(all_inds)
+%             Robs = Robs_mat(:,ss);
+%             
+%             cur_mod = all_mod_fits(ss);
+%             all_mod_fits(ss) = NMMfit_filters(cur_mod,Robs,X,[],all_inds,silent,[],[],4);
+%             all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
+%         end
+%     end
 end
 
 %%
@@ -1816,13 +1816,13 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 % fin_fix_corr = interp1(find(~isnan(fix_ids)),fin_fix_corr(~isnan(fix_ids)),1:NT);
 % fin_fix_std(~isnan(fix_ids)) = it_fix_post_std(end,fix_ids(~isnan(fix_ids)));
 % fin_fix_std = interp1(find(~isnan(fix_ids)),fin_fix_std(~isnan(fix_ids)),1:NT);
-%
+% 
 % fin_fix_corr = fin_fix_corr*sp_dx;
 % fin_fix_std = fin_fix_std*sp_dx;
-%
+% 
 % fin_drift_corr = drift_post_mean(end,:)*sp_dx;
 % fin_drift_std = drift_post_std(end,:)*sp_dx;
-%
+% 
 % for ii = 1:length(trial_start_inds)
 %     cur_inds = trial_start_inds(ii):trial_end_inds(ii);
 %     fin_drift_corr(cur_inds(1:end-sac_shift)) = fin_drift_corr(cur_inds(sac_shift+1:end));
@@ -1830,16 +1830,16 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 % end
 % fin_drift_corr = interp1(find(~isnan(fix_ids)),fin_drift_corr(~isnan(fix_ids)),1:NT);
 % fin_drift_std = interp1(find(~isnan(fix_ids)),fin_drift_std(~isnan(fix_ids)),1:NT);
-%
-%
+% 
+% 
 % fin_tot_corr = fin_fix_corr + fin_drift_corr;
 % fin_tot_std = sqrt(fin_fix_std.^2 + fin_drift_std.^2);
-
+% 
 
 %%
 % % close all
 % n_trials = length(unique(all_trialvec));
-% for tt = 1:n_trials
+% for tt = n_trials:-1:1
 %     fprintf('Trial %d/%d, Se: %d\n',tt,n_trials,trial_data(tt).se);
 %     % for tt = [96 137 154 179 376 409]
 %     uu = find(all_trialvec(used_inds) == tt);
@@ -1855,7 +1855,7 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 %             h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4),'k','linewidth',2);
 %             %                 h4=plot(all_t_axis(used_inds(uu))-bt,corrected_eye_vals_interp(used_inds(uu),4)-median(corrected_eye_vals_interp(used_inds(uu),4)),'color',[0.2 0.8 0.2],'linewidth',2);
 %             %             plot(all_t_axis(used_inds(uu))-bt,nanmean(Robs_mat(uu,:),2)/5,'k');
-%
+% 
 %             %             legend([h1.mainLine h2.mainLine h3 h4],{'Fixation corrections','Drift corrections','Left eye','Right eye'})
 %             xlim([0 dur]);
 %             ylim([-0.5 0.5]);
@@ -1869,7 +1869,7 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 %         end
 %     end
 % end
-
+% 
 %%
 % close all
 % f1 = figure();
@@ -1894,21 +1894,21 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 %         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
 %     end
 %     colormap(gray)
-%
-%     fin_mod = it_mods{2}(tr_set(ss));
-%     xtargs = [fin_mod.mods(:).Xtarget];
-%     kmat = [fin_mod.mods(xtargs == 1).filtK];
-%     figure(f2); clf
-%     subplot(2,2,1)
-%     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
-%     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
-%     for ii = 1:(size(kmat,2)-1)
-%         subplot(2,2,2+ii)
-%         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
-%         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
-%     end
-%     colormap(gray)
-%
+% 
+% %     fin_mod = it_mods{2}(tr_set(ss));
+% %     xtargs = [fin_mod.mods(:).Xtarget];
+% %     kmat = [fin_mod.mods(xtargs == 1).filtK];
+% %     figure(f2); clf
+% %     subplot(2,2,1)
+% %     imagesc(reshape(kmat(:,1),flen,use_nPix_us/add_usfac));
+% %     ca = max(abs(kmat(:,1))); caxis([-ca ca]);
+% %     for ii = 1:(size(kmat,2)-1)
+% %         subplot(2,2,2+ii)
+% %         imagesc(reshape(kmat(:,ii+1),flen,use_nPix_us/add_usfac));
+% %         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
+% %     end
+% %     colormap(gray)
+% 
 %     fin_mod = it_mods{end}(tr_set(ss));
 %     xtargs = [fin_mod.mods(:).Xtarget];
 %     kmat = [fin_mod.mods(xtargs == 1).filtK];
@@ -1922,7 +1922,7 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 %         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
 %     end
 %     colormap(gray)
-%
+% 
 %     fin_mod = dit_mods{end}(tr_set(ss));
 %     xtargs = [fin_mod.mods(:).Xtarget];
 %     kmat = [fin_mod.mods(xtargs == 1).filtK];
@@ -1936,12 +1936,12 @@ save(anal_name,'it_*','drift_post_*','fix_ids','dit_*','et_used_inds','et_tr_set
 %         ca = max(abs(kmat(:,ii+1))); caxis([-ca ca]);
 %     end
 %     colormap(gray)
-%
+% 
 % %     figure(f5); clf
 % %     plot(1:n_fix_inf_it+1,it_LLimp(:,tr_set(ss)),'o-');
 % %     hold on
 % %     plot((n_fix_inf_it+1):(n_fix_inf_it+n_drift_inf_it+1),dit_LLimp(:,tr_set(ss)),'ro-');
-%
+% 
 %     fprintf('Cell %d of %d\n',ss,length(tr_set));
 %     fprintf('Original: %.4f Next-fix: %.4f  Fin-fix: %.4f Fin: %.4f\n',it_LLimp(1,tr_set(ss)),it_LLimp(2,tr_set(ss)),...
 %         it_LLimp(end,tr_set(ss)),dit_LLimp(end,tr_set(ss)));

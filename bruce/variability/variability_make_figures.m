@@ -20,14 +20,14 @@ fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 
 %% load repeat trial data
 % base_rname = 'rpt_variability_compact_FIN'; %rpt-trial data base
-base_rname = 'rpt_variability_compact_FIN'; %rpt-trial data base
+base_rname = 'rpt_variability_compact_FIN2'; %rpt-trial data base
 base_sname = 'sim_variability_compact_FIN'; %sim-calc data base
 
 cell_cnt = 1;
 pair_cnt = 1;
 all_cell_data = [];
 all_pair_data = [];
-% for Elist_cnt = 1:10 %loop over all experiments in the list
+% for Elist_cnt = 1:18 %loop over all experiments in the list
 for Elist_cnt = 1:length(Expt_list) %loop over all experiments in the list
     Expt_name = Expt_list{Elist_cnt};
     monk_name = expt_mname{Elist_cnt};
@@ -136,9 +136,10 @@ for ii = 1:size(duplicate_SUs,1)
 end
 
 %%
-cur_to_eliminate = find(Expt_numbers == 297 & bar_oris == 0);
-fprintf('Eliminating %d SUs from Expt 297 bar 0\n',length(cur_to_eliminate));
-to_eliminate = cat(1,to_eliminate,cur_to_eliminate);
+% cur_to_eliminate = find(Expt_numbers == 297 & bar_oris == 0);
+% cur_to_eliminate = find(Expt_numbers == 297);
+% fprintf('Eliminating %d SUs from Expt 297 bar 0\n',length(cur_to_eliminate));
+% to_eliminate = cat(1,to_eliminate,cur_to_eliminate);
 
 %%
 fprintf('Eliminating %d/%d duplicate SUs (multiple recs)\n',length(to_eliminate),size(all_cell_data,1));
@@ -171,6 +172,7 @@ SU_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_cell_data(:,1));
 
 SU_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate & SU_mod_xvLLs > min_xvLL); %used SUs
 if EP_params.do_xcorrs
+    pair_IDs = cat(1,all_pair_data(:,1).cell_IDs);
     upairs = find(all(ismember(pair_IDs,SU_CID(SU_uset)),2) & pair_IDs(:,1) ~= pair_IDs(:,2)); %used pairs are different from each other, and both members of used SU set
     upairs_acorr = find(all(ismember(pair_IDs,SU_CID(SU_uset)),2) & pair_IDs(:,1) == pair_IDs(:,2)); %for autocorrelation analysis, these are used pairs that are self-same
     fprintf('Using %d SUs, %d pairs\n',length(SU_uset),length(upairs));
@@ -235,61 +237,61 @@ direct_dt_ind = find(direct_bin_dts == dt_ind);
 ball_ind = find(poss_eps_sizes == ball_eps);
 
 %% analyze validation based on simulated spiking
-close all
-min_mod_var = 1e-4; %minimum model-predicted total rate variance (otherwise, relative error blows up)
-modSim_uset = find(Mod_tot_vars(:,mod_dt_ind) > min_mod_var);
-fprintf('Found %d/%d with sufficient rate var\n',length(modSim_uset),length(SU_uset));
-
-Mod_sim_alphas = nan(length(SU_uset),EP_params.sim_n_rpts);
-Mod_sim_ballvars = nan(length(SU_uset),EP_params.sim_n_rpts);
-for ii = 1:length(SU_uset)
-    Mod_sim_alphas(ii,:) = 1-arrayfun(@(x) x.eps_alphas(ball_ind),all_cell_data(SU_uset(ii),mod_dt_ind).mod_sim_stats);
-    Mod_sim_ballvars(ii,:) = arrayfun(@(x) x.eps_vars(ball_ind),all_cell_data(SU_uset(ii),mod_dt_ind).mod_sim_stats);
-end
-
-%mean and SD of alpha and totvar estimates
-avg_sim_alphas = mean(Mod_sim_alphas,2);
-std_sim_alphas = std(Mod_sim_alphas,[],2);
-avg_sim_ballvars = mean(Mod_sim_ballvars,2);
-std_sim_ballvars = std(Mod_sim_ballvars,[],2);
-
-%relative bias in alpha estimates 
-alpha_bias = (avg_sim_alphas - Mod_alphas(:,mod_dt_ind))./Mod_alphas(:,mod_dt_ind);
-
-%relative uncertainty total variance estimates 
-bvar_rel_uncertainty = bsxfun(@rdivide,std_sim_ballvars,Mod_tot_vars(:,mod_dt_ind))*100; %relative uncertainty (%)
-alpha_rel_uncertainty = bsxfun(@rdivide,std_sim_alphas,Mod_alphas(:,mod_dt_ind))*100;
-
-mod_dt = mod_bin_dts(mod_dt_ind);
-
-f1 = figure();
-plot(Mod_tot_vars(modSim_uset,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(modSim_uset),'.','markersize',mSize);
-suff_trials = modSim_uset(SU_nTrials(modSim_uset) > 50); %set of units with at least 50 trials
-hold on
-plot(Mod_tot_vars(suff_trials,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(suff_trials),'r.','markersize',mSize);
-suff_trials = modSim_uset(SU_nTrials(modSim_uset) > 100); %set of units with at least 100 trials
-plot(Mod_tot_vars(suff_trials,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(suff_trials),'k.','markersize',mSize);
-set(gca,'xscale','log');
-xlabel('Rate variance (Hz^2)');
-ylabel('Relative uncertainty (%)');
-legend('All units','At least 50 trials','At least 100 trials');
-
-% fig_width = 4; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'Mod_rvar_unc.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% % close(f1);
+% close all
+% min_mod_var = 1e-4; %minimum model-predicted total rate variance (otherwise, relative error blows up)
+% modSim_uset = find(Mod_tot_vars(:,mod_dt_ind) > min_mod_var);
+% fprintf('Found %d/%d with sufficient rate var\n',length(modSim_uset),length(SU_uset));
 % 
+% Mod_sim_alphas = nan(length(SU_uset),EP_params.sim_n_rpts);
+% Mod_sim_ballvars = nan(length(SU_uset),EP_params.sim_n_rpts);
+% for ii = 1:length(SU_uset)
+%     Mod_sim_alphas(ii,:) = 1-arrayfun(@(x) x.eps_alphas(ball_ind),all_cell_data(SU_uset(ii),mod_dt_ind).mod_sim_stats);
+%     Mod_sim_ballvars(ii,:) = arrayfun(@(x) x.eps_vars(ball_ind),all_cell_data(SU_uset(ii),mod_dt_ind).mod_sim_stats);
+% end
+% 
+% %mean and SD of alpha and totvar estimates
+% avg_sim_alphas = mean(Mod_sim_alphas,2);
+% std_sim_alphas = std(Mod_sim_alphas,[],2);
+% avg_sim_ballvars = mean(Mod_sim_ballvars,2);
+% std_sim_ballvars = std(Mod_sim_ballvars,[],2);
+% 
+% %relative bias in alpha estimates 
+% alpha_bias = (avg_sim_alphas - Mod_alphas(:,mod_dt_ind))./Mod_alphas(:,mod_dt_ind);
+% 
+% %relative uncertainty total variance estimates 
+% bvar_rel_uncertainty = bsxfun(@rdivide,std_sim_ballvars,Mod_tot_vars(:,mod_dt_ind))*100; %relative uncertainty (%)
+% alpha_rel_uncertainty = bsxfun(@rdivide,std_sim_alphas,Mod_alphas(:,mod_dt_ind))*100;
+% 
+% mod_dt = mod_bin_dts(mod_dt_ind);
+% 
+% f1 = figure();
+% plot(Mod_tot_vars(modSim_uset,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(modSim_uset),'.','markersize',mSize);
+% suff_trials = modSim_uset(SU_nTrials(modSim_uset) > 50); %set of units with at least 50 trials
+% hold on
+% plot(Mod_tot_vars(suff_trials,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(suff_trials),'r.','markersize',mSize);
+% suff_trials = modSim_uset(SU_nTrials(modSim_uset) > 100); %set of units with at least 100 trials
+% plot(Mod_tot_vars(suff_trials,mod_dt_ind)/mod_dt^2,bvar_rel_uncertainty(suff_trials),'k.','markersize',mSize);
+% set(gca,'xscale','log');
+% xlabel('Rate variance (Hz^2)');
+% ylabel('Relative uncertainty (%)');
+% legend('All units','At least 50 trials','At least 100 trials');
+% 
+% % fig_width = 4; rel_height = 0.8;
+% % figufy(f1);
+% % fname = [fig_dir 'Mod_rvar_unc.pdf'];
+% % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% % % close(f1);
+% % 
 %% compare model-predicted and direct estimates of alpha
 close all
 
 f1 = figure(); hold on
-plot(Mod_alphas(modSim_uset,mod_dt_ind),SU_ball_alphas(modSim_uset,direct_dt_ind,ball_ind),'.','markersize',mSize);
+plot(Mod_alphas(:,mod_dt_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize);
 line([0 1],[0 1]);
 xlabel('Model alpha');
 ylabel('Direct alpha');
 
-[a,b] = corr(Mod_alphas(modSim_uset,mod_dt_ind),SU_ball_alphas(modSim_uset,direct_dt_ind,ball_ind),'type','pearson');
+[a,b] = corr(Mod_alphas(:,mod_dt_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','pearson');
 title(sprintf('corr: %.3f',a));
 
 % fig_width = 4; rel_height = 0.8;
@@ -303,7 +305,7 @@ close all
 f1 = figure();
 
 %plot distribution of model R2 values
-mod_R2 = Mod_tot_vars(modSim_uset,mod_dt_ind)./SU_ball_vars(modSim_uset,direct_dt_ind,ball_ind);
+mod_R2 = Mod_tot_vars(:,mod_dt_ind)./SU_ball_vars(:,direct_dt_ind,ball_ind);
 nbins = 20;
 bin_width = range(mod_R2)/nbins;
 bin_edges = linspace(min(mod_R2)-bin_width/2,max(mod_R2)+bin_width/2,nbins + 1);
@@ -418,11 +420,13 @@ set(gca,'xscale','log');
 xlim([7.5 1500]);
 xlabel('Time window (ms)');
 ylabel('Fano Factor bias');
+ylim([.5 3])
 
 subplot(2,1,2);
 errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_alpha_rel),nanstd(sim_alpha_rel));
 set(gca,'xscale','log');
 xlim([7.5 1500]);
+ylim([0.8 1.2]);
 xlabel('Time window (ms)');
 ylabel('Relative Alpha');
 
@@ -434,13 +438,13 @@ ylabel('Relative Alpha');
 % xlim([5 1500]);
 % xlabel('Time window (ms)');
 % ylabel('Relative rate variance');
-
+% 
 % fig_width = 4; rel_height = 1.6;
 % figufy(f1);
 % fname = [fig_dir 'Modsim_timebin_compare.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-
+% 
 %% look at FF bias and alpha as a function of EP SD
 close all
 
@@ -450,26 +454,35 @@ sim_EP_SDs = arrayfun(@(x) x.sim_params.poss_SDs(end),all_cell_data(SU_uset,1));
 % sim_FF_bias = cell2mat(arrayfun(@(x) x.sim_data.FF_bias(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 sim_alpha = cell2mat(arrayfun(@(x) x.sim_data.alphas(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 sim_atv = cell2mat(arrayfun(@(x) x.sim_data.across_trial_vars(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+sim_totvar = cell2mat(arrayfun(@(x) x.sim_data.tot_vars(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+sim_mrates = cell2mat(arrayfun(@(x) x.sim_data.mean_rates(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 
 % sim_FF_rel = bsxfun(@rdivide,sim_FF_bias(:,1:end-1),sim_FF_bias(:,end));
 sim_alpha_rel = bsxfun(@rdivide,sim_alpha(:,1:end-1),sim_alpha(:,end));
 sim_atv_rel = bsxfun(@rdivide,sim_atv(:,1:end-1),sim_atv(:,end));
 
+observed_EP_range = minmax(sim_EP_SDs);
+interp_alphas = interp1(sim_params.poss_SDs(1:end-1),sim_alpha(:,1:end-1)',observed_EP_range');
+EPrange_fold_change = diff(interp_alphas)./interp_alphas(1,:);
+
 sd_range = [0.04 0.22]; %range for plotting
+
 
 %plot the relative change in EM-induced tbt variance with EP SD
 f1 = figure(); 
-subplot(2,1,1);
+subplot(2,1,1); hold on
 errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_atv_rel),nanstd(sim_atv_rel),'k');
 xlabel('Eye position SD (deg)');
 ylabel('Relative EM-induced variance');
 xlim(sd_range);
+ylim([0.4 1.6])
 
-subplot(2,1,2);
+subplot(2,1,2); hold on
 errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_alpha(:,1:end-1)),nanstd(sim_alpha(:,1:end-1)),'k');
 xlabel('Eye position SD (deg)');
 ylabel('Alpha');
 xlim(sd_range);
+ylim([0 1]);
 
 f2 = figure();
 nbins = 15;
@@ -491,7 +504,7 @@ xlim(sd_range);
 % fname = [fig_dir 'Modsim_EPSD_compare.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-% 
+% % 
 % fig_width = 4; rel_height = 0.8;
 % figufy(f2);
 % fname = [fig_dir 'EPSD_dist.pdf'];
@@ -499,25 +512,37 @@ xlim(sd_range);
 % close(f2);
 % 
 
-%%
+%% noise correlation analysis
 close all
+% tlags = EP_params.tlags*EP_params.direct_bin_dts(1);
+% tlags = all_cell_data(SU_uset(1),direct_dt_ind).tlags;
+tlags = -10:10;
+cent_lag = find(tlags == 0);
+
+pair_RF_eccs = nan(length(upairs),2);
+pair_RF_widths = nan(length(upairs),2);
+for ii = 1:length(upairs)
+    curset = find(ismember(SU_CID,all_pair_data(upairs(ii),1).cell_IDs));
+    pair_RF_eccs(ii,:) = RF_ecc(curset);
+    pair_RF_widths(ii,:) = RF_width(curset);
+end
 
 %total pairwise cross covariance functio
-all_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.tot_xcovar,1),all_pair_data(upairs,:),'uniformoutput',0)));
+all_tot_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.tot_xcovar,1),all_pair_data(upairs,direct_dt_ind),'uniformoutput',0)));
 %get rid of any pairs that are nans (units recorded in non-overlapping data
 %segments
-bad_pairs = find(isnan(all_tot_xcovs(:,1)));
+bad_pairs = find(isnan(all_tot_xcovs(:,cent_lag)));
 upairs(bad_pairs) = []; all_tot_xcovs(bad_pairs,:) = [];
 
 fprintf('Using %d pairs\n',length(upairs));
 
 %get psth-based and EP-based cross-covars
 all_psth_xcovs = cat(1,cell2mat(arrayfun(@(x) mean(x.pair_xcovar,1),all_pair_data(upairs,:),'uniformoutput',0)));
-all_EP_xcovs = squeeze(cat(1,cell2mat(arrayfun(@(x) mean(x.eps_xcovar_LOO(:,2,:),1),all_pair_data(upairs,:),'uniformoutput',0))));
+all_EP_xcovs = squeeze(cat(1,cell2mat(arrayfun(@(x) mean(x.eps_xcovar_LOO(:,ball_ind,:),1),all_pair_data(upairs,direct_dt_ind),'uniformoutput',0))));
 
 %get variance normalization (product of PSTH-based noise variance
 %estimates)
-all_xcov_norms = cat(1,cell2mat(arrayfun(@(x) mean(x.at_var_norm),all_pair_data(upairs,:),'uniformoutput',0)));
+all_xcov_norms = cat(1,cell2mat(arrayfun(@(x) mean(x.at_var_norm),all_pair_data(upairs,direct_dt_ind),'uniformoutput',0)));
 
 %normalize to correlations
 all_tot_xcorrs = bsxfun(@rdivide,all_tot_xcovs,all_xcov_norms);
@@ -528,11 +553,13 @@ all_psth_xcorrs = bsxfun(@rdivide,all_psth_xcovs,all_xcov_norms);
 all_EP_noisecorrs = bsxfun(@rdivide,(all_tot_xcovs - all_EP_xcovs),all_xcov_norms);
 all_psth_noisecorrs = bsxfun(@rdivide,(all_tot_xcovs - all_psth_xcovs),all_xcov_norms);
 
+[EP_sig_noise_corr,EP_p] = corr(all_EP_noisecorrs(:,cent_lag),all_EP_xcorrs(:,cent_lag),'type','spearman');
+[PSTH_sig_noise_corr,PSTH_p] = corr(all_psth_noisecorrs(:,cent_lag),all_psth_xcorrs(:,cent_lag),'type','spearman');
+fprintf('PSTH corr: %.3f p: %.3f\n',PSTH_sig_noise_corr,PSTH_p);
+fprintf('EP corr: %.3f p: %.3f\n',EP_sig_noise_corr,EP_p);
 
-tlags = EP_params.tlags*EP_params.direct_bin_dts(1);
 xl1 = [-0.3 0.3]; 
 yl1 = [-0.3 0.3];
-cent_lag = find(tlags == 0);
 xx = linspace(-0.3,0.3,100);
 
 f1 = figure(); 

@@ -406,14 +406,16 @@ for ss = 1:size(Robs_mat,2)
     end
 end
 
-if model_pop_avg    
-   norm_rates = Robs_mat(:,1:n_probes); %define pop rate over MUA only
-   for tt = 1:length(trial_data) %loop over trials
-       cur_trial_inds = find(all_trialvec(used_inds) == tt);
-       for ss = 1:n_probes %smooth the spk cnt data with a Gaussian kernel
-          norm_rates(cur_trial_inds,ss) = jmm_smooth_1d_cor(norm_rates(cur_trial_inds,ss),round(pop_avg_sigma/dt));
-       end
-   end
+if model_pop_avg
+    norm_rates = Robs_mat(:,1:n_probes); %define pop rate over MUA only
+    for tt = 1:length(trial_data) %loop over trials
+        cur_trial_inds = find(all_trialvec(used_inds) == tt);
+        if ~isempty(cur_trial_inds)
+            for ss = 1:n_probes %smooth the spk cnt data with a Gaussian kernel
+                norm_rates(cur_trial_inds,ss) = jmm_smooth_1d_cor(norm_rates(cur_trial_inds,ss),round(pop_avg_sigma/dt));
+            end
+        end
+    end
     
     %zscore each MU
     norm_rates = bsxfun(@minus,norm_rates,nanmean(norm_rates));

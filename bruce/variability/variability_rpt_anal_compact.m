@@ -5,19 +5,19 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M294';
+% Expt_name = 'M297';
 % monk_name = 'lem';
-% bar_ori = 40; %bar orientation to use (only for UA recs)
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 % rec_number = 1;
-% %
+%
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
 sname = 'rpt_variability_compact_FIN2';
 
-% et_mod_data_name = 'full_eyetrack_initmods_FIN_test_Rinit';
-% et_anal_name = 'full_eyetrack_FIN_test_Rinit';
-et_mod_data_name = 'full_eyetrack_initmods_FIN_Rinit';
-et_anal_name = 'full_eyetrack_FIN_Rinit';
+% et_mod_data_name = 'full_eyetrack_initmods_Rinit';
+% et_anal_name = 'full_eyetrack_Rinit';
+et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
+et_anal_name = 'full_eyetrack_FIN2_Rinit';
 mod_name = 'corrected_models_comp_FIN';
 
 use_MUA = false; EP_params.use_MUA = use_MUA; %use MUA in model-fitting
@@ -28,15 +28,14 @@ do_xcorrs = true; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
 compute_sims = false; EP_params.compute_sims = compute_sims; %do simulated calcs for alphas
 compute_PF_rate = false;
 
-% poss_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-% direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-% mod_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
-poss_bin_dts = [0.01]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+poss_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
 direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-mod_bin_dts = []; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+mod_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+% poss_bin_dts = [0.01]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+% direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+% mod_bin_dts = []; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
 
 max_tlag = 10; EP_params.max_tlag = max_tlag; %max time lag for computing xcorrs (units of dt bins)
-tlags = -max_tlag:max_tlag; EP_params.tlags = tlags; %range of time lags
 
 sim_n_rpts = 500; EP_params.sim_n_rpts = sim_n_rpts; %number of repeats for simulation calcs
 
@@ -839,6 +838,12 @@ for bbb = 1:length(poss_bin_dts)
         if ~isempty(loo_set); new_loo_EP_emb = loo_tbt_EP_emb; end
     end
     
+    if bin_dt > params.dt %if using coarser time binning
+        tlags = 0; %just use zero-lag bin
+    else
+        tlags = -max_tlag:max_tlag; %range of time lags
+    end
+
     %% BASIC STATS
     %first compute avg spike rates
     ov_avg_BS = nanmean(reshape(new_BS_ms,[],length(targs))); %overall avg rate
@@ -846,6 +851,8 @@ for bbb = 1:length(poss_bin_dts)
     for cc = 1:length(targs) %store data
         EP_data(cc,bbb).ov_avg_BS = ov_avg_BS(cc);
         EP_data(cc,bbb).trial_avg_BS = squeeze(trial_avg_BS(:,:,cc));
+        EP_data(cc,1).EP_SD = rpt_EP_SD; %overall eye position SD
+        EP_data(cc,bbb).tlags = tlags;
     end
     for rr = 1:n_rpt_seeds %for each repeat sequence
         cur_trial_set = find(all_rpt_seqnum == rr); %find the set of repeat trials
@@ -858,8 +865,6 @@ for bbb = 1:length(poss_bin_dts)
             EP_data(cc,bbb).n_spikes(rr) = n_spikes(cc);
         end
     end
-    
-    EP_data(cc,1).EP_SD = rpt_EP_SD; %overall eye position SD
     
     %subtract out trial-avg spk counts if desired
     if sub_trialavgs
@@ -1061,7 +1066,7 @@ for bbb = 1:length(poss_bin_dts)
         end
         
         %% compute pairwise covariances
-        if do_xcorrs
+        if do_xcorrs            
             if length(targs) > 1 %if there's at least one SU pair
                 for rr = 1:n_rpt_seeds; %loop over unique repeat seeds
                     cur_trial_set = find(all_rpt_seqnum == rr);
