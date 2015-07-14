@@ -162,15 +162,17 @@ poss_bin_dts = EP_params.poss_bin_dts; %set of possible time bins
 direct_used_dts = find(ismember(poss_bin_dts,direct_bin_dts));
 
 %selection criteria
-min_nTrials = 25; %minimum number of repeat trials
+min_nTrials = 50; %minimum number of repeat trials
 min_avgRate = 5; %minimum avg rate (Hz)
-min_xvLL = 0.0; %minimum model xval LL improvement over null
+min_xvLL = 0; %minimum model xval LL improvement over null
 
 SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(:,1));
 SU_avgRates = [all_cell_data(:,1).ov_avg_BS]'/direct_bin_dts(1); %compute avg rate using first time bin res
 SU_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_cell_data(:,1));
+SU_rpt_xvLL = arrayfun(@(x) x.rpt_LL - x.rpt_nullLL,all_cell_data(:,1));
 
-SU_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate & SU_mod_xvLLs > min_xvLL); %used SUs
+% SU_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate & SU_mod_xvLLs > min_xvLL); %used SUs
+SU_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate & SU_rpt_xvLL > min_xvLL); %used SUs
 if EP_params.do_xcorrs
     pair_IDs = cat(1,all_pair_data(:,1).cell_IDs);
     upairs = find(all(ismember(pair_IDs,SU_CID(SU_uset)),2) & pair_IDs(:,1) ~= pair_IDs(:,2)); %used pairs are different from each other, and both members of used SU set

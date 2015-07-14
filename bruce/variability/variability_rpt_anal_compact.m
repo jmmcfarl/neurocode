@@ -480,6 +480,7 @@ if compute_PF_rate
 end
 %% get model-predicted trial-by-trial firing rates
 % make Robs_mat
+n_probes = 24;
 tot_sus = size(all_binned_sua,2);
 tot_nUnits = length(su_probes) + n_probes;
 Robs_mat = nan(length(used_inds),n_probes + tot_sus);
@@ -502,9 +503,9 @@ for cc = 1:length(targs)
             cur_Robs = Robs_mat(used_rpt_inds,targs(cc));
             cur_uinds = find(~isnan(cur_Robs));
             
-            cur_nullMod = ModData(targs(cc)).nullMod
+            cur_nullMod = ModData(targs(cc)).nullMod;
             
-            post_mean_rpt = post_mean_EP_LOO(loo_ind,used_rpt_inds);
+            post_mean_EP_rpt = post_mean_EP_LOO(loo_ind,used_rpt_inds);
             fin_shift_cor = round(post_mean_EP_rpt/modFitParams.sp_dx); %use overall EP estimate
             fin_shift_cor(isnan(fin_shift_cor)) = 0;
             
@@ -521,8 +522,8 @@ for cc = 1:length(targs)
                 X{1} = tb_proc_stim(X{1},modFitParams.add_usfac,modFitParams.flen);
             end
             
-            rpt_LL = NMMeval_model(stim_mod_withblock(cc),[],X,[],cur_uinds);
-            rpt_nullLL = NMMeval_model(cur_nullMod,[],X,[],cur_uinds);
+            rpt_LL = NMMeval_model(stim_mod_withblock(cc),cur_Robs,X,[],cur_uinds);
+            rpt_nullLL = NMMeval_model(cur_nullMod,cur_Robs,X,[],cur_uinds);
             EP_data(cc,1).rpt_LL = rpt_LL;
             EP_data(cc,1).rpt_nullLL = rpt_nullLL;
             [~,~,all_mod_emp_prates(:,cc)] = NMMmodel_eval(stim_mod(cc),[],X);
