@@ -387,6 +387,7 @@ has_stim_mod = false(length(targs),1);
 for cc = 1:length(targs) %loop over units used in analysis
     if ~isempty(ModData(targs(cc)).bestGQM) %if we have a model for this unit
         cur_mod = ModData(targs(cc)).bestGQM; %use the optimized GQM
+        stim_mod_withblock(cc) = cur_mod;
         
         %remove the block-by-block variability in the model by
         %incorporating the avg output of the block-filter
@@ -469,24 +470,6 @@ stim_params_full = NMMcreate_stim_params([modFitParams.flen full_nPix_us]);
 %indices of repeat trials
 full_rpt_inds = find(ismember(all_trialvec,all_rpt_trials));
 
-%get overall eye corrections
-post_mean_EP_rpt = post_mean_EP(used_rpt_inds);
-fin_shift_cor = round(post_mean_EP_rpt/modFitParams.sp_dx); %use overall EP estimate
-fin_shift_cor(isnan(fin_shift_cor)) = 0;
-
-%RECOMPUTE XMAT
-best_shift_stimmat_up = all_stimmat_up;
-for i=1:length(used_rpt_inds) %correct repeat trial data
-    best_shift_stimmat_up(used_inds(used_rpt_inds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(used_rpt_inds(i)),:),-fin_shift_cor(i),2);
-end
-all_Xmat_shift = create_time_embedding(best_shift_stimmat_up(full_rpt_inds,:),stim_params_full); %incorporate time embedding for whole-trials on repeats
-all_Xmat_shift = all_Xmat_shift(ismember(full_rpt_inds,used_inds),use_kInds_up); %take only usable repeat-trial data
-
-%if using tent-basis spatial-upsampling
-if modFitParams.add_usfac > 1
-    all_Xmat_shift = tb_proc_stim(all_Xmat_shift,modFitParams.add_usfac,modFitParams.flen);
-end
-
 if compute_PF_rate
     all_Xmat_PF = create_time_embedding(all_stimmat_up(full_rpt_inds,:),stim_params_full); %incorporate time embedding for whole-trials on repeats
     all_Xmat_PF = all_Xmat_PF(ismember(full_rpt_inds,used_inds),use_kInds_up); %take only usable repeat-trial data
@@ -496,10 +479,54 @@ if compute_PF_rate
     end
 end
 %% get model-predicted trial-by-trial firing rates
+% make Robs_mat
+tot_sus = size(all_binned_sua,2);
+tot_nUnits = length(su_probes) + n_probes;
+Robs_mat = nan(length(used_inds),n_probes + tot_sus);
+for ss = 1:size(Robs_mat,2)
+    if ss > n_probes
+        Robs_mat(:,ss) = all_binned_sua(used_inds,ss-n_probes);
+    else
+        Robs_mat(:,ss) = all_binned_mua(used_inds,ss);
+    end
+end
+
+X{2} = Xblock(used_rpt_inds,:);
+
 all_mod_emp_prates = nan(length(used_rpt_inds),length(targs));
 for cc = 1:length(targs)
     if has_stim_mod(cc)
-        [~,~,all_mod_emp_prates(:,cc)] = NMMmodel_eval(stim_mod(cc),[],all_Xmat_shift);
+        
+        loo_ind = find(loo_set == targs(cc));
+        if ~isempty(loo_ind)
+            cur_Robs = Robs_mat(used_rpt_inds,targs(cc));
+            cur_uinds = find(~isnan(cur_Robs));
+            
+            cur_nullMod = ModData(targs(cc)).nullMod
+            
+            post_mean_rpt = post_mean_EP_LOO(loo_ind,used_rpt_inds);
+            fin_shift_cor = round(post_mean_EP_rpt/modFitParams.sp_dx); %use overall EP estimate
+            fin_shift_cor(isnan(fin_shift_cor)) = 0;
+            
+            %RECOMPUTE XMAT
+            best_shift_stimmat_up = all_stimmat_up;
+            for i=1:length(used_rpt_inds) %correct repeat trial data
+                best_shift_stimmat_up(used_inds(used_rpt_inds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(used_rpt_inds(i)),:),-fin_shift_cor(i),2);
+            end
+            X{1} = create_time_embedding(best_shift_stimmat_up(full_rpt_inds,:),stim_params_full); %incorporate time embedding for whole-trials on repeats
+            X{1} = X{1}(ismember(full_rpt_inds,used_inds),use_kInds_up); %take only usable repeat-trial data
+            
+            %if using tent-basis spatial-upsampling
+            if modFitParams.add_usfac > 1
+                X{1} = tb_proc_stim(X{1},modFitParams.add_usfac,modFitParams.flen);
+            end
+            
+            rpt_LL = NMMeval_model(stim_mod_withblock(cc),[],X,[],cur_uinds);
+            rpt_nullLL = NMMeval_model(cur_nullMod,[],X,[],cur_uinds);
+            EP_data(cc,1).rpt_LL = rpt_LL;
+            EP_data(cc,1).rpt_nullLL = rpt_nullLL;
+            [~,~,all_mod_emp_prates(:,cc)] = NMMmodel_eval(stim_mod(cc),[],X);
+        end
     end
 end
 all_mod_emp_prates_noEM = all_mod_emp_prates; %make a copy of the model-predicted rates that will be nan whenever theres a blink (or sac), as with the spk data
@@ -843,7 +870,7 @@ for bbb = 1:length(poss_bin_dts)
     else
         tlags = -max_tlag:max_tlag; %range of time lags
     end
-
+    
     %% BASIC STATS
     %first compute avg spike rates
     ov_avg_BS = nanmean(reshape(new_BS_ms,[],length(targs))); %overall avg rate
@@ -1066,7 +1093,7 @@ for bbb = 1:length(poss_bin_dts)
         end
         
         %% compute pairwise covariances
-        if do_xcorrs            
+        if do_xcorrs
             if length(targs) > 1 %if there's at least one SU pair
                 for rr = 1:n_rpt_seeds; %loop over unique repeat seeds
                     cur_trial_set = find(all_rpt_seqnum == rr);
