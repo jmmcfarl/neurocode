@@ -26,7 +26,7 @@ expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1';1 1;1 1]);
 %%
 % batch_function = 'fit_corrected_models_compactData';
 % batch_function = 'variability_model_compactData';
-batch_function = 'variability_rpt_anal_compact';
+% batch_function = 'variability_rpt_anal_compact';
 % batch_function = 'rpt_stimprops_sim_test';
 % batch_function = 'create_processed_data';
 % batch_function = 'full_eyetracking_hres_compactData_allSULOO';
@@ -36,7 +36,7 @@ batch_function = 'variability_rpt_anal_compact';
 % batch_function = 'drift_grating_simulations';
 % batch_function = 'add_unCorr_modfit';
 % batch_function = 'fit_microsac_models_compactData';
-% batch_function = 'model_based_EPvariance_calc';
+batch_function = 'model_based_EPvariance_calc';
 
 for Elist_cnt = 1:length(Expt_list)
 % for Elist_cnt = 6

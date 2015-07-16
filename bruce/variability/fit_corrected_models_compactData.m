@@ -1,12 +1,12 @@
-% clear all
-% close all
+clear all
+close all
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M277';
-% monk_name = 'lem';
-% bar_ori = 70; %bar orientation to use (only for UA recs)
-% rec_number = 1;
+Expt_name = 'M011';
+monk_name = 'jbe';
+bar_ori = 160; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
 fit_unCor = false; %also fit models without eye corrections?
 use_MUA = false; %use MUA in model-fitting
@@ -576,10 +576,10 @@ for cc = targs
             [bestGQM_LL, nullLL, ~, ~, ~, fgint] = NMMeval_model(bestGQM_spkNL, cur_Robs, Xmat,[],cur_full_inds);
             stim_filt_set = find([bestGQM.mods(:).Xtarget] == 1);
             rel_filt_weights = std(fgint(:,stim_filt_set));
-            bestGQM.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
-            bestGQM.LLimp = (bestGQM_LL - nullMod_LL)/log(2);
+            bestGQM_spkNL.rel_filt_weights = rel_filt_weights/sum(rel_filt_weights);
+            bestGQM_spkNL.LLimp = (bestGQM_LL - nullMod_LL)/log(2);
             bestGQM_rptLL = NMMeval_model(bestGQM_spkNL, cur_Robs, Xmat,[],cur_rpt_inds);
-            bestGQM.rptLLimp = (bestGQM_rptLL - nullMod_rptLL)/log(2); %store LL imp on rpt trials
+            bestGQM_spkNL.rptLLimp = (bestGQM_rptLL - nullMod_rptLL)/log(2); %store LL imp on rpt trials
             
             if fit_rect
                 rectGQM = NMMfit_filters(rectGQM,cur_Robs,Xmat,[],cur_full_inds,silent);
@@ -608,6 +608,7 @@ for cc = targs
         
         ModData(cc).unit_data = unit_data;
         ModData(cc).bestGQM = bestGQM_spkNL;
+        ModData(cc).bestGQM.xvLLimp = bestGQM.xvLLimp;
         ModData(cc).nullMod = nullMod;
         if ~isempty(poss_smoothreg_scalefacs)
             ModData(cc).all_reg_mods = all_reg_mods;

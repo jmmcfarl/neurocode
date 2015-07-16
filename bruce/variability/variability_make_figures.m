@@ -162,7 +162,7 @@ poss_bin_dts = EP_params.poss_bin_dts; %set of possible time bins
 direct_used_dts = find(ismember(poss_bin_dts,direct_bin_dts));
 
 %selection criteria
-min_nTrials = 50; %minimum number of repeat trials
+min_nTrials = 25; %minimum number of repeat trials
 min_avgRate = 5; %minimum avg rate (Hz)
 min_xvLL = 0; %minimum model xval LL improvement over null
 
@@ -170,6 +170,7 @@ SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(:,1));
 SU_avgRates = [all_cell_data(:,1).ov_avg_BS]'/direct_bin_dts(1); %compute avg rate using first time bin res
 SU_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_cell_data(:,1));
 SU_rpt_xvLL = arrayfun(@(x) x.rpt_LL - x.rpt_nullLL,all_cell_data(:,1));
+% SU_rpt_xvLL = arrayfun(@(x) x.rpt_LL - x.rpt_nullLL,all_cell_data(:,1));
 
 % SU_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate & SU_mod_xvLLs > min_xvLL); %used SUs
 SU_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate & SU_rpt_xvLL > min_xvLL); %used SUs
@@ -520,6 +521,8 @@ close all
 % tlags = all_cell_data(SU_uset(1),direct_dt_ind).tlags;
 tlags = -10:10;
 cent_lag = find(tlags == 0);
+sum_lags = find(abs(tlags <= 3));
+
 
 pair_RF_eccs = nan(length(upairs),2);
 pair_RF_widths = nan(length(upairs),2);
@@ -555,8 +558,13 @@ all_psth_xcorrs = bsxfun(@rdivide,all_psth_xcovs,all_xcov_norms);
 all_EP_noisecorrs = bsxfun(@rdivide,(all_tot_xcovs - all_EP_xcovs),all_xcov_norms);
 all_psth_noisecorrs = bsxfun(@rdivide,(all_tot_xcovs - all_psth_xcovs),all_xcov_norms);
 
-[EP_sig_noise_corr,EP_p] = corr(all_EP_noisecorrs(:,cent_lag),all_EP_xcorrs(:,cent_lag),'type','spearman');
-[PSTH_sig_noise_corr,PSTH_p] = corr(all_psth_noisecorrs(:,cent_lag),all_psth_xcorrs(:,cent_lag),'type','spearman');
+all_EP_xcorrs_cent = squeeze(mean(all_EP_xcorrs(:,sum_lags),2));
+all_psth_xcorrs_cent = squeeze(mean(all_psth_xcorrs(:,sum_lags),2));
+all_EP_noisecorrs_cent = squeeze(mean(all_EP_noisecorrs(:,sum_lags),2));
+all_psth_noisecorrs_cent = squeeze(mean(all_psth_noisecorrs(:,sum_lags),2));
+
+[EP_sig_noise_corr,EP_p] = corr(all_EP_noisecorrs_cent,all_EP_xcorrs_cent,'type','spearman');
+[PSTH_sig_noise_corr,PSTH_p] = corr(all_psth_noisecorrs_cent,all_psth_xcorrs_cent,'type','spearman');
 fprintf('PSTH corr: %.3f p: %.3f\n',PSTH_sig_noise_corr,PSTH_p);
 fprintf('EP corr: %.3f p: %.3f\n',EP_sig_noise_corr,EP_p);
 
@@ -567,10 +575,10 @@ xx = linspace(-0.3,0.3,100);
 f1 = figure(); 
 subplot(2,1,1)
 hold on
-plot(all_psth_xcorrs(:,cent_lag),all_psth_noisecorrs(:,cent_lag),'r.');
+plot(all_psth_xcorrs_cent,all_psth_noisecorrs_cent,'r.');
 line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],yl1,'color','k','linestyle','--');
 % line([-0.5 0.5],[-0.5 0.5],'color','k','linestyle','--');
-r1 = robustfit(all_psth_xcorrs(:,cent_lag),all_psth_noisecorrs(:,cent_lag));
+r1 = robustfit(all_psth_xcorrs_cent,all_psth_noisecorrs_cent);
 plot(xx,r1(1) + r1(2)*xx,'r--')
 xlim(xl1); ylim(yl1);
 xlabel('Signal correlation');
@@ -578,10 +586,10 @@ ylabel('Noise correlation');
 
 subplot(2,1,2)
 hold on
-plot(all_EP_xcorrs(:,cent_lag),all_EP_noisecorrs(:,cent_lag),'b.');
+plot(all_EP_xcorrs_cent,all_EP_noisecorrs_cent,'b.');
 line(xl1,[0 0],'color','k','linestyle','--'); line([0 0],yl1,'color','k','linestyle','--');
 % line([-0.5 0.5],[-0.5 0.5],'color','k','linestyle','--');
-r1 = robustfit(all_EP_xcorrs(:,cent_lag),all_EP_noisecorrs(:,cent_lag));
+r1 = robustfit(all_EP_xcorrs_cent,all_EP_noisecorrs_cent);
 plot(xx,r1(1) + r1(2)*xx,'b--')
 xlim(xl1); ylim(yl1);
 xlabel('Signal correlation');
@@ -592,6 +600,25 @@ ylabel('Noise correlation');
 % fname = [fig_dir 'signoise_Xcorr.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
+
+%%
+close all
+% for ii = 1:length(upairs)
+for ii = [2 111 180 201]
+    upairs(ii)
+    all_pair_data(upairs(ii)).Expt_num
+    subplot(2,1,1); hold on
+    plot(tlags,all_psth_xcovs(ii,:));
+    plot(tlags,all_tot_xcovs(ii,:),'k');
+    plot(tlags,all_tot_xcovs(ii,:)-all_psth_xcovs(ii,:),'r')
+    
+    subplot(2,1,2); hold on
+    plot(tlags,all_EP_xcovs(ii,:));
+    plot(tlags,all_tot_xcovs(ii,:),'k');
+    plot(tlags,all_tot_xcovs(ii,:)-all_EP_xcovs(ii,:),'r')
+    pause
+    clf
+end
 
 %%
 close all

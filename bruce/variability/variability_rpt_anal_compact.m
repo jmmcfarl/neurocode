@@ -5,11 +5,11 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M297';
-% monk_name = 'lem';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
-% rec_number = 1;
-%
+Expt_name = 'M011';
+monk_name = 'jbe';
+bar_ori = 160; %bar orientation to use (only for UA recs)
+rec_number = 1;
+
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
 sname = 'rpt_variability_compact_FIN2';
@@ -18,7 +18,7 @@ sname = 'rpt_variability_compact_FIN2';
 % et_anal_name = 'full_eyetrack_Rinit';
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
-mod_name = 'corrected_models_comp_FIN';
+mod_name = 'corrected_models_comp_FIN2';
 
 use_MUA = false; EP_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
@@ -1225,6 +1225,8 @@ for bbb = 1:length(poss_bin_dts)
                         Y2 = reshape(squeeze(allY2(:,:,Cpairs(cc,2),:)),[],length(tlags)); %shift-embedded response of neuron J
                         
                         EP_pairs(cc,bbb).ids = Cpairs(cc,:); %store index values of the neurons in this pair
+                        pair_rpt_set = intersect(EP_data(Cpairs(cc,1),1).rpt_trialset,EP_data(Cpairs(cc,2),1).rpt_trialset);
+                        EP_pairs(cc,bbb).pair_rpt_set = pair_rpt_set;
                         EP_pairs(cc,bbb).tot_xcovar(rr,:) = nanmean(bsxfun(@times,Y1,Y2)); %raw spk count covariances
                         EP_pairs(cc,bbb).at_var_norm(rr) = sqrt(prod(noisevar_norm(Cpairs(cc,1),Cpairs(cc,2)))); %normalization by product of noise SDs
                         

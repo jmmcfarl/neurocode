@@ -5,18 +5,18 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M012';
+% Expt_name = 'M011';
 % monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% bar_ori = 160; %bar orientation to use (only for UA recs)
 % rec_number = 1;
-% %
+%
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
 sname = 'sim_variability_compact_FIN';
 
-et_mod_data_name = 'full_eyetrack_initmods_FIN_Rinit';
-et_anal_name = 'full_eyetrack_FIN_Rinit';
-mod_name = 'corrected_models_comp_FIN';
+et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
+et_anal_name = 'full_eyetrack_FIN2_Rinit';
+mod_name = 'corrected_models_comp_FIN2';
 
 use_MUA = false; sim_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; sim_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
@@ -24,6 +24,7 @@ exclude_sacs = false; sim_params.exclude_sacs = exclude_sacs; %exclude data surr
 poss_SDs = [0.05:0.025:0.2];%range of possible EP SDs to test (last is the empirical)
 poss_ubins = [1 2 5 10 20 50 100]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 
+do_xcorr = true;
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
 
 %%
@@ -350,6 +351,13 @@ base_EP_SD = robust_std_dev(EP_tbt(:));
 inblink_tbt = reshape(in_blink_inds,[],n_utrials);
 insac_tbt = reshape(in_sac_inds,[],n_utrials);
 %%
+if do_xcorr
+    [CI,CJ] = meshgrid(1:length(targs));
+    un_pairs = CJ >= CI; %all unique pairs of neurons (including self-pairs)
+    Cpairs = [CI(un_pairs) CJ(un_pairs)]; %I and J indices for each pair
+    n_cell_pairs = size(Cpairs,1);    
+end
+%%
 poss_SDs = [poss_SDs base_EP_SD]; %make the last EP SD to test the empirical one
 sim_params.poss_SDs = poss_SDs; 
 max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
@@ -357,6 +365,9 @@ max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying 
 sim_psth_vars = nan(length(poss_SDs),length(poss_ubins),length(targs));
 sim_tot_vars = nan(length(poss_SDs),length(poss_ubins),length(targs));
 sim_mean_rates = nan(length(poss_SDs),length(poss_ubins),length(targs));
+
+sim_psth_covars = nan(length(poss_SDs),length(poss_ubins),length(targs),length(targs));
+sim_tot_covars = nan(length(poss_SDs),length(poss_ubins),length(targs),length(targs));
 
 ep_rates = nan(length(full_uinds),length(targs));
 ep_rates2 = nan(length(full_uinds),length(targs));
@@ -372,7 +383,7 @@ for sd = 1:length(poss_SDs)
     %RECOMPUTE XMAT
     cur_shift_stimmat_up = all_stimmat_up;
     for i=1:length(full_uinds)
-        cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor(i),2);
+        cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(cur_shift_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor(i),2);
     end
     all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_full);
     all_Xmat_shift = all_Xmat_shift(used_inds(full_uinds),use_kInds_up);
@@ -408,10 +419,10 @@ for sd = 1:length(poss_SDs)
     if exclude_sacs
        uset2 = uset2 & ~inblink_tbt; 
     end
-    
     fin_shift_cor = round(cur_EP2(:)/modFitParams.sp_dx);
     fin_shift_cor(fin_shift_cor > max_shift) = max_shift;
     fin_shift_cor(fin_shift_cor < -max_shift) = -max_shift;
+    
     cur_shift_stimmat_up = all_stimmat_up;
     for i=1:length(full_uinds)
         cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor(i),2);
@@ -455,8 +466,15 @@ for sd = 1:length(poss_SDs)
         new_ep_rates2 = bsxfun(@minus,new_ep_rates2,nanmean(new_ep_rates2));
         
         sim_psth_vars(sd,pp,:) = nanmean(new_ep_rates.*new_ep_rates2); %this gives the PSTH variance
-        sim_tot_vars(sd,pp,:) = nanvar(new_ep_rates); %total rate variance
+        sim_tot_vars(sd,pp,:) = 0.5*nanvar(new_ep_rates) + 0.5*nanvar(new_ep_rates2); %total rate variance
         sim_mean_rates(sd,pp,:) = cur_avg_rates*bin_dsfac; %mean spike prob (per bin)
+        
+        %get PSTH and total covariance matrices
+        if do_xcorr
+            sim_psth_covars(sd,pp,:,:) = nanmean(bsxfun(@times,new_ep_rates,reshape(new_ep_rates2,[],1,length(targs))));
+            sim_tot_covars(sd,pp,:,:) = 0.5*nanmean(bsxfun(@times,new_ep_rates,reshape(new_ep_rates,[],1,length(targs)))) + ...
+                0.5*nanmean(bsxfun(@times,new_ep_rates2,reshape(new_ep_rates2,[],1,length(targs))));
+        end
     end
 end
 
@@ -471,6 +489,21 @@ for cc = 1:length(targs)
         sim_data(cc).alphas = sim_data(cc).across_trial_vars./sim_data(cc).tot_vars;
     end
 end
+
+if do_xcorr
+    for cc = 1:n_cell_pairs
+        sim_pairs(cc).ids = Cpairs(cc,:); %store index values of the neurons in this pair
+        sim_pairs(cc).tot_xcovar = squeeze(sim_tot_covars(:,:,Cpairs(cc,1),Cpairs(cc,2))); %raw spk count covariances (this matrix is already symmetrized so we only need to grab one value)
+        sim_pairs(cc).psth_xcovar = squeeze(0.5*sim_psth_covars(:,:,Cpairs(cc,1),Cpairs(cc,2)) + 0.5*sim_psth_covars(:,:,Cpairs(cc,2),Cpairs(cc,1))); %avg over two elements of psth covariance matrix to get best estimate
+        cell1_noisevars = sim_data(Cpairs(cc,1)).across_trial_vars + sim_data(Cpairs(cc,1)).mean_rates;
+        cell2_noisevars = sim_data(Cpairs(cc,2)).across_trial_vars + sim_data(Cpairs(cc,2)).mean_rates;
+        if ~isempty(cell1_noisevars) & ~isempty(cell2_noisevars)
+            sim_pairs(cc).covar_norm = sqrt(cell1_noisevars.*cell2_noisevars);
+        else
+            sim_pairs(cc).covar_norm = nan(length(poss_SDs),length(poss_ubins));
+        end
+    end
+end
 %%
 cd(anal_dir);
 
@@ -478,4 +511,8 @@ sname = [sname sprintf('_ori%d',bar_ori)];
 if rec_number > 1
     sname = strcat(sname,sprintf('_r%d',rec_number));
 end
-save(sname,'targs','sim_data','sim_params');
+if do_xcorr
+    save(sname,'targs','sim_data','sim_pairs','sim_params');
+else
+    save(sname,'targs','sim_data','sim_params');
+end
