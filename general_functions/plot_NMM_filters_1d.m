@@ -1,4 +1,4 @@
-function [fig_props] = plot_NMM_filters_1d(nim,pix_ax,lag_ax,stim_Xtarg,h)
+function [fig_props] = plot_NMM_filters_1d(nim,pix_ax,lag_ax,stim_Xtarg,h,xrange,trange)
 
 
 if nargin < 4 || isempty(stim_Xtarg)
@@ -6,6 +6,12 @@ if nargin < 4 || isempty(stim_Xtarg)
 end
 if nargin < 5 
     h = [];
+end
+if nargin < 6
+    xrange = [];
+end
+if nargin < 7
+    trange = [];
 end
 
 stim_params = nim.stim_params(stim_Xtarg);
@@ -46,7 +52,12 @@ for imod = 1:length(stim_mods)
     set(gca,'ydir','normal');
     xlabel('Pixels')
     ylabel('Time lags');
-    
+    if ~isempty(xrange)
+        xlim(xrange);
+    end
+    if ~isempty(trange)
+        ylim(trange);
+    end
     NLtype = 'NP';
     if strcmp(thismod.NLtype,'lin')
         NLtype = 'Lin';

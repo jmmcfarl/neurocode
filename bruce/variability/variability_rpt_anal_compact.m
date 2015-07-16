@@ -5,10 +5,10 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M011';
-monk_name = 'jbe';
-bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 1;
+% Expt_name = 'M011';
+% monk_name = 'jbe';
+% bar_ori = 160; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
@@ -406,6 +406,7 @@ for cc = 1:length(targs) %loop over units used in analysis
         EP_data(cc,1).tune_props = ModData(targs(cc)).tune_props;
         EP_data(cc,1).bestGQM = ModData(targs(cc)).bestGQM;
         EP_data(cc,1).nullMod = ModData(targs(cc)).nullMod;
+        EP_data(cc,1).modFitParams = modFitParams;
         EP_data(cc,1).useMod = cur_mod;
         has_stim_mod(cc) = true;
     end
@@ -550,6 +551,7 @@ if compute_PF_rate
     end
     all_mod_PF_prates = reshape(all_mod_PF_prates,used_nf,tot_nrpts,length(targs));
 end
+
 %% shift model-predicted rates to realign repeats on trials with rpt frames
 if ~isempty(rptframe_trials)
     shifted_mod_prates = nan(nf,tot_nrpts,length(targs)); %buffer with nans to trial-length
@@ -593,6 +595,7 @@ if compute_PF_rate
 end
 
 rpt_EP_SD = robust_std_dev(post_mean_EP_rpt); %SD of EP during repeat trials
+
 %% loop over possible time windows
 for bbb = 1:length(poss_bin_dts)
     bin_dt = poss_bin_dts(bbb);

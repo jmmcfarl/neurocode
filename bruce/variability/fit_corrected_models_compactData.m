@@ -1,12 +1,12 @@
-clear all
-close all
+% clear all
+% close all
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M011';
-monk_name = 'jbe';
-bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 1;
+% Expt_name = 'M270';
+% monk_name = 'lem';
+% bar_ori = 60; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
 fit_unCor = false; %also fit models without eye corrections?
 use_MUA = false; %use MUA in model-fitting
@@ -609,7 +609,7 @@ for cc = targs
         ModData(cc).unit_data = unit_data;
         ModData(cc).bestGQM = bestGQM_spkNL;
         ModData(cc).bestGQM.xvLLimp = bestGQM.xvLLimp;
-        ModData(cc).nullMod = nullMod;
+        ModData(cc).nullMod = nullMod_full;
         if ~isempty(poss_smoothreg_scalefacs)
             ModData(cc).all_reg_mods = all_reg_mods;
             ModData(cc).reg_val_xvLL = reg_val_xvLL;
@@ -627,21 +627,31 @@ for cc = targs
             use_mod = ModData(cc).bestGQM;
         end
         
-        stim_filt_set = find([use_mod.mods(:).Xtarget] == 1);
-        stim_filters = [use_mod.mods(stim_filt_set).filtK];
-        stim_mod_signs = [use_mod.mods(stim_filt_set).sign];
+        %remove the block-by-block variability in the model by
+        %incorporating the avg output of the block-filter
+        cur_block_filt = use_mod.mods(1).filtK; %filter applied to the block index
+        cur_used_blocks = ModData(cc).unit_data.used_blocks; %which blocks was this neuron isolated during
+        poss_used_blocks = ModData(cc).unit_data.poss_used_blocks; %total set of used blocks
+        cur_used_blocks = find(ismember(poss_used_blocks,cur_used_blocks)); %indices of blocks where this neuron was isolated
+        use_mod_no_block = use_mod;
+        use_mod_no_block.spk_NL_params(1) = use_mod_no_block.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks)); %add the average output of the block-filter to the spkNL offset
+        use_mod_no_block.mods(1) = []; %eliminate block filter
+               
+        stim_filters = [use_mod_no_block.mods(:).filtK];
+        stim_mod_signs = [use_mod_no_block.mods(:).sign];
         filt_data = get_filter_properties_v2(stim_filters,mod_stim_params(1),mod_dx);
         tune_props.filt_data = filt_data;
         
-        [~,~,best_pred_rate,~,~,filt_outs] = NMMeval_model(use_mod,cur_Robs,Xmat,[],cur_full_inds);
+        [~,~,best_pred_rate,~,~,filt_outs] = NMMeval_model(use_mod_no_block,cur_Robs,Xmat,[],cur_full_inds);
         tempX = Xmat; tempX{1} = -tempX{1};
-        [~,~,rev_pred_rate] = NMMeval_model(use_mod,cur_Robs,tempX,[],cur_full_inds);
+        [~,~,rev_pred_rate] = NMMeval_model(use_mod_no_block,cur_Robs,tempX,[],cur_full_inds);
         clear tempX
-        tune_props.PRM = mean(abs(best_pred_rate - rev_pred_rate))/mean(best_pred_rate);
+        tune_props.PRM = mean(abs(best_pred_rate - rev_pred_rate))/mean(best_pred_rate); %mean absolute deviation caused by phase-reversal divided by mean rate
+        tune_props.PRI = std(best_pred_rate - rev_pred_rate)/std(best_pred_rate); %SD of phase-reversal modulation divided by total rate SD
         
         %only use E/lin filters for these calculations
         non_supp_filts = find(stim_mod_signs ~= -1);
-        filt_out_weights = std(filt_outs(:,stim_filt_set));
+        filt_out_weights = std(filt_outs);
         filt_out_weights = filt_out_weights(non_supp_filts)/nansum(filt_out_weights(non_supp_filts));
         
         tune_props.RF_mean = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,1)') - use_nPix_us*sp_dx/2 -sp_dx;
@@ -652,7 +662,7 @@ for cc = targs
         tune_props.RF_FSF = nansum(filt_out_weights(non_supp_filts).*filt_data.FFx(non_supp_filts)');
         
         if fit_rect
-            rect_stim_filters = [use_mod.mods(stim_filt_set([1 end])).filtK];
+            rect_stim_filters = [use_mod_no_block.mods([1 end]).filtK];
             avg_rect_filts = mean(rect_stim_filters);
             absavg_rect_filts = mean(abs(rect_stim_filters(:)));
             tune_props.net_phase_polarity = (avg_rect_filts(1) - avg_rect_filts(end))/absavg_rect_filts;
@@ -674,7 +684,6 @@ for cc = targs
         tune_props.screen_Y = screen_Y;
         tune_props.RF_ecc = sqrt(screen_X.^2 + screen_Y.^2);
         tune_props.filt_out_weights = filt_out_weights;
-        
         ModData(cc).tune_props = tune_props;
     end
 end
