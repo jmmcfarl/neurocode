@@ -421,7 +421,7 @@ line([0 2],[1 1],'color','k','linestyle','--');
 line([1 1],[0 2],'color','k','linestyle','--');
 xlabel('PSTH-based FF');
 ylabel('EP-corrected FF');
-
+% 
 % fig_width = 4; rel_height = 1;
 % figufy(f1);
 % fname = [fig_dir 'Direct_FF_compare.pdf'];
@@ -432,28 +432,39 @@ ylabel('EP-corrected FF');
 %% look at size of FF bias and alpha as a function of time window, using full model simulations
 close all
 
-use_SD = 0.1; %this is the fixed eye position SD to use for comparison across time bins
-use_SD_ind = find(sim_params.poss_SDs == use_SD,1);
+%actual EP SDs across recordings
+sim_EP_SDs = arrayfun(@(x) x.sim_params.poss_SDs(end),all_cell_data(SU_uset,1));
+target_SD = nanmedian(sim_EP_SDs);
 
-sim_FF_bias = cell2mat(arrayfun(@(x) x.sim_data.FF_bias(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
-sim_alpha = cell2mat(arrayfun(@(x) x.sim_data.alphas(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
-sim_tot_vars = cell2mat(arrayfun(@(x) x.sim_data.tot_vars(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+[alpha_timefun,FF_bias_timefun] = deal(nan(length(SU_uset),length(sim_params.poss_ubins)));
+for ii = 1:length(SU_uset)
+   cur_FF_bias = all_cell_data(SU_uset(ii),direct_dt_ind).sim_data.FF_bias; 
+   cur_alpha = all_cell_data(SU_uset(ii),direct_dt_ind).sim_data.alphas; 
+   FF_bias_timefun(ii,:) = interp1(sim_params.poss_SDs(1:end-1),cur_FF_bias(1:end-1,:),target_SD);
+   alpha_timefun(ii,:) = interp1(sim_params.poss_SDs(1:end-1),cur_alpha(1:end-1,:),target_SD);
+end
 
-sim_FF_rel = bsxfun(@rdivide,sim_FF_bias,sim_FF_bias(:,1));
-sim_alpha_rel = bsxfun(@rdivide,sim_alpha,sim_alpha(:,1));
-sim_totvars_rel = bsxfun(@rdivide,sim_tot_vars,sim_tot_vars(:,1));
+sim_FF_rel = bsxfun(@rdivide,FF_bias_timefun,FF_bias_timefun(:,1));
+sim_alpha_rel = bsxfun(@rdivide,alpha_timefun,alpha_timefun(:,1));
+% sim_FF_bias = cell2mat(arrayfun(@(x) x.sim_data.FF_bias(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+% sim_alpha = cell2mat(arrayfun(@(x) x.sim_data.alphas(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+% sim_tot_vars = cell2mat(arrayfun(@(x) x.sim_data.tot_vars(use_SD_ind,:),all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+
+% sim_FF_rel = bsxfun(@rdivide,sim_FF_bias,sim_FF_bias(:,1));
+% sim_alpha_rel = bsxfun(@rdivide,sim_alpha,sim_alpha(:,1));
+% sim_totvars_rel = bsxfun(@rdivide,sim_tot_vars,sim_tot_vars(:,1));
 
 f1 = figure();
 subplot(2,1,1);
-errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_FF_rel),nanstd(sim_FF_rel));
+errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_FF_rel),nanstd(sim_FF_rel)/sqrt(length(SU_uset)));
 set(gca,'xscale','log');
 xlim([7.5 1500]);
 xlabel('Time window (ms)');
 ylabel('Fano Factor bias');
-ylim([.5 3])
+ylim([.75 2])
 
 subplot(2,1,2);
-errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_alpha_rel),nanstd(sim_alpha_rel));
+errorbar(1e3*sim_params.poss_ubins*poss_bin_dts(direct_dt_ind),nanmean(sim_alpha_rel),nanstd(sim_alpha_rel)/sqrt(length(SU_uset)));
 set(gca,'xscale','log');
 xlim([7.5 1500]);
 ylim([0.8 1.2]);
@@ -468,27 +479,32 @@ ylabel('Relative Alpha');
 % xlim([5 1500]);
 % xlabel('Time window (ms)');
 % ylabel('Relative rate variance');
-% 
+
 % fig_width = 4; rel_height = 1.6;
 % figufy(f1);
 % fname = [fig_dir 'Modsim_timebin_compare.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-% 
+
 %% look at FF bias and alpha as a function of EP SD
 close all
 
 %actual EP SDs across recordings
 sim_EP_SDs = arrayfun(@(x) x.sim_params.poss_SDs(end),all_cell_data(SU_uset,1));
+target_SD = nanmedian(sim_EP_SDs);
 
-% sim_FF_bias = cell2mat(arrayfun(@(x) x.sim_data.FF_bias(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
+sim_FF_bias = cell2mat(arrayfun(@(x) x.sim_data.FF_bias(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 sim_alpha = cell2mat(arrayfun(@(x) x.sim_data.alphas(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 sim_atv = cell2mat(arrayfun(@(x) x.sim_data.across_trial_vars(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 sim_totvar = cell2mat(arrayfun(@(x) x.sim_data.tot_vars(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 sim_mrates = cell2mat(arrayfun(@(x) x.sim_data.mean_rates(:,direct_dt_ind)',all_cell_data(SU_uset,direct_dt_ind),'uniformoutput',0));
 
-% sim_FF_rel = bsxfun(@rdivide,sim_FF_bias(:,1:end-1),sim_FF_bias(:,end));
-sim_alpha_rel = bsxfun(@rdivide,sim_alpha(:,1:end-1),sim_alpha(:,end));
+sim_alpha_norm = interp1(sim_params.poss_SDs(1:end-1),sim_alpha(:,1:end-1)',target_SD);
+sim_FF_norm = interp1(sim_params.poss_SDs(1:end-1),sim_FF_bias(:,1:end-1)',target_SD);
+
+sim_FF_rel = bsxfun(@rdivide,sim_FF_bias(:,1:end-1),sim_FF_norm');
+% sim_alpha_rel = bsxfun(@rdivide,sim_alpha(:,1:end-1),sim_alpha(:,end));
+sim_alpha_rel = bsxfun(@rdivide,sim_alpha(:,1:end-1),sim_alpha_norm');
 sim_atv_rel = bsxfun(@rdivide,sim_atv(:,1:end-1),sim_atv(:,end));
 
 observed_EP_range = minmax(sim_EP_SDs);
@@ -500,19 +516,19 @@ sd_range = [0.04 0.22]; %range for plotting
 
 %plot the relative change in EM-induced tbt variance with EP SD
 f1 = figure(); 
-subplot(2,1,1); hold on
-errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_atv_rel),nanstd(sim_atv_rel),'k');
+% subplot(2,1,1); hold on
+errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_alpha_rel),nanstd(sim_alpha_rel),'k');
 xlabel('Eye position SD (deg)');
 ylabel('Relative EM-induced variance');
 xlim(sd_range);
 ylim([0.4 1.6])
-
-subplot(2,1,2); hold on
-errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_alpha(:,1:end-1)),nanstd(sim_alpha(:,1:end-1)),'k');
-xlabel('Eye position SD (deg)');
-ylabel('Alpha');
-xlim(sd_range);
-ylim([0 1]);
+% 
+% subplot(2,1,2); hold on
+% errorbar(sim_params.poss_SDs(1:end-1),nanmean(sim_alpha(:,1:end-1)),nanstd(sim_alpha(:,1:end-1))/sqrt(length(SU_uset)),'k');
+% xlabel('Eye position SD (deg)');
+% ylabel('Alpha');
+% xlim(sd_range);
+% % ylim([0 1]);
 
 f2 = figure();
 nbins = 15;
@@ -529,7 +545,7 @@ line(median(sim_EP_SDs)+[0 0],yl,'color','b');
 xlim(sd_range);
 
 
-% fig_width = 4; rel_height = 1.6;
+% fig_width = 4; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'Modsim_EPSD_compare.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -540,7 +556,7 @@ xlim(sd_range);
 % fname = [fig_dir 'EPSD_dist.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
-% 
+
 
 %% noise correlation analysis
 close all
