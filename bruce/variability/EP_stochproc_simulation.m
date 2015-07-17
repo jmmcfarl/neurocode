@@ -416,21 +416,21 @@ line([0 0],freq_range,'color','w');
 [Fx,Fy] = meshgrid(fax);
 FF = sqrt(Fx.^2 + Fy.^2);
 if strcmp(stim_type,'NS')
-stim_aspec = 1./(FF.^2); 
-stim_aspec(FF==0) = nan; stim_aspec(FF==0) = nanmax(stim_aspec(:));
-stim_aspec = stim_aspec/max(stim_aspec(:));
-f2 = figure();
-imagesc(fax,fax,log10(stim_aspec));
-xlim(freq_range); ylim(freq_range);
-line(freq_range,[0 0],'color','w')
-line([0 0],freq_range,'color','w');
+    stim_aspec = 1./FF;
+    stim_aspec(FF==0) = nan; stim_aspec(FF==0) = nanmax(stim_aspec(:));
+    stim_aspec = stim_aspec/max(stim_aspec(:));
+    f2 = figure();
+    imagesc(fax,fax,log10(stim_aspec));
+    xlim(freq_range); ylim(freq_range);
+    line(freq_range,[0 0],'color','w')
+    line([0 0],freq_range,'color','w');
 elseif strcmp(stim_type,'white');
     stim_aspec = ones(size(FF));
-% f2 = figure();
-% imagesc(fax,fax,log10(stim_aspec));
-% xlim(freq_range); ylim(freq_range);
-% line(freq_range,[0 0],'color','w')
-% line([0 0],freq_range,'color','w');
+    % f2 = figure();
+    % imagesc(fax,fax,log10(stim_aspec));
+    % xlim(freq_range); ylim(freq_range);
+    % line(freq_range,[0 0],'color','w')
+    % line([0 0],freq_range,'color','w');
 end  
 
 f3 = figure();
