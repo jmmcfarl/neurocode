@@ -12,7 +12,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'sim_variability_compact_FIN';
+sname = 'sim_variability_compact_FIN2';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
@@ -21,8 +21,9 @@ mod_name = 'corrected_models_comp_FIN2';
 use_MUA = false; sim_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; sim_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 exclude_sacs = false; sim_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
-poss_SDs = [0.05:0.01:0.2];%range of possible EP SDs to test (last is the empirical)
+poss_SDs = [0.0:0.025:0.2];%range of possible EP SDs to test (last is the empirical)
 poss_ubins = [1 2 3 4 5 10 20 50 100]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
+% poss_ubins = logspace(log10(1),log10(100),10); sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 
 do_xcorr = true;
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
