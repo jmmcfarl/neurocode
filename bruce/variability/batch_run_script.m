@@ -24,9 +24,9 @@ expt_mname = cat(2,expt_mname,{'jbe','lem','jbe','jbe','jbe','jbe','jbe','jbe','
 expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1';1 1;1 1]);
 
 %%
-% batch_function = 'fit_corrected_models_compactData';
+batch_function = 'fit_corrected_models_compactData';
 % batch_function = 'variability_model_compactData';
-batch_function = 'variability_rpt_anal_compact';
+% batch_function = 'variability_rpt_anal_compact';
 % batch_function = 'rpt_stimprops_sim_test';
 % batch_function = 'create_processed_data';
 % batch_function = 'full_eyetracking_hres_compactData_allSULOO';

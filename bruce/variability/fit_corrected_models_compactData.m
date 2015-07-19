@@ -1,6 +1,6 @@
 % clear all
 % close all
-
+% 
 global Expt_name bar_ori monk_name rec_type rec_number
 
 % Expt_name = 'M270';
@@ -303,6 +303,9 @@ mod_stim_params(2) = NMMcreate_stim_params([n_blocks],dt);
 Xmat{2} = Xblock(used_inds,:);
 
 %%
+cd(save_dir)
+load(save_name);
+%%
 silent = 1;
 
 for cc = targs
@@ -313,24 +316,24 @@ for cc = targs
     cc_uinds = find(~isnan(cur_Robs)); %usable time points for this unit
     
     if ~isempty(cc_uinds)
-%         use_trials = unique(all_trialvec(used_inds(cc_uinds))); %set of potentially usable trials
-%         use_trials(ismember(use_trials,rpt_trials)) = []; %dont use repeat trials
-%         
-%         %create sets of training and XV trials
-%         nuse_trials = length(use_trials);
-%         n_xv_trials = round(xv_frac*nuse_trials);
-%         xv_trials = randperm(nuse_trials);
-%         xv_trials(n_xv_trials+1:end) = [];
-%         xv_trials = use_trials(xv_trials);
-%         tr_trials = setdiff(use_trials,xv_trials);
-%         n_tr_trials = length(tr_trials);
-%         fprintf('Initializing models with %d training trials and %d xval trials\n',n_tr_trials,n_xv_trials);
-%         
-%         cur_tr_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
-%         cur_xv_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
-%         cur_full_inds = union(cur_tr_inds,cur_xv_inds);
-%         cur_rpt_inds = rpt_inds(ismember(rpt_inds,cc_uinds));
-%         
+        use_trials = unique(all_trialvec(used_inds(cc_uinds))); %set of potentially usable trials
+        use_trials(ismember(use_trials,rpt_trials)) = []; %dont use repeat trials
+        
+        %create sets of training and XV trials
+        nuse_trials = length(use_trials);
+        n_xv_trials = round(xv_frac*nuse_trials);
+        xv_trials = randperm(nuse_trials);
+        xv_trials(n_xv_trials+1:end) = [];
+        xv_trials = use_trials(xv_trials);
+        tr_trials = setdiff(use_trials,xv_trials);
+        n_tr_trials = length(tr_trials);
+        fprintf('Initializing models with %d training trials and %d xval trials\n',n_tr_trials,n_xv_trials);
+        
+        cur_tr_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),tr_trials));
+        cur_xv_inds = cc_uinds(ismember(all_trialvec(used_inds(cc_uinds)),xv_trials));
+        cur_full_inds = union(cur_tr_inds,cur_xv_inds);
+        cur_rpt_inds = rpt_inds(ismember(rpt_inds,cc_uinds));
+        
 %         %% COMPUTE UNIT DATA
 %         unit_data.isLOO = ismember(cc,loo_set);
 %         unit_data.avg_rate = nanmean(cur_Robs)/dt;
@@ -364,31 +367,31 @@ for cc = targs
 %             unit_data.SU_dprime = nan;
 %         end
 %         
-%         %% RECON RETINAL STIM
-%         fprintf('Reconstructing retinal stim for unit %d\n',cc);
-%         cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
-%         cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
-%         cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
-%         cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
-%         [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
-%             cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
-%         
-%         fin_shift_cor = round(fin_tot_corr);
-%         
-%         %RECOMPUTE XMAT
-%         all_shift_stimmat_up = all_stimmat_up;
-%         for i=1:NT
-%             all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
-%         end
-%         all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_full);
-%         
-%         %create X matrix
-%         if add_usfac > 1
-%             %if doing additional spatial up-sampling use tent basis functions
-%             Xmat{1} = tb_proc_stim(all_Xmat_shift(used_inds,use_kInds_up),add_usfac,flen);
-%         else
-%             Xmat{1} = all_Xmat_shift(used_inds,use_kInds_up);
-%         end
+        %% RECON RETINAL STIM
+        fprintf('Reconstructing retinal stim for unit %d\n',cc);
+        cur_fix_post_mean = squeeze(it_fix_post_mean_LOO(loo_cc,end,:));
+        cur_fix_post_std = squeeze(it_fix_post_std_LOO(loo_cc,end,:));
+        cur_drift_post_mean = squeeze(drift_post_mean_LOO(loo_cc,end,:));
+        cur_drift_post_std = squeeze(drift_post_std_LOO(loo_cc,end,:));
+        [fin_tot_corr,fin_tot_std] = construct_eye_position(cur_fix_post_mean,cur_fix_post_std,...
+            cur_drift_post_mean,cur_drift_post_std,fix_ids,trial_start_inds,trial_end_inds,sac_shift);
+        
+        fin_shift_cor = round(fin_tot_corr);
+        
+        %RECOMPUTE XMAT
+        all_shift_stimmat_up = all_stimmat_up;
+        for i=1:NT
+            all_shift_stimmat_up(used_inds(i),:) = shift_matrix_Nd(all_stimmat_up(used_inds(i),:),-fin_shift_cor(i),2);
+        end
+        all_Xmat_shift = create_time_embedding(all_shift_stimmat_up,stim_params_full);
+        
+        %create X matrix
+        if add_usfac > 1
+            %if doing additional spatial up-sampling use tent basis functions
+            Xmat{1} = tb_proc_stim(all_Xmat_shift(used_inds,use_kInds_up),add_usfac,flen);
+        else
+            Xmat{1} = all_Xmat_shift(used_inds,use_kInds_up);
+        end
 %                 
 %         %% compute null model
 %         nullMod = NMMinitialize_model(mod_stim_params,1,{'lin'},[],2);
@@ -654,6 +657,8 @@ for cc = targs
         filt_out_weights = std(filt_outs);
         filt_out_weights = filt_out_weights(non_supp_filts)/nansum(filt_out_weights(non_supp_filts));
         
+        tune_props.avgRF_mean = filt_data.avg_gauss_mean - use_nPix_us*sp_dx/2 -sp_dx;
+        tune_props.avgRF_sigma = filt_data.avg_gauss_std;
         tune_props.RF_mean = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,1)') - use_nPix_us*sp_dx/2 -sp_dx;
         tune_props.RF_sigma = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,2)');
         tune_props.RF_gSF = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,3)');

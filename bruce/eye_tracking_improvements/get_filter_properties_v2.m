@@ -40,6 +40,12 @@ for ii = 1:nfilts
     end
 end
 
+%now fit gaussian on the avg kernel
+avg_spatial_profile = squeeze(nanmean(spatial_profiles,2));
+[fit_params,fit_z] = fitGaussianCurve((1:SDIM)',avg_spatial_profile);
+filt_data.avg_gauss_mean = fit_params(1)*dx;
+filt_data.avg_gauss_std = fit_params(2)*dx;
+
 %% FOURIER ANALYSIS
 max_pow = nan(nfilts,1);
 max_ploc = nan(nfilts,1);
