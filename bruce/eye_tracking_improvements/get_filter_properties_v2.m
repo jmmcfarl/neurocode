@@ -1,12 +1,23 @@
-function filt_data = get_filter_properties_v2(filtK,stim_params,dx)
-% filt_data = get_filter_properties(filtK,stim_params,dx)
+function filt_data = get_filter_properties_v2(filtK,stim_params,dx,filt_weights,mod_signs)
+% filt_data = get_filter_properties(filtK,stim_params,dx,filt_weights)
 % compute stats on a set of spatiotemporal stimulus filters
 % INPUTS:
 % filtK, matrix of stim filters [KLEN x Nfilts]
 % stim_params: struct of stimulus parameters
 % dx: spatial resolution
+% filt_weights: relative wieghting applied to filters
 % OUTPUTS:
 % filt_data: struct with filter stats
+
+if nargin < 3 || isempty(dx)
+    dx = 1;
+end
+if nargin < 4 || isempty(filt_weights)
+    filt_weights = ones(1,size(filtK,2));
+end
+if nargin < 5 || isempty(mod_signs)
+    mod_signs = ones(1,size(filtK,2));
+end
 
 zpad_factor = 5; %fold-expansion of filters with zero-padding to increase frequency resolution of FFTs
 flen = stim_params.stim_dims(1); %n time lags
@@ -17,10 +28,10 @@ zero_filts = find(max(abs(filtK)) == 0); %filters that are all zeros
 filtK = reshape(filtK,[flen SDIM nfilts]);
 spatial_profiles = squeeze(std(filtK)); %SD across time lags gives the spatial profile
 
-% %make column vecs
-% if size(spatial_profiles,2) > size(spatial_profiles,1)
-%     spatial_profiles = spatial_profiles';
-% end
+%make column vec if just one filt
+if nfilts == 1
+    spatial_profiles = spatial_profiles';
+end
 
 %FFT calculations
 dt = stim_params.dt; %time res
@@ -51,7 +62,9 @@ for ii = 1:nfilts
 end
 
 %now fit gaussian on the avg kernel spatial profile
-avg_spatial_profile = squeeze(nanmean(spatial_profiles,2));
+Eweights = filt_weights(mod_signs ~= -1)/sum(filt_weights(mod_signs ~= -1)); %get relative weights of non-suppressive filters
+weight_profiles = bsxfun(@times,spatial_profiles(:,mod_signs ~= -1),Eweights);
+avg_spatial_profile = squeeze(nanmean(weight_profiles,2)); %compute weighted avg spatial profile (only E/lin filts)
 [fit_params,fit_z] = fitGaussianCurve((1:SDIM)',avg_spatial_profile);
 filt_data.avg_gauss_mean = fit_params(1)*dx;
 filt_data.avg_gauss_std = fit_params(2)*dx;

@@ -1,14 +1,14 @@
-clear all
+% clear all
 
 addpath('~/James_scripts/bruce/eye_tracking/');
 addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-Expt_name = 'M011';
-monk_name = 'jbe';
-bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 1;
+% Expt_name = 'M011';
+% monk_name = 'jbe';
+% bar_ori = 160; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
 use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
@@ -43,7 +43,7 @@ mod_data_name = 'full_eyetrack_initmods_FIN2';
 anal_name = 'full_eyetrack_FIN2';
 
 %%
-recompute_init_mods = 1; %use existing initial models?
+recompute_init_mods = 0; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init,
 use_sac_kerns = 1; %use sac-modulation kernels
 model_pop_avg = 1; %include an explicit model of population avg (and use it as a predictor in unit models)

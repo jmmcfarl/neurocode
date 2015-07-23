@@ -639,11 +639,6 @@ for cc = targs
         use_mod_no_block = use_mod;
         use_mod_no_block.spk_NL_params(1) = use_mod_no_block.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks)); %add the average output of the block-filter to the spkNL offset
         use_mod_no_block.mods(1) = []; %eliminate block filter
-               
-        stim_filters = [use_mod_no_block.mods(:).filtK];
-        stim_mod_signs = [use_mod_no_block.mods(:).sign];
-        filt_data = get_filter_properties_v2(stim_filters,mod_stim_params(1),mod_dx);
-        tune_props.filt_data = filt_data;
         
         [~,~,best_pred_rate,~,~,filt_outs] = NMMeval_model(use_mod_no_block,cur_Robs,Xmat,[],cur_full_inds);
         tempX = Xmat; tempX{1} = -tempX{1};
@@ -652,11 +647,18 @@ for cc = targs
         tune_props.PRM = mean(abs(best_pred_rate - rev_pred_rate))/mean(best_pred_rate); %mean absolute deviation caused by phase-reversal divided by mean rate
         tune_props.PRI = std(best_pred_rate - rev_pred_rate)/std(best_pred_rate); %SD of phase-reversal modulation divided by total rate SD
         
+        %get filters and filter signs
+         stim_filters = [use_mod_no_block.mods(:).filtK];
+        stim_mod_signs = [use_mod_no_block.mods(:).sign];
+
+        filt_out_weights = std(filt_outs);
+        filt_data = get_filter_properties_v2(stim_filters,mod_stim_params(1),mod_dx,filt_out_weights,stim_mod_signs);
+        tune_props.filt_data = filt_data;
+        
         %only use E/lin filters for these calculations
         non_supp_filts = find(stim_mod_signs ~= -1);
-        filt_out_weights = std(filt_outs);
         filt_out_weights = filt_out_weights(non_supp_filts)/nansum(filt_out_weights(non_supp_filts));
-        
+
         tune_props.avgRF_mean = filt_data.avg_gauss_mean - use_nPix_us*sp_dx/2 -sp_dx;
         tune_props.avgRF_sigma = filt_data.avg_gauss_std;
         tune_props.RF_mean = nansum(filt_out_weights(non_supp_filts).*filt_data.gest(non_supp_filts,1)') - use_nPix_us*sp_dx/2 -sp_dx;
@@ -673,21 +675,26 @@ for cc = targs
             tune_props.net_phase_polarity = (avg_rect_filts(1) - avg_rect_filts(end))/absavg_rect_filts;
         end
         
-        screen_X =  -tune_props.RF_mean'.*sind(bar_ori) + ov_RF_pos(1);
+        screen_X =  -tune_props.RF_mean'.*sind(bar_ori) + ov_RF_pos(1); %based on weighted avg of individual filter gabor fits
         screen_Y =  tune_props.RF_mean'.*cosd(bar_ori) + ov_RF_pos(2);
-        if strcmp(rec_type,'UA')
-            if bar_ori == 0
-                screen_X = interp_x(unit_data.probe_number);
-            elseif bar_ori == 90
-                screen_Y = interp_y(unit_data.probe_number);
-            else
-                error('Code doesnt work with this condition!');
-            end
-        end
+        screen_X_avg =  -tune_props.avgRF_mean'.*sind(bar_ori) + ov_RF_pos(1); %based on gaussian fit to weighted avg filter
+        screen_Y_avg =  tune_props.avgRF_mean'.*cosd(bar_ori) + ov_RF_pos(2);
+%         if strcmp(rec_type,'UA')
+%             if bar_ori == 0
+%                 screen_X = interp_x(unit_data.probe_number);
+%             elseif bar_ori == 90
+%                 screen_Y = interp_y(unit_data.probe_number);
+%             else
+%                 error('Code doesnt work with this condition!');
+%             end
+%         end
         
         tune_props.screen_X = screen_X;
         tune_props.screen_Y = screen_Y;
+        tune_props.screen_X_avg = screen_X_avg;
+        tune_props.screen_Y_avg = screen_Y_avg;
         tune_props.RF_ecc = sqrt(screen_X.^2 + screen_Y.^2);
+        tune_props.RF_ecc_avg = sqrt(screen_X_avg.^2 + screen_Y_avg.^2);
         tune_props.filt_out_weights = filt_out_weights;
         ModData(cc).tune_props = tune_props;
     end

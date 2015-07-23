@@ -189,8 +189,10 @@ SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(SU_uset,1));
 SU_avgRates = [all_cell_data(SU_uset,1).ov_avg_BS]'/direct_bin_dts(1); %compute avg rate using first time bin res
 SU_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_cell_data(SU_uset,1));
 
-RF_ecc = arrayfun(@(x) x.tune_props.RF_ecc,all_cell_data(SU_uset,1));
-RF_width = 2*arrayfun(@(x) x.tune_props.RF_sigma,all_cell_data(SU_uset,1));
+RF_ecc = arrayfun(@(x) x.tune_props.RF_ecc,all_cell_data(SU_uset,1)); %based on gabor-fit RF mean s
+RF_ecc_avg = arrayfun(@(x) x.tune_props.RF_ecc_avg,all_cell_data(SU_uset,1)); %based on gaussian fit to avg filter
+RF_width = 2*arrayfun(@(x) x.tune_props.RF_sigma,all_cell_data(SU_uset,1)); %based on gabor-fit RF mean s
+RF_avg_width = 2*arrayfun(@(x) x.tune_props.avgRF_sigma,all_cell_data(SU_uset,1)); %based on gaussian fit to avg filter
 RF_FSF = arrayfun(@(x) x.tune_props.RF_FSF,all_cell_data(SU_uset,1));
 RF_gSF = arrayfun(@(x) x.tune_props.RF_gSF,all_cell_data(SU_uset,1));
 RF_PRM = arrayfun(@(x) x.tune_props.PRM,all_cell_data(SU_uset,1));
@@ -334,51 +336,50 @@ ex_set = find(ismember(SU_uset,ex_unit_ids));
 
 f1 = figure()
 subplot(2,2,1); hold on
-plot(RF_ecc,SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize)
-[a,b] = corr(RF_ecc,SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','spearman');
+plot(RF_ecc_avg,SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize)
+[a,b] = corr(RF_ecc_avg,SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','spearman');
 if ~isempty(ex_set)
-   plot(RF_ecc(ex_set(1)),SU_ball_alphas(ex_set(1),direct_dt_ind,ball_ind),'ro');
-   plot(RF_ecc(ex_set(2)),SU_ball_alphas(ex_set(2),direct_dt_ind,ball_ind),'ko');
+   plot(RF_ecc_avg(ex_set(1)),SU_ball_alphas(ex_set(1),direct_dt_ind,ball_ind),'ro');
+   plot(RF_ecc_avg(ex_set(2)),SU_ball_alphas(ex_set(2),direct_dt_ind,ball_ind),'ko');
 end
 xlim([0 7]); ylim([0 1]);
 title(sprintf('ECC corr; %.3f, p %.2g',a,b));
 xlabel('Eccentricity (deg)');
 ylabel('Alpha');
-r = robustfit(RF_ecc,SU_ball_alphas(:,direct_dt_ind,ball_ind));
+r = robustfit(RF_ecc_avg,SU_ball_alphas(:,direct_dt_ind,ball_ind));
 xr = xlim(); xx = linspace(xr(1),xr(2),100);
 hold on
 plot(xx,r(1) + r(2)*xx,'r');
 
 subplot(2,2,2); hold on
-plot(log10(RF_width),SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize)
-xlim(log10([0.075 2])); ylim([0 1]);
-[a,b] = corr(log10(RF_width),SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','spearman');
+plot(log10(RF_avg_width),SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize)
+xlim(log10([0.045 1.2])); ylim([0 1]);
+[a,b] = corr(log10(RF_avg_width),SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','spearman');
 if ~isempty(ex_set)
-   plot(log10(RF_width(ex_set(1))),SU_ball_alphas(ex_set(1),direct_dt_ind,ball_ind),'ro');
-   plot(log10(RF_width(ex_set(2))),SU_ball_alphas(ex_set(2),direct_dt_ind,ball_ind),'ko');
+   plot(log10(RF_avg_width(ex_set(1))),SU_ball_alphas(ex_set(1),direct_dt_ind,ball_ind),'ro');
+   plot(log10(RF_avg_width(ex_set(2))),SU_ball_alphas(ex_set(2),direct_dt_ind,ball_ind),'ko');
 end
 title(sprintf('Width corr; %.3f, p %.2g',a,b));
 xlabel('RF width (deg)'); 
 ylabel('Alpha');
-r = robustfit(log10(RF_width),SU_ball_alphas(:,direct_dt_ind,ball_ind));
+r = robustfit(log10(RF_avg_width),SU_ball_alphas(:,direct_dt_ind,ball_ind));
 xr = xlim(); xx = linspace(xr(1),xr(2),100);
 hold on
 plot(xx,r(1) + r(2)*xx,'r');
 set(gca,'xtick',[-1 0]); set(gca,'xticklabel',10.^get(gca,'xtick'));
 
 subplot(2,2,3); hold on
-plot(RF_ecc,log10(RF_width),'.','markersize',mSize);
+plot(RF_ecc_avg,log10(RF_avg_width),'.','markersize',mSize);
 xlabel('RF ecc (deg)');
 ylabel('RF width (deg)');
-% set(gca,'yscale','log');
-ylim(log10([0.075 2]))
-[a,b] = corr(RF_ecc,log10(RF_width),'type','spearman');
+ylim(log10([0.045 1.2]))
+[a,b] = corr(RF_ecc_avg,log10(RF_avg_width),'type','spearman');
 if ~isempty(ex_set)
-   plot(RF_ecc(ex_set(1)),log10(RF_width(ex_set(1))),'ro');
-   plot(RF_ecc(ex_set(2)),log10(RF_width(ex_set(2))),'ko');
+   plot(RF_ecc_avg(ex_set(1)),log10(RF_avg_width(ex_set(1))),'ro');
+   plot(RF_ecc_avg(ex_set(2)),log10(RF_avg_width(ex_set(2))),'ko');
 end
 title(sprintf('Width-ecc corr; %.3f, p %.2g',a,b));
-r = robustfit(RF_ecc,log10(RF_width));
+r = robustfit(RF_ecc_avg,log10(RF_avg_width));
 xr = xlim(); xx = linspace(xr(1),xr(2),100);
 hold on
 plot(xx,r(1) + r(2)*xx,'r');
@@ -386,7 +387,6 @@ set(gca,'ytick',[-1 0]); set(gca,'yticklabel',10.^get(gca,'ytick'));
 
 subplot(2,2,4); hold on
 plot(RF_PRI,SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize)
-% plot(RF_PRM(uset),all_ball_alphas(uset,1),'.','markersize',mSize)
 [a,b] = corr(RF_PRI,SU_ball_alphas(:,direct_dt_ind,ball_ind),'type','spearman');
 title(sprintf('PRM corr; %.3f, p %.2g',a,b));
 xlabel('PRM');
@@ -413,6 +413,8 @@ close all
 
 psth_FFs = arrayfun(@(x) x.psth_FF,all_cell_data(SU_uset,direct_used_dts));
 ball_FFs = arrayfun(@(x) x.ball_FF(ball_ind),all_cell_data(SU_uset,direct_used_dts));
+
+FF_effect_size = psth_FFs./ball_FFs(:,direct_dt_ind);
 
 f1 = figure();
 plot(psth_FFs(:,direct_dt_ind),ball_FFs(:,direct_dt_ind),'.','markersize',mSize)
@@ -560,6 +562,7 @@ xlim(sd_range);
 
 %% noise correlation analysis
 close all
+dt = direct_bin_dts(direct_dt_ind);
 tlags = all_cell_data(SU_uset(1),direct_dt_ind).tlags;
 cent_lag = find(tlags == 0);
 sum_lags = find(abs(tlags*dt) <= 0.02);
@@ -571,8 +574,8 @@ pair_RF_widths = nan(length(upairs),2);
 pair_SU_chs = nan(length(upairs),2);
 for ii = 1:length(upairs)
     curset = find(ismember(SU_CID,all_pair_data(upairs(ii),1).cell_IDs));
-    pair_RF_eccs(ii,:) = RF_ecc(curset);
-    pair_RF_widths(ii,:) = RF_width(curset);
+    pair_RF_eccs(ii,:) = RF_ecc_avg(curset);
+    pair_RF_widths(ii,:) = RF_avg_width(curset);
     pair_SU_chs(ii,1) = all_cell_data(SU_uset(curset(1)),1).unit_data.probe_number;
     pair_SU_chs(ii,2) = all_cell_data(SU_uset(curset(2)),1).unit_data.probe_number;
 end
@@ -637,6 +640,8 @@ for ii = 1:length(cur_upairs)
 end
 geom_mean_width = sqrt(prod(pair_RF_widths,2));
 geom_mean_width = geom_mean_width(ismember(upairs,cur_upairs));
+arith_mean_width = mean(pair_RF_widths,2);
+arith_mean_width = arith_mean_width(ismember(upairs,cur_upairs));
 
 [EP_sig_noise_corr,EP_p] = corr(EP_noisecorrs_cent,EP_xcorrs_cent,'type','spearman');
 [PSTH_sig_noise_corr,PSTH_p] = corr(psth_noisecorrs_cent,psth_xcorrs_cent,'type','spearman');
@@ -893,10 +898,11 @@ end
 
 %% plot example model fits 
 close all
-f1 = figure(); 
-f2 = figure();
-f3 = figure();
-% for ii = 1:length(SU_uset)
+% f1 = figure(); 
+% f2 = figure();
+% % f3 = figure();
+% for ii = 12:length(SU_uset)
+%     SU_exptNumber(ii)
 %     figure(f1); clf
 %     hold on
 %     plot(Mod_alphas(:,mod_dt_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind),'.','markersize',mSize);
@@ -913,9 +919,10 @@ f3 = figure();
 %     figure(f2);clf
 %     plot_NMM_filters_1d(all_cell_data(SU_uset(ii),1).bestGQM,pix_ax,tax,[],f2);
 %     
-%     [ii RF_width(ii) RF_PRI(ii) RF_ecc(ii)]
+%     [ii RF_avg_width(ii) RF_PRI(ii) RF_ecc_avg(ii)]
 %     pause
 % end  
+
 ex_unit_ids = [20 23]; %set of units for examples
 xr1 = [-0.5 0.5]; %range of pixel axis
 xr2 = [-0.25 0.25]; %range of pixel axis
@@ -935,7 +942,7 @@ ylabel('Direct alpha');
 %plot model fit for example neuron 1
 npix = all_cell_data(ex_unit_ids(1),1).modFitParams.use_nPix_us;
 flen = all_cell_data(ex_unit_ids(1),1).modFitParams.flen;
-filt_mean = all_cell_data(ex_unit_ids(1),1).tune_props.RF_mean;
+filt_mean = all_cell_data(ex_unit_ids(1),1).tune_props.avgRF_mean;
 pix_dx = all_cell_data(ex_unit_ids(1),1).modFitParams.sp_dx;
 pix_ax = (1:npix)*pix_dx; pix_ax = pix_ax - mean(pix_ax) - filt_mean;
 dt = all_cell_data(ex_unit_ids(1),1).modFitParams.dt;
@@ -945,7 +952,7 @@ f2_props = plot_NMM_filters_1d(all_cell_data(ex_unit_ids(1),1).bestGQM,pix_ax,ta
 
 %plot model fit for example neuron 2
 npix = all_cell_data(ex_unit_ids(2),1).modFitParams.use_nPix_us;
-filt_mean = all_cell_data(ex_unit_ids(2),1).tune_props.RF_mean;
+filt_mean = all_cell_data(ex_unit_ids(2),1).tune_props.avgRF_mean;
 pix_dx = all_cell_data(ex_unit_ids(2),1).modFitParams.sp_dx;
 pix_ax = (1:npix)*pix_dx; pix_ax = pix_ax - mean(pix_ax) - filt_mean;
 flen = all_cell_data(ex_unit_ids(2),1).modFitParams.flen;
@@ -956,8 +963,8 @@ figure(f3);clf
 f3_props = plot_NMM_filters_1d(all_cell_data(ex_unit_ids(2),1).bestGQM,pix_ax,tax,[],f3,xr2,tr);
 
 %print out some properties of the stim tuning for these neurons
-[RF_width(ex_set(1)) RF_PRI(ex_set(1)) RF_ecc(ex_set(1))]
-[RF_width(ex_set(2)) RF_PRI(ex_set(2)) RF_ecc(ex_set(2))]
+[RF_avg_width(ex_set(1)) RF_PRI(ex_set(1)) RF_ecc_avg(ex_set(1))]
+[RF_avg_width(ex_set(2)) RF_PRI(ex_set(2)) RF_ecc_avg(ex_set(2))]
 
 
 % fig_width = 4; rel_height = 1;

@@ -1049,13 +1049,14 @@ for bbb = 1:length(poss_bin_dts)
                 
                 %compute <YY> for an epsilon-ball surrounding deltaX=0
                 eps_ball_var = nan(length(poss_eps_sizes),1);
+                eps_ball_var_noLOO = nan(length(poss_eps_sizes),1);
                 for bb = 1:length(poss_eps_sizes)
+                    curset = find(all_base_D < poss_eps_sizes(bb));
+                    eps_ball_var_noLOO(bb) = mean(all_X(curset));
                     if ~isempty(loo_ind)
                         curset = find(all_LOO_D < poss_eps_sizes(bb));
-                    else
-                        curset = find(all_base_D < poss_eps_sizes(bb));
+                        eps_ball_var(bb) = mean(all_X(curset));
                     end
-                    eps_ball_var(bb) = mean(all_X(curset));
                 end
                 
                 %fit cubic spline using LOO deltaX
@@ -1073,6 +1074,7 @@ for bbb = 1:length(poss_bin_dts)
                 end
                 EP_data(cc,bbb).spline_baseEP = base_sp;
                 EP_data(cc,bbb).eps_ball_var = eps_ball_var;
+                EP_data(cc,bbb).eps_ball_var_noLOO = eps_ball_var_noLOO;
                 EP_data(cc,bbb).var_ep_binned = var_ep_binned;
                 EP_data(cc,bbb).pair_psth_var = mean(all_X); %estimate of PSTH variance as <Y_i*Y_j> independent of deltaX
                 EP_data(cc,bbb).EP_bin_centers = EP_bin_centers;
