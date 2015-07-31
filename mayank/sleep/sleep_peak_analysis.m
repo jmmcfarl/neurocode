@@ -3,8 +3,8 @@ close all
 cd ~/Analysis/Mayank/sleep/
 load sleep_dirs
 % load sleep_dirs_old
-fig_dir = '/Users/james/Analysis/Mayank/sleep/sleep_figs2/';
 
+fig_dir = '/Users/james/Analysis/Mayank/sleep/sleep_figs2/';
 addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
 
 %% DEFINE FREQUENCY RANGES
@@ -14,6 +14,11 @@ lf_range = [0 0.25];
 use_range = [2 50];
 dens_smth_sig = 3;
 
+mp_lcf = 0.01; %lcf for hp-filter on nlx mp signal
+lfp_lcf = 0.2; %lcf for hp-filter on LFP signals
+
+mua_smooth_sigma = 0.025; %smoothing sigma applied to MUA
+
 to_print = true;
 
 %for normalized LFP power
@@ -22,10 +27,6 @@ lfp_uds_thresh = -0.5;
 % lfp_lf_max = 0.5;
 lfp_lf_max = 2;
 
-%for non-normalized LFP power
-% lfp_uds_thresh = -8.1;
-% lfp_lf_max = -6;
-
 %%
 for dd = 29:length(data);
     
@@ -33,8 +34,7 @@ for dd = 29:length(data);
     cd(data(dd).dir)
     load('procData.mat','mp_*','ipsi_*','heka*','csc_time');
     
-    has_ipsi = true;
-    
+    has_ipsi = true; %initialize
     %range of channels that might be used as our cortical LFP
     if length(data(dd).ipsiLFPs) == 8
         poss_ctx_chs = 1:4;
@@ -47,11 +47,9 @@ for dd = 29:length(data);
     end
     
     %%
-    if has_ipsi
-        % ipsi_csc = contra_csc;
+    if has_ipsi %if there are any ipsilateral LFPs
         
-        %%
-        
+        %% get sample freqs and determine additional dsf's
         csc_Fs = 1/nanmedian(diff(csc_time));
         mp_Fs = 1/nanmedian(diff(mp_t));
         
@@ -67,7 +65,7 @@ for dd = 29:length(data);
         
         %%
         mp_Fsd = mp_Fs/mp_dsf;
-        [b,a] = butter(2,[0.01]/(mp_Fsd/2),'high');
+        [b,a] = butter(2,mp_lcf/(mp_Fsd/2),'high');
         mp_d = decimate(mp_d,mp_dsf);
         mp_d = (filtfilt(b,a,mp_d)); %filter out very slow drift in MP signal
         mp_t = downsample(mp_t,mp_dsf);
@@ -76,7 +74,7 @@ for dd = 29:length(data);
             heka_Fs = 1/nanmedian(diff(heka_time));
             heka_data = decimate(heka_data,heka_dsf);
             heka_Fsd = heka_Fs/heka_dsf;
-            [b,a] = butter(2,0.05/(heka_Fsd/2),'high');
+            [b,a] = butter(2,mp_lcf/(heka_Fsd/2),'high');
             heka_data = filtfilt(b,a,heka_data);
             heka_time = downsample(heka_time,heka_dsf);
         end
@@ -89,13 +87,14 @@ for dd = 29:length(data);
         heka_time = heka_time(use_heka_inds); heka_data = heka_data(use_heka_inds);
         
         %%
+        %find usable LFP times
         csc_time = downsample(csc_time,csc_dsf);
         csc_inds = find(csc_time >= data(dd).good_bounds(1) & csc_time <= data(dd).good_bounds(2));
         csc_time = csc_time(csc_inds);
         
         %filter LFPs
         csc_Fsd = csc_Fs/csc_dsf;
-        [bb,aa] = butter(4,0.2/(csc_Fsd/2),'high');
+        [bb,aa] = butter(2,lfp_lcf/(csc_Fsd/2),'high');
         for ii = 1:length(ipsi_csc)
             ipsi_csc{ii} = decimate(ipsi_csc{ii},csc_dsf);
             ipsi_csc{ii} = ipsi_csc{ii}(csc_inds);
@@ -104,8 +103,8 @@ for dd = 29:length(data);
             ipsi_csc_hp{ii} = ipsi_csc_hp{ii}/robust_std_dev(ipsi_csc_hp{ii});
         end
         
-        %MUA rates
-        mua_sm_sig = round(0.025*csc_Fsd);
+        %% process MUA rates
+        mua_sm_sig = round(mua_smooth_sigma*csc_Fsd);
         ipsi_binned_spks = nan(length(csc_time),length(ipsi_mua_times));
         ipsi_sm_rate = nan(length(csc_time),length(ipsi_mua_times));
         for ii = 1:length(ipsi_mua_times)
@@ -124,14 +123,15 @@ for dd = 29:length(data);
             mp_interp = interp1(heka_time(uu),heka_data(uu),csc_time);
         end
         
+        %handle any interpolation boundary issues
         bad_mp_inds = find(isnan(mp_interp));
         mp_interp(bad_mp_inds) = 0;
         
         %% compute LFP and MP spectrograms
         params.Fs = csc_Fsd;
         params.tapers = [2 3];
-        params.fpass = [0 40];
-        movingwin = [20 1];
+        params.fpass = [0 80];
+        movingwin = [10 1];
         clear C
         
         if sum(isnan(mp_interp)) > 0.01*length(mp_interp)
@@ -177,6 +177,7 @@ for dd = 29:length(data);
         lfp_uds_pow = nan(length(use_cscs),length(t));
         lfp_hf_pow = nan(length(use_cscs),length(t));
         lfp_lf_pow = nan(length(use_cscs),length(t));
+        lfp_tot_pow = nan(length(use_cscs),length(t));
         for cc = 1:length(use_cscs)
             %    lfp_uds_pow(cc,:) = trapz(f(uds_freqs),log10(S2{cc}(:,uds_freqs)),2);
             %    lfp_hf_pow(cc,:) = trapz(f(hf_freqs),log10(S2{cc}(:,hf_freqs)),2);
@@ -184,6 +185,7 @@ for dd = 29:length(data);
             lfp_uds_pow(cc,:) = log10(trapz(f(uds_freqs),(S_lfp{cc}(:,uds_freqs)),2));
             lfp_hf_pow(cc,:) = log10(trapz(f(hf_freqs),(S_lfp{cc}(:,hf_freqs)),2));
             lfp_lf_pow(cc,:) = log10(trapz(f(lf_freqs),(S_lfp{cc}(:,lf_freqs)),2));
+            lfp_tot_pow(cc,:) = log10(trapz(f(use_freqs),S_lfp{cc}(:,use_freqs),2));
         end
         
         %         lfp_uds_pow = interp1(t,lfp_uds_pow',mp_t)';
