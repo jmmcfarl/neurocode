@@ -1,4 +1,6 @@
 function [saccades,is_blink] = merge_blinks(saccades,is_blink)
+%[saccades,is_blink] = merge_blinks(saccades,is_blink)
+% merge detected blinks/saccades to handle cases where blinks get split into multiple events
 
 min_ibi = 0.05; %minimum inter-blink interval
 sac_start_times = [saccades(:).start_time];

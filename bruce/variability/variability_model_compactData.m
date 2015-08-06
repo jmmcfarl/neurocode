@@ -322,8 +322,8 @@ end
 targs(targs > length(ModData)) = [];
 
 %% MARK INDICES DURING BLINKS AND SACCADES
-sac_buff = round(0.06/dt);
-sac_delay = round(0.04/dt);
+sac_buff = round(0.05/dt);
+sac_delay = round(0.03/dt);
 blink_buff = round(0.1/dt);
 
 in_sac_inds = zeros(NT,1);
@@ -381,35 +381,34 @@ end
 all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_full);
 all_Xmat_shift = all_Xmat_shift(used_inds(full_uinds),use_kInds_up);
 
-
 for cc = targs
     fprintf('Refitting spk NLs for model %d/%d\n',cc,max(targs));
     cur_Robs = Robs_mat(full_uinds,cc);
     uinds = find(~isnan(cur_Robs));
     if ~isempty(ModData(cc).bestGQM)
         cur_mod = ModData(cc).bestGQM;
-        cur_mod.mods(1) = []; %eliminate block filter
-        cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs,all_Xmat_shift,[],uinds); %refit spk NL
+%         cur_mod.mods(1) = []; %eliminate block filter
+%         cur_mod = NMMfit_logexp_spkNL(cur_mod,cur_Robs,all_Xmat_shift,[],uinds); %refit spk NL
         
-%         %absorb block-by-block offsets into overall spkNL offset param
-%         cur_block_filt = cur_mod.mods(1).filtK;
-%         cur_used_blocks = ModData(cc).unit_data.used_blocks;
-%         poss_used_blocks = ModData(cc).unit_data.poss_used_blocks;
-%         cur_used_blocks = find(ismember(cur_used_blocks,poss_used_blocks));
-%         cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks));
-%         cur_mod.mods(1) = [];
+        %absorb block-by-block offsets into overall spkNL offset param
+        cur_block_filt = cur_mod.mods(1).filtK;
+        cur_used_blocks = ModData(cc).unit_data.used_blocks;
+        poss_used_blocks = ModData(cc).unit_data.poss_used_blocks;
+        cur_used_blocks = find(ismember(cur_used_blocks,poss_used_blocks));
+        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks));
+        cur_mod.mods(1) = [];
         GQM_mod{cc} = cur_mod;
         
         if use_sacMods
-        %refit spk NL for saccade model
-        [~,~,~,~,~,fgint] = NMMmodel_eval(cur_mod,[],all_Xmat_shift);
-        stimG = sum(fgint,2);
-        tr_stim{1} = stimG;
-        tr_stim{2} = Xmsac; %saccade timing indicator matrix
-        tr_stim{3} = reshape(bsxfun(@times,Xmsac,reshape(stimG,[],1)), size(stimG,1),[]);
-        cur_sac_mod = sacMod(cc).msac_post_mod;
-        cur_sac_mod = NMMfit_logexp_spkNL(cur_sac_mod,cur_Robs,tr_stim,[],uinds);
-        sac_mod{cc} = cur_sac_mod;
+            %refit spk NL for saccade model
+            [~,~,~,~,~,fgint] = NMMmodel_eval(cur_mod,[],all_Xmat_shift);
+            stimG = sum(fgint,2);
+            tr_stim{1} = stimG;
+            tr_stim{2} = Xmsac; %saccade timing indicator matrix
+            tr_stim{3} = reshape(bsxfun(@times,Xmsac,reshape(stimG,[],1)), size(stimG,1),[]);
+            cur_sac_mod = sacMod(cc).msac_post_mod;
+            cur_sac_mod = NMMfit_logexp_spkNL(cur_sac_mod,cur_Robs,tr_stim,[],uinds);
+            sac_mod{cc} = cur_sac_mod;
         end
     else
         GQM_mod{cc} = [];
@@ -426,7 +425,7 @@ max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying 
 max_tlag = 0; %max time lag for computing autocorrs
 tlags = [-max_tlag:max_tlag];
 
-poss_ubins = [1 2 5 10 20 50 100];
+poss_ubins = [1 2 5 10 20 50 100]; %possible dt bin sizes (in multiples of base dt)
 
 ep_rates = nan(length(full_uinds),length(targs));
 ep_rates2 = nan(length(full_uinds),length(targs));

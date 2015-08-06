@@ -11,6 +11,7 @@ monk_name = 'jbe';
 bar_ori = 160; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
+%if recording was split into two segments at some ori
 if strcmp(Expt_name,'M011')
     rec_block_range =1:21; %M011
 elseif strcmp(Expt_name,'M012')
@@ -18,8 +19,6 @@ elseif strcmp(Expt_name,'M012')
 else
     rec_block_range = nan;
 end
-
-% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60 11-160 12-0 13-100 14-40 320-100]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -41,13 +40,26 @@ elseif strcmp(Expts{firste}.Header.DataType,'Spike2')
     rec_type = 'LP';
 end
 
-%%
+%% set params
 params.micro_thresh = 1; %max amp of microsac (deg)
 params.EP_bounds = 1;%eye position boundary (deg from central FP)
 params.sac_burst_isi = 0.15; %inter-saccade interval for classifying microsaccade bursts
 params.max_gsac_dur = 0.1; %maximum duration before we label a saccade a blink
 
+params.min_trial_dur = 0.75; %in sec
+params.stim_fs = 100; %in Hz
+params.dt = 0.01; %time resolution (s)
+params.Fr = 1; %number of repeats per bar pattern (frame rate of stim)
+
+params.full_nPix=36; %default total number of bars per frame to store
+
+%exclude data at beginning and end of each trial (in sec)
+params.beg_buffer = 0.2;
+params.end_buffer = 0.05;
+params.trial_dur = 4;
+
 %%
+% [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 010-60 11-160 12-0 13-100 14-40 320-100]
 
 %directory of bar orientations used for LP recs
 if strcmp(rec_type,'LP')
@@ -76,7 +88,6 @@ if strcmp(rec_type,'LP')
             end            
         case 309
             bar_ori = 120;
-            
         case 5
             bar_ori = 50;
         case 9
@@ -103,11 +114,7 @@ elseif strcmp(rec_type,'UA')
 end
 if strcmp(monk_name,'jbe')
     params.good_coils = [1 0];
-%     if strcmp(rec_type,'UA')
         params.use_coils = [0 0];
-%     elseif strcmp(rec_type,'LP')
-%         params.use_coils = [1 0];
-%     end
 elseif strcmp(monk_name,'lem');
     params.good_coils = [1 1];
     params.use_coils = [1 1];
@@ -121,6 +128,7 @@ if ~exist(anal_dir,'dir')
     mkdir(anal_dir)
 end
 
+%set directory names
 et_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
 cluster_dir = ['~/Analysis/bruce/' Expt_name '/clustering'];
 mod_data_dir = ['~/Analysis/bruce/' Expt_name '/models'];
@@ -157,19 +165,13 @@ else
     params.scale_fac = 1;
 end
 
+%some experiments have different conditions trial-interleaved
 params.is_TBT_expt = false;
 if Expt_num >= 275
     params.is_TBT_expt = true;
 end
 
-%%
-params.min_trial_dur = 0.75; %in sec
-
-params.stim_fs = 100; %in Hz
-params.dt = 0.01;
-params.Fr = 1;
-
-params.full_nPix=36;
+%if using a different # bar pixs in this expt
 switch Expt_num
     case 270
         params.full_nPix=32;
@@ -182,11 +184,6 @@ switch Expt_num
         %     case 296
         %         full_nPix = 54;
 end
-
-%exclude data at beginning and end of each trial
-params.beg_buffer = 0.2;
-params.end_buffer = 0.05;
-params.trial_dur = 4;
 
 %% SELECT BLOCKS FOR ANALYSIS
 include_expts = {'rls.Fa', 'rls.FaXimi','rls.FaXFaXFs','rls.AllSac','rls.imiXFa','rls.FaXwi','rls.FaXwiXimi','rls.AllSacB','rls.froNoise'};
@@ -201,12 +198,12 @@ included_type = false(1,length(Expts));
 for ii = 1:length(Expts)
     if ~isempty(Expts{ii})
         expt_names{ii} = Expts{ii}.Header.expname;
-        expt_dds(ii) = Expts{ii}.Stimvals.dd;
-        expt_bar_ori(ii) = Expts{ii}.Stimvals.or;
-        expt_sac_dir(ii) = mod(Expts{ii}.Stimvals.Fa,180);
-        expt_Fr(ii) = Expts{ii}.Stimvals.Fr;
-        expt_sac_amp(ii) = Expts{ii}.Stimvals.Fs;
-        expt_imback(ii) = isfield(Expts{ii}.Trials,'imi');
+        expt_dds(ii) = Expts{ii}.Stimvals.dd; %bar density
+        expt_bar_ori(ii) = Expts{ii}.Stimvals.or; %bar ori
+        expt_sac_dir(ii) = mod(Expts{ii}.Stimvals.Fa,180); %guided saccade dir
+        expt_Fr(ii) = Expts{ii}.Stimvals.Fr; %bar frame rate
+        expt_sac_amp(ii) = Expts{ii}.Stimvals.Fs; %saccade amplitude
+        expt_imback(ii) = isfield(Expts{ii}.Trials,'imi'); %background type
         included_type(ii) = any(strcmp(expt_names{ii},include_expts));
     end
 end
@@ -241,7 +238,8 @@ if length(unique(all_nfs)) > 1
     fprintf('Warning, multiple different nfs detected: %.4f\n',all_nfs);
 end
 
-if ~isempty(grayback_gs_expts) || ~isempty(imback_gs_expts)
+%set amp of guided saccades if there were any
+if ~isempty(grayback_gs_expts) || ~isempty(imback_gs_expts) 
     params.gsac_amp = unique(expt_sac_amp(cur_block_set([grayback_gs_expts; imback_gs_expts])));
 else
     params.gsac_amp = unique(expt_sac_amp(cur_block_set));
@@ -253,6 +251,7 @@ end
 %analysis
 params.gsac_thresh = mean(params.gsac_amp)/2;
 
+%store expt data
 expt_data.used_blocks = cur_block_set;
 expt_data.expt_names = expt_names(cur_block_set);
 expt_data.sim_sac_expts = sim_sac_expts;
@@ -280,6 +279,7 @@ cd(data_dir);
 fprintf('Computing prep data\n');
 trial_cnt = 0;
 
+%this is a rediculous way of grabbing all this info...
 all_stim_times = [];
 all_stim_mat = [];
 all_t_axis = [];
@@ -317,6 +317,7 @@ for ee = 1:n_blocks;
     end
     cur_block = cur_block_set(ee);
     
+    %get spiking data from this block
     fname = [cluster_dir sprintf('/Block%d_Clusters.mat',cur_block)];
     load(fname,'Clusters');
     for cc = 1:params.n_probes
@@ -325,6 +326,7 @@ for ee = 1:n_blocks;
         all_clust_ids{cc} = cat(1,all_clust_ids{cc},Clusters{cc}.spike_clusts);
     end
     
+    %get trial start and end times
     trial_start_times = [Expts{cur_block}.Trials(:).TrialStart]/1e4;
     trial_end_times = [Expts{cur_block}.Trials(:).TrueEnd]/1e4;
     trial_durs = [Expts{cur_block}.Trials(:).dur]/1e4;
@@ -339,15 +341,18 @@ for ee = 1:n_blocks;
         use_trials = find(trial_durs >= params.min_trial_dur);
     end
     
+    %add in time offset 
     all_trial_start_times = cat(1,all_trial_start_times,trial_start_times(use_trials)' + cur_toffset);
     all_trial_end_times = cat(1,all_trial_end_times,trial_end_times(use_trials)' + cur_toffset);
     all_trial_blocknums = cat(1,all_trial_blocknums,ones(length(use_trials),1)*ee);
     
+    %get seed values for each used trial
     trial_Se = [Expts{cur_block}.Trials(:).se];
     trial_Se = trial_Se(id_inds);
     all_trial_Se = cat(1,all_trial_Se,trial_Se(use_trials)');
     all_trial_blk = cat(1,all_trial_blk,ones(length(use_trials),1)*ee);
     
+    %get stimulus area width
     if isfield(Expts{cur_block}.Trials,'wi')
         trial_wi = [Expts{cur_block}.Trials(:).wi];
         trial_wi = trial_wi(id_inds);
@@ -356,19 +361,21 @@ for ee = 1:n_blocks;
         all_trial_wi = cat(1,all_trial_wi,nan(length(use_trials),1));
     end
     
+    %if trial-interleaved conditions, get the variable trial properties
     if params.is_TBT_expt
         if isfield(Expts{cur_block}.Trials,'Bs')
             trial_back = strcmp('image',{Expts{cur_block}.Trials(:).Bs});
         else
             trial_back = nan(1,length(use_trials));
         end
-        trial_back = trial_back(id_inds);
+        trial_back = trial_back(id_inds); %background type
         
+        %this stores all trial-varying experimental values
         if isfield(Expts{cur_block}.Trials,'exvals')
             exvals = reshape([Expts{cur_block}.Trials(:).exvals],length(Expts{cur_block}.Trials(1).exvals),[]);
             trial_exvals = exvals(:,id_inds)';
         else
-            trial_exvals = nan(length(id_inds),3);
+            trial_exvals = nan(length(id_inds),3); 
         end
         
         if isfield(Expts{cur_block}.Trials,'Ff')
@@ -382,31 +389,32 @@ for ee = 1:n_blocks;
         all_trial_exvals = cat(1,all_trial_exvals,trial_exvals(use_trials,:));
     end
     
-    
+    %load in stimulus data
     fname = sprintf('%s/stims/Expt%d_stim',data_dir,cur_block);
     load(fname);
     buffer_pix = floor((expt_npix(cur_block) - params.full_nPix)/2);
-    if buffer_pix == -1
+    if buffer_pix == -1 %in case there is slightly less pixels than desired by full_nPix, just buffer by a couple zeros
         for ii = 1:length(left_stim_mats)
             left_stim_mats{ii} = [zeros(size(left_stim_mats{ii},1),1) left_stim_mats{ii} zeros(size(left_stim_mats{ii},1),1)];
         end
         buffer_pix = 0;
     end
-    cur_use_pix = (1:params.full_nPix) + buffer_pix;
+    cur_use_pix = (1:params.full_nPix) + buffer_pix; %use central pixels
     
+    %cycle over trials
     n_trials = length(use_trials);
     cur_nrpt_frames = zeros(n_trials,1);
     cur_rpt_frames = cell(n_trials,1);
     for tt = 1:n_trials
-        cur_stim_times = Expts{cur_block}.Trials(use_trials(tt)).Start'/1e4;
+        cur_stim_times = Expts{cur_block}.Trials(use_trials(tt)).Start'/1e4; %stimulus frame onset times
         n_frames = size(left_stim_mats{use_trials(tt)},1);
-        if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes')
+        if isfield(Expts{cur_block}.Trials(use_trials(tt)),'rptframes') %store any frames that got presented more than once
             cur_nrpt_frames(tt) = length(Expts{cur_block}.Trials(use_trials(tt)).rptframes);
             cur_rpt_frames{tt} = Expts{cur_block}.Trials(use_trials(tt)).rptframes;
         end
         if n_frames > 0
-            if length(cur_stim_times) == 1
-                cur_stim_times = (cur_stim_times:params.dt*params.Fr:(cur_stim_times + (n_frames-1)*params.dt*params.Fr))';
+            if length(cur_stim_times) == 1 %if only the first stim time is stored
+                cur_stim_times = (cur_stim_times:params.dt*params.Fr:(cur_stim_times + (n_frames-1)*params.dt*params.Fr))'; %create time axis
                 cur_stim_times(cur_stim_times > trial_end_times(use_trials(tt))) = [];
                 cur_t_edges = [cur_stim_times; cur_stim_times(end) + params.dt*params.Fr];
             end
@@ -416,17 +424,19 @@ for ee = 1:n_blocks;
         %         cur_t_edges_up = cur_t_edges(1):up_dt:cur_t_edges(end);
         %         cur_t_axis_up = 0.5*cur_t_edges_up(1:end-1) + 0.5*cur_t_edges_up(2:end);
         
-        cur_tsince_start = cur_t_axis - trial_start_times(use_trials(tt));
+        cur_tsince_start = cur_t_axis - trial_start_times(use_trials(tt)); %time since trial onset
         
-        if ~any(isnan(left_stim_mats{use_trials(tt)}(:))) && n_frames > params.min_trial_dur/params.dt
-            use_frames = min(length(cur_stim_times),n_frames);
-            cur_stim_mat = double(left_stim_mats{use_trials(tt)}(1:use_frames,cur_use_pix));
+        if ~any(isnan(left_stim_mats{use_trials(tt)}(:))) && n_frames > params.min_trial_dur/params.dt %if using this trial
+            use_frames = min(length(cur_stim_times),n_frames); %number of used frames
+            cur_stim_mat = double(left_stim_mats{use_trials(tt)}(1:use_frames,cur_use_pix)); %stimulus matrix
             
             if ~isempty(all_stim_times)
                 if any(cur_stim_times+cur_toffset < all_stim_times(end))
                     fprintf('Warn trial %d\n',tt);
                 end
             end
+            
+            %cat values
             all_stim_times = [all_stim_times; cur_stim_times + cur_toffset];
             all_t_axis = [all_t_axis; cur_t_axis + cur_toffset];
             all_t_bin_edges = [all_t_bin_edges; cur_t_edges + cur_toffset];
@@ -493,6 +503,7 @@ else
     em_block_nums = cur_block_set;
 end
 
+%get raw ET data for these blocks
 % [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data(all_t_axis,all_blockvec,cur_block_set,Expt_name,trial_toffset);
 [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v3(all_t_axis,all_blockvec,em_block_nums,trial_toffset,params.good_coils);
 interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);
@@ -501,12 +512,13 @@ interp_eye_speed = interp1(all_eye_ts,all_eye_speed,all_t_axis);
 [corrected_eye_vals,corrected_eye_vals_interp]  = get_corrected_ET_data(Expts(cur_block_set),all_eye_vals,all_eye_ts,...
     all_t_axis,all_blockvec,expt_bar_ori(cur_block_set),used_inds);
 
-[saccades,et_params] = detect_saccades_v2(corrected_eye_vals,all_eye_vals,all_eye_speed,all_eye_ts,et_params);
+[saccades,et_params] = detect_saccades_v2(corrected_eye_vals,all_eye_vals,all_eye_speed,all_eye_ts,et_params); %detect saccades
 
-is_blink = detect_blinks(all_eye_ts,all_eye_vals,saccades,et_params);
+is_blink = detect_blinks(all_eye_ts,all_eye_vals,saccades,et_params); %detect blinks
 
-[saccades,is_blink] = merge_blinks(saccades,is_blink);
+[saccades,is_blink] = merge_blinks(saccades,is_blink); %merge nearby blinks
 
+%find saccade start/stop times aligned to expt time axis
 sac_start_times = [saccades(:).start_time];
 sac_stop_times = [saccades(:).stop_time];
 interp_sac_start_inds = round(interp1(all_t_axis,1:length(all_t_axis),sac_start_times));
@@ -566,7 +578,7 @@ for ii = 1:length(trial_data); trial_data(ii).rpt_frames = all_trial_rptframes{i
 
 params.rpt_seeds = unique_seeds(seed_counts > 20);
 
-%% package
+%% package time data
 time_data.t_axis = all_t_axis;
 time_data.tsince_start = all_tsince_start;
 
@@ -585,7 +597,7 @@ spike_data.Clust_data = Clust_data;
 spike_data.clust_params = clust_params;
 spike_data.SU_spk_times = all_su_spk_times;
 
-%%
+%% save packaged data
 data_name = sprintf('%s/packaged_data_ori%d',data_dir,bar_ori);
 if rec_number > 1
     data_name = strcat(data_name,sprintf('_r%d',rec_number));
@@ -594,7 +606,7 @@ end
 save(data_name,'params','trial_data','expt_data','spike_data','stimComp','ET_data','time_data','used_inds');
 
 
-%%
+%% quick check on SUA correlations to check for any missed double-units
 n_sus = size(all_binned_sua,2);
 norm_binned_spikes = nanzscore(all_binned_sua);
 sua_corrmat = squeeze(nanmean(bsxfun(@times,reshape(norm_binned_spikes,[],1,n_sus),norm_binned_spikes)));

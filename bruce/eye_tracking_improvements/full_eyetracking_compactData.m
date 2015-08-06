@@ -5,12 +5,12 @@ addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-% Expt_name = 'M011';
+% Expt_name = 'G088';
 % monk_name = 'jbe';
-% bar_ori = 160; %bar orientation to use (only for UA recs)
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 % rec_number = 1;
 
-use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
+use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -39,14 +39,14 @@ end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
-mod_data_name = 'full_eyetrack_initmods_FIN2';
-anal_name = 'full_eyetrack_FIN2';
+mod_data_name = 'full_eyetrack_initmods_FIN_noextras';
+anal_name = 'full_eyetrack_FIN_noextras';
 
 %%
 recompute_init_mods = 0; %use existing initial models?
 use_measured_pos = 3; %1 for init with coils, 2 for init with trial-sub coils, 3 for random init,
-use_sac_kerns = 1; %use sac-modulation kernels
-model_pop_avg = 1; %include an explicit model of population avg (and use it as a predictor in unit models)
+use_sac_kerns = 0; %use sac-modulation kernels
+model_pop_avg = 0; %include an explicit model of population avg (and use it as a predictor in unit models)
 pop_avg_sigma = 0.05; %gaussian smoothing sigma for pop avg rates
 
 %%
@@ -310,7 +310,8 @@ SU_numbers = Clust_data.SU_numbers;
 NT = length(used_inds);
 fullNT = size(all_binned_mua,1);
 n_trials = length(time_data.trial_flip_ids);
-n_blocks = length(expt_data.used_blocks);
+% n_blocks = length(expt_data.used_blocks);
+n_blocks = length(time_data.block_flip_ids);
 
 all_t_axis = time_data.t_axis;
 trial_start_inds = [1; 1+time_data.trial_flip_inds(2:end)];
@@ -331,6 +332,7 @@ for i = 1:n_blocks
     cur_set = find(all_blockvec==i);
     Xblock(cur_set,i) = 1;
 end
+
 
 %% CREATE SACCADE PREDICTOR MATS
 corrected_eye_vals_interp = ET_data.interp_eye_pos;
@@ -1652,7 +1654,7 @@ for nn = 1:n_drift_inf_it
                 frame_LLs(:,xx) = squeeze(nansum(Robs_mat(:,cur_uset).*log(pred_rate) - pred_rate,2));
             end
             
-            %% INFER MICRO-SAC SEQUENCE
+            %% INFER DRIFT SEQUENCE
             lgamma = nan(NT,n_Dshifts);
             for ff = 1:n_fixs
                 if mod(ff,100)==0

@@ -1,5 +1,18 @@
 function [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v3(all_t_axis,all_blockvec,cur_block_set,trial_toffset,use_coils)
-
+% [all_eye_vals,all_eye_ts,all_eye_speed,et_params] = process_ET_data_v3(all_t_axis,all_blockvec,cur_block_set,trial_toffset,use_coils)
+% computes basic coil data over the specified data ranges
+% INPUTS: 
+%     all_t_axis: time axis desired
+%     all_blockvec: time series of block numbers
+%     cur_block_set: numbers of used blocks
+%     <trial_toffset>: time offset associated with each block
+%     <use_coils>: [2x1 bool for left/right eye coil signals]
+% OUTPUTS: 
+%     all_eye_vals: Tx4 matrix containing [LH LV RH RV]
+%     all_eye_ts: timestamps associated with ET samples
+%     all_eye_speed: vector of instantaneous eye speeds
+%     et_params: param struct
+    
 global monk_name Expt_name rec_type 
 
 if nargin < 5 || isempty(trial_toffset)
@@ -9,11 +22,11 @@ if nargin < 6 || isempty(use_coils)
     use_coils = [1 0];
 end
 
-eye_smooth = 3;
+eye_smooth = 3; %number of samples to do boxcar smoothing of raw position signals
 
 if strcmp(rec_type,'UA')
-emfile = [monk_name Expt_name '.em.mat']; %will eventually need to specify the animal name here...
-load(emfile);
+    emfile = [monk_name Expt_name '.em.mat']; %will eventually need to specify the animal name here...
+    load(emfile);
 end
 
 all_eye_vals = [];
@@ -23,12 +36,15 @@ all_eye_blockvec = [];
 for ee = 1:length(cur_block_set);
     fprintf('Loading ET data for expt %s, block %d of %d\n',Expt_name,ee,length(cur_block_set));
     
+    %load raw ET file
     if strcmp(rec_type,'LP')
         emfile = sprintf('%s%s.%d.em.mat',monk_name,Expt_name,cur_block_set(ee));
         load(emfile);
     end
     
-    cur_set = find(all_blockvec==ee);
+    cur_set = find(all_blockvec==ee); %indices from this block
+    
+    %account for any time offset
     if ee > 1
         cur_toffset = trial_toffset(ee-1);
     else
@@ -53,7 +69,8 @@ for ee = 1:length(cur_block_set);
         %         else
         %            error('Invalid setting for use_coils!');
         %         end
-        %uses smoothed left eye coil signal to define instantaneous speed
+        %uses smoothed left eye coil signal to define instantaneous speed.
+        %Might want to have this avg speeds over usable coils.
         sm_avg_eyepos = lEyeXY;
         sm_avg_eyepos(:,1) = smooth(lEyeXY(:,1),eye_smooth);
         sm_avg_eyepos(:,2) = smooth(lEyeXY(:,2),eye_smooth);

@@ -12,7 +12,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_FIN2';
+sname = 'rpt_variability_compact_FIN4';
 
 % et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 % et_anal_name = 'full_eyetrack_Rinit';
@@ -28,12 +28,12 @@ do_xcorrs = true; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
 compute_sims = false; EP_params.compute_sims = compute_sims; %do simulated calcs for alphas
 compute_PF_rate = false;
 
-poss_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-mod_bin_dts = [0.01 0.05 0.1 0.2 0.5]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
-% poss_bin_dts = [0.01]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-% direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-% mod_bin_dts = []; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+% poss_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+% direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+% mod_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+poss_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+direct_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+mod_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
 
 max_tlag = 10; EP_params.max_tlag = max_tlag; %max time lag for computing xcorrs (units of dt bins)
 
@@ -330,7 +330,7 @@ all_stim_mat = decompressTernNoise(stimComp);
 %find any trials where the stimulus isn't displayed
 temp_rpt_inds = used_inds(ismember(all_trialvec(used_inds),all_rpt_trials));
 test_mat = reshape(all_stim_mat(temp_rpt_inds,:),[],length(all_rpt_trials),size(all_stim_mat,2));
-bad_stim_trials = find(all(all(test_mat == 0),3)); %these trials have all 0 values
+bad_stim_trials = find(all(all(test_mat == 0),3)); %these trials have all 0 values (only once have i seen this, not sure what happened)
 if ~isempty(bad_stim_trials)
     fprintf('Eliminating %d/%d bad stim trials\n',length(bad_stim_trials),length(all_rpt_trials));
     all_rpt_trials(bad_stim_trials) = [];
@@ -416,6 +416,8 @@ end
 used_frame_inds = (params.beg_buffer/params.dt+1):(params.trial_dur - params.end_buffer)/params.dt;
 
 rpt_blanked = false(nf,tot_nrpts);
+N_wrong_start_trials = 0;
+N_rptframe_trials = 0;
 if ~isempty(rptframe_trials)
     post_rpt_buffer = round(0.1/params.dt); %exclude data for this duration following each rpt frame
     
@@ -427,7 +429,7 @@ if ~isempty(rptframe_trials)
             to_blank_inds = false(nf,1);
             to_blank_inds(1:(shift_amount + params.beg_buffer/params.dt)) = true;
             rpt_blanked(to_blank_inds,rptframe_trials(ii)) = true;
-            
+            N_wrong_start_trials = N_wrong_start_trials + 1;
         elseif ~any(cur_rpt_frames == 0)
             new_frame_ids = 1:nf;
             for jj = 1:length(cur_rpt_frames)
@@ -438,7 +440,7 @@ if ~isempty(rptframe_trials)
                 rpt_blanked(cur_rpt_frames(jj):(cur_rpt_frames(jj)+post_rpt_buffer),rptframe_trials(ii)) = true;
                 rpt_blanked((nf-length(cur_rpt_frames)*1):nf,rptframe_trials(ii)) = true;
             end
-            
+            N_rptframe_trials = N_rptframe_trials + 1;
         else
             error('mix of 0 and nonzero rpt frames');
         end
@@ -542,6 +544,7 @@ end
 all_mod_emp_prates = reshape(all_mod_emp_prates,used_nf,tot_nrpts,length(targs)); %convert to tr-x-tr
 all_mod_emp_prates_noEM = reshape(all_mod_emp_prates_noEM,used_nf,tot_nrpts,length(targs)); %convert to tr-x-tr
 
+%if computing model-predicted rates for perfect-fixation case
 if compute_PF_rate
     all_mod_PF_prates = nan(length(used_rpt_inds),length(targs));
     for cc = 1:length(targs)
@@ -596,6 +599,9 @@ end
 
 rpt_EP_SD = robust_std_dev(post_mean_EP_rpt); %SD of EP during repeat trials
 
+rpt_data.tot_nrpts = tot_nrpts;
+rpt_data.N_rptframe_trials = N_rptframe_trials;
+rpt_data.N_wrong_start_trials = N_wrong_start_trials;
 %% loop over possible time windows
 for bbb = 1:length(poss_bin_dts)
     bin_dt = poss_bin_dts(bbb);
@@ -761,17 +767,16 @@ for bbb = 1:length(poss_bin_dts)
     tbt_binned_spikes(:,:,length(targs)+1:end) = [];
     
     %% handle in-blink and in-sac data in the new spike count binning
-    
     spk_in_blink_inds = false(n_Tbins,tot_nrpts);
     spk_in_sac_inds = false(n_Tbins,tot_nrpts);
     if bin_dt < params.dt %if we're binning at a finer time resolution
         %interpolate the indicator vectors onto the finer time axis
         temp_spk_in_blink_inds = round(interp1(all_t_axis(used_inds(used_rpt_inds)),double(in_blink_inds(:)),reshape(tbt_t_axis(used_Tinds,:),[],1)));
         temp_spk_in_blink_inds(isnan(temp_spk_in_blink_inds)) = 0; %dont worry about out-of-bounds values
-        temp_spk_in_blink_inds = logical(temp_spk_in_blink_inds);
+        temp_spk_in_blink_inds = logical(reshape(temp_spk_in_blink_inds,length(used_Tinds),[]));
         temp_spk_in_sac_inds = round(interp1(all_t_axis(used_inds(used_rpt_inds)),double(in_sac_inds(:)),reshape(tbt_t_axis(used_Tinds,:),[],1)));
         temp_spk_in_sac_inds(isnan(temp_spk_in_sac_inds)) = 0;
-        temp_spk_in_sac_inds = logical(temp_spk_in_sac_inds);
+        temp_spk_in_sac_inds = logical(reshape(temp_spk_in_sac_inds,length(used_Tinds),[]));
     else %otherwise these are unchanged
         temp_spk_in_blink_inds = in_blink_inds;
         temp_spk_in_sac_inds = in_sac_inds;
@@ -1115,7 +1120,7 @@ for bbb = 1:length(poss_bin_dts)
                     allY1 = new_BS_ms(:,cur_trial_set,:);
                     allY2 = nan(n_Tbins,length(cur_trial_set),length(targs),length(tlags));
                     for tt = 1:length(tlags)
-                        allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(new_BS_ms(:,cur_trial_set,:)),tlags(tt),1);
+                        allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(new_BS_ms(:,cur_trial_set,:)),tlags(tt),1,'nan'); %shift matrix, using nan padding
                     end
                     
                     %                     cur_D = nan(n_unique_pairs*n_Tbins,1);
@@ -1147,13 +1152,14 @@ for bbb = 1:length(poss_bin_dts)
                         
                         cur_Dmat = cur_Dmat(uset);
                         
+                        %loop over possible epsilon ball sizes
                         for pp = 1:length(poss_eps_sizes)
                             cur_set = find(cur_Dmat < poss_eps_sizes(pp));
                             cur_X_sum(pp,:,:,:) = cur_X_sum(pp,:,:,:) + nansum(cur_Xmat(cur_set,:,:,:));
                             cur_X_cnt(pp,:,:,:) = cur_X_cnt(pp,:,:,:) + sum(~isnan(cur_Xmat(cur_set,:,:,:)));
                         end
                         
-                        %                         calculate a separate deltaX mat for each LOO EP signal
+                        % calculate a separate deltaX mat for each LOO EP signal
                         for ll = 1:length(loo_set)
                             cur_Dmat = abs(squareform(pdist(squeeze(new_loo_EP_emb(tt,cur_trial_set,:,ll)))))/sqrt(emb_win);
                             cur_Dmat(logical(eye(cur_nrpts))) = nan;
@@ -1271,7 +1277,11 @@ for bbb = 1:length(poss_bin_dts)
             new_mod_prates_noEM = squeeze(mean(new_mod_prates_noEM,4))*bin_dsfac; %if any in-bin values are NAN, the whole bin is NAN
             
         elseif bin_dt < params.dt
-            error('Havent incorporated upsampling for model fits');
+%             error('Havent incorporated upsampling for model fits');
+            new_mod_prates = interp1(1:used_nf,all_mod_emp_prates,bin_usfac:bin_usfac:used_nf);
+            new_mod_prates(1:(1/bin_usfac-1),:,:) = new_mod_prates(1/bin_usfac,:,:); %handle the nans that arise from the first upsampled bin centers being out of range
+            new_mod_prates_noEM = interp1(1:used_nf,all_mod_emp_prates_noEM,bin_usfac:bin_usfac:used_nf);
+            new_mod_prates_noEM(1:(1/bin_usfac-1),:,:) = new_mod_prates_noEM(1/bin_usfac,:,:); %handle the nans that arise from the first upsampled bin centers being out of range
         else
             n_Tbins = used_nf;
             new_mod_prates = all_mod_emp_prates;
@@ -1327,7 +1337,7 @@ for bbb = 1:length(poss_bin_dts)
                     %construct shifted rate array
                     allY2 = nan(n_Tbins,length(cur_trial_set),length(targs),length(tlags));
                     for tt = 1:length(tlags)
-                        allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(allY1(:,cur_trial_set,:)),tlags(tt),1);
+                        allY2(:,:,:,tt) = shift_matrix_Nd(squeeze(allY1(:,cur_trial_set,:)),tlags(tt),1,'nan');
                     end
                     
                     %loop over cell pairs
@@ -1512,7 +1522,7 @@ if rec_number > 1
     sname = strcat(sname,sprintf('_r%d',rec_number));
 end
 if do_xcorrs
-    save(sname,'targs','EP_data','EP_pairs','EP_params');
+    save(sname,'targs','EP_data','EP_pairs','EP_params','rpt_data');
 else
-    save(sname,'targs','EP_data','EP_params');
+    save(sname,'targs','EP_data','EP_params','rpt_data');
 end

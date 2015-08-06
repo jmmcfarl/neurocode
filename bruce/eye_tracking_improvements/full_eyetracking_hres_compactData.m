@@ -274,7 +274,8 @@ SU_numbers = Clust_data.SU_numbers;
 NT = length(used_inds);
 fullNT = size(all_binned_mua,1);
 n_trials = length(time_data.trial_flip_ids);
-n_blocks = length(expt_data.used_blocks);
+% n_blocks = length(expt_data.used_blocks);
+n_blocks = length(time_data.block_flip_ids);
 
 all_t_axis = time_data.t_axis;
 trial_start_inds = [1; 1+time_data.trial_flip_inds(2:end)];
