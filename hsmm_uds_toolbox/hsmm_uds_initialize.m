@@ -97,6 +97,9 @@ if strcmp(meantype,'variable')
     end
     ov_meanfuns = [];
     avg_meandiff = nanmean(all_meandiffs);
+    if isnan(avg_meandiff)
+        avg_meandiff = 0.5; %if we cant get an initial estimate of the conditional mean diff, just use this
+    end
     for i = 1:hmm.Nsegs
         no_uppeak = isnan(cur_peaks{i}(:,2));
         no_downpeak = isnan(cur_peaks{i}(:,1));

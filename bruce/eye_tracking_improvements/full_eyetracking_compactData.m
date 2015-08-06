@@ -39,7 +39,7 @@ end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
-mod_data_name = 'full_eyetrack_initmods_FIN_noextras';
+mod_data_name = 'full_eyetrack_initmods_FIN2';
 anal_name = 'full_eyetrack_FIN_noextras';
 
 %%
@@ -719,20 +719,28 @@ else
     load(mod_data_name);
     
     %%
-%     for ss = 1:tot_nUnits
-%         fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
-%         cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
-%         cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
-%         all_inds = union(cur_tr_inds,cur_xv_inds);
-%         
-%         if ~isempty(all_inds)
-%             Robs = Robs_mat(:,ss);
-%             
-%             cur_mod = all_mod_fits(ss);
-%             all_mod_fits(ss) = NMMfit_filters(cur_mod,Robs,X,[],all_inds,silent,[],[],4);
-%             all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
-%         end
-%     end
+    if ~model_pop_avg || ~use_sac_kerns %if refitting without either term
+        for ss = 1:tot_nUnits
+            fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
+            cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss)));
+            cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
+            all_inds = union(cur_tr_inds,cur_xv_inds);
+            
+            if ~isempty(all_inds)
+                Robs = Robs_mat(:,ss);
+                
+                cur_mod = all_mod_fits(ss);
+                if ~model_pop_avg
+                    cur_mod.mods(n_squared_filts + 2).filtK(end) = [];
+                end
+                if ~use_sac_kerns
+                    cur_mods.mods((n_squared_filts + 3):end) = [];
+                end
+                all_mod_fits(ss) = cur_mods;
+                all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
+            end
+        end
+    end
 end
 
 %%

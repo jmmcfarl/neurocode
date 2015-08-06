@@ -1,17 +1,16 @@
 clear all
-close all
+% close all
 cd ~/Analysis/Mayank/sleep/
 load sleep_dirs
-% load sleep_dirs_old
 
 fig_dir = '/Users/james/Analysis/Mayank/sleep/sleep_figs2/';
 addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
 
 %% DEFINE FREQUENCY RANGES
-uds_range = [0.4 3];
-hf_range = [20 80];
-lf_range = [0 0.25];
-use_range = [2 50];
+uds_range = [0.5 3];
+hf_range = [30 80];
+lf_range = [0 0.2];
+use_range = [0.5 80];
 dens_smth_sig = 3;
 
 mp_lcf = 0.01; %lcf for hp-filter on nlx mp signal
@@ -28,7 +27,8 @@ lfp_uds_thresh = -0.5;
 lfp_lf_max = 2;
 
 %%
-for dd = 29:length(data);
+% for dd = 29:length(data);
+for dd = 14
     
     %%
     cd(data(dd).dir)
@@ -139,7 +139,7 @@ for dd = 29:length(data);
         end
         mp_interp(isnan(mp_interp)) = 0;
         
-        %         [b,a] = butter(2,[0.05]/(csc_Fs/2),'high');
+        [b,a] = butter(2,[0.05]/(csc_Fs/2),'high');
         % mp_interp = filtfilt(b,a,mp_interp);
         
         use_cscs = 1:1:length(data(dd).ipsiLFPs);
@@ -165,41 +165,39 @@ for dd = 29:length(data);
         %         mp_use_freqs = find(mp_f >= use_range(1) & mp_f <= use_range(2));
         
         %get MP power in each band
-        mp_uds_pow = log10(trapz(f(uds_freqs),(S_mp(:,uds_freqs)),2));
-        mp_hf_pow = log10(trapz(f(hf_freqs),(S_mp(:,hf_freqs)),2));
-        mp_lf_pow = log10(trapz(f(lf_freqs),(S_mp(:,lf_freqs)),2));
-        % mp_tot_pow = log10(trapz(f(use_freqs),(S1(:,use_freqs)),2));
-        %         mp_tot_pow = log10(trapz(mp_f(mp_use_freqs),(S_mp(:,mp_use_freqs)),2));
-        
-        %         mp_tot_pow = (mp_tot_pow - median(mp_tot_pow))/robust_std_dev(mp_tot_pow);
-        
+        mp_uds_pow = trapz(f(uds_freqs),(S_mp(:,uds_freqs)),2);
+        mp_hf_pow = trapz(f(hf_freqs),(S_mp(:,hf_freqs)),2);
+        mp_lf_pow = trapz(f(lf_freqs),(S_mp(:,lf_freqs)),2);
+                
         %get LFP power in each band
         lfp_uds_pow = nan(length(use_cscs),length(t));
         lfp_hf_pow = nan(length(use_cscs),length(t));
         lfp_lf_pow = nan(length(use_cscs),length(t));
         lfp_tot_pow = nan(length(use_cscs),length(t));
         for cc = 1:length(use_cscs)
-            %    lfp_uds_pow(cc,:) = trapz(f(uds_freqs),log10(S2{cc}(:,uds_freqs)),2);
-            %    lfp_hf_pow(cc,:) = trapz(f(hf_freqs),log10(S2{cc}(:,hf_freqs)),2);
-            %    lfp_lf_pow(cc,:) = trapz(f(lf_freqs),log10(S2{cc}(:,lf_freqs)),2);
-            lfp_uds_pow(cc,:) = log10(trapz(f(uds_freqs),(S_lfp{cc}(:,uds_freqs)),2));
-            lfp_hf_pow(cc,:) = log10(trapz(f(hf_freqs),(S_lfp{cc}(:,hf_freqs)),2));
-            lfp_lf_pow(cc,:) = log10(trapz(f(lf_freqs),(S_lfp{cc}(:,lf_freqs)),2));
-            lfp_tot_pow(cc,:) = log10(trapz(f(use_freqs),S_lfp{cc}(:,use_freqs),2));
+            lfp_uds_pow(cc,:) = trapz(f(uds_freqs),(S_lfp{cc}(:,uds_freqs)),2);
+            lfp_hf_pow(cc,:) = trapz(f(hf_freqs),(S_lfp{cc}(:,hf_freqs)),2);
+            lfp_lf_pow(cc,:) = trapz(f(lf_freqs),(S_lfp{cc}(:,lf_freqs)),2);
+            lfp_tot_pow(cc,:) = trapz(f(use_freqs),S_lfp{cc}(:,use_freqs),2);
         end
         
-        %         lfp_uds_pow = interp1(t,lfp_uds_pow',mp_t)';
-        %         lfp_hf_pow = interp1(t,lfp_hf_pow',mp_t)';
-        %         lfp_lf_pow = interp1(t,lfp_lf_pow',mp_t)';
-        
         %%
-        avg_uds_pow = nanmean(lfp_uds_pow,2);
-        avg_lf_pow = nanmean(lfp_lf_pow,2);
-        [~,ctx_ch] = max(avg_uds_pow(poss_ctx_chs)-0*avg_lf_pow(poss_ctx_chs));
+        %average log-powers across time in each freq range (the log helps
+        %normalize the var
+        avg_uds_pow = nanmean(log10(lfp_uds_pow),2);
+        avg_lf_pow = nanmean(log10(lfp_lf_pow),2);
+        avg_hf_pow = nanmean(log10(lfp_hf_pow),2);
+        
+        %find channel with maximum UDS/HF power ratio (difference in
+        %log-space)
+        %         [~,ctx_ch] = max(avg_uds_pow(poss_ctx_chs)-0*avg_lf_pow(poss_ctx_chs));
+        [~,ctx_ch] = max(avg_uds_pow(poss_ctx_chs) - avg_lf_pow(poss_ctx_chs));
         ctx_ch = poss_ctx_chs(ctx_ch);
         
-        uds_epochs = (lfp_uds_pow(ctx_ch,:) >= lfp_uds_thresh);
-        lf_epochs = (lfp_lf_pow(ctx_ch,:) >= lfp_lf_max);
+%         ctx_uds_hf_ratio = log10(lfp_uds_pow(ctx_ch,:)) - log10(lfp_hf_pow(ctx_ch,:));
+        
+        uds_epochs = log10(lfp_uds_pow(ctx_ch,:)) >= lfp_uds_thresh;
+        lf_epochs = log10(lfp_lf_pow(ctx_ch,:)) >= lfp_lf_max;
         
         all_data(dd).lfp_pow_spec = mean(S_lfp{ctx_ch});
         all_data(dd).mp_pow_spec = mean(S_mp);
@@ -216,7 +214,7 @@ for dd = 29:length(data);
         if to_print
             f1 = figure();
             subplot(2,2,1); hold on
-            imagesc(t,1:length(use_cscs),lfp_uds_pow); colorbar;
+            imagesc(t,1:length(use_cscs),log10(lfp_uds_pow)); colorbar;
             plot(t,uds_epochs*4,'w','linewidth',2);
             line([0 t(end)],ctx_ch + [0 0],'color','k');
             axis tight
@@ -226,7 +224,7 @@ for dd = 29:length(data);
             title('LFP UDS power')
             
             subplot(2,2,3); hold on
-            imagesc(t,1:length(use_cscs),lfp_lf_pow); colorbar;
+            imagesc(t,1:length(use_cscs),log10(lfp_lf_pow)); colorbar;
             plot(t,lf_epochs*4,'w','linewidth',2);
             line([0 t(end)],ctx_ch + [0 0],'color','k');
             axis tight
@@ -262,14 +260,14 @@ for dd = 29:length(data);
             ylabel('Frequency (Hz)');
             title('MP specgram')
             
-            dname = find(data(dd).dir == '/',1,'last');
-            dname = data(dd).dir(dname+1:end);
-            fname = strcat(fig_dir,'NUDS_epochs_',data(dd).MPloc,dname);
-            figufy(f1);
-            set(f1,'PaperUnits','inches','PaperSize',[10 10],'PaperPosition',[0 0 20 10]);
-            print(f1,'-dpng',fname);
-            close(f1);
-            
+%             dname = find(data(dd).dir == '/',1,'last');
+%             dname = data(dd).dir(dname+1:end);
+%             fname = strcat(fig_dir,'NUDS_epochs_',data(dd).MPloc,dname);
+%             figufy(f1);
+%             set(f1,'PaperUnits','inches','PaperSize',[10 10],'PaperPosition',[0 0 20 10]);
+%             print(f1,'-dpng',fname);
+%             close(f1);
+%             
         end
         %%
         addpath('~/James_scripts/hsmm_uds_toolbox/')
@@ -334,44 +332,58 @@ for dd = 29:length(data);
         desynch_stop_times = t(desynch_stop_ids);
         desynch_times = [desynch_start_times(:) desynch_stop_times(:)];
         desynch_ids = round(desynch_times*csc_Fsd);
-        
+
         %% Compute signal features to use for UDS classification
-        hmm_dsf = 1; %down-sample-factor for HMM signal featurs
-        hmm_Fs = csc_Fsd/hmm_dsf; %sample-frequency of HMM signal features (Hz)
-        lf_cut_off_freqs = [0.02 10]; %for "low-frequency amplitude" features, these are the cutoff-frequencies for the bandpass filter
-        [bb,aa] = butter(2,lf_cut_off_freqs/(csc_Fsd/2));
+        hmm_dsf = 2; %down-sample-factor for HMM signal featurs
+        hmm_Fs = mp_Fsd/hmm_dsf; %sample-frequency of HMM signal features (Hz)
+        lf_cut_off_freqs = [0.05 4]; %for "low-frequency amplitude" features, these are the cutoff-frequencies for the bandpass filter
+        [bb,aa] = butter(2,lf_cut_off_freqs/(mp_Fsd/2));
         mp_features = filtfilt(bb,aa,mp_interp);
-        mp_features(bad_mp_inds) = nan;
         mp_features = downsample(mp_features,hmm_dsf);
         
-        %         [mp_features,t_axis] = hsmm_uds_get_lf_features(mp_interp,csc_Fsd,hmm_Fs,lf_cut_off_freqs); %'low-frequency amplitude'
-        % mp_features = mp_features/robust_std_dev(mp_features);
-        
-        lf_cut_off_freqs = [0.2 3]; %for "low-frequency amplitude" features, these are the cutoff-frequencies for the bandpass filter
-        [lfp_features,t_axis] = hsmm_uds_get_lf_features(ipsi_csc{ctx_ch},csc_Fsd,hmm_Fs,lf_cut_off_freqs); %'low-frequency amplitude'
-        % hf_cut_off_freqs = [20 80]; %for "high-frequency power" features, these are the cutoff-frequencies for the bandpass filter
-        % smooth_sigma = 0.15; %smoothing sigma for computing HF power in seconds
-        % [lfp_features,t_axis] = hsmm_uds_get_hf_features(ipsi_csc{ctx_ch},csc_Fs,hmm_Fs,hf_cut_off_freqs,smooth_sigma); %'high-frequency power'
-        lfp_features = lfp_features/robust_std_dev(lfp_features);
-        % lfp_features(lfp_features > 10) = 10;
-        
-        lf_cut_off_freqs = [0.2 20]; %for "low-frequency amplitude" features, these are the cutoff-frequencies for the bandpass filter
-        [lfp_features_bb,t_axis] = hsmm_uds_get_lf_features(ipsi_csc{ctx_ch},csc_Fsd,hmm_Fs,lf_cut_off_freqs); %'low-frequency amplitude'
-        lfp_features_bb = lfp_features_bb/robust_std_dev(lfp_features_bb);
-        
-        
-        %% LOCATE THE SEGMENTS CONTAINING UDS
+                        %% LOCATE THE SEGMENTS CONTAINING UDS
         T = length(mp_features); %number of samples
         min_seg_dur = 20; %minimum duration of UDS segments used for analysis (in sec)
         UDS_segs = hsmm_uds_get_uds_segments(desynch_times,hmm_Fs,T,min_seg_dur); %Nx2 matrix containing the index values of the beginning and end of each UDS segment
         
-        is_uds = false(size(lfp_features));
+        is_uds = false(size(mp_features));
         for ii = 1:size(UDS_segs,1)
             is_uds(UDS_segs(ii,1):UDS_segs(ii,2)) = true;
         end
         
         all_data(dd).uds_dur = sum(is_uds)/csc_Fsd;
         all_data(dd).tot_dur = length(is_uds)/csc_Fsd;
+
+        %%
+        clear params
+        params.meantype = 'variable'; %use 'variable' for time-varying state means. otherwise use 'fixed'
+        params.UDS_segs = UDS_segs;
+        params.movingwin = [15 5]; %moving window parameters [windowLength windowSlide](in seconds) for computing time-varying state means
+        [hmm] = hsmm_uds_initialize(mp_features(:),hmm_Fs,params);
+        
+        % FIT AN HMM
+        hmm.min_mllik = -8; %set minimum value of the maximal log likelihood for either state before switching to robust estimator.  If you don't want to use this feature, set this to -Inf
+        hmm = hsmm_uds_train_hmm(hmm,mp_features(:));
+        
+        [mp_state_seq,llik_best] = hsmm_uds_viterbi_hmm(hmm,mp_features(:));
+        mp_state_vec = nan(size(mp_features));
+        for i = 1:size(UDS_segs,1)
+            mp_state_vec(UDS_segs(i,1):UDS_segs(i,2)) = mp_state_seq{i};
+        end
+   
+        [new_seg_inds] = resample_uds_seg_inds_v2(hmm.UDS_segs,hmm.Fs,hmm_Fs,mp_state_seq);
+        [mp_state_durations] = compute_state_durations_seg(mp_state_seq,hmm_Fs);
+        [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,mp_state_seq);
+%%
+        
+        lf_cut_off_freqs = [0.5 3]; %for "low-frequency amplitude" features, these are the cutoff-frequencies for the bandpass filter
+        [lfp_features,t_axis] = hsmm_uds_get_lf_features(ipsi_csc{ctx_ch},csc_Fsd,hmm_Fs,lf_cut_off_freqs); %'low-frequency amplitude'
+        lfp_features = lfp_features/robust_std_dev(lfp_features);
+        
+        lf_cut_off_freqs = [0.5 20]; %for "low-frequency amplitude" features, these are the cutoff-frequencies for the bandpass filter
+        [lfp_features_bb,t_axis] = hsmm_uds_get_lf_features(ipsi_csc{ctx_ch},csc_Fsd,hmm_Fs,lf_cut_off_freqs); %'low-frequency amplitude'
+        lfp_features_bb = lfp_features_bb/robust_std_dev(lfp_features_bb);
+        
         
         %%
         addpath('~/Analysis/Mayank/sleep/');
@@ -414,7 +426,7 @@ for dd = 29:length(data);
             % cross_pt = xx(between_peaks(cross_pt));
             
             if sum(is_uds) > 0
-                uu = find(is_uds' & ~isnan(mp_features));
+                uu = find(is_uds & ~isnan(mp_features));
                 [dip, p_value, xlow,xup]=hartigansdipsigniftest(mp_features(uu),100);
             else
                 dip = nan; p_value = nan;
@@ -431,13 +443,13 @@ for dd = 29:length(data);
                 line(cross_pt + [0 0],yl,'color','k');
                 title(sprintf('MP Bimodality test: DipStat:%.3f  P:%.3g',dip,p_value));
                 
-                dname = find(data(dd).dir == '/',1,'last');
-                dname = data(dd).dir(dname+1:end);
-                fname = strcat(fig_dir,'MP_dist_',data(dd).MPloc,dname);
-                figufy(f1);
-                set(f1,'PaperUnits','inches','PaperSize',[6 5],'PaperPosition',[0 0 6 5]);
-                print(f1,'-dpng',fname);
-                close(f1);
+%                 dname = find(data(dd).dir == '/',1,'last');
+%                 dname = data(dd).dir(dname+1:end);
+%                 fname = strcat(fig_dir,'MP_dist_',data(dd).MPloc,dname);
+%                 figufy(f1);
+%                 set(f1,'PaperUnits','inches','PaperSize',[6 5],'PaperPosition',[0 0 6 5]);
+%                 print(f1,'-dpng',fname);
+%                 close(f1);
             end
         end
         %% DETECT LOCAL EXTREMA OF FILTERED LFP SIGNAL
@@ -517,6 +529,25 @@ for dd = 29:length(data);
         all_data(dd).utrig_Pmp_up = utrig_Pmp_up;
         all_data(dd).dtrig_Pmp_down = dtrig_Pmp_down;
         all_data(dd).dtrig_Pmp_up = dtrig_Pmp_up;
+        
+        %%
+        state_buffer = 0.25;
+        min_down_dur = 2*state_buffer;
+        poss_pers_downs = find(mp_state_durations{1} >= min_down_dur);
+        
+        skipped_blips = cell(length(poss_pers_downs),1);
+        for ii = 1:length(poss_pers_downs)
+           cur_down_inds = (down_trans_inds(poss_pers_downs(ii)) + round(hmm_Fs*state_buffer)):(up_trans_inds(poss_pers_downs(ii)+1) - round(hmm_Fs*state_buffer));
+           skipped_blips{ii} = lfp_peak_amps(ismember(lfp_peaks,cur_down_inds));
+        end
+        
+        peak_checks = [0.5 1 1.5 2 3 4];
+        for ii = 1:length(peak_checks)
+           peak_prob(ii) = sum(lfp_peak_amps >= peak_checks(ii))/sum(~isnan(lfp_peak_amps));
+           skip_cnt(ii) = sum(cellfun(@(x) sum(x >= peak_checks(ii)),skipped_blips));
+           skip_prob(ii) = sum(cellfun(@(x) any(x >= peak_checks(ii)),skipped_blips))/length(poss_pers_downs);
+        end
+        
         
         %%
         lfp_dist_xx = linspace(-5,3,100);

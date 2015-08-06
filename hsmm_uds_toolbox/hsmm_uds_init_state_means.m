@@ -32,6 +32,9 @@ delta_r = emissrange(2)-emissrange(1);
 
 total_dur = length(emiss)/Fs; %total duration in seconds
 numWins = floor((total_dur-windowSize)/windowSlide); %number of windows to use
+if numWins == 0 & total_dur > windowSize
+    numWins = 1;
+end
 t_axis = (0:numWins-1)*windowSlide+windowSize/2; %window center times
 
 %initializations
@@ -49,7 +52,9 @@ for w = 1:numWins
     emiss_dist(w,:) = ksdensity(emiss_seg,emissrange,'width',sm_bandwidth); %kernel density estimate
     
     %find peaks in the density that are separated by at least 0.5z
-    [peak_heights,peak_locs] = findpeaks(emiss_dist(w,:),'minpeakdistance',round(min_peak_sep/delta_r));
+    mpd = round(min_peak_sep/delta_r);
+    mpd = min(mpd,n_density_pts-1);
+    [peak_heights,peak_locs] = findpeaks(emiss_dist(w,:),'minpeakdistance',mpd);
 
     if length(peak_locs) > 1    %if bimodal
         %sort peaks in density according to their mass

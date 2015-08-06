@@ -112,7 +112,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 0;
 data(dd).MPloc = 'MEC';
-data(dd).good_bounds = [0 Inf];
+data(dd).good_bounds = [0 2810];
 
 dd = dd + 1;
 %d10 MEC. [probably L3MEC. high rate, large US, and low-freq]
@@ -375,5 +375,12 @@ data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC'; 
 data(dd).good_bounds = [0 235];
 
+%%
 cd ~/Analysis/Mayank/sleep/
+new_data = data;
+load sleep_dirs_old
+data = rmfield(data,'heka_dir');
+data = rmfield(data,'celltype');
+
+data = cat(2,data,new_data);
 save sleep_dirs data

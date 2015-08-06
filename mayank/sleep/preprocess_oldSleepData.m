@@ -19,7 +19,7 @@ mua_max_overlap = 0.5;
 
 %%
 % for dd = 1:length(data);
-dd = 3;
+dd = 2;
 cd(data(dd).dir);
 
 
