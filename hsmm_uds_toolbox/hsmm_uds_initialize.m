@@ -130,7 +130,7 @@ end
 % title('Sliding window density estimation','fontsize',16)
 
 %% GMM initializations
-options = statset('MaxIter',200,'TolFun',1e-8);
+options = statset('MaxIter',1000,'TolFun',1e-8);
 
 if strcmp(meantype,'fixed')
     %if using fixed state means fit a K state mixture model and set the
