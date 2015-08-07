@@ -1,4 +1,4 @@
-function hmm = hsmm_uds_train_hmm(hmm,emiss)
+function [hmm,gamma] = hsmm_uds_train_hmm(hmm,emiss)
 
 %Adapted from VARHMMBOX, version 1.1, Iead Rezek, Oxford University, MAR
 %2002
