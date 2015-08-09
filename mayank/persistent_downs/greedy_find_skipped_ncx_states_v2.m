@@ -29,8 +29,8 @@ for i = 1:length(corresp_lf8_upinds)
         mp_upskipped.num_skipped(i) = length(cur_skipped_downs);
         mp_upskipped.rnum_skipped(i) = length(cur_skipped_downs);
         if ~isempty(cur_skipped_downs)
-            mp_upskipped.min_dur(i) = min(lf8_downdurs(cur_skipped_downs));
-            mp_upskipped.rnum_skipped(i) = mp_upskipped.rnum_skipped(i) - sum(lf8_downdurs(cur_skipped_downs) < thresh_down_dur);
+            mp_upskipped.min_dur(i) = min(lf8_downdurs(cur_skipped_downs)); %shortest duration of a skipped LFP down state
+            mp_upskipped.rnum_skipped(i) = mp_upskipped.rnum_skipped(i) - sum(lf8_downdurs(cur_skipped_downs) < thresh_down_dur); %number of skipped down states lasting longer than threshold duration
         end
     end
     if i < length(corresp_lf8_upinds) && ~isnan(corresp_lf8_downinds(i)) %if the MP down state was not itself skipped

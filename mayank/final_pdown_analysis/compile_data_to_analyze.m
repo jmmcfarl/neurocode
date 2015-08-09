@@ -1,6 +1,7 @@
 clear all
 
-cd C:\WC_Germany\sven_thomas_combined\
+% cd C:\WC_Germany\sven_thomas_combined\
+cd ~/Analysis/Mayank/sven_thomas_combined/
 load ./combined_dir_nd.mat
 data_cnt = 0;
 
@@ -13,11 +14,11 @@ for ii = 1:length(l3mec)
     data(data_cnt).layer = 3;
     data(data_cnt).ctype = 'pyr';
     if ismember(l3mec(ii),old_data_inds)
-        data(data_cnt).exp = 'T';
+        data(data_cnt).exp = 'T'; %thomas recs
     else
-        data(data_cnt).exp = 'S';
+        data(data_cnt).exp = 'S'; %svens recs
     end
-    data(data_cnt).ep = Inf;
+    data(data_cnt).ep = Inf; 
     data(data_cnt).dp = Inf;
     data(data_cnt).hpc_lfp = hpc_lfp(l3mec(ii));
     data(data_cnt).heka_data = combined_heka{l3mec(ii)};
@@ -109,7 +110,8 @@ for ii = 1:length(l3lec_np)
 end
 
 %Load new data from Sven
-cd C:\WC_Germany\persistent_downs\
+% cd C:\WC_Germany\persistent_downs\
+cd ~/Analysis/Mayank/persistent_downs/
 load ./new_pdown_dir
 % cur_uset = find(new_pdown_use == 1); %data marked for use
 cur_uset = 1:length(new_pdown_use);
@@ -121,23 +123,35 @@ for ii = 1:length(cur_uset)
     data(data_cnt).layer = nan;
     data(data_cnt).ctype = nan;
     data(data_cnt).exp = 'S';
-    data(data_cnt).ep = new_pdown_ep(cur_uset(ii));
-    data(data_cnt).dp = new_pdown_dp(cur_uset(ii));
+    data(data_cnt).ep = new_pdown_ep(cur_uset(ii)); %end of reliable part of MP recording
+    data(data_cnt).dp = new_pdown_dp(cur_uset(ii)); %drug injection time if using any drugs
     data(data_cnt).hpc_lfp = 2;
     data(data_cnt).heka_data = [data(data_cnt).dir '\heka_data.mat'];
     data(data_cnt).heka_type = 'cont';    
-        data(data_cnt).is_old_type = false;
+    data(data_cnt).is_old_type = false;
 %     data(data_cnt).hpc_mua = new_pdown_hpcmua(cur_uset(ii))-1;
 end
 
-%%
+%% some classifications on the compiled data
 clear_l3pyr = [1:41]; 
 clear_l3 = [1:46];
 clear_l3pyr = [clear_l3pyr 66 68 73 74 77 79 82 86 89 90 94 97 100 102 103];
 clear_l3 = [clear_l3 65 66 68 69 70 73 74 77 79 80 82 86 88 89 90 94 96 97 100 102 103];
 no_cell = [71 75 78 85 104 105];
-unclear_uds = [67 76 83 84 93 91 92 101 104 105 106];
+unclear_uds = ...
+[67  %Unstable, rec too short
+76 %unclear uds during pre-atropine period
+83 %bad LFP
+84 %bad LFP
+93 %unclear MP UDS
+91 %bad LFP
+92 %unclear LFP and MP UDS
+101 %MP unclear/unstable
+104 %MP unclear/unstable
+105 %MP unclear/unstable
+106]; %bad LFP
 
 %%
-cd C:\WC_Germany\final_pdown_analysis\
+% cd C:\WC_Germany\final_pdown_analysis\
+cd ~/Analysis/Mayank/final_pdown_analysis
 save compiled_data data clear* no_cell unclear_uds

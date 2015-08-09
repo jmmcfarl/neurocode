@@ -9,15 +9,14 @@ lcf = filter_range(1);
 hcf = filter_range(2);
 [b_hf,a_hf] = butter(2,[lcf/niqf hcf/niqf]);
 
-%compute low-freq observations
-obs_hf = filtfilt(b_hf,a_hf,raw_data);
-eps = var(obs_hf)/100; %was var(.)/10
-obs_hf = obs_hf.^2;
+obs_hf = filtfilt(b_hf,a_hf,raw_data); %high-pass filter
+eps = var(obs_hf)/100; %compute min amp was var(.)/10 
+obs_hf = obs_hf.^2; %square signal
 if hf_smooth > 0
-    obs_hf = jmm_smooth_1d_cor(obs_hf,round(hf_smooth*raw_Fs));
+    obs_hf = jmm_smooth_1d_cor(obs_hf,round(hf_smooth*raw_Fs)); %smooth with gaussian
 end
-obs_hf(obs_hf < eps) = eps;
-obs_hf = log10(obs_hf);
+obs_hf(obs_hf < eps) = eps; %impose minimum to avoid infinite values if there was any saturation-based flatness
+obs_hf = log10(obs_hf); %log power
 obs_hf = downsample(obs_hf,dsf);
 
 hf_features = obs_hf(:);

@@ -2,17 +2,18 @@ function [desynch_times,desynch_ids,P,f,t] = locate_desynch_times_individual_v2(
 
 %desynch_times (Nx2) vector containing start and stop times (in s) of each
 %of N desynchonized epochs
-%desynch_indicator indicator function of desynch epochs (does not include
-%the buffer region around the actual desynch periods), sample rate 252Hz
+%desynch_ids are the corresponding ids
+% is_relative determines whether we will zscoring before computing pow
+% spectra
 
 if nargin < 2
-    is_relative = 0
+    is_relative = 0; 
 end
 
 dsf = 8;
 Fsd = 2016/dsf;
 niqf = 2016/2;
-[b,a] = butter(2,[0.2/niqf 40/niqf]); %bandpass filter between 0.1 and 40 Hz before computing spectrogram.  This is because we don't want artifacts at very low frequencies dominating our slow-oscillation detection.
+[b,a] = butter(2,[0.2/niqf 40/niqf]); %bandpass filter between 0.2 and 40 Hz before computing spectrogram.  This is because we don't want artifacts at very low frequencies dominating our slow-oscillation detection.
 
 %multitaper spectrum parameters
 params.Fs = Fsd;
@@ -25,11 +26,11 @@ winslide = 2.5; %spectrogram window spacing
 movingwin = [winlength winslide];
 
 if ~is_relative
-log_so_thresh = -84; %this is a fixed threshold on the maximum relative log power in the slow-oscillation range (changed from -84)
-log_hf_thresh = -430; %this is a fixed threshold on the normalized integral relative power in the 'high-frequency' band to be identified as a deysnchronized epoch (changed from -430)
+    log_so_thresh = -84; %this is a fixed threshold on the maximum relative log power in the slow-oscillation range 
+    log_hf_thresh = -430; %this is a fixed threshold on the normalized integral relative power in the 'high-frequency' band to be identified as a deysnchronized epoch (changed from -430)
 else
-    log_so_thresh = -8; %this is a fixed threshold on the maximum relative log power in the slow-oscillation range (changed from -84)
-log_hf_thresh = -160; %this is a fixed threshold on the normalized integral relative power in the 'high-frequency' band to be identified as a deysnchronized epoch (changed from -430)
+    log_so_thresh = -8; %this is a fixed threshold on the maximum relative log power in the slow-oscillation range 
+    log_hf_thresh = -160; %this is a fixed threshold on the normalized integral relative power in the 'high-frequency' band to be identified as a deysnchronized epoch (changed from -430)
 end
 removal_window = 1.5*round(winlength/winslide)+1; %number of window slides to remove around offending position
 max_ds_dur = 50; %longest duration which we will check if the potential desynchronized epoch is just a really long down state
@@ -38,7 +39,7 @@ max_ds_dur = 50; %longest duration which we will check if the potential desynchr
 sig = filtfilt(b,a,sig);
 sig = downsample(sig,dsf);
 if is_relative
-sig = zscore(sig);
+    sig = zscore(sig);
 end
 % compute spectrogram
 [P,t,f] = mtspecgramc(sig,movingwin,params);

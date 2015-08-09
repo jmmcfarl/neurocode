@@ -1,11 +1,18 @@
 clear all
 close all
 
-load C:/WC_germany/final_pdown_analysis/compiled_data.mat
+% load C:/WC_germany/final_pdown_analysis/compiled_data.mat
+load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
 
+poss_hpcmua_chs = [3:5]; %possible hpc MUA channels
 %%
 for dd = 1:length(data)
-    cd(data(dd).dir)
+    
+%     cur_dir = data(dd).dir;
+%         new_dir = map_to_new_drive_locs(cur_dir);
+new_dir = data(dd).new_dir;
+cd(new_dir)    
+%     cd(data(dd).dir)
     pwd
     
     if exist('./mua_data3.mat','file')
@@ -28,24 +35,24 @@ for dd = 1:length(data)
             dp = find(avg_waveform(ii,peak_locs(ii):end) < wave_peaks(dd,ii)/2,1,'first');
             sp = find(avg_waveform(ii,1:peak_locs(ii)) < wave_peaks(dd,ii)/2,1,'last');
             if ~isempty(dp) && ~isempty(sp)
-                avg_spkwidth_fwhm(dd,ii) = peak_locs(ii)+dp-sp;
+                avg_spkwidth_fwhm(dd,ii) = peak_locs(ii)+dp-sp; %fWHM
             else
                 avg_spkwidth_fwhm(dd,ii) = nan;
             end
             dp = find(avg_waveform(ii,peak_locs(ii):end) < wave_peaks(dd,ii)/4,1,'first');
             sp = find(avg_waveform(ii,1:peak_locs(ii)) < wave_peaks(dd,ii)/4,1,'last');
             if ~isempty(dp) && ~isempty(sp)
-                avg_spkwidth_fwqm(dd,ii) = peak_locs(ii)+dp-sp;
+                avg_spkwidth_fwqm(dd,ii) = peak_locs(ii)+dp-sp; %full-width quarter-max
             else
                 avg_spkwidth_fwqm(dd,ii) = nan;
             end
         end
         avg_waveforms(dd,:,:) = avg_waveform;
                 
-        %find max of rate vs depth profile
+        %find max of rate vs depth profile in the putative hpc range
         temp = avg_rates(dd,:); temp(1) = 0;
-        [peak_hpcmua_rate(dd),peak_hpcmua_loc(dd)] = max(temp(3:4));
-        peak_hpcmua_loc(dd) = peak_hpcmua_loc(dd) + 2;
+        [peak_hpcmua_rate(dd),peak_hpcmua_loc(dd)] = max(temp(poss_hpcmua_chs)); %max over possible hpc chns
+        peak_hpcmua_loc(dd) = peak_hpcmua_loc(dd) + poss_hpcmua_chs(1)-1;
         
         %make sure the max is actually a peak
         if avg_rates(dd,peak_hpcmua_loc(dd)+1) >= peak_hpcmua_rate(dd)
@@ -69,21 +76,42 @@ for dd = 1:length(data)
 end
 
 %%
-for ii = 67:size(avg_rates,1)
-    plot(2:7,avg_rates(ii,2:7),'o-')
-    ii
-    pause
-    clf
+close all
+for ii = 1:size(avg_rates,1)
+    if any(~isnan(avg_rates(ii,:)))
+             ii
+   plot(2:7,avg_rates(ii,2:7),'o-')
+        hold on
+        if ~isnan(peak_hpcmua_loc(ii))
+            plot(peak_hpcmua_loc(ii),avg_rates(ii,peak_hpcmua_loc(ii)),'r*');
+        end
+        II = input('change this peak?','s');
+        if II == 'y'
+           new_peak = input('what new peak?');
+           peak_hpcmua_loc(ii) = new_peak;
+        clf
+        plot(2:7,avg_rates(ii,2:7),'o-')
+        hold on
+        if ~isnan(peak_hpcmua_loc(ii))
+            plot(peak_hpcmua_loc(ii),avg_rates(ii,peak_hpcmua_loc(ii)),'r*');
+        end
+        end
+
+        pause
+        clf
+    end
 end
 %%
-bad_peaks = [25 26 27 29 30 67 68 78]; %these peaks in the rate vs depth profile are not clear
+% bad_peaks = [25 26 27 29 30 67 68 78]; %these peaks in the rate vs depth profile are not clear
+% bad_peaks = [25 26 30 46 78]; %these peaks in the rate vs depth profile are not clear
 % bad_peaks = [25 26 27 29 30]; %these peaks in the rate vs depth profile are not clear
-peak_hpcmua_loc(bad_peaks) = nan;
+% peak_hpcmua_loc(bad_peaks) = nan;
 
 %usable MUA on all channels
 usable_mua = (avg_spkwidths >= 10 & avg_spkwidth_fwhm <= 10 & avg_spkwidth_fwqm <= 11);
-usable_mua(98,8) = 0;
+usable_mua(98,8) = 0; %noisy channel
 
 %%
-cd C:\WC_Germany\final_pdown_analysis\
-save mua_classification2 usable_mua avg_rates peak_hpc* avg_rates avg_*
+cd ~/Analysis/Mayank/final_pdown_analysis/
+% cd C:\WC_Germany\final_pdown_analysis\
+save mua_classification_fin usable_mua avg_rates peak_hpc* avg_rates avg_*

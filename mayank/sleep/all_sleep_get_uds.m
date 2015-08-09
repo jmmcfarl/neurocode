@@ -28,14 +28,14 @@ min_seg_dur = 20; %minimum duration of UDS segments used for analysis (in sec)
 dip_Nboot = 500; %number of bootstrap samples for computing dip stat significance
 min_dip_pvalue = 0.05; %alpha on dip test
 
-state_buffer = 0.25; %buffer around state transitions (sec) for counting cortical blips as skipped
+state_buffer = 0.15; %buffer around state transitions (sec) for counting cortical blips as skipped
 
 peak_checks = [0 0.5 1 1.5 2 3]; %amplitude ranges of cortical LFP blips (z)
 
 to_print = false;
 
 %for normalized LFP power
-lfp_uds_thresh = -0.75; %min log power concentrated in the UDS band
+lfp_uds_thresh = -0.5; %min log power concentrated in the UDS band
 lfp_lf_max = 2; %max log power in the LF band (artifact detection)
 
 %%
@@ -328,7 +328,7 @@ for dd = 1:length(data)
 
         %get a broader band MP signal
         mp_features_bb = hsmm_uds_get_lf_features(mp_interp,desired_Fs,desired_Fs,mp_feature_frange_bb);
-
+    
         % LOCATE THE SEGMENTS CONTAINING UDS
         UDS_segs = hsmm_uds_get_uds_segments(desynch_times,hmm_Fs,length(mp_features),min_seg_dur); %Nx2 matrix containing the index values of the beginning and end of each UDS segment
         is_uds = false(size(mp_features));

@@ -1,5 +1,6 @@
 function [is_bad] = all_EC_compute_ctx_period()
-
+%compute time measure in units of fractional cortical UDS periods (or
+%phase)
 %%
 dsf = 8;
 Fsd = 2016/dsf;
