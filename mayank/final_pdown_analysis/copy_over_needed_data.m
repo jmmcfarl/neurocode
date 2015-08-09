@@ -47,4 +47,8 @@ for dd = 1:length(data)
 end
 
 %%
+if exist('no_cell','var')
 save(database_file,'data','no_cell','unclear_uds','clear*')
+else
+save(database_file,'data')
+end    

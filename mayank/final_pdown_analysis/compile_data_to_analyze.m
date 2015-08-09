@@ -151,6 +151,15 @@ unclear_uds = ...
 105 %MP unclear/unstable
 106]; %bad LFP
 
+%% store layer/type classifications
+for ii = 1:length(data)
+   if ismember(ii,clear_l3)
+      data(ii).layer = 3; 
+   end
+   if ismember(ii,clear_l3pyr)
+       data(ii).ctype = 'pyr';
+   end
+end
 %%
 % cd C:\WC_Germany\final_pdown_analysis\
 cd ~/Analysis/Mayank/final_pdown_analysis

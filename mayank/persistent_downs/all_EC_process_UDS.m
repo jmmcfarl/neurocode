@@ -4,7 +4,9 @@ close all
 % addpath(genpath('C:/WC_Germany/'))
 addpath('~/James_scripts/mayank/persistent_downs/');
 addpath('~/James_scripts/mayank/hsmm_state_detection/');
-load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
+addpath('~/James_scripts/mayank/sven_thomas_combined/');
+% load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
+load ~/Analysis/Mayank/final_pdown_analysis/compiled_corticalMP_data.mat
 
 force_recompute = 0; %overwrite existing files?
 
