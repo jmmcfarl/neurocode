@@ -12,7 +12,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_FIN4';
+sname = 'rpt_variability_compact_FIN4_noxc';
 
 % et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 % et_anal_name = 'full_eyetrack_Rinit';
@@ -24,16 +24,16 @@ use_MUA = false; EP_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 exclude_sacs = false; EP_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
 sub_trialavgs = false; EP_params.sub_trialavgs = sub_trialavgs; %subtract out trial avg spike counts?
-do_xcorrs = true; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
+do_xcorrs = false; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
 compute_sims = false; EP_params.compute_sims = compute_sims; %do simulated calcs for alphas
 compute_PF_rate = false;
 
-% poss_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-% direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-% mod_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
-poss_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-direct_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-mod_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+poss_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+mod_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+% poss_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+% direct_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+% mod_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
 
 max_tlag = 10; EP_params.max_tlag = max_tlag; %max time lag for computing xcorrs (units of dt bins)
 
@@ -1278,7 +1278,7 @@ for bbb = 1:length(poss_bin_dts)
             
         elseif bin_dt < params.dt
 %             error('Havent incorporated upsampling for model fits');
-            new_mod_prates = interp1(1:used_nf,all_mod_emp_prates,bin_usfac:bin_usfac:used_nf);
+            new_mod_prates = interp1(1:used_nf,all_mod_emp_prates,bin_usfac:bin_usfac:used_nf)*bin_usfac;
             new_mod_prates(1:(1/bin_usfac-1),:,:) = new_mod_prates(1/bin_usfac,:,:); %handle the nans that arise from the first upsampled bin centers being out of range
             new_mod_prates_noEM = interp1(1:used_nf,all_mod_emp_prates_noEM,bin_usfac:bin_usfac:used_nf);
             new_mod_prates_noEM(1:(1/bin_usfac-1),:,:) = new_mod_prates_noEM(1/bin_usfac,:,:); %handle the nans that arise from the first upsampled bin centers being out of range

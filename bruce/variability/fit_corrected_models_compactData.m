@@ -1,12 +1,12 @@
-% clear all
-% close all
+clear all
+close all
 % 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M270';
-% monk_name = 'lem';
-% bar_ori = 60; %bar orientation to use (only for UA recs)
-% rec_number = 1;
+Expt_name = 'M320';
+monk_name = 'lem';
+bar_ori = 100; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
 fit_unCor = false; %also fit models without eye corrections?
 use_MUA = false; %use MUA in model-fitting
@@ -124,6 +124,8 @@ all_stim_mat = decompressTernNoise(stimComp);
 
 %RF center position on screen
 ov_RF_pos = Expts{expt_data.used_blocks(1)}.Stimvals.rf(1:2)/params.scale_fac;
+fix_point = [Expts{expt_data.used_blocks(1)}.Stimvals.fx Expts{expt_data.used_blocks(1)}.Stimvals.fy];
+ov_RF_pos = ov_RF_pos - fix_point; %account for non-zero fixation point location
 
 %% model-fitting parameters
 poss_smoothreg_scalefacs = logspace(-2,2,10); %possible scale factors to apply to smoothness reg strength

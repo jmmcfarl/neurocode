@@ -5,7 +5,7 @@ addpath('~/James_scripts/bruce/processing/');
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-% Expt_name = 'G088';
+% Expt_name = 'M012';
 % monk_name = 'jbe';
 % bar_ori = 0; %bar orientation to use (only for UA recs)
 % rec_number = 1;
@@ -730,14 +730,21 @@ else
                 Robs = Robs_mat(:,ss);
                 
                 cur_mod = all_mod_fits(ss);
+                cur_nullmod = all_nullmod(ss);
                 if ~model_pop_avg
                     cur_mod.mods(n_squared_filts + 2).filtK(end) = [];
+                    cur_nullmod.mods(1).filtK(end) = [];
+                    cur_mod.stim_params(2).stim_dims(1) = n_blocks;
+                    cur_nullmod.stim_params(2).stim_dims(1) = n_blocks;
                 end
                 if ~use_sac_kerns
-                    cur_mods.mods((n_squared_filts + 3):end) = [];
+                    cur_mod.mods((n_squared_filts + 3):end) = [];
+                    cur_nullmod.mods(2:end) = [];
                 end
-                all_mod_fits(ss) = cur_mods;
+                all_mod_fits(ss) = cur_mod;
                 all_mod_fits_withspkNL(ss) = NMMfit_logexp_spkNL(all_mod_fits(ss),Robs,X,[],all_inds);
+                
+                all_nullmod(ss) = NMMfit_filters(cur_nullmod,Robs,X,[],all_inds);
             end
         end
     end

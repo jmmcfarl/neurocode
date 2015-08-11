@@ -1,13 +1,13 @@
-clear all
+% clear all
 
 global Expt_name bar_ori use_LOOXV monk_name rec_type rec_number
 
-Expt_name = 'M011';
-monk_name = 'jbe';
-bar_ori = 160; %bar orientation to use (only for UA recs)
-rec_number = 1;
+% Expt_name = 'M011';
+% monk_name = 'jbe';
+% bar_ori = 160; %bar orientation to use (only for UA recs)
+% rec_number = 1;
 
-use_LOOXV = 1; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
+use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
 
 Expt_num = str2num(Expt_name(2:end));
 
@@ -112,7 +112,7 @@ end
 % mod_data_name = 'full_eyetrack_initmods';
 % old_anal_name = 'full_eyetrack';
 mod_data_name = 'full_eyetrack_initmods_FIN2';
-old_anal_name = 'full_eyetrack_FIN2';
+old_anal_name = 'full_eyetrack_FIN_noextras';
 
 %if using coil initialization
 if use_measured_pos == 1
