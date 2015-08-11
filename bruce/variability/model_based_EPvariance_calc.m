@@ -5,14 +5,14 @@ addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M011';
+% Expt_name = 'M012';
 % monk_name = 'jbe';
-% bar_ori = 160; %bar orientation to use (only for UA recs)
+% bar_ori = 0; %bar orientation to use (only for UA recs)
 % rec_number = 1;
-%
+% %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'sim_variability_compact_FIN2';
+sname = 'sim_variability_compact_FIN2_noxc';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
@@ -21,12 +21,19 @@ mod_name = 'corrected_models_comp_FIN2';
 use_MUA = false; sim_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; sim_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 exclude_sacs = false; sim_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
-poss_SDs = [0.0:0.025:0.2];%range of possible EP SDs to test (last is the empirical)
+calc_Tconst = true; sim_params.calc_Tconst = calc_Tconst; %calculate trial-constant EP simulations?
+calc_simInt = true; sim_params.calc_simInt = calc_simInt; %calculate integral-based estimates of alpha?
+
+poss_SDs = [0:0.025:0.2];%range of possible EP SDs to test (last is the empirical)
 poss_ubins = [1 2 3 4 5 10 20 50 100]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 % poss_ubins = logspace(log10(1),log10(100),10); sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 
-do_xcorr = true;
+do_xcorr = false;
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
+
+%parameters for integral-based calculation
+sim_NT = 1e4; %number of simulated stim-frames
+sim_nPix = 60; %number of simulated bars
 
 %%
 data_dir = ['~/Data/bruce/' Expt_name];
@@ -356,11 +363,11 @@ if do_xcorr
     [CI,CJ] = meshgrid(1:length(targs));
     un_pairs = CJ >= CI; %all unique pairs of neurons (including self-pairs)
     Cpairs = [CI(un_pairs) CJ(un_pairs)]; %I and J indices for each pair
-    n_cell_pairs = size(Cpairs,1);    
+    n_cell_pairs = size(Cpairs,1);
 end
 %%
 poss_SDs = [poss_SDs base_EP_SD]; %make the last EP SD to test the empirical one
-sim_params.poss_SDs = poss_SDs; 
+sim_params.poss_SDs = poss_SDs;
 max_shift = round(full_nPix_us*0.8); %maximum shift size (to avoid going trying to shift more than the n
 
 sim_psth_vars = nan(length(poss_SDs),length(poss_ubins),length(targs));
@@ -369,6 +376,11 @@ sim_mean_rates = nan(length(poss_SDs),length(poss_ubins),length(targs));
 
 sim_psth_covars = nan(length(poss_SDs),length(poss_ubins),length(targs),length(targs));
 sim_tot_covars = nan(length(poss_SDs),length(poss_ubins),length(targs),length(targs));
+
+if calc_Tconst
+    sim_psth_vars_const = nan(length(poss_SDs),length(poss_ubins),length(targs));
+    sim_tot_vars_const = nan(length(poss_SDs),length(poss_ubins),length(targs));
+end
 
 ep_rates = nan(length(full_uinds),length(targs));
 ep_rates2 = nan(length(full_uinds),length(targs));
@@ -402,7 +414,7 @@ for sd = 1:length(poss_SDs)
     end
     uset1 = ~inblink_tbt;
     if exclude_sacs
-       uset1 = uset1 & ~insac_tbt; 
+        uset1 = uset1 & ~insac_tbt;
     end
     %subtract off avg rate
     cur_avg_rates = nanmean(ep_rates(uset1(:),:));
@@ -418,7 +430,7 @@ for sd = 1:length(poss_SDs)
     cur_insac = insac_tbt(:,tperm);
     uset2 = ~cur_inblink;
     if exclude_sacs
-       uset2 = uset2 & ~inblink_tbt; 
+        uset2 = uset2 & ~inblink_tbt;
     end
     fin_shift_cor = round(cur_EP2(:)/modFitParams.sp_dx);
     fin_shift_cor(fin_shift_cor > max_shift) = max_shift;
@@ -435,7 +447,7 @@ for sd = 1:length(poss_SDs)
     if modFitParams.add_usfac > 1
         all_Xmat_shift = tb_proc_stim(all_Xmat_shift,modFitParams.add_usfac,modFitParams.flen);
     end
-
+    
     %compute model-rates for the second version of the retinal stim
     for cc = 1:length(targs)
         if has_stim_mod(cc)
@@ -443,32 +455,79 @@ for sd = 1:length(poss_SDs)
         end
     end
     ep_rates2 = bsxfun(@minus,ep_rates2,nanmean(ep_rates2(uset2(:),:))); %subtract off avg rates
-
+    
+    %if calculating simulations with constant within-trial EP
+    if calc_Tconst
+        rand_EP_samps = RandSel(EP_tbt(:),n_utrials); %get a random sample of eye positions, 1 for each trial
+        cur_EP2 = repmat(rand_EP_samps',size(EP_tbt,1),n_utrials); %construct tbt EP
+        cur_EP2 = cur_EP2(:)./base_EP_SD*poss_SDs(sd); %rescale to specified SD
+        fin_shift_cor = round(cur_EP2(:)/modFitParams.sp_dx);
+        fin_shift_cor(fin_shift_cor > max_shift) = max_shift;
+        fin_shift_cor(fin_shift_cor < -max_shift) = -max_shift;
+        
+        cur_shift_stimmat_up = all_stimmat_up;
+        for i=1:length(full_uinds)
+            cur_shift_stimmat_up(used_inds(full_uinds(i)),:) = shift_matrix_Nd(all_stimmat_up(used_inds(full_uinds(i)),:),-fin_shift_cor(i),2);
+        end
+        all_Xmat_shift = create_time_embedding(cur_shift_stimmat_up,stim_params_full);
+        all_Xmat_shift = all_Xmat_shift(used_inds(full_uinds),use_kInds_up);
+        
+        %if using tent-basis spatial-upsampling
+        if modFitParams.add_usfac > 1
+            all_Xmat_shift = tb_proc_stim(all_Xmat_shift,modFitParams.add_usfac,modFitParams.flen);
+        end
+        
+        %compute model-rates for the second version of the retinal stim
+        ep_rates3 = nan(NT,length(targs));
+        for cc = 1:length(targs)
+            if has_stim_mod(cc)
+                [~,~,ep_rates3(:,cc)] = NMMmodel_eval(stim_mod(cc),[],all_Xmat_shift);
+            end
+        end
+        ep_rates3 = bsxfun(@minus,ep_rates3,nanmean(ep_rates3(uset2(:),:))); %subtract off avg rates
+    else
+        ep_rates3 = nan(size(ep_rates2));
+    end
+    
     both_uset = uset1 & uset2; %set of indices where both simulated rates are usable
     ep_rates(~both_uset(:),:) = nan;
     ep_rates2(~both_uset(:),:) = nan;
+    if calc_Tconst; ep_rates3(~both_uset(:),:) = nan; end;
     tbt_ep_rates = reshape(ep_rates,target_uf,n_utrials,length(targs));
     tbt_ep_rates2 = reshape(ep_rates2,target_uf,n_utrials,length(targs));
+    if calc_Tconst; tbt_ep_rates3 = reshape(ep_rates3,target_uf,n_utrials,length(targs)); end;
     for pp = 1:length(poss_ubins) %loop over possible temporal down-sampling factors
         bin_dsfac = poss_ubins(pp);
         n_newbins = floor(target_uf/bin_dsfac);
         new_ep_rates = zeros(n_newbins,n_utrials,length(targs),bin_dsfac);
         new_ep_rates2 = zeros(n_newbins,n_utrials,length(targs),bin_dsfac);
+        if calc_Tconst; new_ep_rates3 = zeros(n_newbins,n_utrials,length(targs),bin_dsfac); end;
         for ii = 1:bin_dsfac
             new_ep_rates(:,:,:,ii) = tbt_ep_rates(ii:bin_dsfac:(ii+bin_dsfac*(n_newbins-1)),:,:,:);
             new_ep_rates2(:,:,:,ii) = tbt_ep_rates2(ii:bin_dsfac:(ii+bin_dsfac*(n_newbins-1)),:,:,:);
+            if calc_Tconst; new_ep_rates3(:,:,:,ii) = tbt_ep_rates3(ii:bin_dsfac:(ii+bin_dsfac*(n_newbins-1)),:,:,:); end;
         end
         new_ep_rates = squeeze(sum(new_ep_rates,4)); %now sum over the coarser time bins. This makes the whole bin a NAN if any component bins are NAN
-        new_ep_rates2 = squeeze(sum(new_ep_rates2,4)); 
+        new_ep_rates2 = squeeze(sum(new_ep_rates2,4));
+        if calc_Tconst; new_ep_rates3 = squeeze(sum(new_ep_rates3,4)); end;
         
         new_ep_rates = reshape(new_ep_rates,[],length(targs));
         new_ep_rates2 = reshape(new_ep_rates2,[],length(targs));
         new_ep_rates = bsxfun(@minus,new_ep_rates,nanmean(new_ep_rates)); %make sure mean rates are still 0
         new_ep_rates2 = bsxfun(@minus,new_ep_rates2,nanmean(new_ep_rates2));
+        if calc_Tconst
+            new_ep_rates3 = reshape(new_ep_rates3,[],length(targs));
+            new_ep_rates3 = bsxfun(@minus,new_ep_rates3,nanmean(new_ep_rates3));
+        end
         
         sim_psth_vars(sd,pp,:) = nanmean(new_ep_rates.*new_ep_rates2); %this gives the PSTH variance
         sim_tot_vars(sd,pp,:) = 0.5*nanvar(new_ep_rates) + 0.5*nanvar(new_ep_rates2); %total rate variance
         sim_mean_rates(sd,pp,:) = cur_avg_rates*bin_dsfac; %mean spike prob (per bin)
+        
+        if calc_Tconst
+            sim_psth_vars_const(sd,pp,:) = nanmean(new_ep_rates.*new_ep_rates3);
+            sim_tot_vars_const(sd,pp,:) = 0.5*nanvar(new_ep_rates) + 0.5*nanvar(new_ep_rates3); %total rate variance
+        end
         
         %get PSTH and total covariance matrices
         if do_xcorr
@@ -488,6 +547,14 @@ for cc = 1:length(targs)
         sim_data(cc).across_trial_vars = sim_data(cc).tot_vars - sim_data(cc).psth_vars;
         sim_data(cc).FF_bias = sim_data(cc).across_trial_vars./sim_data(cc).mean_rates;
         sim_data(cc).alphas = sim_data(cc).across_trial_vars./sim_data(cc).tot_vars;
+        
+        if calc_Tconst
+            sim_data(cc).psth_vars_const = squeeze(sim_psth_vars_const(:,:,cc));
+            sim_data(cc).tot_vars_const = squeeze(sim_tot_vars_const(:,:,cc));
+            sim_data(cc).across_trial_vars_const = sim_data(cc).tot_vars_const - sim_data(cc).psth_vars_const;
+            sim_data(cc).FF_bias_const = sim_data(cc).across_trial_vars_const./sim_data(cc).mean_rates;
+            sim_data(cc).alphas_const = sim_data(cc).across_trial_vars_const./sim_data(cc).tot_vars_const;
+        end
     end
 end
 
@@ -502,6 +569,81 @@ if do_xcorr
             sim_pairs(cc).covar_norm = sqrt(cell1_noisevars.*cell2_noisevars);
         else
             sim_pairs(cc).covar_norm = nan(length(poss_SDs),length(poss_ubins));
+        end
+    end
+end
+
+%% compute alphas for model neurons using fourier integral approximation
+if calc_simInt %if calculating integral-based estimates
+    
+    %select subset of pixels used for model fitting
+    sim_buffer_pix = floor((sim_nPix - modFitParams.use_nPix_us/modFitParams.spatial_usfac)/2);
+    [Xinds_up,~] = meshgrid(1/modFitParams.spatial_usfac:1/modFitParams.spatial_usfac:sim_nPix,1:modFitParams.flen);
+    sim_cur_use_pix = (1/modFitParams.spatial_usfac:1/modFitParams.spatial_usfac:(modFitParams.use_nPix_us/modFitParams.spatial_usfac)) + sim_buffer_pix;
+    sim_use_kInds_up = find(ismember(Xinds_up(:),sim_cur_use_pix));
+    sim_params_full = NMMcreate_stim_params([modFitParams.flen sim_nPix*modFitParams.spatial_usfac]);
+    
+    %make simulated RLS stim
+    sim_stim = generate_RLS_stim(sim_NT,sim_nPix,mode([expt_data(:).expt_dds]),modFitParams.spatial_usfac);
+    
+    max_dx = sim_nPix*modFitParams.spatial_usfac/2; %max range of allowed EPs relative to central point
+    poss_EP = -max_dx:(max_dx-1); %range of possible EPs (use an even number)
+    
+    sim_rates = nan(sim_NT,length(poss_EP),length(targs));
+    for ii = 1:length(poss_EP)
+        shift_sim_stim = shift_matrix_Nd(sim_stim,poss_EP(ii),2);
+        
+        sim_Xmat_shift = create_time_embedding(shift_sim_stim,sim_params_full);
+        sim_Xmat_shift = sim_Xmat_shift(:,sim_use_kInds_up);
+        
+        %if using tent-basis spatial-upsampling
+        if modFitParams.add_usfac > 1
+            sim_Xmat_shift = tb_proc_stim(sim_Xmat_shift,modFitParams.add_usfac,modFitParams.flen);
+        end
+        %compute model-rates for the second version of the retinal stim
+        for cc = 1:length(targs)
+            if has_stim_mod(cc)
+                [~,~,sim_rates(:,ii,cc)] = NMMmodel_eval(stim_mod(cc),[],sim_Xmat_shift);
+            end
+        end
+        
+    end
+    %subtract mean, and permute to have EP in first dimension
+    sim_rates = bsxfun(@minus,sim_rates,reshape(mean(reshape(sim_rates,[],length(targs))),[1 1 length(targs)]));
+    sim_rates = permute(sim_rates,[2 1 3]);
+    
+    %position axis for stimulus
+    sim_xax = (1:length(poss_EP))*modFitParams.sp_dx;
+    sim_xax = sim_xax - mean(sim_xax);
+    sim_Fs = 1/(modFitParams.sp_dx); %spatial sample freq
+    sim_Nx = length(sim_xax); %number of spatial samples
+    sim_fax = 0:sim_Fs/sim_Nx:sim_Fs/2; %frequency axis (single sided)
+    sim_xax = sim_xax(:);
+    
+    modrate_fft = sqrt(squeeze(mean(abs(fft(sim_rates)).^2,2))); %avg power across time, then sqrt to amp spec
+    modrate_fft = modrate_fft(1:N/2 + 1,:); %single-sided spec
+    %%
+    [sim_int_alphas,sim_int_totvars,sim_int_psthvars] = deal(nan(length(poss_SDs),length(targs)));
+    for sd = 1:length(poss_SDs)
+        %rescale EP data to have specified (robust) SD
+        cur_EP = EP_tbt./base_EP_SD*poss_SDs(sd);
+        
+        ep_dist = hist(cur_EP(:),sim_xax); %distribution of EPs
+        ep_dist = ep_dist/sum(ep_dist); %normalize
+        ep_dist_fft = abs(fft(ep_dist)); %get its amp spec
+        ep_dist_fft = ep_dist_fft(1:sim_Nx/2+1); %make single-sided
+        
+        sim_int_alphas(sd,:) = 1 - trapz(sim_fax,bsxfun(@times,modrate_fft,ep_dist_fft').^2)./trapz(sim_fax,modrate_fft.^2);
+        sim_int_totvars(sd,:) = trapz(sim_fax,modrate_fft.^2)/(sim_Nx*sim_Fs)*2;
+        sim_int_psthvars(sd,:) = trapz(sim_fax,bsxfun(@times,modrate_fft,ep_dist_fft').^2)/(sim_Nx*sim_Fs)*2;
+    end
+    for cc = 1:length(targs)
+        if has_stim_mod(cc)
+            sim_data(cc).sim_int_alphas = sim_int_alphas(:,cc);
+            sim_data(cc).sim_int_totvars = sim_int_totvars(:,cc);
+            sim_data(cc).sim_int_psthvars = sim_int_psthvars(:,cc);
+            sim_data(cc).sim_fft = modrate_fft(:,cc);
+            sim_data(cc).sim_fax = sim_fax;
         end
     end
 end

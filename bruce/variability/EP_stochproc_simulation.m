@@ -73,9 +73,10 @@ for ii = 1:length(poss_SFs)
     
     
     filt_out = real(Xconv); 
-    filt_fft = mean(abs(fft(filt_out)),2);
-    simple_fft = mean(abs(fft(simple_rate)),2);
-    complex_fft = mean(abs(fft(complex_rate )),2);
+    filt_fft = sqrt(mean(abs(fft(filt_out)).^2,2));
+%     filt_fft = (mean(abs(fft(filt_out)),2));
+    simple_fft = sqrt(mean(abs(fft(simple_rate)).^2,2));
+    complex_fft = sqrt(mean(abs(fft(complex_rate )).^2,2));
     filt_fft = filt_fft(1:N/2 + 1);
     simple_fft = simple_fft(1:N/2 + 1);
     complex_fft = complex_fft(1:N/2 + 1);
@@ -91,6 +92,8 @@ for ii = 1:length(poss_SFs)
     energy_tot_var = var(complex_rate(:));
     energy_psth_var = var(complex_psth(:));
     
+    filt_psthvar(ii) = trapz(fax,(filt_fft.*ep_dist_fft').^2)*2/(npix*Fs);
+    filt_totvar(ii) = trapz(fax,filt_fft.^2)/(npix*Fs)*2;
 %     simple_alpha(ii) = 1 - simple_psth_var/simple_tot_var;
 %     complex_alpha(ii) = 1 - energy_psth_var/energy_tot_var; 
     filt_alpha(ii) = 1 - trapz(fax,(filt_fft.*ep_dist_fft').^2)/trapz(fax,filt_fft.^2);
