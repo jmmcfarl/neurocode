@@ -6,15 +6,16 @@ load sleep_dirs
 fig_dir = '/Users/james/Analysis/Mayank/sleep/sleep_figs2/';
 addpath(genpath('~/James_scripts/chronux/spectral_analysis/'))
 addpath('~/James_scripts/hsmm_uds_toolbox/')
+addpath('~/James_scripts/mayank/sleep/');
 
-%% DEFINE FREQUENCY RANGES
+%% DEFINE FREQUENCY RANGES AND OTHER PARAMS
 uds_range = [0.5 3]; %range of frequencies for defining UDS
-% hf_range = [30 80]; 
+% hf_range = [30 80];
 lf_range = [0 0.2]; %range of low-freq power to characterize LF artifacts
 use_range = [0.5 80]; %overall range of usable power (excluding LF artifacts)
 
 mp_feature_frange = [0 5]; %freq range for defining MP features used to classify MP UDS
-mp_feature_frange_bb = [0 20]; %freq range for computing MP features
+mp_feature_frange_bb = [0 10]; %freq range for computing MP features
 
 n_dens_bins = 100; %number of pts to use for density estimation
 dens_smth_sig = 3; %sigma for visualizing density estimates (in units of bins)
@@ -26,11 +27,12 @@ desired_Fs = 200; %want a uniform Fs
 min_seg_dur = 20; %minimum duration of UDS segments used for analysis (in sec)
 
 dip_Nboot = 500; %number of bootstrap samples for computing dip stat significance
-min_dip_pvalue = 0.05; %alpha on dip test
+min_dip_pvalue = 0.01; %alpha on dip test [0.01]
 
-state_buffer = 0.15; %buffer around state transitions (sec) for counting cortical blips as skipped
+state_buffer = 0.15; %[0.15] buffer around state transitions (sec) for counting cortical blips as skipped
 
-peak_checks = [0 0.5 1 1.5 2 3]; %amplitude ranges of cortical LFP blips (z)
+% peak_checks = [0 0.5 1 1.5 2 3]; %amplitude ranges of cortical LFP blips (z)
+amp_prc_bins = [0 25 50 75 85 95]; %amplitude ranges of cortical LFP blips in prctile
 
 to_print = false;
 
@@ -38,6 +40,16 @@ to_print = false;
 lfp_uds_thresh = -0.5; %min log power concentrated in the UDS band
 lfp_lf_max = 2; %max log power in the LF band (artifact detection)
 
+compute_state_seqs = true;
+hmm_dsf = 2; %down-sample-factor for HMM signal featurs
+hmm_Fs = desired_Fs/hmm_dsf; %sample-frequency of HMM signal features (Hz)
+
+%parameters for despiking MP data
+spk_thresh = 20; %threshold (in robust SD units) for spikes
+spk_back = 0.001; %window for spike rmoval
+spk_for = 0.004;
+
+shift_lfp_peaks = true; %account for delay between LFP and MP
 %%
 % for dd = 14
 for dd = 1:length(data)
@@ -72,24 +84,50 @@ for dd = 1:length(data)
         csc_dsf = 1;
         heka_dsf = 5;
     end
+    
     %%
     if has_ipsi && mp_Fs >= 150 %if there are any ipsilateral LFPs
         
-        %%
-        mp_Fsd = mp_Fs/mp_dsf;
-        [b,a] = butter(2,mp_lcf/(mp_Fsd/2),'high');
-        mp_d = decimate(mp_d,mp_dsf);
-        mp_data = filtfilt(b,a,mp_d); %filter out very slow drift in MP signal
-        mp_time = downsample(mp_t,mp_dsf);
         
+        %% get MP signal (use heka/spike 2 if we have it)
         if ~isempty(heka_data)
-            heka_Fs = 1/nanmedian(diff(heka_time));
-            heka_data = decimate(heka_data,heka_dsf);
-            heka_Fsd = heka_Fs/heka_dsf;
-            [b,a] = butter(2,mp_lcf/(heka_Fsd/2),'high'); %filter out very slow drift in MP signal
-            mp_data = filtfilt(b,a,heka_data);
-            mp_time = downsample(heka_time,heka_dsf);
+            mp_data = heka_data(:);
+            mp_time = heka_time(:);
+            cur_dsf = heka_dsf;
+        else
+            mp_data = mp_d(:);
+            mp_time = mp_t(:);
+            cur_dsf = mp_dsf;
         end
+        mp_Fs = 1/nanmedian(diff(mp_time));
+        
+        %high-pass filter and find spike times
+        [spk_b,spk_a] = butter(2,100/(mp_Fs/2),'high');
+        mp_high = filtfilt(spk_b,spk_a,mp_data);
+        mp_high = mp_high/robust_std_dev(mp_high);
+        spike_inds = find(diff(sign([0; diff(mp_high)])) < 0);
+        spike_inds(mp_high(spike_inds) < spk_thresh) = [];
+        spike_times = mp_time(spike_inds);
+        clear mp_high
+        
+        %remove spikes from DC MP signal by interpolation
+        cur_spk_inds = round(interp1(mp_time,1:length(mp_time),spike_times)); %indices of spikes
+        spike_times(isnan(cur_spk_inds)) = [];
+        cur_spk_inds(isnan(cur_spk_inds)) = [];
+        spike_error = abs(mp_time(cur_spk_inds) - spike_times); %use only spikes that interpolate onto actual DC data
+        bad = find(spike_error > 2/mp_Fs); %if interpolated time is too far from the real time get rid of these
+        cur_spk_inds(bad) = [];
+        blk_inds = -round(spk_back*mp_Fs):round(spk_for*mp_Fs); %set of times around each spike to interpolate out
+        blocked_inds = bsxfun(@plus,cur_spk_inds,blk_inds);
+        blocked_inds = blocked_inds(:);
+        used_inds = setdiff(1:length(mp_data),blocked_inds); %non-spike samples
+        mp_data = interp1(used_inds,mp_data(used_inds),1:length(mp_data)); %de-spiked data
+        
+        mp_Fsd = mp_Fs/cur_dsf;
+        [b,a] = butter(2,mp_lcf/(mp_Fsd/2),'high');
+        mp_data = decimate(mp_data,cur_dsf);
+        mp_data = filtfilt(b,a,mp_data);
+        mp_time = downsample(mp_time,cur_dsf);
         
         %% identify any missing data at the beginning and end of the recording
         mp_sp = find(abs(diff(mp_data)) > 0,1); %first pt where we actually have MP data
@@ -102,7 +140,7 @@ for dd = 1:length(data)
         end
         
         % find usable MP times
-        use_mp_inds = find(mp_time >= data(dd).good_bounds(1) & mp_time <= data(dd).good_bounds(2));        
+        use_mp_inds = find(mp_time >= data(dd).good_bounds(1) & mp_time <= data(dd).good_bounds(2));
         mp_time = mp_time(use_mp_inds); mp_data = mp_data(use_mp_inds);
         
         %% process LFP data
@@ -142,29 +180,29 @@ for dd = 1:length(data)
         movingwin = [20 5];
         
         [b,a] = butter(2,[1/movingwin(1)]/(csc_Fs/2),'high'); %filter out stuff that's slower than the window size
-                
+        
         [S_mp,t,f] = mtspecgramc(mp_interp(:),movingwin,params); %MP spectrogram
         
         clear S_lfp
         use_cscs = 1:length(data(dd).ipsiLFPs);
-        for cc = 1:length(use_cscs) 
+        for cc = 1:length(use_cscs)
             cur_lfp = filtfilt(b,a,ipsi_csc{use_cscs(cc)}); %high-pass filter
             [S_lfp{cc}]=mtspecgramc(cur_lfp(:),movingwin,params);
         end
         
         uds_freqs = find(f >= uds_range(1) & f <= uds_range(2));
-%         hf_freqs = find(f >= hf_range(1) & f <= hf_range(2));
+        %         hf_freqs = find(f >= hf_range(1) & f <= hf_range(2));
         lf_freqs = find(f >= lf_range(1) & f <= lf_range(2));
         use_freqs = find(f >= use_range(1) & f <= use_range(2));
         
         %get LFP power in each band
         lfp_uds_pow = nan(length(use_cscs),length(t));
-%         lfp_hf_pow = nan(length(use_cscs),length(t));
+        %         lfp_hf_pow = nan(length(use_cscs),length(t));
         lfp_lf_pow = nan(length(use_cscs),length(t));
         lfp_tot_pow = nan(length(use_cscs),length(t));
         for cc = 1:length(use_cscs)
             lfp_uds_pow(cc,:) = trapz(f(uds_freqs),(S_lfp{cc}(:,uds_freqs)),2);
-%             lfp_hf_pow(cc,:) = trapz(f(hf_freqs),(S_lfp{cc}(:,hf_freqs)),2);
+            %             lfp_hf_pow(cc,:) = trapz(f(hf_freqs),(S_lfp{cc}(:,hf_freqs)),2);
             lfp_lf_pow(cc,:) = trapz(f(lf_freqs),(S_lfp{cc}(:,lf_freqs)),2);
             lfp_tot_pow(cc,:) = trapz(f(use_freqs),S_lfp{cc}(:,use_freqs),2);
         end
@@ -174,7 +212,7 @@ for dd = 1:length(data)
         %normalize the var
         avg_uds_pow = nanmean(log10(lfp_uds_pow),2);
         avg_lf_pow = nanmean(log10(lfp_lf_pow),2);
-%         avg_hf_pow = nanmean(log10(lfp_hf_pow),2);
+        %         avg_hf_pow = nanmean(log10(lfp_hf_pow),2);
         
         %find channel with maximum UDS/HF power ratio (difference in
         %log-space)
@@ -321,14 +359,13 @@ for dd = 1:length(data)
         desynch_times = [desynch_start_times(:) desynch_stop_times(:)];
         desynch_ids = round(desynch_times*csc_Fsd);
         
+        
         %% Compute signal features to use for UDS classification
-        hmm_dsf = 2; %down-sample-factor for HMM signal featurs
-        hmm_Fs = desired_Fs/hmm_dsf; %sample-frequency of HMM signal features (Hz)
-        mp_features = hsmm_uds_get_lf_features(mp_interp,desired_Fs,hmm_Fs,mp_feature_frange);
-
+        [mp_features,down_taxis] = hsmm_uds_get_lf_features(mp_interp,desired_Fs,hmm_Fs,mp_feature_frange);
+        
         %get a broader band MP signal
         mp_features_bb = hsmm_uds_get_lf_features(mp_interp,desired_Fs,desired_Fs,mp_feature_frange_bb);
-    
+        
         % LOCATE THE SEGMENTS CONTAINING UDS
         UDS_segs = hsmm_uds_get_uds_segments(desynch_times,hmm_Fs,length(mp_features),min_seg_dur); %Nx2 matrix containing the index values of the beginning and end of each UDS segment
         is_uds = false(size(mp_features));
@@ -339,7 +376,7 @@ for dd = 1:length(data)
         %%
         if sum(is_uds) > 0
             
-            mp_dist_xx = linspace(prctile(mp_features_bb(is_uds),0.5),prctile(mp_features_bb(is_uds),99.5),n_dens_bins); %MP amplitude axis for density estimation
+            mp_dist_xx = linspace(prctile(mp_features_bb(is_uds),0.1),prctile(mp_features_bb(is_uds),99.9),n_dens_bins); %MP amplitude axis for density estimation
             
             %initializations
             [seg_dip,seg_p_value] = deal(nan(size(UDS_segs,1),1));
@@ -348,10 +385,10 @@ for dd = 1:length(data)
             mp_seg_pdf = nan(size(UDS_segs,1),length(mp_dist_xx));
             for ii = 1:size(UDS_segs,1) %for each UDS segment
                 cur_inds = UDS_segs(ii,1):UDS_segs(ii,2);
-%                 mp_pdf = hist(mp_features_bb(cur_inds),mp_dist_xx);
-%                 mp_pdf([1 end]) = nan;
+                %                 mp_pdf = hist(mp_features_bb(cur_inds),mp_dist_xx);
+                %                 mp_pdf([1 end]) = nan;
                 [mp_kpdf,~,mp_bandwidths(ii)] = ksdensity(mp_features_bb(cur_inds),mp_dist_xx);
-%                 mp_seg_pdf(ii,:) = mp_pdf/nanmean(mp_pdf)*nanmean(mp_kpdf);
+                %                 mp_seg_pdf(ii,:) = mp_pdf/nanmean(mp_pdf)*nanmean(mp_kpdf);
                 mp_seg_pdf(ii,:) = mp_kpdf;
                 
                 %check the significance of bimodality
@@ -378,48 +415,55 @@ for dd = 1:length(data)
             bad_segs = find(seg_p_value > min_dip_pvalue);
             fprintf('%d/%d bad segs\n',length(bad_segs),length(seg_p_value));
             UDS_segs(bad_segs,:) = []; %get rid of the UDS segments without bimodal MP
-                                                
+            
             %% if we have some UDS
             if size(UDS_segs,1) > 0
-                %fit an HMM to MP
-                clear params
-                params.meantype = 'variable'; %use 'variable' for time-varying state means. otherwise use 'fixed'
-                params.UDS_segs = UDS_segs;
-                params.movingwin = [20 5]; %moving window parameters [windowLength windowSlide](in seconds) for computing time-varying state means
-                [hmm] = hsmm_uds_initialize(mp_features(:),hmm_Fs,params);
                 
-                hmm.min_mllik = -8; %set minimum value of the maximal log likelihood for either state before switching to robust estimator.  If you don't want to use this feature, set this to -Inf
-                [hmm,gamma] = hsmm_uds_train_hmm(hmm,mp_features(:));
                 
-                [mp_state_seq,llik_best] = hsmm_uds_viterbi_hmm(hmm,mp_features(:));
-                cur_Fs = desired_Fs;
-                hmm.min_state_dur = 1;
-                hmm.max_state_dur = round(hmm_Fs*20);
-                hmm.dur_range = (1:hmm.max_state_dur)/hmm.Fs;
-                hmm.state(1).dur_type = 'geometric'; hmm.state(2).dur_type = 'geometric';
-                pert_range_bb = [-0.15 0.15];
-                mp_state_seq_bb = hsmm_uds_pert_optimize_transitions(mp_features_bb,hmm,mp_state_seq,gamma,hmm_Fs,desired_Fs,pert_range_bb);
+                %%
+                if compute_state_seqs
+                    %fit an HMM to MP
+                    clear params
+                    params.meantype = 'variable'; %use 'variable' for time-varying state means. otherwise use 'fixed'
+                    params.UDS_segs = UDS_segs;
+                    params.movingwin = [20 5]; %moving window parameters [windowLength windowSlide](in seconds) for computing time-varying state means
+                    [hmm] = hsmm_uds_initialize(mp_features(:),hmm_Fs,params);
+                    
+                    hmm.min_mllik = -8; %set minimum value of the maximal log likelihood for either state before switching to robust estimator.  If you don't want to use this feature, set this to -Inf
+                    [hmm,gamma] = hsmm_uds_train_hmm(hmm,mp_features(:));
+                    
+                    [mp_state_seq,llik_best] = hsmm_uds_viterbi_hmm(hmm,mp_features(:));
+                    hmm.min_state_dur = 1;
+                    hmm.max_state_dur = round(hmm_Fs*20);
+                    hmm.dur_range = (1:hmm.max_state_dur)/hmm.Fs;
+                    hmm.state(1).dur_type = 'geometric'; hmm.state(2).dur_type = 'geometric';
+                    pert_range_bb = [-0.15 0.15];
+                    mp_state_seq_bb = hsmm_uds_pert_optimize_transitions(mp_features_bb,hmm,mp_state_seq,gamma,hmm_Fs,desired_Fs,pert_range_bb);
+                    
+                    [new_seg_inds] = resample_uds_seg_inds_v2(UDS_segs,hmm_Fs,desired_Fs,mp_state_seq_bb);
+                    [mp_state_durations] = compute_state_durations_seg(mp_state_seq_bb,desired_Fs);
+                    [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,mp_state_seq_bb);
+                    
+                    mp_state_vec = nan(size(mp_features_bb));
+                    for i = 1:size(new_seg_inds,1)
+                        mp_state_vec(new_seg_inds(i,1):new_seg_inds(i,2)) = mp_state_seq_bb{i};
+                    end
+                    
+                else
+                    new_tax = (1:length(mp_features_bb))/desired_Fs;
+                    new_seg_inds = round(interp1(new_tax,1:length(new_tax),down_taxis(UDS_segs)));
+                end
                 
-%                 new_seg_inds = UDS_segs;
-                [new_seg_inds] = resample_uds_seg_inds_v2(hmm.UDS_segs,hmm.Fs,desired_Fs,mp_state_seq_bb);
-                [mp_state_durations] = compute_state_durations_seg(mp_state_seq_bb,cur_Fs);
-                [up_trans_inds,down_trans_inds] = compute_state_transitions_seg(new_seg_inds,mp_state_seq_bb);
-                
-                mp_state_vec = nan(size(mp_features_bb));
                 is_uds = false(size(mp_features_bb));
-%                 mp_state_vec = nan(size(mp_features));
-%                 is_uds = false(size(mp_features));
                 for i = 1:size(new_seg_inds,1)
-                    mp_state_vec(new_seg_inds(i,1):new_seg_inds(i,2)) = mp_state_seq_bb{i};
-%                     mp_state_vec(new_seg_inds(i,1):new_seg_inds(i,2)) = mp_state_seq{i};
                     is_uds(new_seg_inds(i,1):new_seg_inds(i,2)) = true;
                 end
                 
-                all_data(dd).uds_dur = sum(is_uds)/cur_Fs;
-
+                all_data(dd).uds_dur = sum(is_uds)/desired_Fs;
+                
                 %% DETECT LOCAL EXTREMA OF FILTERED LFP SIGNAL
                 % compute ctx LFP features
-                [lfp_features,t_axis] = hsmm_uds_get_lf_features(ctx_lfp,desired_Fs,cur_Fs,uds_range); %'low-frequency amplitude'
+                [lfp_features,t_axis] = hsmm_uds_get_lf_features(ctx_lfp,desired_Fs,desired_Fs,uds_range); %'low-frequency amplitude'
                 lfp_features = lfp_features/robust_std_dev(lfp_features(is_uds));
                 
                 %get local minima and maxima of lfp signal
@@ -432,52 +476,83 @@ for dd = 1:length(data)
                 lfp_peak_amps = lfp_features(lfp_peaks);
                 lfp_valley_amps = -lfp_features(lfp_valleys);
                 
-                %find the set of down states that might have skipped ctx up
-                %blips
-                min_down_dur = 2*state_buffer;
-                poss_pers_downs = find(mp_state_durations{1} >= min_down_dur);
+                peak_checks = prctile(lfp_peak_amps,amp_prc_bins);
+                valley_checks = prctile(lfp_valley_amps,amp_prc_bins);
+                all_data(dd).peak_checks = peak_checks;
+                all_data(dd).valley_checks = valley_checks;
                 
-                %find the cortical up-blips skipped in each MP down
-                skipped_blips = cell(length(poss_pers_downs),1);
-                for ii = 1:length(poss_pers_downs)
-                    cur_down_inds = (down_trans_inds(poss_pers_downs(ii)) + round(cur_Fs*state_buffer)):(up_trans_inds(poss_pers_downs(ii)+1) - round(cur_Fs*state_buffer));
-                    skipped_blips{ii} = lfp_peak_amps(ismember(lfp_peaks,cur_down_inds));
+                %% compute MP-LFP xcorr function 
+                [xcfun,xclags] = xcov(lfp_features(is_uds),mp_features_bb(is_uds),round(0.5*desired_Fs),'coeff');
+                [all_data(dd).xc_peakval,all_data(dd).xc_peakloc] = max(xcfun);
+                all_data(dd).xc_peakloc = xclags(all_data(dd).xc_peakloc);
+                if shift_lfp_peaks %if accounting for temporal delay with LFP
+                    lfp_peak_amps_shift = lfp_peak_amps;
+                    lfp_valley_amps_shift = lfp_valley_amps;
+                    lfp_peak_shift = lfp_peaks - all_data(dd).xc_peakloc;
+                    lfp_valley_shift = lfp_valleys - all_data(dd).xc_peakloc;
+                    bad_peaks = find(lfp_peak_shift < 1 | lfp_peak_shift > length(lfp_features));
+                    bad_valleys = find(lfp_valley_shift < 1 | lfp_valley_shift > length(lfp_features));
+                    lfp_peak_shift(bad_peaks) = []; lfp_peak_amps_shift(bad_peaks) = [];
+                    lfp_valley_amps_shift(bad_valleys) = []; lfp_valley_amps_shift(bad_valleys) = [];
+                    cur_peak_amps = lfp_peak_amps_shift;
+                    cur_valley_amps = lfp_valley_amps_shift;
+                    cur_peaks = lfp_peak_shift;
+                    cur_valleys = lfp_valley_shift;
+                else
+                   cur_peak_amps = lfp_peak_amps;
+                   cur_valley_amps = lfp_valley_amps;
+                   cur_peaks = lfp_peaks;
+                   cur_valleys = lfp_valleys;
                 end
                 
-                %calculate stats on skipped ctx up blips of different sizes
-                [peak_prob,skip_cnt,skip_prob] = deal(nan(length(peak_checks),1));
-                for ii = 1:length(peak_checks)
-                    peak_prob(ii) = sum(lfp_peak_amps >= peak_checks(ii))/sum(~isnan(lfp_peak_amps));
-                    skip_cnt(ii) = sum(cellfun(@(x) sum(x >= peak_checks(ii)),skipped_blips));
-                    skip_prob(ii) = sum(cellfun(@(x) any(x >= peak_checks(ii)),skipped_blips))/length(poss_pers_downs);
-                end                
-                
-                all_data(dd).lfp_uppeak_prob = peak_prob;
-                all_data(dd).pdown_cnt = skip_cnt;
-                all_data(dd).pdown_prob = skip_prob;
-                
-                %% now repeat for pers ups
-                poss_pers_ups = find(mp_state_durations{2} >= min_down_dur); %set of MP up states that might skip down-blips
-                
-                %find ctx down-blips skipped by each mp up
-                skipped_blips = cell(length(poss_pers_ups),1);
-                for ii = 1:length(poss_pers_ups)
-                    cur_up_inds = (up_trans_inds(poss_pers_ups(ii)) + round(cur_Fs*state_buffer)):(down_trans_inds(poss_pers_ups(ii)) - round(cur_Fs*state_buffer));
-                    skipped_blips{ii} = lfp_valley_amps(ismember(lfp_valleys,cur_up_inds));
+                %%
+                if compute_state_seqs
+                    %find the set of down states that might have skipped ctx up
+                    %blips
+                    min_down_dur = 2*state_buffer;
+                    poss_pers_downs = find(mp_state_durations{1} >= min_down_dur);
+                    
+                    %find the cortical up-blips skipped in each MP down
+                    skipped_blips = cell(length(poss_pers_downs),1);
+                    for ii = 1:length(poss_pers_downs)
+                        cur_down_inds = (down_trans_inds(poss_pers_downs(ii)) + round(desired_Fs*state_buffer)):(up_trans_inds(poss_pers_downs(ii)+1) - round(desired_Fs*state_buffer));
+                        skipped_blips{ii} = cur_peak_amps(ismember(cur_peaks,cur_down_inds));
+                    end
+                    
+                    %calculate stats on skipped ctx up blips of different sizes
+                    [peak_prob,skip_cnt,skip_prob] = deal(nan(length(peak_checks),1));
+                    for ii = 1:length(peak_checks)
+                        peak_prob(ii) = sum(cur_peak_amps >= peak_checks(ii))/sum(~isnan(cur_peak_amps));
+                        skip_cnt(ii) = sum(cellfun(@(x) sum(x >= peak_checks(ii)),skipped_blips));
+                        skip_prob(ii) = sum(cellfun(@(x) any(x >= peak_checks(ii)),skipped_blips))/length(poss_pers_downs);
+                    end
+                    
+                    all_data(dd).lfp_uppeak_prob = peak_prob;
+                    all_data(dd).pdown_cnt = skip_cnt;
+                    all_data(dd).pdown_prob = skip_prob;
+                    %% now repeat for pers ups
+                    poss_pers_ups = find(mp_state_durations{2} >= min_down_dur); %set of MP up states that might skip down-blips
+                    
+                    %find ctx down-blips skipped by each mp up
+                    skipped_blips = cell(length(poss_pers_ups),1);
+                    for ii = 1:length(poss_pers_ups)
+                        cur_up_inds = (up_trans_inds(poss_pers_ups(ii)) + round(desired_Fs*state_buffer)):(down_trans_inds(poss_pers_ups(ii)) - round(desired_Fs*state_buffer));
+                        skipped_blips{ii} = cur_valley_amps(ismember(cur_valleys,cur_up_inds));
+                    end
+                    
+                    %compute stats on skipped ctx down blips
+                    [peak_prob,skip_cnt,skip_prob] = deal(nan(length(valley_checks),1));
+                    for ii = 1:length(valley_checks)
+                        peak_prob(ii) = sum(cur_valley_amps >= valley_checks(ii))/sum(~isnan(cur_valley_amps));
+                        skip_cnt(ii) = sum(cellfun(@(x) sum(x >= valley_checks(ii)),skipped_blips));
+                        skip_prob(ii) = sum(cellfun(@(x) any(x >= valley_checks(ii)),skipped_blips))/length(poss_pers_ups);
+                    end
+                    
+                    all_data(dd).lfp_downpeak_prob = peak_prob;
+                    all_data(dd).pup_cnt = skip_cnt;
+                    all_data(dd).pup_prob = skip_prob;
+                    
                 end
-                
-                %compute stats on skipped ctx down blips
-                [peak_prob,skip_cnt,skip_prob] = deal(nan(length(peak_checks),1));
-                for ii = 1:length(peak_checks)
-                    peak_prob(ii) = sum(lfp_valley_amps >= peak_checks(ii))/sum(~isnan(lfp_valley_amps));
-                    skip_cnt(ii) = sum(cellfun(@(x) sum(x >= peak_checks(ii)),skipped_blips));
-                    skip_prob(ii) = sum(cellfun(@(x) any(x >= peak_checks(ii)),skipped_blips))/length(poss_pers_ups);
-                end
-                
-                all_data(dd).lfp_downpeak_prob = peak_prob;
-                all_data(dd).pup_cnt = skip_cnt;
-                all_data(dd).pup_prob = skip_prob;
-                
                 %%
                 %temporal window around each LFP extremum to pull data snippets
                 back_win = round(0.75*desired_Fs);
@@ -496,7 +571,7 @@ for dd = 1:length(data)
                 
                 [all_down_stas,all_up_stas] = deal(nan(length(peak_checks),back_win+for_win+1));
                 for jj = 1:length(peak_checks)
-                    cur_events = lfp_valleys(lfp_valley_amps >= peak_checks(jj)); %all LFP minima in the current set
+                    cur_events = lfp_valleys(lfp_valley_amps >= valley_checks(jj)); %all LFP minima in the current set
                     if length(cur_events) >= min_n_events
                         [cur_ta,cur_lags,~,~,cur_mat] = get_event_trig_avg_v3(mp_features_bb,cur_events,back_win,for_win,2); %trig avg of MP amp
                         all_down_tas(jj,:) = cur_ta;
@@ -505,8 +580,10 @@ for dd = 1:length(data)
                             all_down_dists(jj,ii,:) = jmm_smooth_1d_cor(squeeze(all_down_dists(jj,ii,:)),dens_smth_sig);
                         end
                         
-                        [cur_sta] = get_event_trig_avg_v3(mp_state_vec,cur_events,back_win,for_win); %trig avg of MP state
-                        all_down_stas(jj,:) = cur_sta;
+                        if compute_state_seqs
+                            [cur_sta] = get_event_trig_avg_v3(mp_state_vec,cur_events,back_win,for_win); %trig avg of MP state
+                            all_down_stas(jj,:) = cur_sta;
+                        end
                     end
                     
                     cur_events = lfp_peaks(lfp_peak_amps >= peak_checks(jj));
@@ -518,8 +595,10 @@ for dd = 1:length(data)
                             all_up_dists(jj,ii,:) = jmm_smooth_1d_cor(squeeze(all_up_dists(jj,ii,:)),dens_smth_sig);
                         end
                         
-                        [cur_sta] = get_event_trig_avg_v3(mp_state_vec,cur_events,back_win,for_win);
-                        all_up_stas(jj,:) = cur_sta;
+                        if compute_state_seqs
+                            [cur_sta] = get_event_trig_avg_v3(mp_state_vec,cur_events,back_win,for_win);
+                            all_up_stas(jj,:) = cur_sta;
+                        end
                     end
                 end
                 
@@ -536,8 +615,14 @@ for dd = 1:length(data)
                 all_data(dd).dtrig_mpstate = all_down_stas;
                 all_data(dd).utrig_mpavg = all_up_tas;
                 all_data(dd).dtrig_mpavg = all_down_tas;
+                all_data(dd).uptrig_dists = all_up_dists;
+                all_data(dd).downtrig_dists = all_down_dists;
                 
-                all_data(dd).avg_stateprob = nanmean(mp_state_vec(is_uds));
+                if compute_state_seqs
+                    all_data(dd).avg_stateprob = nanmean(mp_state_vec(is_uds));
+                end
+                
+                %%
             end
         end
         
@@ -559,58 +644,85 @@ ctx_neurons = find(arrayfun(@(x) strcmp(x.MPloc,'Ctx'),data));
 use_mec_neurons = intersect(mec_neurons,use_cells);
 use_ctx_neurons = intersect(ctx_neurons,use_cells);
 
-%%
-mec_pdown_prob = cell2mat(arrayfun(@(x) x.pdown_prob,all_data(use_mec_neurons),'uniformoutput',0));
-ctx_pdown_prob = cell2mat(arrayfun(@(x) x.pdown_prob,all_data(use_ctx_neurons),'uniformoutput',0));
+%% plot MEC pers prob as function of blip amp
+if compute_state_seqs
+    mec_pdown_prob = cell2mat(arrayfun(@(x) x.pdown_prob,all_data(use_mec_neurons),'uniformoutput',0));
+    ctx_pdown_prob = cell2mat(arrayfun(@(x) x.pdown_prob,all_data(use_ctx_neurons),'uniformoutput',0));
+    
+    mec_pup_prob = cell2mat(arrayfun(@(x) x.pup_prob,all_data(use_mec_neurons),'uniformoutput',0));
+    ctx_pup_prob = cell2mat(arrayfun(@(x) x.pup_prob,all_data(use_ctx_neurons),'uniformoutput',0));
+    
+    mec_peak_checks = cell2mat(arrayfun(@(x) x.peak_checks',all_data(use_mec_neurons),'uniformoutput',0));
+    ctx_peak_checks = cell2mat(arrayfun(@(x) x.peak_checks',all_data(use_ctx_neurons),'uniformoutput',0));
+    mec_valley_checks = cell2mat(arrayfun(@(x) x.valley_checks',all_data(use_mec_neurons),'uniformoutput',0));
+    ctx_valley_checks = cell2mat(arrayfun(@(x) x.valley_checks',all_data(use_ctx_neurons),'uniformoutput',0));
+    
+    f1 = figure();
+    subplot(2,1,1); hold on
+    plot(mec_peak_checks,mec_pdown_prob,'ko-','linewidth',1);
+    plot(ctx_peak_checks,ctx_pdown_prob,'ro-','linewidth',1);
+    ylim([0 1]);
+    ylabel('Prob MP persistence');
+    xlabel('LFP amplitude (z)');
+    title('LFP UP blips');
+    
+    subplot(2,1,2); hold on
+    plot(-mec_peak_checks,mec_pup_prob,'ko-','linewidth',1);
+    plot(-ctx_peak_checks,ctx_pup_prob,'ro-','linewidth',1);
+    ylim([0 1]);
+    ylabel('Prob MP persistence');
+    xlabel('LFP amplitude (z)');
+    title('LFP DOWN blips');
+    
+%     fig_width = 6; rel_height = 1.5;
+% figufy(f1);
+% fname = [fig_dir 'cortical_blip_pers.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
-mec_pup_prob = cell2mat(arrayfun(@(x) x.pup_prob,all_data(use_mec_neurons),'uniformoutput',0));
-ctx_pup_prob = cell2mat(arrayfun(@(x) x.pup_prob,all_data(use_ctx_neurons),'uniformoutput',0));
-
-f1 = figure();
-subplot(2,1,1); hold on
-plot(peak_checks,mec_pdown_prob,'ko-');
-plot(peak_checks,ctx_pdown_prob,'ro-');
-ylim([0 1]);
-subplot(2,1,2); hold on
-plot(peak_checks,mec_pup_prob,'ko-');
-plot(peak_checks,ctx_pup_prob,'ro-');
-ylim([0 1]);
-
-%%
-clear *_up_ts *_down_ts
-for ii = 1:length(use_mec_neurons)
-    mec_up_ts(ii,:,:) = all_data(use_mec_neurons(ii)).utrig_mpstate;
-    mec_down_ts(ii,:,:) = all_data(use_mec_neurons(ii)).dtrig_mpstate;
-end
-for ii = 1:length(use_ctx_neurons)
-    ctx_up_ts(ii,:,:) = all_data(use_ctx_neurons(ii)).utrig_mpstate;
-    ctx_down_ts(ii,:,:) = all_data(use_ctx_neurons(ii)).dtrig_mpstate;
-end
-
-mec_up_ts = bsxfun(@minus,mec_up_ts,[all_data(use_mec_neurons).avg_stateprob]');
-ctx_up_ts = bsxfun(@minus,ctx_up_ts,[all_data(use_ctx_neurons).avg_stateprob]');
-mec_down_ts = bsxfun(@minus,mec_down_ts,[all_data(use_mec_neurons).avg_stateprob]');
-ctx_down_ts = bsxfun(@minus,ctx_down_ts,[all_data(use_ctx_neurons).avg_stateprob]');
-
-f1 = figure();
-for ii = 1:length(peak_checks)
-    subplot(3,2,ii); hold on
-    plot(cur_lags,squeeze(mec_up_ts(:,ii,:)),'k-');
-    plot(cur_lags,squeeze(ctx_up_ts(:,ii,:)),'r-');    
-    plot(cur_lags,squeeze(nanmean(mec_up_ts(:,ii,:))),'k','linewidth',3);
-    plot(cur_lags,squeeze(nanmean(ctx_up_ts(:,ii,:))),'r','linewidth',3);
 end
 
-f1 = figure();
-for ii = 1:length(peak_checks)
-    subplot(3,2,ii); hold on
-    plot(cur_lags,squeeze(mec_down_ts(:,ii,:)),'k-');
-    plot(cur_lags,squeeze(ctx_down_ts(:,ii,:)),'r-');    
-    plot(cur_lags,squeeze(nanmean(mec_down_ts(:,ii,:))),'k','linewidth',3);
-    plot(cur_lags,squeeze(nanmean(ctx_down_ts(:,ii,:))),'r','linewidth',3);
+%% plot blip-trig avg state probs
+xr = [-0.75 0.75];
+if compute_state_seqs
+    clear *_up_ts *_down_ts
+    for ii = 1:length(use_mec_neurons)
+        mec_up_ts(ii,:,:) = all_data(use_mec_neurons(ii)).utrig_mpstate;
+        mec_down_ts(ii,:,:) = all_data(use_mec_neurons(ii)).dtrig_mpstate;
+    end
+    for ii = 1:length(use_ctx_neurons)
+        ctx_up_ts(ii,:,:) = all_data(use_ctx_neurons(ii)).utrig_mpstate;
+        ctx_down_ts(ii,:,:) = all_data(use_ctx_neurons(ii)).dtrig_mpstate;
+    end
+    
+    %     mec_up_ts = bsxfun(@minus,mec_up_ts,[all_data(use_mec_neurons).avg_stateprob]');
+    %     ctx_up_ts = bsxfun(@minus,ctx_up_ts,[all_data(use_ctx_neurons).avg_stateprob]');
+    %     mec_down_ts = bsxfun(@minus,mec_down_ts,[all_data(use_mec_neurons).avg_stateprob]');
+    %     ctx_down_ts = bsxfun(@minus,ctx_down_ts,[all_data(use_ctx_neurons).avg_stateprob]');
+    
+    f1 = figure();
+    for ii = 1:length(peak_checks)
+        subplot(3,2,ii); hold on
+        plot(cur_lags/desired_Fs,squeeze(mec_up_ts(:,ii,:)),'k-');
+        plot(cur_lags/desired_Fs,squeeze(ctx_up_ts(:,ii,:)),'r-');
+        plot(cur_lags/desired_Fs,squeeze(nanmean(mec_up_ts(:,ii,:))),'k','linewidth',3);
+        plot(cur_lags/desired_Fs,squeeze(nanmean(ctx_up_ts(:,ii,:))),'r','linewidth',3);
+        xlim(xr);
+    end
+    
+    f1 = figure();
+    for ii = 1:length(peak_checks)
+        subplot(3,2,ii); hold on
+        plot(cur_lags/desired_Fs,squeeze(mec_down_ts(:,ii,:)),'k-');
+        plot(cur_lags/desired_Fs,squeeze(ctx_down_ts(:,ii,:)),'r-');
+        plot(cur_lags/desired_Fs,squeeze(nanmean(mec_down_ts(:,ii,:))),'k','linewidth',3);
+        plot(cur_lags/desired_Fs,squeeze(nanmean(ctx_down_ts(:,ii,:))),'r','linewidth',3);
+        xlim(xr);
+    end
 end
 
-%%
+%% plot blip-trig avg MP amps
+xr = [-0.75 0.75];
 clear *_up_ta *_down_ta
 for ii = 1:length(use_mec_neurons)
     mec_up_ta(ii,:,:) = all_data(use_mec_neurons(ii)).utrig_mpavg;
@@ -622,19 +734,38 @@ for ii = 1:length(use_ctx_neurons)
 end
 
 f1 = figure();
-for ii = 1:length(peak_checks)
+for ii = 1:length(amp_prc_bins)
     subplot(3,2,ii); hold on
-    plot(cur_lags,squeeze(mec_up_ta(:,ii,:)),'k-');
-    plot(cur_lags,squeeze(ctx_up_ta(:,ii,:)),'r-');    
-    plot(cur_lags,squeeze(nanmean(mec_up_ta(:,ii,:))),'k','linewidth',3);
-    plot(cur_lags,squeeze(nanmean(ctx_up_ta(:,ii,:))),'r','linewidth',3);
+    plot(cur_lags/desired_Fs,squeeze(mec_up_ta(:,ii,:)),'k-');
+    plot(cur_lags/desired_Fs,squeeze(ctx_up_ta(:,ii,:)),'r-');
+    plot(cur_lags/desired_Fs,squeeze(nanmean(mec_up_ta(:,ii,:))),'k','linewidth',3);
+    plot(cur_lags/desired_Fs,squeeze(nanmean(ctx_up_ta(:,ii,:))),'r','linewidth',3);
+    xlim(xr);
+    xlabel('Time (s)');
+    ylabel('MP amplitude (z)');
+    title(sprintf('%d percentile',amp_prc_bins(ii)));
 end
 
-f1 = figure();
-for ii = 1:length(peak_checks)
+f2 = figure();
+for ii = 1:length(amp_prc_bins)
     subplot(3,2,ii); hold on
-    plot(cur_lags,squeeze(mec_down_ta(:,ii,:)),'k-');
-    plot(cur_lags,squeeze(ctx_down_ta(:,ii,:)),'r-');    
-    plot(cur_lags,squeeze(nanmean(mec_down_ta(:,ii,:))),'k','linewidth',3);
-    plot(cur_lags,squeeze(nanmean(ctx_down_ta(:,ii,:))),'r','linewidth',3);
+    plot(cur_lags/desired_Fs,squeeze(mec_down_ta(:,ii,:)),'k-');
+    plot(cur_lags/desired_Fs,squeeze(ctx_down_ta(:,ii,:)),'r-');
+    plot(cur_lags/desired_Fs,squeeze(nanmean(mec_down_ta(:,ii,:))),'k','linewidth',3);
+    plot(cur_lags/desired_Fs,squeeze(nanmean(ctx_down_ta(:,ii,:))),'r','linewidth',3);
+    xlim(xr);
+    xlabel('Time (s)');
+    ylabel('MP amplitude (z)');
+    title(sprintf('%d percentile',amp_prc_bins(ii)));
 end
+
+%     fig_width = 9; rel_height = 1.3;
+% figufy(f1);
+% fname = [fig_dir 'UP_bliptrig_avg_MP.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'DOWN_bliptrig_avg_MP.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);

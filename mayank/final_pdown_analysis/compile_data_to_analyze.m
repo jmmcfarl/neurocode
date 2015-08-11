@@ -140,16 +140,16 @@ clear_l3 = [clear_l3 65 66 68 69 70 73 74 77 79 80 82 86 88 89 90 94 96 97 100 1
 no_cell = [71 75 78 85 104 105];
 unclear_uds = ...
 [67  %Unstable, rec too short
-76 %unclear uds during pre-atropine period
-83 %bad LFP
-84 %bad LFP
-93 %unclear MP UDS
-91 %bad LFP
+76 %unclear uds during pre-atropine period (not enough LFP UDS)
+83 %bad LFP artifacts
+84 %bad LFP (short set before atropine, and saturation in LFP signal)
+93 %unclear MP UDS (also unclear layer)
+91 %bad LFP (saturation in LFP)
 92 %unclear LFP and MP UDS
-101 %MP unclear/unstable
-104 %MP unclear/unstable
-105 %MP unclear/unstable
-106]; %bad LFP
+101 %LFP and MP UDS unclear/unstable. not the worst, but also barely long enough to begin with
+104 %MP unclear/unstable [drug app anyways]
+105 %MP unclear/unstable [drug app anyways]
+106]; %bad LFP [drug app at 390]
 
 %% store layer/type classifications
 for ii = 1:length(data)
