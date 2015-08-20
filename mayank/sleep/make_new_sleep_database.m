@@ -138,7 +138,7 @@ data(dd).MPfile = 'WC.ncs';
 data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC';
-data(dd).good_bounds = [0 468];
+data(dd).good_bounds = [0 460];
 
 dd = dd + 1;
 %d12 MEC. [probably L2. Not that clear though. slight theta peak, and
@@ -374,6 +374,28 @@ data(dd).ipsi_L = 0;
 data(dd).contra_L = 1;
 data(dd).MPloc = 'MEC'; 
 data(dd).good_bounds = [0 235];
+
+dd = dd + 1;
+%d30. 
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2015-08-16/2015-08-16_12-20-53';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 1;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 175];
+
+dd = dd + 1;
+%d31. [MP bad-range from 340-375]!
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2015-08-16/2015-08-16_13-06-25';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 800];
 
 %%
 cd ~/Analysis/Mayank/sleep/

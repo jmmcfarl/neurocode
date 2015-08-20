@@ -18,7 +18,7 @@ hf_smooth_sigma = 0.025; %smoothing sigma on HF-power
 
 mua_amp_threshold = 30; %threshold on MUA amplitude (uV)
 %%
-for dd = 28:length(data);
+for dd = 36:length(data);
     %     dd = 2;
     cd(data(dd).dir);
             
@@ -198,5 +198,5 @@ for dd = 28:length(data);
     save(sname,'csc_time','contra*','ipsi*','data','mp_d','mp_t','heka_data','heka_time','heka_alignment');
     
     %%
-    clearvars -except data dd
+%     clearvars -except data dd
 end

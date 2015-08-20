@@ -1,10 +1,10 @@
 clear all
 cd ~/Analysis/Mayank/sleep/
-% load sleep_dirs
-load sleep_dirs_old
+load sleep_dirs
+% load sleep_dirs_old
 
 %%
-dd = 4;
+dd = 35;
 cd(data(dd).dir)
 pwd
 load procData
@@ -17,8 +17,8 @@ csc_dsf = 1;
 heka_dsf = 5;
 
 % use_cscs = [2];
-use_cscs = [6];
-% use_cscs = [1:7];
+% use_cscs = [6];
+use_cscs = [1:7];
 
 %%
 mp_Fs = 1/nanmedian(diff(mp_t));
