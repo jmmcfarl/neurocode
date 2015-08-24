@@ -34,7 +34,7 @@ batch_function = 'variability_rpt_anal_compact';
 % batch_function = 'full_eyetracking_hres_compactData_allSULOO';
 % batch_function = 'drift_grating_simulations';
 % batch_function = 'fit_microsac_models_compactData';
-% batch_function = 'model_based_EPvariance_calc';
+%  batch_function = 'model_based_EPvariance_calc';
 
 for Elist_cnt = 1:length(Expt_list)
 % for Elist_cnt = 6

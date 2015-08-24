@@ -12,7 +12,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 % %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'sim_variability_compact_FIN2_noxc';
+sname = 'sim_variability_compact_FIN2';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
@@ -25,10 +25,10 @@ calc_Tconst = true; sim_params.calc_Tconst = calc_Tconst; %calculate trial-const
 calc_simInt = true; sim_params.calc_simInt = calc_simInt; %calculate integral-based estimates of alpha?
 
 poss_SDs = [0:0.025:0.2];%range of possible EP SDs to test (last is the empirical)
-poss_ubins = [1 2 3 4 5 10 20 50 100]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
+poss_ubins = [1 2 3 4 5 10 20 50 100 200]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 % poss_ubins = logspace(log10(1),log10(100),10); sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 
-do_xcorr = false;
+do_xcorr = true;
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
 
 %parameters for integral-based calculation
@@ -384,6 +384,7 @@ end
 
 ep_rates = nan(length(full_uinds),length(targs));
 ep_rates2 = nan(length(full_uinds),length(targs));
+if calc_Tconst; ep_rates3 = ep_rates2; end;
 for sd = 1:length(poss_SDs)
     fprintf('SD %d of %d\n',sd,length(poss_SDs));
     
@@ -478,7 +479,7 @@ for sd = 1:length(poss_SDs)
         end
         
         %compute model-rates for the second version of the retinal stim
-        ep_rates3 = nan(NT,length(targs));
+        %ep_rates3 = nan(NT,length(targs));
         for cc = 1:length(targs)
             if has_stim_mod(cc)
                 [~,~,ep_rates3(:,cc)] = NMMmodel_eval(stim_mod(cc),[],all_Xmat_shift);
@@ -621,7 +622,7 @@ if calc_simInt %if calculating integral-based estimates
     sim_xax = sim_xax(:);
     
     modrate_fft = sqrt(squeeze(mean(abs(fft(sim_rates)).^2,2))); %avg power across time, then sqrt to amp spec
-    modrate_fft = modrate_fft(1:N/2 + 1,:); %single-sided spec
+    modrate_fft = modrate_fft(1:sim_Nx/2 + 1,:); %single-sided spec
     %%
     [sim_int_alphas,sim_int_totvars,sim_int_psthvars] = deal(nan(length(poss_SDs),length(targs)));
     for sd = 1:length(poss_SDs)

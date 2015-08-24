@@ -49,11 +49,11 @@ xlabel('Time (s)');
 ylabel('Trial number');
 set(gca,'ydir','normal');
 
-fname = [fig_dir sprintf('Direxamp_SU%d_spkdata_%s.pdf',ex_su,Expt_name)];
-fig_width = 4; rel_height = 0.8;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fname = [fig_dir sprintf('Direxamp_SU%d_spkdata_%s.pdf',ex_su,Expt_name)];
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% plot array of EP data
 f1 = figure();
@@ -65,12 +65,12 @@ xlabel('Time (s)');
 ylabel('Trial number');
 set(gca,'ydir','normal');
 
-fname = [fig_dir sprintf('Direxamp_EPdata_%s.pdf',Expt_name)];
-fig_width = 4; rel_height = 0.8;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
+% fname = [fig_dir sprintf('Direxamp_EPdata_%s.pdf',Expt_name)];
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
 %%
 deltaX_range = [0 0.5];
 cur_EP_data = fig_data.EP_data(ex_su,1);
@@ -88,11 +88,11 @@ if ex_su == 12
     ylim([-0.025 0.25]);
 end
 
-fname = [fig_dir sprintf('Direxamp_SU%d_varfun_%s.pdf',ex_su,Expt_name)];
-fig_width = 4; rel_height = 0.8;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fname = [fig_dir sprintf('Direxamp_SU%d_varfun_%s.pdf',ex_su,Expt_name)];
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% plot example trial spiking and EP data
 ex_trials = [121 162];

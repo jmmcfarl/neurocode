@@ -12,7 +12,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_FIN4_noxc';
+sname = 'rpt_variability_compact_FIN6_noxc';
 
 % et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 % et_anal_name = 'full_eyetrack_Rinit';
@@ -42,8 +42,9 @@ sim_n_rpts = 500; EP_params.sim_n_rpts = sim_n_rpts; %number of repeats for simu
 maxD_prc = 100; %maximum delta_X percentile to model with spline fit
 n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins; %number of quantiles of delta_X for binned estimates
 n_spline_knots = 4; EP_params.n_spline_knots = 4;  %number of spline knot pts
-poss_eps_sizes = [.005 .01 .02]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
+poss_eps_sizes = [.005 .01 .02 .04]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
 n_eval_pts = 100; EP_params.n_eval_pts = n_eval_pts; %number of points to evaluate spline fit
+ball_nboots = 100; EP_params.ball_nboots = ball_nboots; %number of bootstrap samples for computing eps ball vars
 
 use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
 
@@ -1055,14 +1056,23 @@ for bbb = 1:length(poss_bin_dts)
                 %compute <YY> for an epsilon-ball surrounding deltaX=0
                 eps_ball_var = nan(length(poss_eps_sizes),1);
                 eps_ball_var_noLOO = nan(length(poss_eps_sizes),1);
+                eps_ball_npts = nan(length(poss_eps_sizes),1);
+                eps_ball_boot = nan(length(poss_eps_sizes),2);
+                bootfun = @(x) mean(all_X(x(randi(length(x),length(x),1)))); %bootstrap function which computes the eps-ball mean over a random-resampling of the subset of points within deltaE
                 for bb = 1:length(poss_eps_sizes)
                     curset = find(all_base_D < poss_eps_sizes(bb));
                     eps_ball_var_noLOO(bb) = mean(all_X(curset));
                     if ~isempty(loo_ind)
                         curset = find(all_LOO_D < poss_eps_sizes(bb));
                         eps_ball_var(bb) = mean(all_X(curset));
+                        eps_ball_npts(bb) = length(curset);
+                        if eps_ball_npts(bb) > 1
+                            bootsamps = bootstrp(ball_nboots,bootfun,curset);
+                            eps_ball_boot(bb,:) = [mean(bootsamps),std(bootsamps)];
+                        end
                     end
                 end
+                clear bootfun
                 
                 %fit cubic spline using LOO deltaX
                 if ~isempty(loo_ind)
@@ -1080,6 +1090,8 @@ for bbb = 1:length(poss_bin_dts)
                 EP_data(cc,bbb).spline_baseEP = base_sp;
                 EP_data(cc,bbb).eps_ball_var = eps_ball_var;
                 EP_data(cc,bbb).eps_ball_var_noLOO = eps_ball_var_noLOO;
+                EP_data(cc,bbb).eps_ball_npts = eps_ball_npts;
+                EP_data(cc,bbb).eps_ball_boot = eps_ball_boot;
                 EP_data(cc,bbb).var_ep_binned = var_ep_binned;
                 EP_data(cc,bbb).pair_psth_var = mean(all_X); %estimate of PSTH variance as <Y_i*Y_j> independent of deltaX
                 EP_data(cc,bbb).EP_bin_centers = EP_bin_centers;
@@ -1280,7 +1292,7 @@ for bbb = 1:length(poss_bin_dts)
 %             error('Havent incorporated upsampling for model fits');
             new_mod_prates = interp1(1:used_nf,all_mod_emp_prates,bin_usfac:bin_usfac:used_nf)*bin_usfac;
             new_mod_prates(1:(1/bin_usfac-1),:,:) = new_mod_prates(1/bin_usfac,:,:); %handle the nans that arise from the first upsampled bin centers being out of range
-            new_mod_prates_noEM = interp1(1:used_nf,all_mod_emp_prates_noEM,bin_usfac:bin_usfac:used_nf);
+            new_mod_prates_noEM = interp1(1:used_nf,all_mod_emp_prates_noEM,bin_usfac:bin_usfac:used_nf)*bin_usfac;
             new_mod_prates_noEM(1:(1/bin_usfac-1),:,:) = new_mod_prates_noEM(1/bin_usfac,:,:); %handle the nans that arise from the first upsampled bin centers being out of range
         else
             n_Tbins = used_nf;

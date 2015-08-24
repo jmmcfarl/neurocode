@@ -14,4 +14,6 @@ Yquants = prctile(Y,quantiles);
 UE = Yquants(3,:) - Yquants(2,:);
 LE = Yquants(2,:) - Yquants(1,:);
 
-errorbar(X,Yquants(2,:),UE,LE,color);
+errorbar(X,Yquants(2,:),LE,UE,color);
+hold on
+plot(X,Yquants(2,:),'o','color',color);
