@@ -12,12 +12,14 @@ global Expt_name bar_ori monk_name rec_type rec_number
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_FIN6_noxc';
+% sname = 'rpt_variability_compact_FIN6_noxc';
+sname = 'rpt_variability_compact_FIN_noextras';
 
 % et_mod_data_name = 'full_eyetrack_initmods_Rinit';
 % et_anal_name = 'full_eyetrack_Rinit';
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
-et_anal_name = 'full_eyetrack_FIN2_Rinit';
+% et_anal_name = 'full_eyetrack_FIN2_Rinit';
+et_anal_name = 'full_eyetrack_FIN_noextras_Rinit';
 mod_name = 'corrected_models_comp_FIN2';
 
 use_MUA = false; EP_params.use_MUA = use_MUA; %use MUA in model-fitting
@@ -46,7 +48,7 @@ poss_eps_sizes = [.005 .01 .02 .04]; EP_params.poss_eps_sizes = poss_eps_sizes; 
 n_eval_pts = 100; EP_params.n_eval_pts = n_eval_pts; %number of points to evaluate spline fit
 ball_nboots = 100; EP_params.ball_nboots = ball_nboots; %number of bootstrap samples for computing eps ball vars
 
-use_LOOXV = 1; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
+use_LOOXV = 0; %[0 is no LOO; 1 is SUs only; 2 is SU + MU]
 
 %%
 data_dir = ['~/Data/bruce/' Expt_name];
@@ -273,6 +275,9 @@ if use_hres_ET %if using high-res ET
                 drift_post_mean_LOO(ss,:),drift_post_std_LOO(ss,:),fix_ids,trial_start_inds,trial_end_inds,sac_shift);
         end
         post_mean_EP_LOO = post_mean_EP_LOO*sp_dx;
+    elseif use_LOOXV == 0
+        warning('NOT using LOOXV');
+        post_mean_EP_LOO = nan(size(post_mean_EP));
     else
         error('No LOO variables detected');
     end
@@ -484,6 +489,7 @@ if compute_PF_rate
         all_Xmat_PF = tb_proc_stim(all_Xmat_PF,modFitParams.add_usfac,modFitParams.flen);
     end
 end
+
 %% get model-predicted trial-by-trial firing rates
 % make Robs_mat
 tot_sus = size(all_binned_sua,2);
@@ -534,6 +540,10 @@ for cc = 1:length(targs)
             EP_data(cc,1).rpt_LL = rpt_LL;
             EP_data(cc,1).rpt_nullLL = rpt_nullLL;
             [~,~,all_mod_emp_prates(:,cc)] = NMMmodel_eval(stim_mod(cc),[],X);
+        else
+                        post_mean_EP_rpt = post_mean_EP(used_rpt_inds);
+            fin_shift_cor = round(post_mean_EP_rpt/modFitParams.sp_dx); %use overall EP estimate
+            fin_shift_cor(isnan(fin_shift_cor)) = 0;
         end
     end
 end
@@ -960,7 +970,7 @@ for bbb = 1:length(poss_bin_dts)
         % estimate quantiles of the distribution of pairwise EP similarities by this metric
         rset = randi(length(used_frame_inds),100,1);
         for ii = 1:length(rset)
-            cur_Dmat = abs(squareform(pdist(squeeze(tbt_EP_emb(rset(ii),cur_trial_set,:)))))/sqrt(emb_win);
+            cur_Dmat = squareform(pdist(squeeze(tbt_EP_emb(rset(ii),cur_trial_set,:))))/sqrt(emb_win);
             cur_Dmat(logical(eye(length(cur_trial_set)))) = nan;
             cur_Dmat = cur_Dmat(~isnan(cur_Dmat));
             rand_deltaX = cat(1,rand_deltaX,cur_Dmat);
@@ -1003,13 +1013,13 @@ for bbb = 1:length(poss_bin_dts)
                     
                     %get matrix of delta_X using LOO EP signal
                     if ~isempty(loo_ind)
-                        cur_Dmat = abs(squareform(pdist(squeeze(cur_tbt_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+                        cur_Dmat = squareform(pdist(squeeze(cur_tbt_EP_emb(tt,cur_trial_set,:))))/sqrt(emb_win);
                         cur_Dmat(logical(eye(cur_nrpts))) = nan;
                         cur_LOO_D(cur_inds) = cur_Dmat(uset); %use only unique unequal trial pairs
                     end
                     
                     %now repeat using overall EP signal
-                    cur_Dmat = abs(squareform(pdist(squeeze(new_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+                    cur_Dmat = squareform(pdist(squeeze(new_EP_emb(tt,cur_trial_set,:))))/sqrt(emb_win);
                     cur_Dmat(logical(eye(cur_nrpts))) = nan;
                     cur_base_D(cur_inds) = cur_Dmat(uset);
                     
@@ -1108,8 +1118,10 @@ for bbb = 1:length(poss_bin_dts)
             if ~isnan(avg_rates(cc))
                 tot_var = mean(EP_data(cc,bbb).tot_var);
                 psth_noise_var = tot_var - EP_data(cc,bbb).pair_psth_var; %estimated noise variance using PSTH
+                if use_LOOXV
                 spline_noise_var = tot_var - EP_data(cc,bbb).spline_looEP.weights(1); %spline-based estimate of noise variance
                 EP_data(cc,bbb).spline_FF = spline_noise_var/avg_rates(cc); %spline-based FF
+                end
                 EP_data(cc,bbb).psth_FF = psth_noise_var/avg_rates(cc); %PSTH-based FF
                 for bb = 1:length(poss_eps_sizes) %compute epsilon-ball based FF
                     cur_ball_noise_var = tot_var - EP_data(cc,bbb).eps_ball_var(bb);
@@ -1158,7 +1170,7 @@ for bbb = 1:length(poss_bin_dts)
                         cur_ovX_cnt = cur_ovX_cnt + squeeze(sum(~isnan(cur_Xmat)));
                         
                         %calculate deltaX mat using overall EP
-                        cur_Dmat = abs(squareform(pdist(squeeze(new_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+                        cur_Dmat = squareform(pdist(squeeze(new_EP_emb(tt,cur_trial_set,:))))/sqrt(emb_win);
                         cur_Dmat(logical(eye(cur_nrpts))) = nan;
                         %                         cur_D(cur_inds) = cur_Dmat(uset);
                         
@@ -1173,7 +1185,7 @@ for bbb = 1:length(poss_bin_dts)
                         
                         % calculate a separate deltaX mat for each LOO EP signal
                         for ll = 1:length(loo_set)
-                            cur_Dmat = abs(squareform(pdist(squeeze(new_loo_EP_emb(tt,cur_trial_set,:,ll)))))/sqrt(emb_win);
+                            cur_Dmat = squareform(pdist(squeeze(new_loo_EP_emb(tt,cur_trial_set,:,ll))))/sqrt(emb_win);
                             cur_Dmat(logical(eye(cur_nrpts))) = nan;
                             
                             cur_Dmat = cur_Dmat(uset);
@@ -1383,7 +1395,7 @@ for bbb = 1:length(poss_bin_dts)
                 for tt = 1:n_Tbins
                     cur_inds = (tt-1)*n_unique_pairs + (1:n_unique_pairs);
                     
-                    cur_Dmat = abs(squareform(pdist(squeeze(new_EP_emb(tt,cur_trial_set,:)))))/sqrt(emb_win);
+                    cur_Dmat = squareform(pdist(squeeze(new_EP_emb(tt,cur_trial_set,:))))/sqrt(emb_win);
                     cur_Dmat(logical(eye(cur_nrpts))) = nan;
                     cur_D(cur_inds) = cur_Dmat(uset);
                 end

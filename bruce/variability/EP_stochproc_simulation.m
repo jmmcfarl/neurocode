@@ -4,7 +4,7 @@ clear all
 fig_dir = '/home/james/Analysis/bruce/variability/stoch_proc_sim/';
 % fig_dir = '/Users/james/Analysis/bruce/variability/stoch_proc_sim/';
 
-eye_pos_sigma = 0.11; %SD (deg) of eye position distribution (assume gaussian)
+eye_pos_sigma = 0.115; %SD (deg) of eye position distribution (assume gaussian)
 
 %spk NL parameters of model neuron
 spkNL_alpha = 1;
@@ -114,7 +114,7 @@ ylabel('Alpha');
 % fname = [fig_dir 'sim_alpha_vs_SF.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-
+% 
 %% now run analysis using an example gabor filter
 examp_sf = 2; %spatial freq
 
@@ -230,7 +230,8 @@ ylabel('Relative amplitude');
 
 % fig_width = 4; rel_height = 1.6;
 % figufy(f1);
-% fname = [fig_dir 'sim_pspecs_grate.pdf'];
+% % fname = [fig_dir 'sim_pspecs_grate.pdf'];
+% fname = [fig_dir 'sim_pspecs_RLS.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
@@ -276,7 +277,7 @@ ylabel('Probability');
 % fname = [fig_dir 'sim_EP_dist.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f2);
-
+% 
 %% plot gabor filter
 f4 = figure();
 plot(xax,real(gabor_filt),'k');
@@ -442,7 +443,133 @@ ylabel('Alpha');
 % 
 
 %% check dependence of alpha on spectral properties
-poss_exps = [-4:0.25:4]; %possible power-law exponents for stimulus spatial freq spectrum
+poss_exps = [-2:0.1:2]; %possible power-law exponents for stimulus spatial freq spectrum
+examp_sf = 2; %preferred SF of gabor
+
+n_rpts = 1;
+
+pix_dx = 0.01;
+xax = -6:pix_dx:6; %pixel axis (deg)
+if mod(length(xax),2) ~= 0
+    xax(end) = [];
+end
+Fs = 1/pix_dx; %spatial sample freq
+N = length(xax); %number of spatial samples
+fax = 0:Fs/N:Fs/2;
+
+nsamps = 1e4; %number of random pattern samples ('trials')
+npix = length(xax);
+
+% make gabor filter and compute its spectrum
+env_sigma = 1/examp_sf*bandwidth; %spatial envelope SD
+gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*examp_sf + spatial_phase);
+% get amplitude spectrum of the gabor filter (analytically)
+fft_bandwidth = 1/(2*pi*env_sigma); %frequency-domain width (SD) of gabor
+gabor_fft = exp(-(fax-examp_sf).^2/(2*fft_bandwidth^2)); %gaussian centered on SF
+gabor_fft2 = abs(fft(gabor_filt)); %gaussian centered on SF
+gabor_fft2 = gabor_fft2(1:N/2+1);
+
+%apply hanning window to minimize edge effects
+hwin = hanning(npix);
+
+% compute eye position distribution and its spectrum
+ep_dist = exp(-xax.^2/(2*eye_pos_sigma^2)); %EP distribution
+ep_dist = ep_dist/sum(ep_dist);
+% ep_dist = ep_dist.*hwin';
+ep_dist_fft = abs(fft(ep_dist));
+ep_dist_fft = ep_dist_fft(1:N/2+1);
+
+gabor_alpha_anal = nan(n_rpts,length(poss_exps));
+lin_alpha_anal = nan(n_rpts,length(poss_exps));
+simple_alpha_anal = nan(n_rpts,length(poss_exps));
+complex_alpha_anal = nan(n_rpts,length(poss_exps));
+for jj = 1:n_rpts
+for ii = 1:length(poss_exps) %loop over possible power law exponents   
+    stim_fft = 1./fax.^(poss_exps(ii)/2); %create power law spectrum
+    stim_fft(1) = 0; %handle 0-frequency point by setting to 0
+    
+    %spectrum of the output of linear gabor filter
+    gabor_out_fft = stim_fft.*gabor_fft;
+    
+    %alpha computed directly for linear neuron
+    gabor_alpha_anal(jj,ii) = 1 - trapz(fax,(gabor_out_fft.*ep_dist_fft).^2)/trapz(fax,gabor_out_fft.^2);
+    
+    %now for numerical calculations with model neurons
+    %make stimulus with desired spectral properties
+    x = randn(npix, nsamps); %start with gaussian white noise
+    X = fft(x);
+    H = 1./ (fax.^(poss_exps(ii)/2)); H(1) = 0; %transfer function, zero-out zero-freq component
+    H = [H, zeros(1, npix - length(H))];
+    Y = bsxfun(@times,X,H'); %apply transfer function
+    Xstim_up = real(ifft(Y) * 2 * pi); %ifft to generate gaussian noise with colored spec
+    
+    % compute firing rate outputs of these models
+    Xconv = convn(Xstim_up,gabor_filt(:),'same');%output of gabor filter (complex-valued)
+    Xconv = Xconv/std(real(Xconv(:))); %normalize to unit SD
+%     lin_rate = real(Xconv);
+    
+    %firing rate output of simple-cell model
+    simple_rate = spkNL_alpha*log(1+exp((real(Xconv)+spkNL_theta)*spkNL_beta));
+    simple_rate = simple_rate/std(simple_rate(:)); %normalize to unit SD
+    
+    %energy model output
+    Xout = (real(Xconv).^2 + imag(Xconv).^2);
+    complex_rate = spkNL_alpha*log(1+exp((Xout+spkNL_theta)*spkNL_beta));
+    complex_rate = complex_rate/std(complex_rate(:)); %normalize to unit SD
+        
+    %subtract off overall avg rates
+%     lin_mrate = mean(lin_rate(:));
+    simp_mrate = mean(simple_rate(:));
+    comp_mrate = mean(complex_rate(:));
+%     lin_rate = lin_rate - lin_mrate;
+    simple_rate = simple_rate - simp_mrate;
+    complex_rate = complex_rate - comp_mrate;
+    
+    %apply hanning window to minimize edge artifacts
+%     lin_rate = bsxfun(@times,lin_rate,hwin);
+    simple_rate = bsxfun(@times,simple_rate,hwin);
+    complex_rate = bsxfun(@times,complex_rate,hwin);
+    
+%     % compute power spectra of different model outputs
+%     linrate_fft = sqrt(mean(abs(fft(lin_rate)).^2,2));%for gabor filter output
+%     linrate_fft = linrate_fft(1:N/2+1);
+%     linrate_fft(1) = 0;
+    
+    %simple cell firing rate output
+    simprate_fft = sqrt(mean(abs(fft(simple_rate)).^2,2));
+    simprate_fft = simprate_fft(1:N/2+1);
+    simprate_fft(1) = 0;
+    
+    %energy model firing rate output
+    comprate_fft = sqrt(mean(abs(fft(complex_rate)).^2,2));
+    comprate_fft = comprate_fft(1:N/2+1);
+    comprate_fft(1) = 0;
+    
+%     lin_alpha_anal(jj,ii) = 1 - trapz(fax,(linrate_fft.*ep_dist_fft').^2)/trapz(fax,linrate_fft.^2);
+    simple_alpha_anal(jj,ii) = 1 - trapz(fax,(simprate_fft.*ep_dist_fft').^2)/trapz(fax,simprate_fft.^2);
+    complex_alpha_anal(jj,ii) = 1 - trapz(fax,(comprate_fft.*ep_dist_fft').^2)/trapz(fax,comprate_fft.^2);
+end
+end
+
+f1 = figure(); hold on
+plot(poss_exps,gabor_alpha_anal,'linewidth',2);
+plot(poss_exps,simple_alpha_anal,'r','linewidth',2);
+plot(poss_exps,complex_alpha_anal,'k','linewidth',2);
+% errorbar(poss_exps,nanmean(gabor_alpha_anal),nanstd(gabor_alpha_anal),'linewidth',1);
+% errorbar(poss_exps,nanmean(simple_alpha_anal),nanstd(simple_alpha_anal),'r','linewidth',1);
+% errorbar(poss_exps,nanmean(complex_alpha_anal),nanstd(complex_alpha_anal),'k','linewidth',1);
+xlabel('power law exponent');
+ylabel('Alpha');
+ylim([0 1]);
+
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% fname = [fig_dir 'alpha_vs_exp.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+
+%%
+examp_sf = 2; %preferred SF of gabor
 
 pix_dx = 0.01;
 xax = -6:pix_dx:6; %pixel axis (deg)
@@ -454,44 +581,32 @@ N = length(xax); %number of spatial samples
 fax = 0:Fs/N:Fs/2;
 
 % make gabor filter and compute its spectrum
-sf = 2; %spatial freq
-env_sigma = 1/sf*bandwidth; %spatial envelope SD
-% gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*sf + spatial_phase);
-% gabor_fft = abs(fft(gabor_filt));
-% gabor_fft = gabor_fft(1:N/2+1);
-% get amplitude spectrum of the gabor filter (analytically)
-fft_bandwidth = 1/(2*pi*env_sigma); %frequency-domain width (SD) of gabor
-gabor_fft = exp(-(fax-examp_sf).^2/(2*fft_bandwidth^2)); %gaussian centered on SF
+env_sigma = 1/examp_sf*bandwidth; %spatial envelope SD
+gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*examp_sf + spatial_phase);
 
 % compute eye position distribution and its spectrum
 ep_dist = exp(-xax.^2/(2*eye_pos_sigma^2)); %EP distribution
 ep_dist = ep_dist/sum(ep_dist);
 ep_dist_fft = abs(fft(ep_dist));
-ep_dist_fft = ep_dist_fft(1:N/2+1);
+ep_dist_fft = ep_dist_fft(1:ceil(N/2+1));
 
-gabor_alpha_anal = nan(length(poss_exps),1);
-for ii = 1:length(poss_exps) %loop over possible power law exponents   
-    stim_fft = sqrt(1./fax.^(poss_exps(ii))); %create power law spectrum
-    stim_fft(1) = stim_fft(2); %handle 0-frequency point
-    
-    %spectrum of the output of linear gabor filter
-    gabor_out_fft = stim_fft.*gabor_fft;
-    
-    %alpha
-    gabor_alpha_anal(ii) = 1 - trapz(fax,(gabor_out_fft.*ep_dist_fft).^2)/trapz(fax,gabor_out_fft.^2);
+poss_gammas = [-2:0.2:2];
+for gg = 1:length(poss_gammas)
+gamma = poss_gammas(gg);
+% ff = -Fs/2:Fs/N:Fs/2; ff(end) = [];
+% amp_scale = 1./ff.^(gamma/2); %amplitude scaling factors
+% amp_scale(ff == 0) = 0; %set 0-frequency component to 0
+% noise = randn(size(xax));
+% noise_fft = fft(noise);
+% noise_fft = noise_fft.*amp_scale;
+% noise = ifft(noise_fft);
+
+gg
 end
 
-f1 = figure();
-plot(-poss_exps,gabor_alpha_anal,'linewidth',2);
-xlabel('power law exponent');
-ylabel('Alpha');
-ylim([0 1]);
-
-% fig_width = 4; rel_height = 0.8;
-% figufy(f1);
-% fname = [fig_dir 'alpha_vs_exp.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+f1 = figure; hold on
+plot(poss_gammas,ex_simple_alpha,'o-');
+plot(poss_gammas,ex_complex_alpha,'ro-');
 
 %% for white noise stim, check dependence of alpha on EP SD and gabor SF
 poss_SDs = 0:0.01:0.2; %range of eye position SDs
@@ -596,19 +711,16 @@ ylim([0 1]);
 
 
 
-
-
-
 %% 2d simulation
-% stim_type = 'white';
-stim_type = 'NS';
+stim_type = 'white';
+% stim_type = 'NS';
 
 sf = 2; %spatial freq
 bandwidth = 0.5;
 env_sigma = 1/sf*bandwidth; %spatial envelope SD
 spatial_phase = 0;
 spatial_AR = 0.75; %spatial aspect ratio
-orientation = 45; %grating orientation
+orientation = 0; %grating orientation
   
 pix_dx = .01;
 xax = -10:pix_dx:10;
@@ -641,70 +753,72 @@ gabor_output_spec = gabor_fft.*stim_aspec;
 gabor_psth_spec = gabor_output_spec.*eye_pos_fft;
 
 freq_range = [-4 4];
-alpha_2d = 1 - trapz(trapz(gabor_psth_spec.^2))/trapz(trapz(gabor_output_spec.^2));
+alpha_2d = 1 - trapz(trapz(gabor_psth_spec.^2))/trapz(trapz(gabor_output_spec.^2))
+F_zero = find(fax == 0);
+alpha_1d = 1 - trapz(gabor_psth_spec(F_zero,:).^2)/trapz(gabor_output_spec(F_zero,:).^2)
 
-close all
-
-%plot spectrum of gabor filter
-f1 = figure();
-imagesc(fax,fax,gabor_fft);
-set(gca,'ydir','normal');
-xlim(freq_range); ylim(freq_range);
-line(freq_range,[0 0],'color','w')
-line([0 0],freq_range,'color','w');
-xlabel('Frequency (cyc/deg)');
-ylabel('Frequency (cyc/deg)');
-
-%plot stimulus power spec
-f2 = figure();
-imagesc(fax,fax,log10(stim_aspec.^2));
-set(gca,'ydir','normal');
-xlim(freq_range); ylim(freq_range);
-line(freq_range,[0 0],'color','w')
-line([0 0],freq_range,'color','w');
-colorbar
-caxis([-5 0]);
-xlabel('Frequency (cyc/deg)');
-ylabel('Frequency (cyc/deg)');
-
-f3 = figure();
-imagesc(fax,fax,eye_pos_fft);
-set(gca,'ydir','normal');
-xlim(freq_range); ylim(freq_range);
-line(freq_range,[0 0],'color','w')
-line([0 0],freq_range,'color','w');
-xlabel('Frequency (cyc/deg)');
-ylabel('Frequency (cyc/deg)');
-
-f4 = figure();
-imagesc(fax,fax,gabor_output_spec);
-set(gca,'ydir','normal');
-xlim(freq_range); ylim(freq_range);
-line(freq_range,[0 0],'color','w')
-line([0 0],freq_range,'color','w');
-ca = caxis();
-xlabel('Frequency (cyc/deg)');
-ylabel('Frequency (cyc/deg)');
-
-f5 = figure();
-imagesc(fax,fax,gabor_psth_spec);
-set(gca,'ydir','normal');
-xlim(freq_range); ylim(freq_range);
-line(freq_range,[0 0],'color','w')
-line([0 0],freq_range,'color','w');
-caxis(ca);
-xlabel('Frequency (cyc/deg)');
-ylabel('Frequency (cyc/deg)');
-
-f6 = figure();
-imagesc(xax,xax,real(gabor_filt));
-set(gca,'ydir','normal');
-colormap(jet(1e3));
-xlim([-1 1]); ylim([-1 1]);
-caxis([-1 1]);
-xlabel('Position (deg)');
-ylabel('Position (deg)');
-
+% close all
+% 
+% %plot spectrum of gabor filter
+% f1 = figure();
+% imagesc(fax,fax,gabor_fft);
+% set(gca,'ydir','normal');
+% xlim(freq_range); ylim(freq_range);
+% line(freq_range,[0 0],'color','w')
+% line([0 0],freq_range,'color','w');
+% xlabel('Frequency (cyc/deg)');
+% ylabel('Frequency (cyc/deg)');
+% 
+% %plot stimulus power spec
+% f2 = figure();
+% imagesc(fax,fax,log10(stim_aspec.^2));
+% set(gca,'ydir','normal');
+% xlim(freq_range); ylim(freq_range);
+% line(freq_range,[0 0],'color','w')
+% line([0 0],freq_range,'color','w');
+% colorbar
+% caxis([-5 0]);
+% xlabel('Frequency (cyc/deg)');
+% ylabel('Frequency (cyc/deg)');
+% 
+% f3 = figure();
+% imagesc(fax,fax,eye_pos_fft);
+% set(gca,'ydir','normal');
+% xlim(freq_range); ylim(freq_range);
+% line(freq_range,[0 0],'color','w')
+% line([0 0],freq_range,'color','w');
+% xlabel('Frequency (cyc/deg)');
+% ylabel('Frequency (cyc/deg)');
+% 
+% f4 = figure();
+% imagesc(fax,fax,gabor_output_spec);
+% set(gca,'ydir','normal');
+% xlim(freq_range); ylim(freq_range);
+% line(freq_range,[0 0],'color','w')
+% line([0 0],freq_range,'color','w');
+% ca = caxis();
+% xlabel('Frequency (cyc/deg)');
+% ylabel('Frequency (cyc/deg)');
+% 
+% f5 = figure();
+% imagesc(fax,fax,gabor_psth_spec);
+% set(gca,'ydir','normal');
+% xlim(freq_range); ylim(freq_range);
+% line(freq_range,[0 0],'color','w')
+% line([0 0],freq_range,'color','w');
+% caxis(ca);
+% xlabel('Frequency (cyc/deg)');
+% ylabel('Frequency (cyc/deg)');
+% 
+% f6 = figure();
+% imagesc(xax,xax,real(gabor_filt));
+% set(gca,'ydir','normal');
+% colormap(jet(1e3));
+% xlim([-1 1]); ylim([-1 1]);
+% caxis([-1 1]);
+% xlabel('Position (deg)');
+% ylabel('Position (deg)');
+% 
 % fig_width = 4; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'NS2d_gaborfft.pdf'];

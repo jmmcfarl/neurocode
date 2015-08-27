@@ -22,6 +22,8 @@ fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 %% load repeat trial data
 % base_rname = 'rpt_variability_compact_FIN'; %rpt-trial data base
 % base_rname = 'rpt_variability_compact_FIN4_noxc'; %this has more time bins but no xxc
+% base_rname = 'rpt_variability_compact_FIN5'; % has some time bins with xc
+% base_rname = 'rpt_variability_compact_FIN_noextras'; % has some time bins with xc
 base_rname = 'rpt_variability_compact_FIN5'; % has some time bins with xc
 base_sname = 'sim_variability_compact_FIN2'; %sim-calc data base
 % base_sname = 'sim_variability_compact_FIN2_noxc'; %newer sim-calc that has integral-based and no xc sim
@@ -30,6 +32,7 @@ cell_cnt = 1;
 pair_cnt = 1;
 all_cell_data = [];
 all_pair_data = [];
+all_expt_data = [];
 % for Elist_cnt = 1:18 %loop over all experiments in the list
 for Elist_cnt = 1:length(Expt_list) %loop over all experiments in the list
     Expt_name = Expt_list{Elist_cnt};
@@ -49,6 +52,8 @@ for Elist_cnt = 1:length(Expt_list) %loop over all experiments in the list
             end
             load(rname);
             load(sname);
+            
+            all_expt_data = cat(1,all_expt_data,rpt_data);
             
             %loop over cells for this rec
             reverseStr = '';
@@ -176,7 +181,6 @@ SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(:,1));
 SU_avgRates = [all_cell_data(:,1).ov_avg_BS]'/direct_bin_dts(1); %compute avg rate using first time bin res
 SU_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_cell_data(:,1));
 SU_rpt_xvLL = arrayfun(@(x) x.rpt_LL - x.rpt_nullLL,all_cell_data(:,1));
-% SU_rpt_xvLL = arrayfun(@(x) x.rpt_LL - x.rpt_nullLL,all_cell_data(:,1));
 
 % SU_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate & SU_mod_xvLLs > min_xvLL); %used SUs
 base_uset = find(SU_nTrials >= min_nTrials & SU_avgRates >= min_avgRate); %used SUs
@@ -278,9 +282,11 @@ sim_dt_ind = find(sim_params.poss_ubins*.01 == dt_ind);
 %% some quantitative comparisons on different estimates of alpha
 %quantify overfitting by comparing rate variance of eps-ball estimators with and without using LOO.
 overfit_measure = 100*bsxfun(@rdivide,SU_ball_vars_noLOO(:,direct_dt_ind,ball_ind) - SU_ball_vars(:,direct_dt_ind,ball_ind),SU_ball_vars(:,direct_dt_ind,ball_ind));
+abs_overfit_measure = 100*bsxfun(@rdivide,abs(SU_ball_vars_noLOO(:,direct_dt_ind,ball_ind) - SU_ball_vars(:,direct_dt_ind,ball_ind)),SU_ball_vars(:,direct_dt_ind,ball_ind));
 % overfit_measure = SU_ball_alphas_noLOO(:,direct_dt_ind,ball_ind) - SU_ball_alphas(:,direct_dt_ind,ball_ind);
 % overfit_measure = 100*bsxfun(@rdivide,SU_ball_alphas_noLOO(:,direct_dt_ind,ball_ind) - SU_ball_alphas(:,direct_dt_ind,ball_ind),SU_ball_alphas(:,direct_dt_ind,ball_ind));
 fprintf('overfitting quantiles [25 50 75]: %.4f %.4f %.4f\n',prctile(overfit_measure,[25 50 75]));
+fprintf('abs overfitting quantiles [25 50 75]: %.4f %.4f %.4f\n',prctile(abs_overfit_measure,[25 50 75]));
 
 %look at simulated alpha calcs based on integrating the FT, compared to the
 %normal way
@@ -381,18 +387,18 @@ eps_cv = eps_bstd./eps_bmean; %CV of bootstrap resampling of var ests
 
 f2 = figure(); hold on
 % plot_errorbar_quantiles(poss_bin_dts,eps_npts,[25 50 75]);
-plot_errorbar_quantiles(poss_bin_dts,eps_cv,[25 50 75]);
+plot_errorbar_quantiles(poss_bin_dts,eps_cv,[25 50 75],'r');
 xlabel('Time window (s)');
 ylabel('CV');
 set(gca,'xscale','log');
-xlim([0.004 0.5]);
+xlim([0.004 2.5]);
 
 % fig_width = 4; rel_height = 0.8;
 % figufy(f1);
 % fname = [fig_dir 'alpha_vs_timewin_compare.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-% 
+
 % figufy(f2);
 % fname = [fig_dir 'epsCV_vs_timewin.pdf'];
 % exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -696,7 +702,8 @@ sim_alpha_rel = bsxfun(@rdivide,sim_alpha(:,1:end-1),sim_alpha_norm');
 
 observed_EP_range = minmax(EP_SDs);
 interp_alphas = interp1(sim_params.poss_SDs(1:end-1),sim_alpha(:,1:end-1)',observed_EP_range');
-EPrange_fold_change = diff(interp_alphas)./interp_alphas(1,:);
+% EPrange_fold_change = diff(interp_alphas)./interp_alphas(1,:);
+EPrange_fold_change = bsxfun(@rdivide,interp_alphas,sim_alpha_norm);
 
 sd_range = [0.0 0.22]; %range for plotting
 
