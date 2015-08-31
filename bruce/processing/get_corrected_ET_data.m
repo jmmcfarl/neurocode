@@ -14,9 +14,9 @@ function [corrected_eye_vals,corrected_eye_vals_interp]  = get_corrected_ET_data
 %     corrected_eye_vals: processed eye position data (at ET resolution)
 %     corrected_eye_vals_interp: processed eye position data, interpolated onto expt time axis
 % 
-% if nargin < 8 
-%     lin_correction = true;
-% end
+if nargin < 8 
+    lin_correction = true;
+end
 
 fprintf('Computing corrected ET data\n');
 
@@ -32,7 +32,9 @@ expt_fy = cellfun(@(x) x.Stimvals.fy,Expts,'UniformOutput',true);
 expt_fx = unique(expt_fx);
 expt_fy = unique(expt_fy);
 if length(expt_fx) > 1 || length(expt_fy) > 1
-    error('RF position not constant across blocks!\n');
+    warning('RF position not constant across blocks!\n');
+    expt_fx = mode(expt_fx);
+    expt_fy = mode(expt_fy);
 end
 corrected_eye_vals_interp(:,[1 3]) = corrected_eye_vals_interp(:,[1 3]) - expt_fx;
 corrected_eye_vals_interp(:,[2 4]) = corrected_eye_vals_interp(:,[2 4]) - expt_fy;
