@@ -21,7 +21,7 @@ params.mp_feature_frange_bb = [0 20]; %freq range for computing MP features [10]
 params.n_dens_bins = 100; %number of pts to use for density estimation
 % params.dens_smth_sig = 3; %sigma for visualizing density estimates (in units of bins)
 
-params.mp_lcf = 0.05;  %lcf for hp-filter on MP signal (just gets rid of drift) [.01]
+params.mp_lcf = 0.01;  %lcf for hp-filter on MP signal (just gets rid of drift) [.05]
 params.lfp_lcf = 0.2; %lcf for hp-filter on LFP signals (gets rid of LF artifact)
 params.desired_Fs = 200;  %want a uniform Fs
 
@@ -37,6 +37,7 @@ params.amp_prc_bins = [0:10:90]; %amplitude-binning (in percentile) for LFP blip
 %defining criteria for UDS selection (for normalized LFP power)
 params.lfp_uds_thresh = -0.6; %min log power concentrated in the UDS band [-0.5]
 params.lfp_lf_max = 2; %max log power in the LF band (artifact detection)
+params.artifact_maxAmp = 10; %max LFP amplitude before artifact detected
 
 params.compute_state_seqs = true; %compute MP state sequences?
 params.hmm_dsf = 2; %down-sample-factor for HMM signal featurs
@@ -82,6 +83,11 @@ for dd = 1:length(data)
     else
         all_data(dd).has_ipsi = false;
     end
+    
+    if ~isempty(findstr(data(dd).dir,'2015-08-21_10-39-20')) %csc 4 is clearly strange in this rec
+        all_data(dd).poss_ctx_chs(4) = [];
+    end
+    
     
     %% get sample freqs and determine additional dsf's
     csc_Fs = 1/nanmedian(diff(csc_time));
@@ -136,7 +142,7 @@ for dd = 1:length(data)
         blocked_inds = blocked_inds(:);
         used_inds = setdiff(1:length(mp_data),blocked_inds); %non-spike samples
         mp_data = interp1(used_inds,mp_data(used_inds),1:length(mp_data)); %de-spiked data
-                
+        
         %% identify any missing data at the beginning and end of the recording
         mp_sp = find(abs(diff(mp_data)) > 0,1); %first pt where we actually have MP data
         mp_ep = 1+find(abs(diff(mp_data)) > 0,1,'last'); %last pt with MP data
@@ -154,17 +160,17 @@ for dd = 1:length(data)
         %             use_mp_inds(mp_time(use_mp_inds) >= bad_trange(1) & mp_time(use_mp_inds) <= bad_trange(2)) = [];
         %         end
         mp_time = mp_time(use_mp_inds); mp_data = mp_data(use_mp_inds);
-     
+        
         %%
         %now apply high-pass filtering, and down-sample MP data
         mp_Fsd = mp_Fs/cur_dsf;
         mp_data = decimate(mp_data,cur_dsf);
-         if params.mp_lcf > 0
-       [b,a] = butter(2,params.mp_lcf/(mp_Fsd/2),'high');
-        mp_data = filtfilt(b,a,mp_data);
+        if params.mp_lcf > 0
+            [b,a] = butter(2,params.mp_lcf/(mp_Fsd/2),'high');
+            mp_data = filtfilt(b,a,mp_data);
         end
         mp_time = downsample(mp_time,cur_dsf);
-
+        
         %% process LFP data
         %find usable LFP times
         csc_time = downsample(csc_time,csc_dsf);
@@ -176,7 +182,7 @@ for dd = 1:length(data)
         [bb,aa] = butter(2,params.lfp_lcf/(csc_Fsd/2),'high');
         for ii = 1:length(ipsi_csc)
             ipsi_csc{ii} = decimate(ipsi_csc{ii},csc_dsf);
-            ipsi_csc{ii} = ipsi_csc{ii}(csc_inds);
+            ipsi_csc{ii} = ipsi_csc{ii}(csc_inds) - nanmedian(ipsi_csc{ii}(csc_inds));
             ipsi_csc_hp{ii} = filtfilt(bb,aa,ipsi_csc{ii});
             ipsi_csc{ii} = ipsi_csc{ii}/robust_std_dev(ipsi_csc_hp{ii}); %normalize by robust SD est
             ipsi_csc_hp{ii} = ipsi_csc_hp{ii}/robust_std_dev(ipsi_csc_hp{ii}); %normalize by robust SD est
@@ -240,6 +246,17 @@ for dd = 1:length(data)
         uds_epochs = log10(lfp_uds_pow(all_data(dd).ctx_ch,:)) >= params.lfp_uds_thresh; %these epochs have sufficient LFP UDS
         lf_epochs = log10(lfp_lf_pow(all_data(dd).ctx_ch,:)) >= params.lfp_lf_max; %these epochs have too much LF power
         
+        %detect LFP artifacts by finding any windows where the (hp-filtered) LFP
+        %amplitude is too large
+        art_epochs = false(size(t));
+        Nwin=round(csc_Fsd*params.movingwin(1)); % number of samples in window
+        Nstep=round(params.movingwin(2)*csc_Fsd); % number of samples to step through
+        winstart=1:Nstep:length(ipsi_csc_hp{ctx_ch})-Nwin+1;
+        for ii = 1:length(t)
+            cur_inds = winstart(ii):(winstart(ii) + Nwin);
+            art_epochs(ii) = any(abs(ipsi_csc_hp{ctx_ch}(cur_inds)) > params.artifact_maxAmp);
+        end
+        
         all_data(dd).lfp_pow_spec = mean(S_lfp{all_data(dd).ctx_ch});
         all_data(dd).mp_pow_spec = mean(S_mp);
         
@@ -255,7 +272,7 @@ for dd = 1:length(data)
             f1 = figure();
             subplot(2,2,1); hold on
             imagesc(t,1:length(use_cscs),log10(lfp_uds_pow)); colorbar;
-            plot(t,uds_epochs*4,'w','linewidth',2);
+            plot(t,uds_epochs*4,'w','linewidth',1);
             line([0 t(end)],all_data(dd).ctx_ch + [0 0],'color','k');
             axis tight
             xlim([0 t(end)]);
@@ -273,7 +290,7 @@ for dd = 1:length(data)
             ylabel('Channel num');
             title('LFP low-freq power')
             
-            good_uds = uds_epochs & ~lf_epochs;
+            good_uds = uds_epochs & ~lf_epochs & ~art_epochs;
             subplot(2,2,2); hold on
             pcolor(t,f,log10(S_lfp{all_data(dd).ctx_ch})'); shading flat; colorbar;
             plot(t,good_uds*2+0.1,'w','linewidth',2);
@@ -314,12 +331,12 @@ for dd = 1:length(data)
         
         if ~isempty(findstr(data(dd).dir,'2015-08-16_13-06-25')) %this rec had a brief period where cell resealed
             bad_trange = [340 380]; %MP rec resealed here
-            to_nan = find(t >= bad_trange(1) & t <= bad_trange(2)); 
+            to_nan = find(t >= bad_trange(1) & t <= bad_trange(2));
             uds_epochs(to_nan) = 0; %force data during this time to be desynch
         end
-
+        
         %mark boundary points of data epochs were going to use
-        desynch_indicator = ~uds_epochs | lf_epochs; %this is data we don't want to use
+        desynch_indicator = ~uds_epochs | lf_epochs | art_epochs; %this is data we don't want to use
         desynch_start_ids = 1+find(desynch_indicator(1:end-1) == 0 & desynch_indicator(2:end) == 1);
         desynch_stop_ids = 1+find(desynch_indicator(1:end-1) == 1 & desynch_indicator(2:end) == 0);
         
@@ -401,7 +418,7 @@ for dd = 1:length(data)
         if sum(is_uds) > 0
             
             mp_dist_xx = linspace(prctile(mp_features_bb(is_uds),0.1),prctile(mp_features_bb(is_uds),99.9),params.n_dens_bins); %MP amplitude axis for density estimation
-%             mp_dist_xx = linspace(prctile(mp_features(is_uds),0.1),prctile(mp_features(is_uds),99.9),params.n_dens_bins); %MP amplitude axis for density estimation
+            %             mp_dist_xx = linspace(prctile(mp_features(is_uds),0.1),prctile(mp_features(is_uds),99.9),params.n_dens_bins); %MP amplitude axis for density estimation
             
             %initializations
             [seg_dip,seg_p_value] = deal(nan(size(UDS_segs,1),1));
@@ -409,15 +426,15 @@ for dd = 1:length(data)
             mp_bandwidths = nan(size(UDS_segs,1),1);
             mp_seg_pdf = nan(size(UDS_segs,1),length(mp_dist_xx));
             for ii = 1:size(UDS_segs,1) %for each UDS segment
-%                 cur_inds = UDS_segs(ii,1):UDS_segs(ii,2);
-%                 [mp_kpdf,~,mp_bandwidths(ii)] = ksdensity(mp_features(cur_inds),mp_dist_xx); %get MP density estimate for this segment
+                %                 cur_inds = UDS_segs(ii,1):UDS_segs(ii,2);
+                %                 [mp_kpdf,~,mp_bandwidths(ii)] = ksdensity(mp_features(cur_inds),mp_dist_xx); %get MP density estimate for this segment
                 cur_inds = new_seg_inds(ii,1):new_seg_inds(ii,2);
                 [mp_kpdf,~,mp_bandwidths(ii)] = ksdensity(mp_features_bb(cur_inds),mp_dist_xx); %get MP density estimate for this segment
                 mp_seg_pdf(ii,:) = mp_kpdf;
                 
                 %check the significance of bimodality
                 [seg_dip(ii), seg_p_value(ii), xlow,xup]=hartigansdipsigniftest(downsample(mp_features_bb(cur_inds),2),params.dip_Nboot);
-%                 [seg_dip(ii), seg_p_value(ii), xlow,xup]=hartigansdipsigniftest(mp_features(cur_inds),params.dip_Nboot);
+                %                 [seg_dip(ii), seg_p_value(ii), xlow,xup]=hartigansdipsigniftest(mp_features(cur_inds),params.dip_Nboot);
                 
                 %if there is bimodality, compute the mean of up and down
                 %state amps
@@ -428,7 +445,7 @@ for dd = 1:length(data)
                         mp_middle_crosspts(ii) = nanmean(dens_peaks); %set the separation point to be the midpoint between the two modes
                     else
                         mp_middle_crosspts(ii) = nanmedian(mp_features_bb(cur_inds)); %if unimodal, just set this as the median
-%                         mp_middle_crosspts(ii) = nanmedian(mp_features(cur_inds)); %if unimodal, just set this as the median
+                        %                         mp_middle_crosspts(ii) = nanmedian(mp_features(cur_inds)); %if unimodal, just set this as the median
                     end
                 end
             end
@@ -449,7 +466,6 @@ for dd = 1:length(data)
             
             %% if we have some UDS
             if size(UDS_segs,1) > 0
-                
                 
                 %%
                 if params.compute_state_seqs
@@ -511,7 +527,10 @@ for dd = 1:length(data)
                         mp_state_vec(new_seg_inds(i,1):new_seg_inds(i,2)) = mp_state_seq_bb{i};
                     end
                     
-                    save hsmm_state_seq mp_state_vec new_seg_inds hsmm params hmm
+                    all_data(dd).mp_updurs = mp_state_durations{2};
+                    all_data(dd).mp_downdurs = mp_state_durations{1};
+
+                    save hsmm_state_seq mp_state_vec new_seg_inds hsmm* params hmm* mp_state_seq*
                 else
                     new_tax = (1:length(mp_features_bb))/params.desired_Fs;
                     new_seg_inds = round(interp1(new_tax,1:length(new_tax),down_taxis(UDS_segs)));
@@ -525,7 +544,6 @@ for dd = 1:length(data)
                 end
                 
                 all_data(dd).uds_dur = sum(is_uds)/params.desired_Fs;
-                
                 %% DETECT LOCAL EXTREMA OF FILTERED LFP SIGNAL
                 % compute ctx LFP features
                 [lfp_features,t_axis] = hsmm_uds_get_lf_features(ctx_lfp,params.desired_Fs,params.desired_Fs,params.uds_range); %'low-frequency amplitude'
@@ -536,6 +554,48 @@ for dd = 1:length(data)
                 lfp_valleys = find(diff(sign(diff(lfp_features))) > 0)+1;
                 lfp_peaks(~is_uds(lfp_peaks)) = [];
                 lfp_valleys(~is_uds(lfp_valleys)) = [];
+
+                lfp_peaks(lfp_features(lfp_peaks) < 0) = []; %get rid of peaks that are less than the avg
+                lfp_valleys(lfp_features(lfp_valleys) > 0) = []; %same for valleys              
+                
+                %get amplitudes of extrema
+                lfp_peak_amps = lfp_features(lfp_peaks);
+                lfp_valley_amps = -lfp_features(lfp_valleys);                
+                         
+                %get zero-crossings of LFP signal
+                thresh_cross_up = find(lfp_features(1:end-1) < 0 & lfp_features(2:end) >= 0);
+                thresh_cross_down = find(lfp_features(1:end-1) > 0 & lfp_features(2:end) <= 0);
+                if thresh_cross_down(1) < thresh_cross_up(1)
+                    thresh_cross_down(1) = [];
+                end
+                if thresh_cross_up(end) > thresh_cross_down(end)
+                    thresh_cross_up(end) = [];
+                end
+                
+                %git rid of excess peaks within a single putative up-state
+                %(only allow one peak per positive threshold-crossing)
+                bad_peaks = [];
+                for ii = 1:length(thresh_cross_up)
+                    cur_peak_set = find(lfp_peaks >= thresh_cross_up(ii) & lfp_peaks <= thresh_cross_down(ii));
+                    if length(cur_peak_set) > 1
+                        [~,biggest] = max(lfp_peak_amps(cur_peak_set));
+                        cur_peak_set(biggest) = [];
+                        bad_peaks = cat(1,bad_peaks,cur_peak_set);
+                    end
+                end
+                lfp_peaks(bad_peaks) = [];
+                
+                %git rid of excess valleys within a single putative down-state
+                bad_valleys = [];
+                for ii = 1:length(thresh_cross_up)-1
+                    cur_valley_set = find(lfp_valleys >= thresh_cross_down(ii) & lfp_valleys <= thresh_cross_up(ii+1));
+                    if length(cur_valley_set) > 1
+                        [~,biggest] = max(lfp_valley_amps(cur_valley_set));
+                        cur_valley_set(biggest) = [];
+                        bad_valleys = cat(1,bad_valleys,cur_valley_set);
+                    end
+                end
+                lfp_valleys(bad_valleys) = [];
                 
                 %get amplitudes of extrema
                 lfp_peak_amps = lfp_features(lfp_peaks);
@@ -644,7 +704,7 @@ for dd = 1:length(data)
                         all_down_tas(jj,:) = cur_ta;
                         for ii = 1:length(cur_lags)
                             all_down_dists(jj,ii,:) = ksdensity(cur_mat(:,ii),mp_dist_xx,'bandwidth',all_data(dd).avg_mp_bandwidth);
-%                             all_down_dists(jj,ii,:) = jmm_smooth_1d_cor(squeeze(all_down_dists(jj,ii,:)),params.dens_smth_sig); %gaussian smoothing
+                            %                             all_down_dists(jj,ii,:) = jmm_smooth_1d_cor(squeeze(all_down_dists(jj,ii,:)),params.dens_smth_sig); %gaussian smoothing
                         end
                         
                         if params.compute_state_seqs
@@ -659,7 +719,7 @@ for dd = 1:length(data)
                         all_up_tas(jj,:) = cur_ta;
                         for ii = 1:length(cur_lags)
                             all_up_dists(jj,ii,:) = ksdensity(cur_mat(:,ii),mp_dist_xx,'bandwidth',all_data(dd).avg_mp_bandwidth);
-%                             all_up_dists(jj,ii,:) = jmm_smooth_1d_cor(squeeze(all_up_dists(jj,ii,:)),params.dens_smth_sig);
+                            %                             all_up_dists(jj,ii,:) = jmm_smooth_1d_cor(squeeze(all_up_dists(jj,ii,:)),params.dens_smth_sig);
                         end
                         
                         if params.compute_state_seqs
@@ -694,7 +754,7 @@ end
 
 %%
 cd ~/Analysis/Mayank/sleep/
-save sleep_uds_analysis5 all_data params
+save sleep_uds_analysis8 all_data params
 
 %% select usable recs
 min_uds_dur = 50; %minimum duration of data with LFP UDS and MP bimodality
@@ -755,11 +815,11 @@ if params.compute_state_seqs
     ylabel('P-value');
     set(gca,'yscale','log');
     line([0 100],[0.05 0.05],'color','r','linestyle','--');
-%         fig_width = 6; rel_height = 2;
-%     figufy(f1);
-%     fname = [fig_dir 'cortical_blip_pers2.pdf'];
-%     exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-%     close(f1);
+%             fig_width = 6; rel_height = 2;
+%         figufy(f1);
+%         fname = [fig_dir 'cortical_blip_pers3.pdf'];
+%         exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+%         close(f1);
     
 end
 
@@ -775,12 +835,12 @@ end
 %         ctx_up_ts(ii,:,:) = all_data(use_ctx_neurons(ii)).utrig_mpstate;
 %         ctx_down_ts(ii,:,:) = all_data(use_ctx_neurons(ii)).dtrig_mpstate;
 %     end
-%     
+%
 %     %     mec_up_ts = bsxfun(@minus,mec_up_ts,[all_data(use_mec_neurons).avg_stateprob]');
 %     %     ctx_up_ts = bsxfun(@minus,ctx_up_ts,[all_data(use_ctx_neurons).avg_stateprob]');
 %     %     mec_down_ts = bsxfun(@minus,mec_down_ts,[all_data(use_mec_neurons).avg_stateprob]');
 %     %     ctx_down_ts = bsxfun(@minus,ctx_down_ts,[all_data(use_ctx_neurons).avg_stateprob]');
-%     
+%
 %     f1 = figure();
 %     for ii = 1:length(peak_checks)
 %         subplot(3,2,ii); hold on
@@ -790,7 +850,7 @@ end
 %         plot(cur_lags/desired_Fs,squeeze(nanmean(ctx_up_ts(:,ii,:))),'r','linewidth',3);
 %         xlim(xr);
 %     end
-%     
+%
 %     f1 = figure();
 %     for ii = 1:length(peak_checks)
 %         subplot(3,2,ii); hold on
@@ -826,8 +886,8 @@ for ii = 1:length(amp_bin_inds)
         squeeze(nanstd(mec_up_ta(:,amp_bin_inds(ii),:)))/sqrt(length(use_mec_neurons)));
     shadedErrorBar(cur_lags/params.desired_Fs,squeeze(nanmean(ctx_up_ta(:,amp_bin_inds(ii),:))),...
         squeeze(nanstd(ctx_up_ta(:,amp_bin_inds(ii),:)))/sqrt(length(use_ctx_neurons)),{'color','r'});
-%     plot(cur_lags/params.desired_Fs,squeeze(mec_up_ta(:,amp_bin_inds(ii),:)),'k-');
-%     plot(cur_lags/params.desired_Fs,squeeze(ctx_up_ta(:,amp_bin_inds(ii),:)),'r-');
+    %     plot(cur_lags/params.desired_Fs,squeeze(mec_up_ta(:,amp_bin_inds(ii),:)),'k-');
+    %     plot(cur_lags/params.desired_Fs,squeeze(ctx_up_ta(:,amp_bin_inds(ii),:)),'r-');
     xlim(xr); ylim([-1 1.2]);
     grid on
     xlabel('Time (s)');
@@ -838,28 +898,28 @@ end
 f2 = figure();
 for ii = 1:length(amp_bin_inds)
     subplot(2,2,ii); hold on
-%     plot(cur_lags/params.desired_Fs,squeeze(nanmean(mec_down_ta(:,ii,:))),'k','linewidth',3);
-%     plot(cur_lags/params.desired_Fs,squeeze(nanmean(ctx_down_ta(:,ii,:))),'r','linewidth',3);
+    %     plot(cur_lags/params.desired_Fs,squeeze(nanmean(mec_down_ta(:,ii,:))),'k','linewidth',3);
+    %     plot(cur_lags/params.desired_Fs,squeeze(nanmean(ctx_down_ta(:,ii,:))),'r','linewidth',3);
     shadedErrorBar(cur_lags/params.desired_Fs,squeeze(nanmean(mec_down_ta(:,amp_bin_inds(ii),:))),...
         squeeze(nanstd(mec_down_ta(:,amp_bin_inds(ii),:)))/sqrt(length(use_mec_neurons)));
     shadedErrorBar(cur_lags/params.desired_Fs,squeeze(nanmean(ctx_down_ta(:,amp_bin_inds(ii),:))),...
         squeeze(nanstd(ctx_down_ta(:,amp_bin_inds(ii),:)))/sqrt(length(use_ctx_neurons)),{'color','r'});
-%     plot(cur_lags/params.desired_Fs,squeeze(mec_down_ta(:,amp_bin_inds(ii),:)),'k-');
-%     plot(cur_lags/params.desired_Fs,squeeze(ctx_down_ta(:,amp_bin_inds(ii),:)),'r-');
-    xlim(xr); ylim([-1.5 1]); 
+    %     plot(cur_lags/params.desired_Fs,squeeze(mec_down_ta(:,amp_bin_inds(ii),:)),'k-');
+    %     plot(cur_lags/params.desired_Fs,squeeze(ctx_down_ta(:,amp_bin_inds(ii),:)),'r-');
+    xlim(xr); ylim([-1.5 1]);
     grid on
     xlabel('Time (s)');
     ylabel('MP amplitude (z)');
     title(sprintf('%d percentile',use_amp_prc_bins(ii)));
 end
 
-    fig_width = 9; rel_height = 0.9;
-figufy(f1);
-fname = [fig_dir 'UP_bliptrig_avg_MP2.pdf'];
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-figufy(f2);
-fname = [fig_dir 'DOWN_bliptrig_avg_MP2.pdf'];
-exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f2);
+%     fig_width = 9; rel_height = 0.9;
+% figufy(f1);
+% fname = [fig_dir 'UP_bliptrig_avg_MP3.pdf'];
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
+% 
+% figufy(f2);
+% fname = [fig_dir 'DOWN_bliptrig_avg_MP3.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
