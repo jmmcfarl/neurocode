@@ -388,49 +388,93 @@ G = theta + nt_gout; % initialize overall generating function G
 
 gint = nan(length(Robs),Ntargets);
 
-NKtot = 0;  filtLen = zeros(Ntargets,1);  ks = cell(Ntargets,1);
-for ii = 1:Ntargets
-    
-    tar = targets(ii);
-    
-    % Pull out (potentially different-sized) filters from params
-    filtLen(ii) = prod(nim.stim_params(nim.mods(tar).Xtarget).stim_dims);
-    ks{ii} = params(NKtot+(1:filtLen(ii)));
-    NKtot = NKtot + filtLen(ii);
-    
-    gint(:,ii) = Xstims{nim.mods(tar).Xtarget} * ks{ii};
-    
+filtLen = zeros(Ntargets,1);  ks = cell(Ntargets,1);
+
+% NKtot = 0;  
+% for ii = 1:Ntargets
+%     
+%     tar = targets(ii);
+%     
+%     % Pull out (potentially different-sized) filters from params
+%     filtLen(ii) = prod(nim.stim_params(nim.mods(tar).Xtarget).stim_dims);
+%     ks{ii} = params(NKtot+(1:filtLen(ii)));
+%     NKtot = NKtot + filtLen(ii);
+%     
+%     gint(:,ii) = Xstims{nim.mods(tar).Xtarget} * ks{ii};
+%     
+%     % Process subunit g's with upstream NLs
+%     if strcmp(nim.mods(tar).NLtype,'nonpar')
+%         fgint = piecelin_process(gint(:,ii),nim.mods(tar).NLy,nim.mods(tar).NLx);
+%     elseif strcmp(nim.mods(tar).NLtype,'quad')
+%         fgint = gint(:,ii).^2;
+%     elseif strcmp(nim.mods(tar).NLtype,'lin')
+%         fgint = gint(:,ii);
+%     elseif strcmp(nim.mods(tar).NLtype,'threshlin')
+%         fgint = gint(:,ii);
+%         fgint(fgint < 0) = 0;
+%     else
+%         error('Invalid internal NL');
+%     end
+%     
+%     % Multiply by weight (and multiplier, if appl) and add to generating function
+%     if isempty(Gmults{tar})
+%         G = G + fgint*nim.mods(tar).sign;
+%     else
+%         G = G + (fgint.*Gmults{tar}) * nim.mods(tar).sign;
+%     end
+%     
+% end
+
+Xtarg_set = [nim.mods(targets).Xtarget]; %vector of Xtargets for set of subunits being optimized
+un_Xtargs = unique(Xtarg_set); %set of unique Xtargets
+nXtargs = length(un_Xtargs); %number of uniuqe Xtargets
+param_inds = cell(Ntargets,1); %this will store the index values of each subunit's filter coefs within the parameter vector
+NKtot = 0;  %init counter
+for jj = 1:Ntargets %loop over subunits that are being optimized
+    filtLen(jj) = prod(nim.stim_params(nim.mods(targets(jj)).Xtarget).stim_dims); % Pull out (potentially different-sized) filters from params
+    param_inds{jj} = NKtot + (1:filtLen(jj)); %set of param indices associated with this subunit's filters
+    ks{jj} = params(param_inds{jj}); %store filter coefs
+    NKtot = NKtot + filtLen(jj); %inc counter
+end
+for ii = 1:nXtargs %now loop over the unique Xtargets and compute the generating signals 
+    cur_mods = find(Xtarg_set == un_Xtargs(ii)); %set of targeted subunits that act on this Xtarg
+    gint(:,cur_mods) = Xstims{un_Xtargs(ii)} * cat(2,ks{cur_mods}); %get filter outputs
+end   
+mod_NL_types = {nim.mods(targets).NLtype}; %NL types for each targeted subunit
+unique_NL_types = unique(mod_NL_types); %unique set of NL types being used
+fgint = gint; %init subunit outputs by filter outputs
+for ii = 1:length(unique_NL_types) %loop over unique subunit NL types
+    cur_mods = find(strcmp(mod_NL_types,unique_NL_types{ii}));
     % Process subunit g's with upstream NLs
-    if strcmp(nim.mods(tar).NLtype,'nonpar')
-        fgint = piecelin_process(gint(:,ii),nim.mods(tar).NLy,nim.mods(tar).NLx);
-    elseif strcmp(nim.mods(tar).NLtype,'quad')
-        fgint = gint(:,ii).^2;
-    elseif strcmp(nim.mods(tar).NLtype,'lin')
-        fgint = gint(:,ii);
-    elseif strcmp(nim.mods(tar).NLtype,'threshlin')
-        fgint = gint(:,ii);
-        fgint(fgint < 0) = 0;
+    if strcmp(unique_NL_types{ii},'nonpar')
+        for jj = 1:length(cur_mods) %for nonpar NLs, loop over individual subunits and compute outputs
+            fgint(:,cur_mods(jj)) = piecelin_process(gint(:,cur_mods(jj)),...
+                nim.mods(targets(cur_mods(jj))).NLy,nim.mods(targets(cur_mods(jj))).NLx);
+        end
+    elseif strcmp(unique_NL_types{ii},'quad')
+        fgint(:,cur_mods) = fgint(:,cur_mods).^2;
+    elseif strcmp(unique_NL_types{ii},'lin')
+        %do nothing
+    elseif strcmp(unique_NL_types{ii},'threshlin')
+        fgint(fgint(:,cur_mods) < 0,cur_mods) = 0; %threshold at 0
     else
         error('Invalid internal NL');
     end
-    
-    % Multiply by weight (and multiplier, if appl) and add to generating function
-    if isempty(Gmults{tar})
-        G = G + fgint*nim.mods(tar).sign;
-    else
-        G = G + (fgint.*Gmults{tar}) * nim.mods(tar).sign;
-    end
-    
+end
+ 
+mod_signs = [nim.mods(targets).sign]'; %signs of targeted subunits
+
+% Multiply by weight (and multiplier, if appl) and add to generating function
+if all(cellfun(@(x) isempty(x),Gmults))
+    G = G + fgint*mod_signs;
+else
+   error('not implemented yet')
 end
 
 % Add contribution from spike history filter
 if spkhstlen > 0 && ismember(-1,targets)
     G = G + Xspkhst*params(NKtot + (1:spkhstlen));
 end
-% Add contribution from linear filter
-%if lin_dims > 0 && ismember(-2,targets)
-%    G = G + XLin*params((Ntargets*filtLen+spkhstlen+1):(Ntargets*filtLen+spkhstlen+lin_dims));
-%end
 
 %% Compute predicted firing rate
 if strcmp(nim.spk_NL_type,'logexp')
@@ -456,6 +500,7 @@ if ~strcmp(nim.spk_NL_type,'linear')
         r(r < min_pred_rate) = min_pred_rate; %minimum predicted rate
     end
 end
+
 %% COMPUTE LL and LL gradient
 if strcmp(nim.spk_NL_type,'linear') % use MSE as cost function 
     Nspks = length(Robs);
@@ -466,7 +511,8 @@ else
     %'residual' = (R/r - 1)*F'[] where F[.] is the spk NL
 end
 
-%'residual' = (R/r - 1)*F'[] where F[.] is the spk NL
+%'residual' = LL'*F'[] where F[.] is the spk NL and LL' is the derivative
+%of the LL cost
 if strcmp(nim.spk_NL_type,'logexp')
     residual = nim.spk_NL_params(3)*nim.spk_NL_params(2)*(Robs./r - 1) .* expg ./ (1+expg);
     residual(too_large) = nim.spk_NL_params(3)*nim.spk_NL_params(2)*(Robs(too_large)./r(too_large) - 1);
@@ -490,50 +536,68 @@ LLgrad(end) = sum(residual);
 if spkhstlen > 0 && ismember(-1,targets)
     LLgrad(NKtot+(1:spkhstlen)) = residual'*Xspkhst;
 end
-% Calculate derivative with respect to linear term
-%if lin_dims > 0 && ismember(-2,targets)
-%    LLgrad((Ntargets*filtLen+spkhstlen+1):(Ntargets*filtLen+spkhstlen+lin_dims)) = residual'*XLin;
-%end
 
 %NOW COMPUTE LL grad WRT STIMULUS FILTERS
-% Calculate output of derivative module
-chunk_size = 1000; %maximum chunk size for processing high-dimensional stim filters
-if max(filtLen) <= chunk_size
-    use_chunking = 0;
-else
-    use_chunking = 1;
-    NChunks = ceil(filtLen/chunk_size); %divide stim filters into this many chunks for piecewise processing
-end
 
-placeholder = 0;
-for ii = 1:Ntargets
-    tar = targets(ii);
-    if strcmp(nim.mods(tar).NLtype,'lin')
-        % Check for multiplicative interactions
-        if isempty(Gmults{tar})
-            LLgrad(placeholder+(1:filtLen(ii))) = residual'*Xstims{nim.mods(tar).Xtarget} * nim.mods(tar).sign;
-        else
-            LLgrad(placeholder+(1:filtLen(ii))) = (Gmults{tar}.*residual')* Xstims{nim.mods(tar).Xtarget} * nim.mods(tar).sign;
+% placeholder = 0;
+% for ii = 1:Ntargets
+%     tar = targets(ii);
+%     if strcmp(nim.mods(tar).NLtype,'lin')
+%         % Check for multiplicative interactions
+%         if isempty(Gmults{tar})
+%             LLgrad(placeholder+(1:filtLen(ii))) = residual'*Xstims{nim.mods(tar).Xtarget} * nim.mods(tar).sign;
+%         else
+%             LLgrad(placeholder+(1:filtLen(ii))) = (Gmults{tar}.*residual')* Xstims{nim.mods(tar).Xtarget} * nim.mods(tar).sign;
+%         end
+%         
+%     else
+%         if strcmp(nim.mods(tar).NLtype,'nonpar')
+%             fpg = piececonst_process(gint(:,ii),fprimes{ii}, nim.mods(tar).NLx);
+%         elseif strcmp(nim.mods(tar).NLtype,'quad')
+%             fpg = 2*gint(:,ii);
+%         elseif strcmp(nim.mods(tar).NLtype,'threshlin')
+%             fpg = gint(:,ii) >= 0;
+%             
+%         else
+%             error('Unsupported NL type')
+%         end
+%         % Add for multiplicative interactions
+%         if ~isempty(Gmults{tar})
+%             fpg = fpg .* Gmults{tar};
+%         end
+%         LLgrad(placeholder+(1:filtLen(ii))) = (fpg.*residual)' * Xstims{nim.mods(tar).Xtarget} * nim.mods(tar).sign;
+%     end
+%     placeholder = placeholder + filtLen(ii);
+% end
+
+for ii = 1:un_Xtargs %loop over unique Xtargets
+    cur_mod_inds = find(Xtarg_set == un_Xtargs(ii)); %set of subunits with this Xtarget
+    cur_NL_types = mod_NL_types(cur_mod_inds); %current NL types
+    cur_unique_NL_types = unique(cur_NL_types); %set of unique NL types
+    
+    if length(cur_mod_inds) == 1 && strcmp(cur_unique_NL_types,'lin') %if there's only a single linear subunit, faster calc
+        LLgrad(param_inds{cur_mod_inds}) = residual'*Xstims{un_Xtargs(ii)} * nim.mods(cur_mod_inds).sign;
+    else %otherwise, compute a matrix of derivatives fpg
+        fpg = ones(length(residual),length(cur_mod_inds)); %initialize to linear NL derivative (all ones)
+        for jj = 1:length(cur_unique_NL_types) %loop over unique NL types
+            cur_mod_subinds = find(strcmp(cur_NL_types,cur_unique_NL_types{jj})); %indices of current subset of subunits
+            if strcmp(cur_unique_NL_types{jj},'quad')
+                fpg(:,cur_mod_subinds) = 2*gint(:,cur_mod_inds(cur_mod_subinds));
+            elseif strcmp(cur_unique_NL_types{jj},'threshlin')
+                fpg(:,cur_mod_subinds) = gint(:,cur_mod_inds(cur_mod_subinds)) >= 0;
+            elseif strcmp(cur_unique_NL_types{jj},'nonpar') %if using nonpara NLs, loop over inidividual subunits to get derivatives
+                for zz = 1:length(cur_mod_subinds)
+                    fpg(:,cur_mod_subinds(zz)) = piececonst_process(gint(:,cur_mod_inds(cur_mod_subinds(zz))),...
+                        fprimes{cur_mod_inds(cur_mod_subinds(zz))},nim.mods(cur_mod_inds(cur_mod_subinds(zz))).NLx);
+                end
+            end
         end
+        target_params = cat(2,param_inds{cur_mod_inds}); %indices of filter coefs for current set of targeted subunits
         
-    else
-        if strcmp(nim.mods(tar).NLtype,'nonpar')
-            fpg = piececonst_process(gint(:,ii),fprimes{ii}, nim.mods(tar).NLx);
-        elseif strcmp(nim.mods(tar).NLtype,'quad')
-            fpg = 2*gint(:,ii);
-        elseif strcmp(nim.mods(tar).NLtype,'threshlin')
-            fpg = gint(:,ii) >= 0;
-            
-        else
-            error('Unsupported NL type')
-        end
-        % Add for multiplicative interactions
-        if ~isempty(Gmults{tar})
-            fpg = fpg .* Gmults{tar};
-        end
-        LLgrad(placeholder+(1:filtLen(ii))) = (fpg.*residual)' * Xstims{nim.mods(tar).Xtarget} * nim.mods(tar).sign;
+        %LL grad is residual * f'(.) *X *w, computed in parallel for all
+        %subunits targeting this Xtarg
+        LLgrad(target_params) = bsxfun(@times,(bsxfun(@times,fpg,residual)'*Xstims{un_Xtargs(ii)}),mod_signs(cur_mod_inds))';
     end
-    placeholder = placeholder + filtLen(ii);
 end
 
 %% COMPUTE L2 PENALTIES AND ASSOCIATED CONTRIBUTIONS TO THE LL GRADIENT

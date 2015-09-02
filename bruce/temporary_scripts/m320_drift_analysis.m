@@ -166,15 +166,13 @@ SU_probes = Clust_data.SU_probes;
 SU_numbers = Clust_data.SU_numbers;
 
 %%
-sm_win = 5;
+sm_win = 0;
 all_sm_mua = nan(size(all_binned_mua));
 all_sm_sua = nan(size(all_binned_sua));
 for ii = 1:params.n_probes
-    ii
 all_sm_mua(:,ii) = jmm_smooth_1d_cor(all_binned_mua(:,ii),sm_win);
 end
 for ii = 1:length(SU_probes)
-    ii
 all_sm_sua(:,ii) = jmm_smooth_1d_cor(all_binned_sua(:,ii),sm_win);
 end
 %% get trial-based spike responses
@@ -193,9 +191,19 @@ for nn = 1:n_trials
    tbt_MUA(:,nn,:) = all_sm_mua(cur_inds,:);
 end
 
-tbt_SUA = bsxfun(@rdivide,tbt_SUA,reshape(nanmean(all_binned_sua),[1 1 length(SU_numbers)]));
-tbt_MUA = bsxfun(@rdivide,tbt_MUA,reshape(nanmean(all_binned_mua),[1 1 params.n_probes]));
+SU_avg_rates = nanmean(all_binned_sua);
+MU_avg_rates = nanmean(all_binned_mua);
+% tbt_SUA = bsxfun(@rdivide,tbt_SUA,reshape(SU_avg_rates,[1 1 length(SU_numbers)]));
+% tbt_MUA = bsxfun(@rdivide,tbt_MUA,reshape(MU_avg_rates,[1 1 params.n_probes]));
 
+%%
+target_sus = [1:length(SU_numbers)];
+sm_win = 10;
+for ss = 1:length(target_sus)
+for ii = 1:n_trials
+    tbt_SUA(:,ii,target_sus(ss)) = jmm_smooth_1d_cor(tbt_SUA(:,ii,target_sus(ss)),sm_win);
+end
+end
 %%
 static_trials = find(all_trial_exvals(:,1) == 0);
 drift_trials = find(all_trial_exvals(:,1) > 0);
@@ -216,10 +224,10 @@ spec_static_SU_psths(:,:,ii) = squeeze(nanmean(tbt_SUA(:,cur_trials,:),2));
 spec_static_MU_psths(:,:,ii) = squeeze(nanmean(tbt_MUA(:,cur_trials,:),2));
 end
 %%
-use_SUs = setdiff(1:length(SU_probes),7);
-
-load ~/Analysis/bruce/M320/ET_final_imp/PARDRIFT_eyetrack_Rinit_Cprior_ori100.mat dit*
-best_mods = dit_mods{end};
+% use_SUs = setdiff(1:length(SU_probes),7);
+% 
+% load ~/Analysis/bruce/M320/ET_final_imp/PARDRIFT_eyetrack_Rinit_Cprior_ori100.mat dit*
+% best_mods = dit_mods{end};
 %%
 close all
 tax = (1:nf)*params.dt;
@@ -227,32 +235,39 @@ tax = (1:nf)*params.dt;
 f1 = figure();
 f2 = figure();
 for ii = 1:length(SU_probes)
+% ii = 16;
     fprintf('Neuron %d\n',ii);
     
     figure(f1);
-    clf
-    plot(tax,squeeze(spec_drift_SU_psths(:,ii,1)),'b','linewidth',1);
+    clf; hold on
+    plot(tax,squeeze(spec_drift_SU_psths(:,ii,1))/params.dt,'b','linewidth',1);
     hold on
-    plot(tax,squeeze(spec_drift_SU_psths(:,ii,2)),'m','linewidth',1);
-    plot(tax,squeeze(spec_drift_SU_psths(:,ii,3)),'g','linewidth',1);
-    plot(tax,squeeze(spec_drift_SU_psths(:,ii,4)),'r','linewidth',1);
-
-        plot(tax,squeeze(spec_static_SU_psths(:,ii,1)),'b--','linewidth',1);
-    plot(tax,squeeze(spec_static_SU_psths(:,ii,2)),'m--','linewidth',1);
-    plot(tax,squeeze(spec_static_SU_psths(:,ii,3)),'g--','linewidth',1);
-    plot(tax,squeeze(spec_static_SU_psths(:,ii,4)),'r--','linewidth',1);
+    plot(tax,squeeze(spec_drift_SU_psths(:,ii,2))/params.dt,'m','linewidth',1);
+    plot(tax,squeeze(spec_drift_SU_psths(:,ii,3))/params.dt,'g','linewidth',1);
+    plot(tax,squeeze(spec_drift_SU_psths(:,ii,4))/params.dt,'r','linewidth',1);
+legend('80','170','260','350','Location','Southeast')
+    
+        plot(tax,squeeze(spec_static_SU_psths(:,ii,1))/params.dt,'b--','linewidth',1);
+    plot(tax,squeeze(spec_static_SU_psths(:,ii,2))/params.dt,'m--','linewidth',1);
+    plot(tax,squeeze(spec_static_SU_psths(:,ii,3))/params.dt,'g--','linewidth',1);
+    plot(tax,squeeze(spec_static_SU_psths(:,ii,4))/params.dt,'r--','linewidth',1);
 
     
-    plot(tax,static_SU_psths(:,ii),'k','linewidth',2);
+%     plot(tax,static_SU_psths(:,ii)/params.dt,'k','linewidth',2);
 
-%     if ~isempty(ModData(ii+params.n_probes).bestGQM)
-%     plot_NMM_filters_1d(ModData(ii+params.n_probes).bestGQM,[],[],[],f2);
-    if ~isempty(best_mods(ii+params.n_probes))
-    plot_NMM_filters_1d(best_mods(ii+params.n_probes),[],[],[],f2);
-    else
-        figure(f2)
-        clf
-    end
+line(tax([1 end]),SU_avg_rates([ii ii])/params.dt,'color','k','linestyle','--','linewidth',2)
+
+    xlabel('Time (s)');
+    ylabel('Firing rate (Hz)');
+    
+% %     if ~isempty(ModData(ii+params.n_probes).bestGQM)
+% %     plot_NMM_filters_1d(ModData(ii+params.n_probes).bestGQM,[],[],[],f2);
+%     if ~isempty(best_mods(ii+params.n_probes))
+%     plot_NMM_filters_1d(best_mods(ii+params.n_probes),[],[],[],f2);
+%     else
+%         figure(f2)
+%         clf
+%     end
     pause
 end
 
@@ -261,7 +276,7 @@ close all
 tax = (1:nf)*params.dt;
 
 f1 = figure();
-for ii = 1:params.n_probes
+% for ii = 1:params.n_probes
     fprintf('Neuron %d\n',ii);
     
     figure(f1);
