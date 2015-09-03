@@ -18,7 +18,7 @@ hf_smooth_sigma = 0.025; %smoothing sigma on HF-power
 
 mua_amp_threshold = 30; %threshold on MUA amplitude (uV)
 %%
-for dd = 36:length(data);
+for dd = 38:length(data);
     %     dd = 2;
     cd(data(dd).dir);
             

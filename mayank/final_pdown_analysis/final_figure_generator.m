@@ -2,10 +2,12 @@ clear all
 addpath(genpath('~/James_scripts/figuremaker/'))
 fig_dir = '/Users/james/Analysis/Mayank/final_pdown_analysis/figures/';
 
+min_rec_dur = 500; %minimum total duration of recording (in sec)
+max_med_ctx_down = 2.5; %maximum median duration of ctx LFP down states (in sec) 
+
 %% load EC data and select usable recs
 load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
 
-min_rec_dur = 500; %minimum total duration of recording (in sec)
 data_ids = [data(:).id];
 used_dirs = find([data(:).ep] > min_rec_dur & [data(:).dp] > min_rec_dur);
 used_dirs(ismember(data_ids(used_dirs),no_cell) | ismember(data_ids(used_dirs),unclear_uds)) = [];
@@ -17,6 +19,14 @@ load('~/Analysis/Mayank/final_pdown_analysis/fin_pdown_core_analysis_fin.mat');
 if length(data) ~= length(core_data)
     error('data misalignment');
 end
+
+%only take recordings where the anesthesia is not too deep, as judged by
+%the median duration of ctx down durations
+med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),core_data);
+use_ec_recs = find(med_ctx_downdur < max_med_ctx_down);
+data = data(use_ec_recs);
+data_ids = data_ids(use_ec_recs);
+core_data = core_data(use_ec_recs);
 
 %% classify EC cell types
 l3mec = find(strcmp({data.loc},'MEC')); %include the original data set plus new ones
@@ -39,10 +49,16 @@ ctx_data = ctx_data(ctx_used_dirs);
 ctx_core_data = load('~/Analysis/Mayank/final_pdown_analysis/fin_pdown_core_analysis_corticalMP_fin.mat');
 ctx_core_data = ctx_core_data.core_data;
 
-%data exlusion
-ctx_exclude_set = [6]; %very strong anesthesia causes clear problems with UDS detection
-ctx_exclude_set = [ctx_exclude_set 12 13 14]; %interneurons
-to_exclude = find(ismember([ctx_data(:).id],ctx_exclude_set));
+ctx_cell_type = arrayfun(@(x) x.cell_type,ctx_data,'uniformoutput',0);
+ctx_interneurons = find(strcmp(ctx_cell_type,'interneuron')); 
+
+%get rid of ctx interneurons
+ctx_data(ctx_interneurons) = [];
+ctx_core_data(ctx_interneurons) = [];
+
+%exclude sessions where the anesthesia was too deep
+med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),ctx_core_data);
+to_exclude = find(med_ctx_downdur > med_ctx_downdur);
 ctx_data(to_exclude) = [];
 ctx_core_data(to_exclude) = [];
 
@@ -186,6 +202,7 @@ ylabel('Prob. pers. Down');
 
 %% plot ctx up-trig avg ctx LFP spectra
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_spec_fin_noconst_newpeaks_wch5_fin.mat
+spec_data = spec_data(use_ec_recs);
 if length(spec_data) ~= length(data)
     error('data misalignment');
 end
@@ -244,6 +261,8 @@ colorbar
 load ~/Analysis/Mayank/final_pdown_analysis/mua_classification_fin.mat
 peak_hpcmua_loc = peak_hpcmua_loc(used_dirs);
 peak_hpcmua_rate = peak_hpcmua_rate(used_dirs);
+peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs);
+peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs);
 if length(peak_hpcmua_loc) ~= length(data)
     error('data alignment mismatch');
 end
@@ -336,6 +355,8 @@ colorbar
 load ~/Analysis/Mayank/final_pdown_analysis/mua_classification_fin.mat
 peak_hpcmua_loc = peak_hpcmua_loc(used_dirs);
 peak_hpcmua_rate = peak_hpcmua_rate(used_dirs);
+peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs);
+peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs);
 if length(peak_hpcmua_loc) ~= length(data)
     error('data alignment mismatch');
 end
@@ -384,6 +405,7 @@ colorbar
 
 %% plot prob of persistence vs HF power of ctx LFP
 load ~/Analysis/Mayank/final_pdown_analysis/final_cortical_state_data_fin_nobuff_wc5_fin.mat
+cfun_data = cfun_data(use_ec_recs);
 if length(cfun_data) ~= length(data)
     error('data alignment mismatch');
 end
@@ -466,6 +488,7 @@ xlim([-1.5 2]);
 
 %% plot prob of persistence vs time since previous MP state transition
 load ~/Analysis/Mayank/final_pdown_analysis/final_cortical_state_data_fin_nobuff_wc5_fin.mat
+cfun_data = cfun_data(use_ec_recs);
 if length(cfun_data) ~= length(data)
     error('data alignment mismatch');
 end
@@ -551,6 +574,7 @@ set(gca,'xscale','log');
 
 %% boxplot of effect of EC and ctx states on hpc MUA rates
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_avg_data4_nocon_nobuff_newpeaks_wch5_dcmp_noORDrej_fin.mat
+trig_data = trig_data(use_ec_recs);
 if length(trig_data) ~= length(data)
     error('data alignment mismatch');
 end
@@ -559,6 +583,8 @@ end
 load ~/Analysis/Mayank/final_pdown_analysis/mua_classification_fin.mat
 peak_hpcmua_loc = peak_hpcmua_loc(used_dirs);
 peak_hpcmua_rate = peak_hpcmua_rate(used_dirs);
+peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs);
+peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs);
 if length(peak_hpcmua_loc) ~= length(data)
     error('data alignment mismatch');
 end
@@ -617,6 +643,7 @@ line(xl,[0 0],'color','k','linestyle','--');
 
 %% up-trig avgs
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_avg_data4_nocon_nobuff_newpeaks_wch5_dcmp_noORDrej_fin.mat
+trig_data = trig_data(use_ec_recs);
 if length(trig_data) ~= length(data)
     error('data alignment mismatch');
 end
@@ -785,6 +812,7 @@ xlabel('Time (s)');
 
 %% down-trig avgs
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_avg_data4_nocon_nobuff_newpeaks_wch5_dcmp_noORDrej_fin.mat
+trig_data = trig_data(use_ec_recs);
 if length(trig_data) ~= length(data)
     error('data alignment mismatch');
 end

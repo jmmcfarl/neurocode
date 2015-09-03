@@ -1,0 +1,83 @@
+function [smoothed_seq] = hsmm_uds_smooth_stateseq(state_seq,Fs,up_thresh,down_thresh)
+
+% impose a hard threshold on the minimum duration of up and down states
+%
+% Input: 
+%       state_seq: cell array containing a 2-state sequence
+%       Fs: sample frequency of the state-seq array
+%       up_thresh: threshold minimum up state duration (in ms)
+%       down_thresh: threshold minimum down state duration (in ms)   
+%              
+% Output:
+%       smoothed_seq: cell array containing the smoothed state sequence
+
+reject_dur = []; %initialize to store durations of rejected states
+for i = 1:length(state_seq)
+
+    smoothed_seq{i} = state_seq{i}(:); %initialize smoothed state sequence
+
+    state_changes = [1;find(diff(smoothed_seq{i}) ~=0)]; %find state transition indices
+    sojourn_times = diff(state_changes); %compute state durations
+    sojourn_times = sojourn_times/Fs*1000; %in ms
+    original_n_states = length(sojourn_times);
+    state_changes(end) = [];
+
+    %sort from shortest to longest states 
+    [~,sojourn_order] = sort(sojourn_times);
+    sojourn_order_up = sojourn_order(state_seq{i}(state_changes(sojourn_order)+1)==2);
+    sojourn_order_down = sojourn_order(state_seq{i}(state_changes(sojourn_order)+1)==1);
+    %first check each up state in order of duration and see if it is
+    %sufficiently long.  This could be sped up by only checking up to the
+    %threshold, but it is not a bottleneck in the bigger picture.
+    while ~isempty(sojourn_order_up)
+        cur_state = sojourn_order_up(1);
+        if cur_state > 1 && cur_state < length(sojourn_times) %if this isn't the first or last state
+            cur_start = state_changes(cur_state)+1;
+            cur_stop = state_changes(cur_state+1);
+            prev_state = smoothed_seq{i}(cur_start-1);
+            next_state = smoothed_seq{i}(cur_stop+1);
+            if prev_state == next_state
+                other_state = prev_state;
+                if sojourn_times(cur_state) < up_thresh %if the proposed state is too short eliminate it
+                    reject_dur = [reject_dur sojourn_times(cur_state)];
+                    smoothed_seq{i}(cur_start:cur_stop) = other_state;
+                    state_changes([cur_state cur_state+1]) = [];
+                    sojourn_times(cur_state-1) = sojourn_times(cur_state-1)...
+                        +sojourn_times(cur_state)+sojourn_times(cur_state+1);
+                    sojourn_times([cur_state cur_state+1]) = [];
+                    sojourn_order_up(sojourn_order_up==cur_state+1) = [];
+                    sojourn_order_up(sojourn_order_up >= cur_state) = ...
+                        sojourn_order_up(sojourn_order_up >= cur_state)-2;
+                end
+            end
+        end
+        sojourn_order_up(1) = [];
+    end
+
+    %now check each down state in order of duration
+    while ~isempty(sojourn_order_down)
+        cur_state = sojourn_order_down(1);
+        if cur_state > 1 && cur_state < length(sojourn_times)
+            cur_start = state_changes(cur_state)+1;
+            cur_stop = state_changes(cur_state+1);
+            prev_state = smoothed_seq{i}(cur_start-1);
+            next_state = smoothed_seq{i}(cur_stop+1);
+            if prev_state == next_state
+                other_state = prev_state;
+                if sojourn_times(cur_state) < down_thresh
+                    reject_dur = [reject_dur sojourn_times(cur_state)];
+                    smoothed_seq{i}(cur_start:cur_stop) = other_state;
+                    state_changes([cur_state cur_state+1]) = [];
+                    sojourn_times(cur_state-1) = sojourn_times(cur_state-1)...
+                        +sojourn_times(cur_state)+sojourn_times(cur_state+1);
+                    sojourn_times([cur_state cur_state+1]) = [];
+                    sojourn_order_down(sojourn_order_down==cur_state+1) = [];
+                    sojourn_order_down(sojourn_order_down >= cur_state) = ...
+                        sojourn_order_down(sojourn_order_down >= cur_state)-2;
+                end
+            end
+        end
+        sojourn_order_down(1) = [];
+    end
+end
+fprintf('rejected %d of %d states\n',length(reject_dur),original_n_states);

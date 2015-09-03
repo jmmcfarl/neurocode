@@ -397,6 +397,28 @@ data(dd).contra_L = 1;
 data(dd).MPloc = 'Ctx'; 
 data(dd).good_bounds = [0 800];
 
+dd = dd + 1;
+%d32. 
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2015-08-20_13-05-30';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 1;
+data(dd).contra_L = 0;
+data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 Inf];
+
+dd = dd + 1;
+%d33. 
+data(dd).dir = '/Users/james/Data/Mayank/sleep/2015-08-21_10-39-20';
+data(dd).ipsiLFPs = [1:16];
+data(dd).contraLFPs = [1:16];
+data(dd).MPfile = 'WC.ncs';
+data(dd).ipsi_L = 0;
+data(dd).contra_L = 1;
+data(dd).MPloc = 'Ctx'; 
+data(dd).good_bounds = [0 230];
+
 %%
 cd ~/Analysis/Mayank/sleep/
 new_data = data;
