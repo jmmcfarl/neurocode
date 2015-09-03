@@ -52,13 +52,13 @@ ctx_core_data = ctx_core_data.core_data;
 ctx_cell_type = arrayfun(@(x) x.cell_type,ctx_data,'uniformoutput',0);
 ctx_interneurons = find(strcmp(ctx_cell_type,'interneuron')); 
 
-%get rid of ctx interneurons
-ctx_data(ctx_interneurons) = [];
-ctx_core_data(ctx_interneurons) = [];
+% %get rid of ctx interneurons
+% ctx_data(ctx_interneurons) = [];
+% ctx_core_data(ctx_interneurons) = [];
 
 %exclude sessions where the anesthesia was too deep
 med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),ctx_core_data);
-to_exclude = find(med_ctx_downdur > med_ctx_downdur);
+to_exclude = find(med_ctx_downdur > max_med_ctx_down);
 ctx_data(to_exclude) = [];
 ctx_core_data(to_exclude) = [];
 
