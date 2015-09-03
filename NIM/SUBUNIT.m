@@ -10,15 +10,19 @@ classdef SUBUNIT
         NLtype;      % upstream nonlinearity type (string)
         NLparams;    % vector of parameters associated with the upstream NL function
         weight;      % subunit weight (typically +/- 1)
-        reg_params;  % struct of regularization parameters
+        Xtarg;       % index of stimulus the subunit filter acts on
+        reg_lambdas; % struct of regularization hyperparameters
         constraints; %struct defining any constraints on the filter coefs
     end
     
     methods
-        function subunit = SUBUNIT(init_filt, weight, NLtype, NLparams)
+        function subunit = SUBUNIT(init_filt, weight, NLtype, Xtarg, NLparams)
             %subunit = SUBUNIT(init_filt, weight, NLtype, <NLparams>)
             %constructor for SUBUNIT class.
-            if nargin < 4
+            if nargin < 4 || isempty(Xtarg)
+                Xtarg = 1; %default to 1
+            end
+            if nargin < 5
                 NLparams = [];
             end
             assert(length(weight) == 1,'weight must be scalar!');
@@ -28,6 +32,7 @@ classdef SUBUNIT
             if ~ismember(weight,[-1 1])
                 warning('Best to initialize subunit weights to be +/- 1');
             end
+            subunit.Xtarg = Xtarg; 
             subunit.NLtype = lower(NLtype);
             allowed_NLs = {'lin','quad','rectlin','softplus'}; %set of NL functions currently implemented
             assert(ismember(subunit.NLtype,allowed_NLs),'invalid NLtype!');
@@ -50,8 +55,9 @@ classdef SUBUNIT
                     end
             end
             subunit.NLparams = NLparams;
+            subunit.reg_lambdas = SUBUNIT.init_reg_lamdas();
         end
-        
+                
         function filtK = get_filtK(subunit)
             %get vector of filter coefs from the subunit
             filtK = subunit.filtK;
@@ -112,6 +118,18 @@ classdef SUBUNIT
                     %                 case 'non'ar
                     
             end
+        end
+    end
+    
+    methods (Static)
+        function reg_lambdas = init_reg_lamdas()
+            %creates reg_params struct and sets default values
+            reg_lambdas.nld2 = 0; %second derivative of tent basis coefs
+            reg_lambdas.d2xt = 0; %spatiotemporal laplacian
+            reg_lambdas.d2x = 0; %2nd spatial deriv
+            reg_lambdas.d2t = 0; %2nd temporal deriv
+            reg_lambdas.l2 = 0; %L2 on filter coefs
+            reg_lambdas.l1 = 0; %L1 on filter coefs
         end
     end
 end
