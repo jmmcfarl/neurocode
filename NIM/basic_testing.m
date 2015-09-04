@@ -1,12 +1,12 @@
 clear all
 clc
 
-dt = 1000;
+dt = 100;
 dx = 1;
 dy = 1;
 stim_params(1).dims = [dt dx dy];
 %%
-NT = 1e5;
+NT = 1e4;
 xax = linspace(-1,1,dt);
 xax = xax - mean(xax);
 
@@ -36,10 +36,19 @@ NLtypes = {'lin','quad','quad'};
 % NLtypes = {'lin'};
 
 tic
+clear nim
 nim = NIM(stim_params,NLtypes,mod_signs);
 nim = nim.set_reg_params('d2t',10);
-nim = nim.fit_filters(rObs,Xstims);
+nim = nim.fit_filters(rObs,Xstims,'silent',0);
 toc
+
+nim = nim.init_nonpar_NLs(Xstims, 'lambda_nld2',100);
+nim.subunits(1).filtK = randn(size(nim.subunits(1).filtK))*.01;
+
+nim = nim.fit_upstreamNLs(rObs, Xstims);
+
+% nim = nim.fit_filters(rObs,Xstims,'silent',0);
+
 %%
 tic
 nim_stim_params = NMMcreate_stim_params([dt dx dy]);

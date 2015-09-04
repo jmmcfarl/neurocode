@@ -13,6 +13,7 @@ classdef SUBUNIT
         Xtarg;       % index of stimulus the subunit filter acts on
         reg_lambdas; % struct of regularization hyperparameters
         constraints; %struct defining any constraints on the filter coefs
+        scale        %SD of the subunit output derived from most-recent fit
     end
     
     methods
@@ -32,7 +33,7 @@ classdef SUBUNIT
             if ~ismember(weight,[-1 1])
                 warning('Best to initialize subunit weights to be +/- 1');
             end
-            subunit.Xtarg = Xtarg; 
+            subunit.Xtarg = Xtarg;
             subunit.NLtype = lower(NLtype);
             allowed_NLs = {'lin','quad','rectlin','softplus'}; %set of NL functions currently implemented
             assert(ismember(subunit.NLtype,allowed_NLs),'invalid NLtype!');
@@ -57,7 +58,7 @@ classdef SUBUNIT
             subunit.NLparams = NLparams;
             subunit.reg_lambdas = SUBUNIT.init_reg_lamdas();
         end
-                
+        
         function filtK = get_filtK(subunit)
             %get vector of filter coefs from the subunit
             filtK = subunit.filtK;
@@ -89,8 +90,20 @@ classdef SUBUNIT
                     sub_out = log(1 + expg);
                     sub_out(gint > max_g) = gint(gint > max_g);
                     
-                    %TO ADD
-                    %                 case 'nonpar'
+                case 'nonpar' %f(x) piecewise constant with knot points TBx and coefficients TBy
+                    TBx = subunit.NLparams.TBx; TBy = subunit.NLparams.TBy;
+                    sub_out = zeros(size(gen_signal));
+                    %Data where X < TBx(1) are determined entirely by the first tent basis
+                    left_edge = find(gen_signal < TBx(1));
+                    sub_out(left_edge) = sub_out(left_edge) + TBy(1);
+                    %similarly for the right edge
+                    right_edge = find(gen_signal > TBx(end));
+                    sub_out(right_edge) = sub_out(right_edge) + TBy(end);
+                    slopes = diff(TBy)./diff(TBx);
+                    for j = 1:length(TBy)-1
+                        cur_set = find(gen_signal >= TBx(j) & gen_signal < TBx(j+1));
+                        sub_out(cur_set) = sub_out(cur_set) + TBy(j) + slopes(j)*(gen_signal(cur_set) - TBx(j));
+                    end
             end
         end
         
@@ -114,9 +127,36 @@ classdef SUBUNIT
                     sub_deriv = subunit.NLparams(1)*exp(gint)./(1 + exp(gint));
                     sub_deriv(gint > max_g) = 1; %for large gint, derivative goes to 1
                     
-                    %TO ADD
-                    %                 case 'non'ar
-                    
+                case 'nonpar'
+                    ypts = subunit.NLparams.TBy_deriv; xedges = subunit.NLparams.TBx;
+                    sub_deriv = zeros(length(gen_signal),1);
+                    for n = 1:length(xedges)-1
+                        sub_deriv((gen_signal >= xedges(n)) & (gen_signal < xedges(n+1))) = ypts(n);
+                    end
+            end
+        end
+    end
+    
+    methods (Hidden)
+        
+        function fprime = get_TB_derivative(subunit)
+            %calculate the derivative of the piecewise linear function wrt x
+            TBx = subunit.NLparams.TBx;
+            TBy = subunit.NLparams.TBy;
+            fprime = zeros(1,length(TBx)-1);
+            for n = 1:length(fprime)
+                fprime(n) = (TBy(n+1)-TBy(n))/(TBx(n+1)-TBx(n));
+            end
+        end
+        
+        function gout = tb_rep(subunit,gin)
+            TBx = subunit.NLparams.TBx;
+            n_tbs =length(TBx); %number of tent-basis functions
+            gout = zeros(length(gin),n_tbs);
+            gout(:,1) = get_tentbasis_output(gin,TBx(1),[-Inf TBx(2)]);
+            gout(:,end) = get_tentbasis_output(gin,TBx(end),[TBx(end-1) Inf]);
+            for n = 2:n_tbs-1
+                gout(:,n) = get_tentbasis_output(gin, TBx(n), [TBx(n-1) TBx(n+1)] );
             end
         end
     end
