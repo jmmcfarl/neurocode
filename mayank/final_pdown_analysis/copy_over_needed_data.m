@@ -12,14 +12,13 @@ target_base_dir = '/Users/james/Analysis/Mayank/';
 %     'pa_hsmm_state_seq_combined_fin_nd.mat','mua_data3.mat',...
 %     'sync_times.mat','spike_time_jmm.mat'};
 
-target_files = {};
+target_files = {'used_data.mat','sync_times.mat','spike_time_jmm.mat'};
 % target_files = {'pa_hsmm_state_seq7_combined_fin_nd.mat',...
 %     'pa_hsmm_state_seq_combined_fin_nd.mat','allEC_ctx_period_data_hsmm.mat'};
 % target_files = {'allEC_ctx_period_data_hsmm.mat'};
     %%
-for dd = 1:length(data)
-    
-    cur_dir = data(dd).dir;
+for dd = 120:length(data)
+cur_dir = data(dd).dir;
     
     new_dir = map_to_new_drive_locs(cur_dir);
     

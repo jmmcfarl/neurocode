@@ -23,18 +23,23 @@ end
 %only take recordings where the anesthesia is not too deep, as judged by
 %the median duration of ctx down durations
 med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),core_data);
-use_ec_recs = find(med_ctx_downdur < max_med_ctx_down);
+tot_uds_dur = [core_data(:).tot_uds_dur];
+use_ec_recs = find(med_ctx_downdur < max_med_ctx_down & tot_uds_dur > min_rec_dur);
 data = data(use_ec_recs);
 data_ids = data_ids(use_ec_recs);
 core_data = core_data(use_ec_recs);
 
 %% classify EC cell types
-l3mec = find(strcmp({data.loc},'MEC')); %include the original data set plus new ones
-l3lec = find(strcmp({data.loc},'LEC')); %these are already only the clear L3 neurons used in the original pers ups paper
+mec = find(strcmp({data.loc},'MEC')); %include the original data set plus new ones
+lec = find(strcmp({data.loc},'LEC')); %these are already only the clear L3 neurons used in the original pers ups paper
 ctype = {data(:).ctype};
+ctype{strcmp(ctype,'pyramidal')} = 'pyr';
 layer = [data(:).layer];
+l3mec = mec(layer(mec) == 3);
+l3lec = lec(layer(lec) == 3);
+l2mec = mec(layer(mec) == 2);
+l2lec = lec(layer(lec) == 2);
 
-l3mec(layer(l3mec) ~= 3) = []; l3lec(layer(l3lec) ~= 3) = []; %only use clear layer 3
 l3mec_pyr = l3mec(strcmp(ctype(l3mec),'pyr'));
 l3mec_nonpyr = l3mec(strcmp(ctype(l3mec),'nonpyr'));
 l3lec_pyr = l3lec(strcmp(ctype(l3lec),'pyr'));
@@ -58,7 +63,8 @@ ctx_interneurons = find(strcmp(ctx_cell_type,'interneuron'));
 
 %exclude sessions where the anesthesia was too deep
 med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),ctx_core_data);
-to_exclude = find(med_ctx_downdur > max_med_ctx_down);
+tot_uds_dur = [ctx_core_data(:).tot_uds_dur];
+to_exclude = find(med_ctx_downdur > max_med_ctx_down | tot_uds_dur < min_rec_dur);
 ctx_data(to_exclude) = [];
 ctx_core_data(to_exclude) = [];
 
@@ -107,12 +113,14 @@ ctx_group(parietal) = 5;
 EC_group = nan(length(core_data),1);
 EC_group(l3mec) = 1;
 EC_group(l3lec) = 2;
+EC_group(l2mec) = 6;
+EC_group(l2lec) = 7;
 
 all_group = [ctx_group; EC_group];
 uset = find(~isnan(all_group));
 
 close all
-names = {'L3-MEC','L3-LEC','Prefrontal','Frontal','Parietal'};
+names = {'L3-MEC','L3-LEC','Prefrontal','Frontal','Parietal','L2-MEC','L2-LEC'};
 h1 = figure;
 % boxplot(all_fract_ups(uset)',names(all_group(uset)),'plotstyle','compact');
 boxplot(all_fract_ups(uset)',names(all_group(uset)));

@@ -5,12 +5,12 @@ close all
 addpath('~/James_scripts/mayank/persistent_downs/');
 addpath('~/James_scripts/mayank/hsmm_state_detection/');
 addpath('~/James_scripts/mayank/sven_thomas_combined/');
-% load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
-load ~/Analysis/Mayank/final_pdown_analysis/compiled_corticalMP_data.mat
+load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
+% load ~/Analysis/Mayank/final_pdown_analysis/compiled_corticalMP_data.mat
 
 force_recompute = 0; %overwrite existing files?
 
-for dd = 1:length(data) %loop over recs in this database
+for dd = 107:length(data) %loop over recs in this database
     dd
         cur_dir = data(dd).dir;
         new_rawdir = map_to_new_drive_locs(cur_dir);

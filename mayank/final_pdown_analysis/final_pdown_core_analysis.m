@@ -276,6 +276,7 @@ pwd
     
 end
 
+%%
 % cd C:\WC_Germany\final_pdown_analysis\
 % save fin_pdown_core_analysis core_data 
 cd ~/Analysis/Mayank/final_pdown_analysis/
@@ -283,8 +284,52 @@ save fin_pdown_core_analysis_fin core_data
 
 
 %%
-l3mec = strcmp({data.loc},'MEC');
-l3lec = strcmp({data.loc},'LEC');
+
+%only take recordings where the anesthesia is not too deep, as judged by
+%the median duration of ctx down durations
+max_med_ctx_down = 2.5;
+med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),core_data);
+use_ec_recs = find(med_ctx_downdur < max_med_ctx_down);
+data = data(use_ec_recs);
+data_ids = data_ids(use_ec_recs);
+core_data = core_data(use_ec_recs);
+
+%%
+mec = strcmp({data.loc},'MEC');
+lec = strcmp({data.loc},'LEC');
+
+L2 = [data(:).layer] == 2;
+L3 = [data(:).layer] == 3;
+
+ctype = {data(:).ctype};
+pyr = (strcmp(ctype,'pyr') | strcmp(ctype,'pyramidal'));
+
+l3mec = find(mec & L3);
+l2mec = find(mec & L2);
+l3lec = find(lec & L3);
+l2lec = find(lec & L2);
+l3mecpyr = find(mec & L3 & pyr);
+l2mecpyr = find(mec & L2& pyr);
+l3lecpyr = find(lec & L3& pyr);
+l2lecpyr = find(lec & L2& pyr);
+
+fract_rt2_ups = [core_data(:).fract_rt2_ups];
+fract_rt2_downs = [core_data(:).fract_rt2_downs];
+
+groups = nan(size(fract_rt2_ups));
+groups(l3mec) = 1;
+groups(l2mec) = 2;
+groups(l3lec) = 3;
+groups(l2lec) = 4;
+
+figure;
+subplot(2,1,1)
+boxplot(fract_rt2_ups,groups);
+subplot(2,1,2)
+boxplot(fract_rt2_downs,groups);
+
+
+
 
 
 
