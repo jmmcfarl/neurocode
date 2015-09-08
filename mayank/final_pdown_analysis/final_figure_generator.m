@@ -45,6 +45,21 @@ l3mec_nonpyr = l3mec(strcmp(ctype(l3mec),'nonpyr'));
 l3lec_pyr = l3lec(strcmp(ctype(l3lec),'pyr'));
 l3lec_nonpyr = l3lec(strcmp(ctype(l3lec),'nonpyr'));
 
+
+fract_rt2_ups = [core_data(:).fract_rt2_ups];
+fract_rt2_downs = [core_data(:).fract_rt2_downs];
+fprintf('Pers Ups:\n');
+fprintf('L3MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_ups(l3mec),[50 25 75]));
+fprintf('L2MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_ups(l2mec),[50 25 75]));
+fprintf('L3LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_ups(l3lec),[50 25 75]));
+fprintf('L2LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_ups(l2lec),[50 25 75]));
+
+fprintf('Pers Downs:\n');
+fprintf('L3MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l3mec),[50 25 75]));
+fprintf('L2MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2mec),[50 25 75]));
+fprintf('L3LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l3lec),[50 25 75]));
+fprintf('L2LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2lec),[50 25 75]));
+
 %% load in cortical MP data and get regions
 ctx_data = load('~/Analysis/Mayank/final_pdown_analysis/compiled_corticalMP_data.mat');
 ctx_data = ctx_data.data;
@@ -126,26 +141,28 @@ h1 = figure;
 boxplot(all_fract_ups(uset)',names(all_group(uset)));
 ylabel('Fraction persistent UP states');
 ylim([0 0.6])
+figufy(h1);
+set(findobj(gca,'Type','text'),'FontSize',10)
 
 h2=figure;
 % boxplot(all_fract_downs(uset)',names(all_group(uset)),'plotstyle','compact');
 boxplot(all_fract_downs(uset)',names(all_group(uset)));
 ylabel('Fraction persistent DOWN states');
 ylim([0 0.6])
+figufy(h2);
+set(findobj(gca,'Type','text'),'FontSize',10)
 
-% fig_width = 3.5;
-% rel_heigh = 0.8;
-% 
-% figufy(h1);
-% fname = [fig_dir 'allcell_pUp_dist2.pdf'];
-% exportfig(h1,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
-% close(h1);
-% 
-% figufy(h2);
-% fname = [fig_dir 'allcell_pDown_dist2.pdf'];
-% exportfig(h2,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
-% close(h2);
-% 
+fig_width = 6;
+rel_heigh = 0.8;
+
+fname = [fig_dir 'allcell_pUp_dist_all.pdf'];
+exportfig(h1,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
+close(h1);
+
+fname = [fig_dir 'allcell_pDown_dist_all.pdf'];
+exportfig(h2,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
+close(h2);
+
 %% scatter plots of pers prob vs transition latency
 mSize = 2;
 

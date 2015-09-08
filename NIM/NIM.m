@@ -80,7 +80,7 @@ classdef NIM
             end
             
             %check and create spk NL function
-            allowed_spkNLs = {'lin','rectlin','exp','softplus'}; %set of NL functions currently implemented
+            allowed_spkNLs = {'lin','rectlin','exp','softplus','logistic'}; %set of NL functions currently implemented
             assert(ismember(spkNL,allowed_spkNLs),'not an allowed spk NL type');
             nim.spkNL.type = spkNL;
             nim.spkNL.theta = 0; %initialize offset term
@@ -95,13 +95,17 @@ classdef NIM
                     nim.spkNL.params = [1]; %defines beta in f(x; beta) = exp(beta*x)
                 case 'softplus'
                     nim.spkNL.params = [1 1]; %defines beta, alpha in f(x; beta, alpha) = alpha*log(1+exp(beta*x))
+                case 'logistic'
+                    nim.spkNL.params = [1]; %defines beta in f(x; beta) = 1/(1+exp(-beta*x))
             end
             
             %check and create noise distribution
             allowed_noise_dists = {'poisson','bernoulli','gaussian'}; %allowed noise distributions
             assert(ismember(noise_dist,allowed_noise_dists),'not an allowed noise distribution');
             nim.noise_dist = noise_dist;
-            
+            if strcmp(nim.noise_dist,'bernoulli') %make sure we have a logistic spk NL if using a bernoulli noise model
+                assert(strcmp(nim.spkNL.type,'logistic'),'bernoulli noise model is only supported with a logistic spk NL function');
+            end
             assert(length(Xtargets) == nSubs,'length of mod_signs and Xtargets must be equal');
             
             %initialize subunits
@@ -115,6 +119,13 @@ classdef NIM
                 end
                 nim.subunits = cat(1,nim.subunits,SUBUNIT(init_filt, mod_signs(ii), NLtypes{ii},Xtargets(ii)));
             end
+            
+            %initialize WITHOUT spike history term
+            spk_hist.coefs = [];
+            spk_hist.bin_edges = [];
+            spk_hist.spkhstlen = 0;
+            nim.spk_hist = spk_hist;
+            
         end
         
         %% setting methods
@@ -165,7 +176,7 @@ classdef NIM
             %                 'split_pts': set of stimulus indices to specify smoothing boundaries (NOT YET IMPLEMENTED)
             
             Xtarg = 1; %default is to apply the change to stim 1
-            allowed_flags = {'dims','boundary_conds','split_pts'};
+            allowed_flags = {'dims','boundary_conds','split_pts'}; %fields of the stim_params struct that we might want to set
             %INPUT PARSING
             j = 1; fields_to_set = {}; field_vals = {};
             while j <= length(varargin)
@@ -192,6 +203,10 @@ classdef NIM
             for ii = 1:length(fields_to_set) %assign new field values
                 nim.stim_params(Xtarg) = setfield(nim.stim_params(Xtarg),fields_to_set{ii},field_vals{ii});
             end
+            while length(nim.stim_params(Xtarg).dims) < 3 %pad dims with 1s for book-keeping
+                nim.stim_params(Xtarg).dims = cat(2,nim.stim_params(Xtarg).dims,1);
+            end
+            
         end
         
         %% getting methods
@@ -268,7 +283,7 @@ classdef NIM
             %calculates the regularization penalties on each subunit,
             %separately for filter and NL regularization
             
-            if nargin < 2 || isempty(Tmats)
+            if nargin < 2 || isempty(Tmats) %if the Tmats are not precomputed and supplied, compute them here
                 Tmats = make_Tikhonov_matrices(nim);
             end
             Nsubs = length(nim.subunits);
@@ -279,26 +294,35 @@ classdef NIM
                 cur_subs = find(Xtargs == Tmats(ii).Xtarg); %set of subunits acting on the stimulus given by this Tmat
                 cur_penalties = sum((Tmats(ii).Tmat * cat(2,filtKs{cur_subs})).^2);
                 cur_lambdas = nim.get_reg_lambdas(Tmats(ii).type,'sub_inds',cur_subs); %current lambdas
-                filt_penalties(cur_subs) = filt_penalties(cur_subs) + cur_penalties.*cur_lambdas;
+                filt_penalties(cur_subs) = filt_penalties(cur_subs) + cur_penalties.*cur_lambdas; %reg penalties for filters
             end
             l2_lambdas = nim.get_reg_lambdas('l2');
-            if any(l2_lambdas > 0)
+            if any(l2_lambdas > 0) %compute L2 penalties on the filter coefficients
                 filt_penalties = filt_penalties + l2_lambdas.*cellfun(@(x) sum(x.^2),filtKs)';
             end
-            nl_lambdas = nim.get_reg_lambdas('nld2');
+            nl_lambdas = nim.get_reg_lambdas('nld2');  %reg lambdas on the NL TB coefficients
             NL_penalties = zeros(1,Nsubs);
             if any(nl_lambdas > 0)
                 Tmat = nim.make_NL_Tmat();
                 nonpar_subs = find(strcmp(nim.get_NLtypes,'nonpar'))';
-                for imod = nonpar_subs
-                    NL_penalties(imod) = nl_lambdas(imod)*sum((Tmat*nim.subunits(imod).NLparams.TBy').^2);
+                for imod = nonpar_subs %compute the reg penalty on each subunit's NL
+                    NL_penalties(imod) = nl_lambdas(imod)*sum((Tmat*nim.subunits(imod).TBy').^2);
                 end
             end
         end
         
         %%
         function nim = add_subunits(nim,NLtypes,mod_signs,varargin)
-            %add subunits to the model with specified properties
+            %add subunits to the model with specified properties. Can add
+            %multiple subunits at the same time
+            %             INPUTS:
+            %                 NLtypes: string or cell array of strings specifying the type of upstream NLs for each subunit
+            %                 mod_signs: the weight associated with each subunit (typically +/- 1)
+            %                 optional flags:
+            %                     xtargs: vector of Xtargets for each added subunit
+            %                     init_filts: cell array of initial filter values for each subunit
+            %             OUPUTS:
+            %                 nim: new model object
             
             if ~iscell(NLtypes) && ischar(NLtypes); NLtypes = cellstr(NLtypes); end;
             nSubs = length(mod_signs); %number of subunits being added
@@ -310,17 +334,23 @@ classdef NIM
             init_filts = cell(nSubs,1);
             
             %parse input flags
-            assert(mod(nargin - 3,2)==0,'input format for optional flags must be in pairs: ''argname'',''argval');
             j = 1; %initialize counter after required input args
             while j <= length(varargin)
                 flag_name = varargin{j};
                 flag_val = varargin{j+1};
                 switch lower(flag_name)
-                    case 'xtargets'
+                    case 'xtargs'
                         Xtargets = flag_val;
                         assert(all(ismember(Xtargets,1:nStims)),'invalid Xtargets specified');
                     case 'init_filts'
-                        init_filts = flag_val;
+                        if ~iscell(flag_val)
+                            init_filts = cell(length(mod_signs),1);
+                            for ii = 1:length(mod_signs)
+                                init_filts{ii} = flag_val(:,ii);
+                            end
+                        else
+                            init_filts = flag_val;
+                        end
                     otherwise
                         error('Invalid input flag');
                 end
@@ -334,10 +364,80 @@ classdef NIM
                 if isempty(init_filts{ii})
                     init_filt = randn(stimD,1)/stimD; %initialize fitler coefs with gaussian noise
                 else
+                    if iscell(init_filts)
                     init_filt = init_filts{ii};
+                    else
+                        init_filt = init_filts(ii,:);
+                    end
                 end
+                existing_sub = find(nim.subunits(:).Xtarg == Xtargets(ii),1); %find any existing subunits with this same Xtarget
                 nim.subunits = cat(1,nim.subunits,SUBUNIT(init_filt, mod_signs(ii), NLtypes{ii},Xtargets(ii)));
+                if ~isempty(existing_sub)
+                    default_lambdas = nim.subunits(existing_sub).reg_lambdas;
+                    nim.subunits(end).reg_lambdas = default_lambdas;
+                end
             end
+        end
+        
+        % initialize spike history filter
+        function nim = init_spkhist(nim,n_bins,varargin)
+            %
+            % Usage: nim = NIMinit_spkhist(nim,n_bins,init_spacing,doubling_time,negCon)
+            %
+            % Adds a spike history term with specified parameters to an existing NIM.
+            %
+            % INPUTS:
+            %     nim: input model structure
+            %     n_bins: number of coefficients in spike history filter
+            %     optional flags
+            %       [init_spacing, XX]: Initial spacing (in time bins) of piecewise constant 'basis functions'
+            %       [doubling_time, XX]: Make bin spacing logarithmically increasing, with given doubling time
+            %       [negCon]: If flag is included, constrain spike history filter coefs to be non-positive
+            % OUTPUTS:
+            %     nim: output model
+            
+            % default inputs
+            init_spacing = 1;
+            doubling_time = n_bins;
+            negCon = false;
+            %parse input flags
+            j = 1; %initialize counter after required input args
+            while j <= length(varargin)
+                flag_name = varargin{j};
+                switch lower(flag_name)
+                    case 'init_spacing'
+                        init_spacing = varargin{j+1};
+                        assert(init_spacing > 0,'invalid init_spacing');
+                        j = j + 2;
+                    case 'doubling_time'
+                        doubling_time = varargin{j+1};
+                        assert(doubling_time > 0,'invalid doubling time');
+                        j = j + 2;
+                    case 'negcon'
+                        negCon = true;
+                        j = j + 1;
+                    otherwise
+                        error('Invalid input flag');
+                end
+            end
+
+            % COMPUTE RECTANGULAR BASIS FUNCTIONS
+            bin_edges = zeros(n_bins+1,1);
+            inc = init_spacing;
+            pos = 1; count = 0;
+            for n = 1:n_bins+1
+                bin_edges(n) = pos;
+                pos = pos + inc;  count = count + 1;
+                if count >= doubling_time
+                    count = 0; inc = inc * 2;
+                end
+            end
+            
+            % LOAD INTO A SPK_HIST STRUCT IN NIM
+            nim.spk_hist.bin_edges = bin_edges;
+            nim.spk_hist.coefs = zeros(n_bins,1); %init filter coefs to 0
+            nim.spk_hist.negCon = negCon;
+            nim.spk_hist.spkhstlen = n_bins;
         end
         
         %% initialize nonparametric subunit
@@ -350,8 +450,8 @@ classdef NIM
             %
             % INPUTS:
             %     Xstim: time-embedded stim matrix
-            %     <target_subs>: vector specifying which subunits will be made to have nonparametric upstream NLs
-            %     <lambda_d2nl>: specifies strength of smoothness regularization for the tent-basis coefs
+            %     <sub_inds>: vector specifying which subunits will be made to have nonparametric upstream NLs
+            %     <lambda_nld2>: specifies strength of smoothness regularization for the tent-basis coefs
             %     <NLmon>: Set to +1 to constrain NL coefs to be monotonic increasing and -1 to make mono.
             %        decreasing. 0 means no constraint. Default here is +1 (monotonic increasing)
             %     <edge_p>: Determines the locations of the outermost tent-bases relative to the underlying generating distribution
@@ -359,13 +459,13 @@ classdef NIM
             %     <space_type>: Use either 'equispace' for uniform bin spacing, or 'equipop' for 'equipopulated bins'
             %
             % OUTPUTS:
-            %     nim: output model
+            %     nim: new model object
             
             Nsubs = length(nim.subunits);
-            target_subs = [1:Nsubs]; %defualt to fitting all subunits (plus -1 for spkHist filter)
-            NLmon = 1; %monotonic increasing TB-coefficients
+            sub_inds = 1:Nsubs; %defualt to fitting all subunits (plus -1 for spkHist filter)
+            NLmon = 1; %default monotonic increasing TB-coefficients
             edge_p = 0.05; %relative to the generating distribution (pth percentile) where to put the outermost tent bases
-            n_bfs = 25; %default number of tent bases
+            n_bfs = 25; %default number of tent basis functions
             space_type = 'equispace'; %default uninimrm tent basis spacing
             lambda_nld2 = 0; %default no smoothing on TB coefs
             
@@ -374,10 +474,10 @@ classdef NIM
                 flag_name = varargin{j};
                 flag_val = varargin{j+1};
                 switch lower(flag_name)
-                    case 'target_subs'
-                        target_subs = flag_val;
-                        assert(all(ismember(fit_subs,[1:Nsubs])),'invalid target subunits specified');
-                    case 'NLmon'
+                    case 'sub_inds'
+                        sub_inds = flag_val;
+                        assert(all(ismember(sub_inds,[1:Nsubs])),'invalid target subunits specified');
+                    case 'nlmon'
                         NLmon = flag_val;
                         assert(ismember(NLmon,[-1 0 1]),'NLmon must be a -1, 0 or 1');
                     case 'edge_p'
@@ -391,7 +491,7 @@ classdef NIM
                         assert(ismember(space_type,{'equispace','equipop'}),'unsupported bin spacing type');
                     case 'lambda_nld2'
                         lambda_nld2 = flag_val;
-                        assert(lambda_nld2 > 0,'lambda must be > 0');
+                        assert(lambda_nld2 >= 0,'lambda must be >= 0');
                     otherwise
                         error('Invalid input flag');
                 end
@@ -400,18 +500,18 @@ classdef NIM
             
             %store NL tent-basis parameters
             tb_params = struct('edge_p',edge_p,'n_bfs',n_bfs,'space_type',space_type);
-            for ii = target_subs
-                nim.subunits(ii).NLparams.tb_params = tb_params;
+            for ii = sub_inds %load the TB param struct into each subunit we're making nonpar
+                nim.subunits(ii).TBparams = tb_params;
             end
             
             % Compute internal generating functions
             gint = nan(size(Xstims{1},1),Nsubs);
-            for ii = 1:length(target_subs)
-                gint(:,ii) = Xstims{nim.subunits(target_subs(ii)).Xtarg} * nim.subunits(target_subs(ii)).filtK;
+            for ii = 1:length(sub_inds)
+                gint(:,sub_inds(ii)) = Xstims{nim.subunits(sub_inds(ii)).Xtarg} * nim.subunits(sub_inds(ii)).filtK;
             end
             
-            prev_NL_types = nim.get_NLtypes();
-            for imod = target_subs
+            prev_NL_types = nim.get_NLtypes(); %current NL types
+            for imod = sub_inds
                 nim.subunits(imod).NLtype = 'nonpar'; %set the subunit NL type to nonpar
                 if strcmp(space_type,'equispace') %for equi-spaced bins
                     left_edge = my_prctile(gint(:,imod),edge_p);
@@ -447,11 +547,11 @@ classdef NIM
                     case 'nonpar'
                         fprintf('upstream NL already set as nonparametric\n');
                 end
-                nim.subunits(imod).NLparams.TBy = TBy;
-                nim.subunits(imod).NLparams.TBx = TBx;
+                nim.subunits(imod).TBy = TBy;
+                nim.subunits(imod).TBx = TBx;
                 nim.subunits(imod).reg_lambdas.nld2 = lambda_nld2;
-                nim.subunits(imod).NLparams.NLmon = NLmon;
-                nim.subunits(imod).NLparams.TBy_deriv = nim.subunits(imod).get_TB_derivative(); %calculate derivative of Tent-basis coeffics
+                nim.subunits(imod).TBparams.NLmon = NLmon;
+                nim.subunits(imod).TBy_deriv = nim.subunits(imod).get_TB_derivative(); %calculate derivative of Tent-basis coeffics
             end
         end
         
@@ -484,20 +584,23 @@ classdef NIM
             j = 1;
             while j <= length(varargin)
                 flag_name = varargin{j};
-                flag_val = varargin{j+1};
                 switch lower(flag_name)
                     case ~ischar(flag_name) %if the input is not a string, assume it's eval_inds
                         eval_inds = flag_name;
-                        j = j - 1; %account for the fact that theres no associated input value
+                        j = j + 1; %account for the fact that theres no associated input value
                     case 'gain_funs'
-                        gain_funs = flag_val;
+                        gain_funs = varargin{j+1};
+                        j = j + 2;
                     otherwise
                         error('Invalid input flag');
                 end
-                j = j + 2;
             end
+            if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
             nim.check_inputs(Robs,Xstims,eval_inds,gain_funs); %make sure input format is correct
-            
+            if nim.spk_hist.spkhstlen > 0 % add in spike history term if needed
+                Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
+            end
+
             if ~isnan(eval_inds) %if specifying a subset of indices to train model params
                 for nn = 1:length(Xstims)
                     Xstims{nn} = Xstims{nn}(eval_inds,:); %grab the subset of indices for each stimulus element
@@ -507,10 +610,11 @@ classdef NIM
                 if ~isempty(gain_funs); gain_funs = gain_funs(eval_inds,:); end;
             end
             [G, fgint, gint] = nim.process_stimulus(Xstims,1:Nsubs,gain_funs);
+            if nim.spk_hist.spkhstlen > 0 % add in spike history term if needed
+                G = G + Xspkhst*nim.spk_hist.coefs(:);
+            end
             
-            %SPK NL
-            
-            pred_rate = nim.apply_spkNL(G + nim.spkNL.theta); %apply spikinng NL
+            pred_rate = nim.apply_spkNL(G + nim.spkNL.theta); %apply spiking NL
             LL = nim.internal_LL(pred_rate,Robs); %compute LL
             Nspks = sum(Robs);
             LL = LL/Nspks; %normalize by spikes
@@ -544,6 +648,7 @@ classdef NIM
             Xstims = [];
             Xtargs = [1:length(nim.stim_params)]; %default plot filters for all stimuli
             plot_spkNL = true;
+            plot_spk_hist = true;
             gain_funs = [];
             j = 1; %initialize counter after required input args
             while j <= length(varargin)
@@ -560,10 +665,13 @@ classdef NIM
                             assert(all(ismember(Xtargs,1:length(nim.stim_params))),'invalid Xtargets specified');
                         case 'plot_spknl'
                             plot_spkNL = flag_val;
-                            assert(ismember(plot_spkNL,[0 1]),'spkNL must be a string');
+                            assert(ismember(plot_spkNL,[0 1]),'plot_spkNL must be 0 or 1');
                         case 'gain_funs'
                             gain_funs = lower(flag_val);
                             assert(isstr(noise_dist),'noise_dist must be a string');
+                        case 'plot_spk_hist'
+                            plot_spk_hist = flag_val;
+                            assert(ismember(plot_spk_hist,[0 1]),'plot_spk_hist must be a 0 or 1');
                         otherwise
                             error('Invalid input flag');
                     end
@@ -572,11 +680,17 @@ classdef NIM
             end
             
             Nsubs = length(nim.subunits);
-            %             spkhstlen = nim.spk_hist.spkhstlen;
+            spkhstlen = nim.spk_hist.spkhstlen;
+            if spkhstlen > 0
+                Xspkhst = create_spkhist_Xmat(Robs,nim.spk_hist.bin_edges);
+            end
             n_hist_bins = 500; %internal parameter determining histogram resolution
             if ~isempty(Xstims)
                 [G, ~, gint] = nim.process_stimulus(Xstims,1:Nsubs,gain_funs);
                 G = G + nim.spkNL.theta; %add in constant term
+                if spkhstlen > 0 %add in spike history filter output
+                   G = G + Xspkhst*nim.spk_hist.coefs(:); 
+                end
             else
                 G = []; gint = [];
             end
@@ -609,6 +723,28 @@ classdef NIM
                 ylabel(ax(2),'Probability','fontsize',14)
                 set(ax(2),'ytick',[]);
                 title('Spiking NL','fontsize',14)
+            end
+            
+            if nim.spk_hist.spkhstlen > 0 && plot_spk_hist
+                fig_handles.spk_hist = figure();
+                subplot(2,1,1)
+                stairs(nim.spk_hist.bin_edges(1:end-1)*nim.stim_params(1).dt,nim.spk_hist.coefs);
+                xlim(nim.spk_hist.bin_edges([1 end])*nim.stim_params(1).dt)
+                xl = xlim();
+                line(xl,[0 0],'color','k','linestyle','--');
+                xlabel('Time lag');
+                ylabel('Spike history filter')
+                title('Spike history term','fontsize',14)
+                
+                subplot(2,1,2)
+                stairs(nim.spk_hist.bin_edges(1:end-1)*nim.stim_params(1).dt,nim.spk_hist.coefs);
+                xlim(nim.spk_hist.bin_edges([1 end-1])*nim.stim_params(1).dt)
+                set(gca,'xscale','log')
+                xl = xlim();
+                line(xl,[0 0],'color','k','linestyle','--');
+                xlabel('Time lag');
+                ylabel('Spike history filter')
+                title('Spk Hist Log-axis','fontsize',14)
             end
             
             % CREATE FIGURE SHOWING INDIVIDUAL SUBUNITS
@@ -701,12 +837,18 @@ classdef NIM
                     else
                         gendist_x = linspace(-3,3,n_hist_bins); %otherwise, just pick an arbitrary x-axis to plot the NL
                     end
-                    cur_modx = gendist_x;
-                    cur_mody = cur_sub.apply_NL(cur_modx);
+                    if strcmp(cur_sub.NLtype,'nonpar')
+                        cur_modx = cur_sub.TBx; cur_mody = cur_sub.TBy;
+                    else
+                    cur_modx = gendist_x; cur_mody = cur_sub.apply_NL(cur_modx); 
+                    end
                     cur_xrange = cur_modx([1 end]);
                     
                     if ~isempty(gint)
                         [ax,h1,h2] = plotyy(cur_modx,cur_mody,gendist_x,gendist_y);
+                        if strcmp(cur_sub.NLtype,'nonpar')
+                            set(h1,'Marker','o');
+                        end
                         set(h1,'linewidth',1)
                         xlim(ax(1),cur_xrange)
                         xlim(ax(2),cur_xrange);
@@ -745,20 +887,21 @@ classdef NIM
             %                   optional flags:
             %                      fit_subs: set of subunits whos filters we want to optimize [default is all]
             %                      gain_funs: matrix of multiplicative factors, one column for each subunit
-            %                      optim_params: struct of optimization parameters
-            %                      silent: 0 means will display iterative optimization 1 means it will not
+            %                      optim_params: struct of desired optimization parameters
+            %                      silent: include this flag to suppress the iterative optimization display
+            %                      no_spkhist: include this flat to hold the spk NL filter constant
             %             OUTPUTS:
             %                new nim object with optimized subunit filters
             
             Nsubs = length(nim.subunits); %number of subunits
-            NT = length(Robs); %number of time points
             
             % PROCESS INPUTS
-            fit_subs = [-1 1:Nsubs]; %defualt to fitting all subunits (plus -1 for spkHist filter)
+            fit_subs = 1:Nsubs; %defualt to fitting all subunits (plus -1 for spkHist filter)
             gain_funs = []; %default has no gain_funs
             train_inds = nan; %default nan means train on all data
             optim_params = []; %default has no user-specified optimization parameters
-            silent = 0;
+            fit_spk_hist = nim.spk_hist.spkhstlen > 0; %default is to fit the spkNL filter if it exists
+            silent = false; %default is to display optimization output
             j = 1;
             while j <= length(varargin)
                 flag_name = varargin{j};
@@ -766,39 +909,42 @@ classdef NIM
                     train_inds = flag_name;
                     j = j + 1; %only one argument here
                 else
-                    flag_val = varargin{j+1};
                     switch lower(flag_name)
                         case 'fit_subs'
-                            fit_subs = flag_val;
+                            fit_subs = varargin{j+1};
                             assert(all(ismember(fit_subs,[-1 1:Nsubs])),'invalid target subunits specified');
+                            j = j + 2;
                         case 'gain_funs'
-                            gain_funs = flag_val;
+                            gain_funs = varargin{j+1};
+                            j = j + 2;
                         case 'optim_params'
-                            optim_params = flag_val;
+                            optim_params = varargin{j+1};
                             assert(isstruct(optim_params),'optim_params must be a struct');
+                            j = j + 2;
                         case 'silent'
-                            silent = flag_val;
-                            assert(ismember(silent,[0 1]),'silent must be a 0 or 1');
+                            silent = true;
+                            j = j + 1;
+                        case 'no_spkhist'
+                            fit_spk_hist = false;
+                            j = j + 1;
                         otherwise
                             error('Invalid input flag');
                     end
-                    j = j + 2;
                 end
             end
             
+            if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
             nim.check_inputs(Robs,Xstims,train_inds,gain_funs); %make sure input format is correct
             
-            Nfit_subs = sum(fit_subs > 0); %number of targeted subunits
-            non_fit_subs = setdiff([1:Nsubs -1],fit_subs); %elements of the model held constant
-            %             spkhstlen = nim.spk_hist.spkhstlen; %length of spike history filter
-            %             if ismember(-1,fit_subs); assert(spkhstlen > 0,'no spike history term initialized!'); end;
-            
-            %             if spkhstlen > 0 % CREATE SPIKE HISTORY Xmat IF NEEDED
-            %                 error('not implemented yet');
-            %                 Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
-            %             else
-            %                 Xspkhst = [];
-            %             end
+            Nfit_subs = length(fit_subs); %number of targeted subunits
+            non_fit_subs = setdiff([1:Nsubs],fit_subs); %elements of the model held constant
+            spkhstlen = nim.spk_hist.spkhstlen; %length of spike history filter
+            if fit_spk_hist; assert(spkhstlen > 0,'no spike history term initialized!'); end;
+            if spkhstlen > 0 % create spike history Xmat IF NEEDED
+                Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
+            else
+                Xspkhst = [];
+            end
             if ~isnan(train_inds) %if specifying a subset of indices to train model params
                 for nn = 1:length(Xstims)
                     Xstims{nn} = Xstims{nn}(train_inds,:); %grab the subset of indices for each stimulus element
@@ -812,7 +958,7 @@ classdef NIM
             init_params = [];
             lambda_L1 = zeros(size(init_params));
             %             sign_con = [];
-            for imod = fit_subs(fit_subs > 0)
+            for imod = fit_subs
                 cur_kern = nim.subunits(imod).filtK;
                 %                 if isfield(nim.mods(imod),'Kcon')
                 %                     if nim.mods(imod).Kcon ~= 0
@@ -823,18 +969,17 @@ classdef NIM
                 init_params = [init_params; cur_kern]; % add coefs to initial param vector
             end
             lambda_L1 = lambda_L1/sum(Robs); % since we are dealing with LL/spk
-            
-            %             % Add in spike history coefs
-            %             if ismember(-1,fit_subs)
-            %                 init_params = [init_params; nim.spk_hist.coefs];
-            %             end
+            Nfit_filt_params = length(init_params); %number of filter coefficients in param vector
+            % Add in spike history coefs
+            if fit_spk_hist
+                init_params = [init_params; nim.spk_hist.coefs];
+            end
             
             init_params(end+1) = nim.spkNL.theta; % add constant offset
             [nontarg_g] = nim.process_stimulus(Xstims,non_fit_subs,gain_funs);
-            
-            %             if ismember(-1,non_fit_subs) && spkhstlen > 0
-            %                 nontarg_g = nontarg_g + Xspkhst*nim.spk_hist.coefs(:);
-            %             end
+            if ~fit_spk_hist && spkhstlen > 0 %add in spike history filter output, if we're not fitting it
+                nontarg_g = nontarg_g + Xspkhst*nim.spk_hist.coefs(:);
+            end
             
             % IDENTIFY ANY CONSTRAINTS
             use_con = 0;
@@ -847,24 +992,24 @@ classdef NIM
             %                 UB(sign_con == -1) = 0;
             %                 use_con = 1;
             %             end
-            %             if spkhstlen > 0 && ismember(-1,fit_subs) %if optimizing spk history term
-            %                 %negative constraint on spk history coefs
-            %                 if nim.spk_hist.negCon == 1
-            %                     %spkhist_inds = (Nfit_subs*filtLen + 1):(Nfit_subs*filtLen + spkhstlen);
-            %                     spkhist_inds = cnt + (1:spkhstlen);
-            %                     UB(spkhist_inds) = 0;
-            %                     use_con = 1;
-            %                 end
-            %             end
+            if spkhstlen > 0 && fit_spk_hist %if optimizing spk history term
+                %negative constraint on spk history coefs
+                if nim.spk_hist.negCon
+                    spkhist_inds = Nfit_filt_params + (1:spkhstlen);
+                    UB(spkhist_inds) = 0;
+                    use_con = 1;
+                end
+            end
             
             beq = zeros(size(Aeq,1),1);
             b = zeros(size(A,1),1);
             
-            %             % GENERATE REGULARIZATION MATRICES
+            % GENERATE REGULARIZATION MATRICES
             Tmats = nim.make_Tikhonov_matrices();
-            
+           
+            fit_opts = struct('fit_spk_hist', fit_spk_hist, 'fit_subs',fit_subs); %put any additional fitting options into this struct
             %the function we want to optimize
-            opt_fun = @(K) nim.internal_LL_filters(K,Robs,Xstims,fit_subs,nontarg_g,Tmats);
+            opt_fun = @(K) nim.internal_LL_filters(K,Robs,Xstims,Xspkhst,nontarg_g,Tmats,fit_opts);
             
             %determine which optimizer were going to use
             if max(lambda_L1) > 0
@@ -906,10 +1051,9 @@ classdef NIM
             
             % PARSE MODEL FIT
             nim.spkNL.theta = params(end); %set new offset parameter
-            %         if ismember(-1,fit_subs)
-            %             nim_out.spk_hist.coefs = params(cnt + (1:spkhstlen));
-            %         end
-            fit_subs(fit_subs == -1) = [];
+            if fit_spk_hist 
+                nim.spk_hist.coefs = params(Nfit_filt_params + (1:spkhstlen));
+            end
             kOffset = 0; %position counter for indexing param vector
             for ii = 1:Nfit_subs
                 filtLen = length(nim.subunits(fit_subs(ii)).filtK);
@@ -926,6 +1070,7 @@ classdef NIM
             %         nim_out.opt_history = cat(1,nim_out.opt_history,{'filt'});
         end
         
+        %%
         function nim = fit_upstreamNLs(nim, Robs, Xstims, varargin)
             %
             %             Usage: nim = NMMfit_upstreamNLs( nim, Robs, Xstims, <train_inds>, varargin)
@@ -942,10 +1087,10 @@ classdef NIM
             %                       <fit_subs>: Vector of indices specifying which subunits to optimize.
             %                           (-1 = spk history filter) Default is to optimize all elements
             %                       <gain_funs>: matrix of gain values for each subunit
-            %                       <rescale_NLs>: set to 0 if you don't want to rescale upstream NLs after
-            %                           estimating (otherwise set to 1)
-            %                       <silent>: set to 0 if you want to turn on the optimization display
+            %                       <no_rescaling>: use this flag if you dont want to rescale the NLs after fitting
+            %                       <silent>: include this flag if you want to turn off the optimization display
             %                       <optim_params>: Struct of optimization parameters
+            %                       <no_spkhist>: include this flag if you dont want to fit the spkNL filter
             %            OUTPUTS:
             %                   nim: output model struct
             
@@ -954,12 +1099,13 @@ classdef NIM
             
             % PROCESS INPUTS
             poss_targets = find(strcmp(nim.get_NLtypes,'nonpar'))';
-            fit_subs = [poss_targets]; %defualt to fitting all subunits
+            fit_subs = poss_targets; %defualt to fitting all subunits
             gain_funs = []; %default has no gain_funs
             train_inds = nan; %default nan means train on all data
             optim_params = []; %default has no user-specified optimization parameters
-            silent = 0;
-            rescale_NLs = 1; %rescales y-axis of NLs after estimation
+            silent = false; %default is show the optimization output
+            fit_spk_hist = nim.spk_hist.spkhstlen > 0; %default is fit the spkNL filter if it exists
+            rescale_NLs = true; %default is to rescale the y-axis of NLs after estimation
             
             j = 1;
             while j <= length(varargin)
@@ -968,22 +1114,21 @@ classdef NIM
                     train_inds = flag_name;
                     j = j + 1; %there's just one arg here
                 else
-                    flag_val = varargin{j+1};
                     switch lower(flag_name)
                         case 'fit_subs'
-                            fit_subs = flag_val;
+                            fit_subs = varargin{j+1};
                             assert(all(ismember(fit_subs,[poss_targets])),'specified target doesnt have non-parametric NL, or doesnt exist');
                         case 'gain_funs'
-                            gain_funs = flag_val;
+                            gain_funs = varargin{j+1};
                         case 'optim_params'
-                            optim_params = flag_val;
+                            optim_params = varargin{j+1};
                             assert(isstruct(optim_params),'optim_params must be a struct');
                         case 'silent'
-                            silent = flag_val;
-                            assert(ismember(silent,[0 1]),'silent must be a 0 or 1');
-                        case 'rescale_nls'
-                            rescale_NLs = flag_val;
-                            assert(ismember(rescale_NLs,[0 1]),'rescale_NLs must be a 0 or 1');
+                            silent = true;
+                        case 'no_rescaling'
+                            rescale_NLs = false;
+                        case 'no_spkhist'
+                            fit_spk_hist = false;
                         otherwise
                             error('Invalid input flag');
                     end
@@ -991,19 +1136,18 @@ classdef NIM
                 end
             end
             
+            if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
             nim.check_inputs(Robs,Xstims,train_inds,gain_funs); %make sure input format is correct
             
-            Nfit_subs = sum(fit_subs > 0); %number of targeted subunits
-            non_fit_subs = setdiff([1:Nsubs],fit_subs); %elements of the model held constant
-            %             spkhstlen = nim.spk_hist.spkhstlen; %length of spike history filter
-            %             if ismember(-1,fit_subs); assert(spkhstlen > 0,'no spike history term initialized!'); end;
-            
-            %             if spkhstlen > 0 % CREATE SPIKE HISTORY Xmat IF NEEDED
-            %                 error('not implemented yet');
-            %                 Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
-            %             else
-            %                 Xspkhst = [];
-            %             end
+            Nfit_subs = length(fit_subs); %number of targeted subunits
+            non_fit_subs = setdiff(1:Nsubs,fit_subs); %elements of the model held constant
+            spkhstlen = nim.spk_hist.spkhstlen; %length of spike history filter
+            if fit_spk_hist; assert(spkhstlen > 0,'no spike history term initialized!'); end;
+            if fit_spk_hist
+                Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
+            else
+                Xspkhst = [];
+            end
             if ~isnan(train_inds) %if specifying a subset of indices to train model params
                 for nn = 1:length(Xstims)
                     Xstims{nn} = Xstims{nn}(train_inds,:); %grab the subset of indices for each stimulus element
@@ -1013,11 +1157,14 @@ classdef NIM
                 if ~isempty(gain_funs); gain_funs = gain_funs(train_inds,:); end;
             end
             
-            n_TBs = arrayfun(@(x) length(x.NLparams.TBx),nim.subunits(fit_subs(fit_subs > 0)));  %get the number of TBs for each subunit
+            n_TBs = arrayfun(@(x) length(x.TBx),nim.subunits(fit_subs));  %get the number of TBs for each subunit
             assert(length(unique(n_TBs)) == 1,'Have to have same number of tent-bases for each subunit');
             n_TBs = unique(n_TBs);
             
             nontarg_g = nim.process_stimulus(Xstims,non_fit_subs,gain_funs); %get output of nontarget subunits
+            if ~fit_spk_hist && spkhstlen > 0 %add in spike history filter output, if we're not fitting it
+                nontarg_g = nontarg_g + Xspkhst*nim.spk_hist.coefs(:);
+            end
             
             % COMPUTE NEW X-MATRIX OUT OF TENT-BASIS OUTPUTS
             XNL = zeros(NT,Nfit_subs*n_TBs); %initialize X matrix which is for the NL BFs of each module
@@ -1037,14 +1184,14 @@ classdef NIM
             % CREATE INITIAL PARAMETER VECTOR
             % Compute initial fit parameters
             init_params = [];
-            for imod = fit_subs(fit_subs > 0)
-                init_params = [init_params; nim.subunits(imod).NLparams.TBy']; %not incorporating the multiplier here because doing so messes with regularization
+            for imod = fit_subs
+                init_params = [init_params; nim.subunits(imod).TBy']; %not incorporating the multiplier here because doing so messes with regularization
             end
             
-            %             % Add in spike history coefs
-            %             if ismember(-1,targets) && spkhstlen > 0
-            %                 init_params = [init_params; nim.spk_hist.coefs];
-            %             end
+            % Add in spike history coefs
+            if fit_spk_hist
+                init_params = [init_params; nim.spk_hist.coefs];
+            end
             
             init_params(end+1) = nim.spkNL.theta; %add constant offset
             
@@ -1058,35 +1205,35 @@ classdef NIM
             % PROCESS CONSTRAINTS
             use_con = 0;
             LB = []; UB = []; A = []; Aeq = []; % initialize constraint parameters
-            %             % Check for spike history coef constraints
-            %             if spkhstlen > 0 && ismember(-1,targets)
-            %                 % negative constraint on spk history coefs
-            %                 if nim.spk_hist.negCon == 1
-            %                     spkhist_inds = (Ntargets*n_tbfs + 1):(Ntargets*n_tbfs + spkhstlen);
-            %                     LB = -Inf*ones(size(initial_params));
-            %                     UB = Inf*ones(size(initial_params));
-            %                     UB(spkhist_inds) = 0;
-            %                        use_con = 1;
-            %                 end
-            %             end
+            % Check for spike history coef constraints
+            if fit_spk_hist
+                % negative constraint on spk history coefs
+                if nim.spk_hist.negCon 
+                    spkhist_inds = Nfit_subs*n_tbfs + (1:spkhstlen);
+                    LB = -Inf*ones(size(initial_params));
+                    UB = Inf*ones(size(initial_params));
+                    UB(spkhist_inds) = 0;
+                    use_con = 1;
+                end
+            end
             
             % Process NL monotonicity constraints, and constraints that the tent basis
             % centered at 0 should have coefficient of 0 (eliminate y-shift degeneracy)
-            if any(arrayfun(@(x) x.NLparams.NLmon,nim.subunits) ~= 0)
+            if any(arrayfun(@(x) x.TBparams.NLmon,nim.subunits(fit_subs)) ~= 0)
                 zvec = zeros(1,length(init_params)); % indices of tent-bases centered at 0
                 for ii = 1:Nfit_subs
                     cur_range = (ii-1)*n_TBs + (1:n_TBs);
                     % For monotonicity constraint
-                    if nim.subunits(fit_subs(ii)).NLparams.NLmon ~= 0
+                    if nim.subunits(fit_subs(ii)).TBparams.NLmon ~= 0
                         for jj = 1:length(cur_range)-1 %create constraint matrix
                             cur_vec = zvec;
-                            cur_vec(cur_range([jj jj + 1])) = nim.subunits(fit_subs(ii)).NLparams.NLmon*[1 -1];
+                            cur_vec(cur_range([jj jj + 1])) = nim.subunits(fit_subs(ii)).TBparams.NLmon*[1 -1];
                             A = cat(1,A,cur_vec);
                         end
                     end
                     
                     % Constrain the 0-coefficient to be 0
-                    [~,zp] = find(nim.subunits(fit_subs(ii)).NLparams.TBx == 0);
+                    [~,zp] = find(nim.subunits(fit_subs(ii)).TBx == 0);
                     if isempty(zp)
                         error('Need one TB to be centered at 0')
                     end
@@ -1111,7 +1258,8 @@ classdef NIM
             optim_params = nim.set_optim_params(optimizer,optim_params,silent);
             if ~silent; fprintf('Running optimization using %s\n\n',optimizer); end;
             
-            opt_fun = @(K) nim.internal_LL_NLs(K, Robs, XNL, fit_subs, nontarg_g, Tmat);
+            fit_opts = struct('fit_spk_hist', fit_spk_hist, 'fit_subs',fit_subs); %put any additional fitting options into this struct
+            opt_fun = @(K) nim.internal_LL_NLs(K, Robs, XNL, Xspkhst,nontarg_g, Tmat,fit_opts);
             
             switch optimizer %run optimization
                 case 'L1General2_PSSas'
@@ -1135,34 +1283,31 @@ classdef NIM
                 if rescale_NLs %rescale so that the std dev of the subunit output is conserved
                     thisnl = thisnl*nim.subunits(fit_subs(ii)).scale/cur_std;
                 else
-                    nim_out.subunits(fit_subs(ii)).scale = cur_std; %otherwise adjust the model output std dev
+                    nim.subunits(fit_subs(ii)).scale = cur_std; %otherwise adjust the model output std dev
                 end
-                nim_out.subunits(fit_subs(ii)).NLparams.TBy = thisnl';
+                nim.subunits(fit_subs(ii)).TBy = thisnl';
                 nlmat_resc(:,ii) = thisnl';
             end
             
-            %             if ismember(-1,fit_subs) && spkhstlen > 0
-            %                 nim_out.spk_hist.coefs = params((Nfit_subs*n_TBs+1):(Nfit_subs*n_TBs+spkhstlen));
-            %             end
+            if fit_spk_hist 
+                nim.spk_hist.coefs = params((Nfit_subs*n_TBs+1):(Nfit_subs*n_TBs+spkhstlen));
+            end
             
             % IF RESCALING NLS, NEED TO RE-ESTIMATE OPTIMAL THETA
             if rescale_NLs
                 resc_nlvec = nlmat_resc(:);
                 new_g_out = XNL*resc_nlvec;
                 G = nontarg_g + new_g_out;
-                %                 if spkhstlen > 0
-                %                     G = G + Xspkhst*nim_out.spk_hist.coefs;
-                %                 end
-                
+                if spkhstlen > 0
+                    G = G + Xspkhst*nim.spk_hist.coefs;
+                end              
                 init_theta = params(end);
                 opts.Display = 'off';opts.GradObj = 'on'; opts.LargeScale = 'off';
                 new_theta = fminunc( @(K) nim.internal_theta_opt(K,G,Robs), init_theta, opts);
-                nim_out.spkNL.theta = new_theta;
+                nim.spkNL.theta = new_theta;
             else
-                nim_out.spkNL.theta = params(end);
+                nim.spkNL.theta = params(end);
             end
-            
-            
         end
         
     end
@@ -1170,12 +1315,11 @@ classdef NIM
     methods (Hidden)
         %% internal methods
         
-        function [penLL, penLLgrad] = internal_LL_filters(nim,params,Robs,Xstims,fit_subs,nontarg_g, Tmats)
+        function [penLL, penLLgrad] = internal_LL_filters(nim,params,Robs,Xstims,Xspkhst,nontarg_g,Tmats,fit_opts)
             %computes the penalized LL and its gradient wrt the filters for the given nim
             %with parameter vector params
             
-            if ismember(-1,fit_subs); opt_spk_NL = true; else opt_spk_NL = false; end; %are we optimizing the spk NL term?
-            fit_subs = fit_subs(fit_subs > 0);
+            fit_subs = fit_opts.fit_subs;
             Nfit_subs = length(fit_subs); %number of targeted subs
             
             % USEFUL VALUES
@@ -1223,10 +1367,10 @@ classdef NIM
             %                 error('not implemented yet')
             %             end
             
-            %             % Add contribution from spike history filter
-            %             if spkhstlen > 0 && ismember(-1,fit_subs)
-            %                 G = G + Xspkhst*params(NKtot + (1:spkhstlen));
-            %             end
+            % Add contribution from spike history filter
+            if fit_opts.fit_spk_hist
+                G = G + Xspkhst*params(NKtot + (1:nim.spk_hist.spkhstlen));
+            end
             
             pred_rate = nim.apply_spkNL(G);
             % Enforce minimum predicted firing rate to avoid nan LLs
@@ -1245,10 +1389,10 @@ classdef NIM
             penLLgrad = zeros(length(params),1); %initialize LL gradient
             penLLgrad(end) = sum(residual);      %Calculate derivatives with respect to constant term (theta)
             
-            %             % Calculate derivative with respect to spk history filter
-            %             if spkhstlen > 0 && ismember(-1,fit_subs)
-            %                 LLgrad(NKtot+(1:spkhstlen)) = residual'*Xspkhst;
-            %             end
+            % Calculate derivative with respect to spk history filter
+            if fit_opts.fit_spk_hist
+                penLLgrad(NKtot+(1:nim.spk_hist.spkhstlen)) = residual'*Xspkhst;
+            end
             
             for ii = 1:un_Xtargs %loop over unique Xfit_subs and compute LL grad wrt stim filters
                 cur_sub_inds = find(Xtarg_set == un_Xtargs(ii)); %set of subunits with this Xtarget
@@ -1298,19 +1442,18 @@ classdef NIM
             Nspks = sum(Robs);
             penLL = -penLL/Nspks;
             penLLgrad = -penLLgrad/Nspks;
-            
+
         end
         
         
-        function [penLL, penLLgrad] = internal_LL_NLs(nim,params, Robs, XNL, fit_subs, nontarg_g, Tmat)
+        function [penLL, penLLgrad] = internal_LL_NLs(nim,params, Robs, XNL, Xspkhst, nontarg_g, Tmat,fit_opts)
             % DESCRIPTION HERE
             
+            fit_subs = fit_opts.fit_subs;
             % Useful params
-            Nsubs = length(nim.subunits);
-            Nfit_subs = sum(fit_subs > 0);
-            n_TBs = length(nim.subunits(fit_subs(1)).NLparams.TBx);
-            NT = size(XNL,1);
-            %             spkhstlen = nim.spk_hist.spkhstlen;
+            Nfit_subs = length(fit_subs);
+            n_TBs = length(nim.subunits(fit_subs(1)).TBx);
+            spkhstlen = nim.spk_hist.spkhstlen;
             
             % ESTIMATE GENERATING FUNCTIONS (OVERALL AND INTERNAL)
             theta = params(end); %offset
@@ -1318,10 +1461,10 @@ classdef NIM
             all_TBy = params(1:Nfit_subs*n_TBs);
             G = G + XNL*all_TBy;
             
-            %             %add contribution from spike history filter
-            %             if spkhstlen > 0
-            %                 G = G + Xspkhst*params(Nfit_subs*n_TBs + (1:spkhstlen));
-            %             end
+            %add contribution from spike history filter
+            if fit_opts.fit_spk_hist
+                G = G + Xspkhst*params(Nfit_subs*n_TBs + (1:spkhstlen));
+            end
             
             pred_rate = nim.apply_spkNL(G);
             % Enforce minimum predicted firing rate to avoid nan LLs
@@ -1338,10 +1481,10 @@ classdef NIM
             penLLgrad(1:Nfit_subs*n_TBs) = residual'*XNL;
             penLLgrad(end) = sum(residual);% Calculate derivatives with respect to constant term (theta)
             
-            %             % Calculate derivative with respect to spk history filter
-            %             if spkhstlen > 0
-            %                 LLgrad((Nfit_subs*n_TBs+1):(Nfit_subs*n_TBs+spkhstlen)) = residual'*Xspkhst;
-            %             end
+            % Calculate derivative with respect to spk history filter
+            if fit_opts.fit_spk_hist
+                penLLgrad(Nfit_subs*n_TBs+(1:spkhstlen)) = residual'*Xspkhst;
+            end
             
             % COMPUTE L2 PENALTIES AND GRADIENTS
             lambdas = nim.get_reg_lambdas('sub_inds',fit_subs,'nld2');
@@ -1373,11 +1516,11 @@ classdef NIM
             residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G);
             grad = sum(residual);
             Nspks = sum(Robs);
-             LL=-LL/Nspks;
+            LL=-LL/Nspks;
             grad=-grad'/Nspks;
         end
         
-                
+        
         function [G, fgint, gint] = process_stimulus(nim,Xstims,sub_inds,gain_funs)
             %             [G, fgint, gint] = process_stimulus(nim,Xstims,sub_inds,gain_funs)
             %             process the stimulus with the subunits specified in sub_inds
@@ -1471,6 +1614,8 @@ classdef NIM
                     gint = gen_signal*nim.spkNL.params(1);
                     rate = nim.spkNL.params(2)*log(1 + exp(gint));
                     rate(gint > max_g) = nim.spkNL.params(2)*gint(gint > max_g);
+                case 'logistic'
+                    rate = 1./(1 + exp(-gen_signal*nim.spkNL.params(1)));
             end
         end
         
@@ -1493,6 +1638,9 @@ classdef NIM
                     gint = gen_signal*nim.spkNL.params(1);
                     rate_deriv = nim.spkNL.params(1)*nim.spkNL.params(2)*exp(gint)./(1 + exp(gint));
                     rate_deriv(gint > max_g) = nim.spkNL.params(1)*nim.spkNL.params(2); %e^x/(1+e^x) => 1 for large x
+                case 'logistic'
+                    rate_deriv = nim.spkNL.params(1)*exp(-gen_signal*nim.spkNL.params(1))./...
+                        (1 + exp(-gen_signal*nim.spkNL.params(1))).^2; %e^(-x)/(1+e^(-x))^2
             end
         end
         
@@ -1524,7 +1672,7 @@ classdef NIM
             %make Tikhonov matrix for smoothness regularization of the TB NLs
             nonpar_set = find(strcmp(nim.get_NLtypes(),'nonpar'));
             assert(~isempty(nonpar_set),'no nonparametric NLs found');
-            n_tbs = length(nim.subunits(nonpar_set(1)).NLparams.TBx); %number of TBx (assume this is the same for all subunits)!
+            n_tbs = length(nim.subunits(nonpar_set(1)).TBx); %number of TBx (assume this is the same for all subunits)!
             et = ones(n_tbs,1);
             et([1 end]) = 0; %free boundaries
             Tmat = spdiags([et -2*et et], [-1 0 1], n_tbs, n_tbs)';
@@ -1544,7 +1692,6 @@ classdef NIM
                 assert(filtLen == prod(nim.stim_params(nim.subunits(n).Xtarg).dims),'Xstim dims dont match stim_params');
             end
             assert(length(unique(cellfun(@(x) size(x,1),Xstims))) == 1,'Xstim elements need to have same size along first dimension');
-            if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
             assert(size(Robs,2) == 1,'Robs must be a vector');
             assert(iscell(Xstims),'Xstims must for input as a cell array');
             if ~isempty(gain_funs)
@@ -1579,9 +1726,12 @@ classdef NIM
                 cur_stim_params = default_params; %start with default struct
                 assert(isfield(stim_params(ii),'dims'),'need to specify the stimulus dimensions');
                 spec_fields = fieldnames(stim_params(ii));
-                for ii = 1:length(spec_fields) %override default values with user-specified ones
-                    value = getfield(stim_params(ii),spec_fields{ii});
-                    cur_stim_params = setfield(cur_stim_params,spec_fields{ii},value);
+                for jj = 1:length(spec_fields) %override default values with user-specified ones
+                    value = getfield(stim_params(ii),spec_fields{jj});
+                    cur_stim_params = setfield(cur_stim_params,spec_fields{jj},value);
+                end
+                while length(cur_stim_params.dims) < 3 %pad dims with 1s for book-keeping
+                    cur_stim_params.dims = cat(2,cur_stim_params.dims,1);
                 end
                 new_stim_params(ii) = cur_stim_params;
             end

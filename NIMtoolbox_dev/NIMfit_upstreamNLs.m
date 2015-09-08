@@ -32,10 +32,10 @@ end
 if nargin < 5
     desired_targets = [];
 end
-if nargin < 6
+if nargin < 6 || isempty(rescale_NLs); %JMM fixed bug 9/7/15
     rescale_NLs = 1;
 end
-if nargin < 7
+if nargin < 7 || isempty(silent)
     silent = 1;
 end
 if nargin < 8
