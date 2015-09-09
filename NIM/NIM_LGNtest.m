@@ -17,19 +17,19 @@ nLags = 50; % number of time lags for estimating stimulus filters
 params_stim = NIMcreate_stim_params( nLags, DTstim, up_samp_fac, tent_basis_spacing ); %for nim
 
 %make STIM_PARAMS struct for NIM
-STIM_PARAMS.dims = [nLags]; 
-STIM_PARAMS.dt = DTstim/up_samp_fac*tent_basis_spacing; %time res of filter coeffs
+STIM_PARAMS = NIM.create_stim_params(nLags,'stim_dt',DTstim,'up_samp_fac',up_samp_fac,'tent_spacing',tent_basis_spacing);
+
+NL_types = {'lin'}; % define subunit as linear 
+mod_signs = [1]; % determines whether input is exc or sup (doesn't matter in the linear case)
 
 % Create T x nLags 'Xmatrix' representing the relevant stimulus history at each time point
 Xstim = create_time_embedding( FFstim, params_stim ); 
-Xcell{1} = Xstim; %for the NIM class, need the stimulus formatted as a cell array
+Xcell{1} = NIM.create_time_embedding(FFstim,STIM_PARAMS); %for the NIM class, need the stimulus formatted as a cell array
 
 % Bin spikes at analysis resolution
 Robs = histc( FFspks, (0:(size(Xstim,1)-1))*params_stim.dt ); % Prob w conventions
 
 %% Fit a single-filter LN model
-NL_types = {'lin'}; % define subunit as linear 
-mod_signs = [1]; % determines whether input is exc or sup (doesn't matter in the linear case)
 
 % Initialize nim 
 params_reg = NIMcreate_reg_params( 'lambda_d2T', 80); % this is purposely set too low here 
@@ -50,6 +50,7 @@ FIT0 = FIT0.fit_filters(Robs,Xcell,'optim_params',new_optim_params);
 filtfig = figure(); hold on
 plot(fit0.mods(1).filtK,'r') %nim filter
 plot(FIT0.subunits(1).filtK,'k--') %NIM filter
+
 
 %% Add spike-history term and refit
 n_bins = 20;
@@ -82,16 +83,17 @@ lambda_NLd2 = 20; % smoothness regularization on the tent-basis coefs
 fit2 = NIMinitialize_upstreamNLs( fit1, Xstim, to_nonpar, lambda_NLd2 ); % initializes the tent-basis representation
 fit2 = NIMfit_upstreamNLs( fit2, Robs, Xstim, [],[],[], silent ); % fit the upstream NL
 
+NL_optim_params.TolX = 1e-6;%these are the default tolerances used in NIMfit_upstreamNLs
+NL_optim_params.TolFun = 1e-6;
 FIT2 = FIT1.init_nonpar_NLs(Xcell,'sub_inds',to_nonpar,'lambda_nld2',lambda_NLd2);
-FIT2 = FIT2.fit_upstreamNLs(Robs,Xcell,'optim_params',new_optim_params);
-
+FIT2 = FIT2.fit_upstreamNLs(Robs,Xcell,'optim_params',NL_optim_params);
 %% Do another iteration of fitting filters and upstream NLs
 silent = 1; % switching to stealth mode
 fit2 = NIMfit_filters( fit2, Robs, Xstim, [],[], silent );
 fit2 = NIMfit_upstreamNLs( fit2, Robs, Xstim, [],[],[], silent );
 
-FIT2 = FIT2.fit_filters(Robs,Xcell,'silent');
-FIT2 = FIT2.fit_upstreamNLs(Robs,Xcell,'silent');
+FIT2 = FIT2.fit_filters(Robs,Xcell,'silent','optim_params',new_optim_params);
+FIT2 = FIT2.fit_upstreamNLs(Robs,Xcell,'silent','optim_params',NL_optim_params);
 
 % Note that LLs aren't improving much with these additional optimizations
 fprintf('nim Log-likelihoods so far: \n');
@@ -101,6 +103,11 @@ disp(fit2.LL_seq);
 %should have been).
 fprintf('NIM Log-likelihoods so far: \n');
 disp([FIT2.fit_hist(:).LL]');
+
+%plot LL sequences
+f2 = figure(); hold on
+plot(fit2.LL_seq,'o-');
+plot([FIT2.fit_hist(:).LL],'ro-');
 
 %% Fit spiking NL params
 % Note that in this case re-estimating the spiking NL shape doesnt improve things 

@@ -1,0 +1,315 @@
+function nim = fit_upstreamNLs(nim, Robs, Xstims, varargin)
+%         nim = nim.fit_upstreamNLs(Robs, Xstims, <train_inds>, varargin)
+%         Optimizes the upstream NLs (in terms of tent-basis functions)
+%         INPUTS:
+%            Robs: vector of response observations (e.g. spike counts)
+%            Xstims: cell array of stimuli
+%            <train_inds>: index values of data on which to fit the model [default to all indices in provided data]
+%            optional flags:
+%                ('sub_inds',sub_inds): set of subunits whos filters we want to optimize [default is all]
+%                ('gain_funs',gain_funs): matrix of multiplicative factors, one column for each subunit
+%                ('optim_params',optim_params): struct of desired optimization parameters
+%                'silent': include this flag to suppress the iterative optimization display
+%                'hold_spkhist': include this flat to hold the spk NL filter constant
+%                'no_rescaling': use this flag if you dont want to rescale the NLs after fitting
+%        OUTPUTS:
+%            nim: output model struct
+
+Nsubs = length(nim.subunits); %number of subunits
+NT = length(Robs); %number of time points
+
+% PROCESS INPUTS
+poss_targets = find(strcmp(nim.get_NLtypes,'nonpar'))'; %set of subunits with nonpar NLs
+fit_subs = poss_targets; %defualt to fitting all subunits that we can
+gain_funs = []; %default has no gain_funs
+train_inds = nan; %default nan means train on all data
+optim_params = []; %default has no user-specified optimization parameters
+silent = false; %default is show the optimization output
+fit_spk_hist = nim.spk_hist.spkhstlen > 0; %default is fit the spkNL filter if it exists
+rescale_NLs = true; %default is to rescale the y-axis of NLs after estimation
+
+j = 1;
+while j <= length(varargin)
+    flag_name = varargin{j}; %if not a flag, it must be train_inds
+    if ~ischar(flag_name)
+        train_inds = flag_name;
+        j = j + 1; %there's just one arg here
+    else
+        switch lower(flag_name)
+            case 'sub_inds'
+                fit_subs = varargin{j+1};
+                assert(all(ismember(fit_subs,[poss_targets])),'specified target doesnt have non-parametric NL, or doesnt exist');
+                j = j + 2;
+            case 'gain_funs'
+                gain_funs = varargin{j+1};
+                j = j + 2;
+            case 'optim_params'
+                optim_params = varargin{j+1};
+                assert(isstruct(optim_params),'optim_params must be a struct');
+                j = j + 2;
+            case 'silent'
+                silent = true;
+                j = j + 1;
+            case 'no_rescaling'
+                rescale_NLs = false;
+                j = j + 1;
+            case 'hold_spkhist'
+                fit_spk_hist = false;
+                j = j + 1;
+            otherwise
+                error('Invalid input flag');
+        end
+    end
+end
+
+if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
+nim.check_inputs(Robs,Xstims,train_inds,gain_funs); %make sure input format is correct
+
+Nfit_subs = length(fit_subs); %number of targeted subunits
+non_fit_subs = setdiff(1:Nsubs,fit_subs); %elements of the model held constant
+spkhstlen = nim.spk_hist.spkhstlen; %length of spike history filter
+if fit_spk_hist; assert(spkhstlen > 0,'no spike history term initialized!'); end;
+if fit_spk_hist
+    Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
+else
+    Xspkhst = [];
+end
+if ~isnan(train_inds) %if specifying a subset of indices to train model params
+    for nn = 1:length(Xstims)
+        Xstims{nn} = Xstims{nn}(train_inds,:); %grab the subset of indices for each stimulus element
+    end
+    Robs = Robs(Uindx);
+    if ~isempty(Xspkhst); Xspkhst = Xspkhst(train_inds,:); end;
+    if ~isempty(gain_funs); gain_funs = gain_funs(train_inds,:); end;
+end
+
+n_TBs = arrayfun(@(x) length(x.TBx),nim.subunits(fit_subs));  %get the number of TBs for each subunit
+assert(length(unique(n_TBs)) == 1,'Have to have same number of tent-bases for each subunit');
+n_TBs = unique(n_TBs);
+
+nontarg_g = nim.process_stimulus(Xstims,non_fit_subs,gain_funs); %get output of nontarget subunits
+if ~fit_spk_hist && spkhstlen > 0 %add in spike history filter output, if we're not fitting it
+    nontarg_g = nontarg_g + Xspkhst*nim.spk_hist.coefs(:);
+end
+
+% COMPUTE NEW X-MATRIX OUT OF TENT-BASIS OUTPUTS
+XNL = zeros(NT,Nfit_subs*n_TBs); %initialize X matrix which is for the NL BFs of each module
+for ii = 1:Nfit_subs %for each module
+    tar = fit_subs(ii);
+    gint = Xstims{nim.subunits(tar).Xtarg}*nim.subunits(tar).filtK;
+    % The output of the current model's internal filter projected onto the tent basis representation
+    if isempty(gain_funs)
+        tbf_out = nim.subunits(tar).weight * nim.subunits(tar).tb_rep(gint);
+    else
+        tbf_out = nim.subunits(tar).weight * bsxfun(@times,nim.subunits(tar).tb_rep(gint),gain_funs(:,tar));
+    end
+    XNL(:,((ii-1)*n_TBs + 1):(ii*n_TBs)) = tbf_out; % assemble filtered NLBF outputs into X matrix
+end
+
+% CREATE INITIAL PARAMETER VECTOR
+% Compute initial fit parameters
+init_params = [];
+for imod = fit_subs
+    init_params = [init_params; nim.subunits(imod).TBy']; %not incorporating the multiplier here because doing so messes with regularization
+end
+
+% Add in spike history coefs
+if fit_spk_hist
+    init_params = [init_params; nim.spk_hist.coefs];
+end
+
+init_params(end+1) = nim.spkNL.theta; %add constant offset
+
+lambda_nl = nim.get_reg_lambdas('sub_inds',fit_subs,'nld2');
+if any(lambda_nl > 0)
+    Tmat = nim.make_NL_Tmat;
+else
+    Tmat = [];
+end
+
+% PROCESS CONSTRAINTS
+use_con = 0;
+LB = []; UB = []; A = []; Aeq = []; % initialize constraint parameters
+% Check for spike history coef constraints
+if fit_spk_hist
+    % negative constraint on spk history coefs
+    if nim.spk_hist.negCon
+        spkhist_inds = Nfit_subs*n_tbfs + (1:spkhstlen);
+        LB = -Inf*ones(size(initial_params));
+        UB = Inf*ones(size(initial_params));
+        UB(spkhist_inds) = 0;
+        use_con = 1;
+    end
+end
+
+% Process NL monotonicity constraints, and constraints that the tent basis
+% centered at 0 should have coefficient of 0 (eliminate y-shift degeneracy)
+if any(arrayfun(@(x) x.TBparams.NLmon,nim.subunits(fit_subs)) ~= 0)
+    zvec = zeros(1,length(init_params)); % indices of tent-bases centered at 0
+    for ii = 1:Nfit_subs
+        cur_range = (ii-1)*n_TBs + (1:n_TBs);
+        % For monotonicity constraint
+        if nim.subunits(fit_subs(ii)).TBparams.NLmon ~= 0
+            for jj = 1:length(cur_range)-1 %create constraint matrix
+                cur_vec = zvec;
+                cur_vec(cur_range([jj jj + 1])) = nim.subunits(fit_subs(ii)).TBparams.NLmon*[1 -1];
+                A = cat(1,A,cur_vec);
+            end
+        end
+        
+        % Constrain the 0-coefficient to be 0
+        [~,zp] = find(nim.subunits(fit_subs(ii)).TBx == 0);
+        if isempty(zp)
+            error('Need one TB to be centered at 0')
+        end
+        cur_vec = zvec;
+        cur_vec(cur_range(zp)) = 1;
+        Aeq = cat(1,Aeq,cur_vec);
+    end
+    b = zeros(size(A,1),1);
+    beq = zeros(size(Aeq,1),1);
+    use_con = 1;
+end
+
+if ~use_con %if there are no constraints
+    if exist('minFunc','file') == 2
+        optimizer = 'minFunc';
+    else
+        optimizer = 'fminunc';
+    end
+else
+    optimizer = 'fmincon';
+end
+optim_params = nim.set_optim_params(optimizer,optim_params,silent);
+if ~silent; fprintf('Running optimization using %s\n\n',optimizer); end;
+
+fit_opts = struct('fit_spk_hist', fit_spk_hist, 'fit_subs',fit_subs); %put any additional fitting options into this struct
+opt_fun = @(K) internal_LL_NLs(nim,K, Robs, XNL, Xspkhst,nontarg_g, Tmat,fit_opts);
+
+switch optimizer %run optimization
+    case 'L1General2_PSSas'
+        [params] = L1General2_PSSas(opt_fun,init_params,lambda_L1,optim_params);
+    case 'minFunc'
+        [params] = minFunc(opt_fun, init_params, optim_params);
+    case 'fminunc'
+        [params] = fminunc(opt_fun, init_params, optim_params);
+    case 'minConf_TMP'
+        [params] = minConf_TMP(opt_fun, init_params, LB, UB, optim_params);
+    case 'fmincon'
+        [params] = fmincon(opt_fun, init_params, A, b, Aeq, beq, LB, UB, [], optim_params);
+end
+[~,penGrad] = opt_fun(params);
+first_order_optim = max(abs(penGrad));
+if first_order_optim > nim.opt_check_FO
+    warning(sprintf('First-order optimality %.3f, fit might not be converged!',first_order_optim));
+end
+
+nlmat = reshape(params(1:Nfit_subs*n_TBs),n_TBs,Nfit_subs); %take output K vector and restructure into a matrix of NLBF coefs, one for each module
+nlmat_resc = nlmat;
+for ii = 1:Nfit_subs;
+    cur_pset = ((ii-1)*n_TBs+1) : (ii*n_TBs);
+    thisnl = nlmat(:,ii); %NL coefs for current subunit
+    cur_std = std(XNL(:,cur_pset)*thisnl);
+    if rescale_NLs %rescale so that the std dev of the subunit output is conserved
+        thisnl = thisnl*nim.subunits(fit_subs(ii)).scale/cur_std;
+    else
+        nim.subunits(fit_subs(ii)).scale = cur_std; %otherwise adjust the model output std dev
+    end
+    nim.subunits(fit_subs(ii)).TBy = thisnl';
+    nlmat_resc(:,ii) = thisnl';
+end
+
+if fit_spk_hist
+    nim.spk_hist.coefs = params((Nfit_subs*n_TBs+1):(Nfit_subs*n_TBs+spkhstlen));
+end
+
+% If rescaling the Nls, we need to resestimate the offset theta after scaling
+if rescale_NLs
+    resc_nlvec = nlmat_resc(:);
+    new_g_out = XNL*resc_nlvec;
+    G = nontarg_g + new_g_out;
+    if spkhstlen > 0
+        G = G + Xspkhst*nim.spk_hist.coefs;
+    end
+    init_theta = params(end);
+    opts.Display = 'off';opts.GradObj = 'on'; opts.LargeScale = 'off';
+    new_theta = fminunc( @(K) internal_theta_opt(nim,K,G,Robs), init_theta, opts);
+    nim.spkNL.theta = new_theta;
+else
+    nim.spkNL.theta = params(end);
+end
+
+[LL,~,mod_internals,LL_data] = nim.eval_model(Robs,Xstims,'gain_funs',gain_funs);
+nim = nim.set_subunit_scales(mod_internals.fgint); %update filter scales
+cur_fit_details = struct('fit_type','upstream_NLs','LL',LL,'filt_pen',LL_data.filt_pen,...
+    'NL_pen',LL_data.NL_pen,'FO_optim',first_order_optim);
+nim.fit_props = cur_fit_details;
+nim.fit_hist = cat(1,nim.fit_hist,cur_fit_details);
+end
+
+%%
+function [penLL, penLLgrad] = internal_LL_NLs(nim,params, Robs, XNL, Xspkhst, nontarg_g, Tmat,fit_opts)
+%computes the LL and its gradient for a given set of upstream NL parameters
+
+fit_subs = fit_opts.fit_subs;
+% Useful params
+Nfit_subs = length(fit_subs);
+n_TBs = length(nim.subunits(fit_subs(1)).TBx);
+spkhstlen = nim.spk_hist.spkhstlen;
+
+% ESTIMATE GENERATING FUNCTIONS (OVERALL AND INTERNAL)
+theta = params(end); %offset
+G = theta + nontarg_g;
+all_TBy = params(1:Nfit_subs*n_TBs);
+G = G + XNL*all_TBy;
+
+%add contribution from spike history filter
+if fit_opts.fit_spk_hist
+    G = G + Xspkhst*params(Nfit_subs*n_TBs + (1:spkhstlen));
+end
+
+pred_rate = nim.apply_spkNL(G);
+penLL = nim.internal_LL(pred_rate,Robs); %compute LL
+%residual = LL'[r].*F'[g]
+residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G, pred_rate < nim.min_pred_rate);
+
+penLLgrad = zeros(length(params),1); %initialize LL gradient
+penLLgrad(1:Nfit_subs*n_TBs) = residual'*XNL;
+penLLgrad(end) = sum(residual);% Calculate derivatives with respect to constant term (theta)
+
+% Calculate derivative with respect to spk history filter
+if fit_opts.fit_spk_hist
+    penLLgrad(Nfit_subs*n_TBs+(1:spkhstlen)) = residual'*Xspkhst;
+end
+
+% COMPUTE L2 PENALTIES AND GRADIENTS
+lambdas = nim.get_reg_lambdas('sub_inds',fit_subs,'nld2');
+if any(lambdas > 0)
+    TBymat = reshape(all_TBy,n_TBs,[]);
+    reg_penalties = lambdas.* sum((Tmat * TBymat).^2);
+    pen_grads = 2*(Tmat' * Tmat * TBymat);
+    pen_grads = reshape(bsxfun(@times,pen_grads,lambdas),[],1);
+    penLL = penLL - sum(reg_penalties);
+    penLLgrad(1:Nfit_subs*n_TBs) = penLLgrad(1:Nfit_subs*n_TBs) - pen_grads;
+end
+% CONVERT TO NEGATIVE LLS AND NORMALIZE BY NSPKS
+Nspks = sum(Robs);
+penLL = -penLL/Nspks;
+penLLgrad = -penLLgrad/Nspks;
+end
+
+%%
+function [LL,grad] = internal_theta_opt(nim,theta,G,Robs)
+%computes LL and its gradient for given additive offset term theta
+G = G + theta;
+pred_rate = nim.apply_spkNL(G);
+LL = nim.internal_LL(pred_rate,Robs);
+%residual = LL'[r].*F'[g]
+residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G,pred_rate < nim.min_pred_rate);
+grad = sum(residual);
+Nspks = sum(Robs);
+LL=-LL/Nspks;
+grad=-grad'/Nspks;
+end
+
+
