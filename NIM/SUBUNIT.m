@@ -1,10 +1,9 @@
 
 classdef SUBUNIT
-    
-    %Summary of this class goes here
-    %   Detailed explanation goes here
+    % Class implementing the subunits comprising an NIM model
     %
     % James McFarland, September 2015
+    %%
     properties
         filtK;       % filter coefficients, [dx1] array where d is the dimensionality of the target stimulus
         NLtype;      % upstream nonlinearity type (string)
@@ -12,8 +11,8 @@ classdef SUBUNIT
         weight;      % subunit weight (typically +/- 1)
         Xtarg;       % index of stimulus the subunit filter acts on
         reg_lambdas; % struct of regularization hyperparameters
-        constraints; %struct defining any constraints on the filter coefs
-        scale        %SD of the subunit output derived from most-recent fit
+        Ksign_con;   %scalar defining any constraints on the filter coefs [-1 is negative con; +1 is positive con; 0 is no con]
+        scale;       %SD of the subunit output derived from most-recent fit
         TBparams;    %struct of parameters associated with a 'nonparametric' NL
         TBy;         %tent-basis coefficients
         TBx;         %tent-basis center positions
@@ -21,18 +20,27 @@ classdef SUBUNIT
     properties (Hidden)
         TBy_deriv;   %internally stored derivative of tent-basis NL
     end
+    
+    %%
     methods
-        function subunit = SUBUNIT(init_filt, weight, NLtype, Xtarg, NLparams)
-            %subunit = SUBUNIT(init_filt, weight, NLtype, <NLparams>)
-            %constructor for SUBUNIT class.
-            if nargin < 4 || isempty(Xtarg)
-                Xtarg = 1; %default to 1
-            end
-            if nargin < 5
-                NLparams = [];
-            end
+        function subunit = SUBUNIT(init_filt, weight, NLtype, Xtarg, NLparams,Ksign_con)
+%         subunit = SUBUNIT(init_filt, weight, NLtype, <NLparams>, <Ksign_con>)
+%         constructor for SUBUNIT class.
+%             INPUTS:
+%                 init_filt: vector of initial filter coefs
+%                 weight: scalar weighting associated with subunit (typically +/-1)
+%                 NLtype: string specifying the type of upstream NL
+%                 Xtarg: scalar index specifying which stimulus element this subunit acts on
+%                 <NLparams>: vector of parameters for the upstream NL
+%                 <Ksign_con>: constraint on filter coefs [-1 = negative; +1 = positive; 0 is no con]
+%             OUTPUTS: subunit: subunit object
+
+            if (nargin < 4 || isempty(Xtarg)); Xtarg = 1; end %default Xtarget is 1
+            if nargin < 5; NLparams = []; end;
+            if (nargin < 6 || isempty(Ksign_con)); Ksign_con = 0; end; %default no constraints on filter coefs
+            
             assert(length(weight) == 1,'weight must be scalar!');
-            assert(isstr(NLtype),'NLtype must be a string');
+            assert(ischar(NLtype),'NLtype must be a string');
             subunit.filtK = init_filt;
             subunit.weight = weight;
             if ~ismember(weight,[-1 1])
@@ -62,7 +70,7 @@ classdef SUBUNIT
             end
             subunit.NLparams = NLparams;            
             subunit.reg_lambdas = SUBUNIT.init_reg_lamdas();
-            
+            subunit.Ksign_con = Ksign_con;
         end
         
         function filtK = get_filtK(subunit)
@@ -77,8 +85,7 @@ classdef SUBUNIT
         
         function sub_out = apply_NL(subunit,gen_signal)
             %apply subunit NL to the input generating signal
-            switch subunit.NLtype
-                
+            switch subunit.NLtype                
                 case 'lin' %f(x) = x
                     sub_out = gen_signal;
                     
@@ -161,6 +168,7 @@ classdef SUBUNIT
         end
         
         function gout = tb_rep(subunit,gin)
+            %project the input signal gin onto the tent-basis functions associated with this subunit
             n_tbs =length(subunit.TBx); %number of tent-basis functions
             gout = zeros(length(gin),n_tbs);
             gout(:,1) = get_tentbasis_output(gin,subunit.TBx(1),[-Inf subunit.TBx(2)]);
@@ -173,7 +181,7 @@ classdef SUBUNIT
     
     methods (Static)
         function reg_lambdas = init_reg_lamdas()
-            %creates reg_params struct and sets default values
+            %creates reg_lambdas struct and sets default values to 0
             reg_lambdas.nld2 = 0; %second derivative of tent basis coefs
             reg_lambdas.d2xt = 0; %spatiotemporal laplacian
             reg_lambdas.d2x = 0; %2nd spatial deriv
