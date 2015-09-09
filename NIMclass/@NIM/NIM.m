@@ -26,9 +26,10 @@ classdef NIM
     end
     
     properties (Hidden)
-        init_props;     %struct containing details about model initialization
+        init_props;         %struct containing details about model initialization
         allowed_reg_types = {'nld2','d2xt','d2x','d2t','l2','l1'}; %set of allowed regularization types
-        version = '0.0';
+        version = '0.0';    %source code version used to generate the model
+        create_on = date;    %date model was generated
         min_pred_rate = 1e-50; %minimum predicted rate (for non-negative data) to avoid NAN LL values
         opt_check_FO = 1e-3; %threshold on first-order optimality for fit-checking
     end

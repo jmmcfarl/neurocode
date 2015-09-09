@@ -67,7 +67,7 @@ classdef SUBUNIT
                     else
                         assert(length(NLparams) == 2,'invalid NLparams vector');
                     end
-                case 'rectPow'
+                case 'rectpow'
                     if isempty(NLparams)
                         NLparams = [2]; %gamma in f(x) = x^gamma 
                     else
