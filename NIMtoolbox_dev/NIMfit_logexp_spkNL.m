@@ -49,8 +49,8 @@ end
 [~, ~, ~, G] = NIMmodel_eval(nim,Robs,Xstim,XLin);
 G = G - nim.spk_NL_params(1);
 
-opts.Display = 'off';
-opts.GradObj = 'off';
+opts.Display = 'iter';
+opts.GradObj = 'on';
 opts.Algorithm = 'active-set';
 fit_params = fmincon(@(K) spkNL_internal_LL(K,G,Robs), initial_params,[],[],Aeq,Beq,LB,UB,[],opts);
 
@@ -115,16 +115,16 @@ r = params(3)*lexp;
 r(r < 1e-50) = 1e-50;
 LL = -sum(Robs.*log(r)-r)/nspks;
 
-% %for gradient calculation: (faster to not supply gradient it seems)
-% residual = (Robs./r - 1);
-% 
-% fract = exp(params(2)*(G+params(1)))./(1 + exp(params(2)*(G+params(1))));
-% fract(too_big) = 1;
-% 
-% grad(1) = params(3)*params(2)*residual'*fract;
-% grad(2) = params(3)*residual'*(fract.*(G+params(1)));
-% grad(3) = residual'*r/params(3);
-% 
-% grad = -grad/nspks;
+%for gradient calculation: (faster to not supply gradient it seems)
+residual = (Robs./r - 1);
+
+fract = exp(params(2)*(G+params(1)))./(1 + exp(params(2)*(G+params(1))));
+fract(too_big) = 1;
+
+grad(1) = params(3)*params(2)*residual'*fract;
+grad(2) = params(3)*residual'*(fract.*(G+params(1)));
+grad(3) = residual'*r/params(3);
+
+grad = -grad/nspks;
 
 end

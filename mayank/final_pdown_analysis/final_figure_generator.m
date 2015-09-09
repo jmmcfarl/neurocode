@@ -60,6 +60,11 @@ fprintf('L2MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2mec),[50 25 7
 fprintf('L3LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l3lec),[50 25 75]));
 fprintf('L2LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2lec),[50 25 75]));
 
+g1 = layer;
+g2 = {data.loc};
+% [p,tbl,stats] = anovan(fract_rt2_ups,{g1,g2})
+[p,tbl,stats] = anovan(fract_rt2_ups,{g1,g2})
+
 %% load in cortical MP data and get regions
 ctx_data = load('~/Analysis/Mayank/final_pdown_analysis/compiled_corticalMP_data.mat');
 ctx_data = ctx_data.data;

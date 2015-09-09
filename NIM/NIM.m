@@ -20,6 +20,7 @@ classdef NIM
     properties (Hidden)
         allowed_reg_types = {'nld2','d2xt','d2x','d2t','l2','l1'}; %set of allowed regularization types
         version = '0.0';
+        min_pred_rate = 1e-50; %minimum predicted rate (for non-negative data) to avoid NAN LL values
     end
     %%
     methods
@@ -80,7 +81,7 @@ classdef NIM
             end
             
             %check and create spk NL function
-            allowed_spkNLs = {'lin','rectlin','exp','softplus','logistic'}; %set of NL functions currently implemented
+            allowed_spkNLs = {'lin','rectquad','exp','softplus','logistic'}; %set of NL functions currently implemented
             assert(ismember(spkNL,allowed_spkNLs),'not an allowed spk NL type');
             nim.spkNL.type = spkNL;
             nim.spkNL.theta = 0; %initialize offset term
@@ -89,8 +90,8 @@ classdef NIM
             switch nim.spkNL.type
                 case 'lin'
                     nim.spkNL.params = [1]; %defines beta in f(x; beta) = beta*x
-                case 'rectlin'
-                    nim.spkNL.params = [1]; %defines beta in f(x; beta) = beta*x iff x > 0
+                case 'rectquad'
+                    nim.spkNL.params = [1]; 
                 case 'exp'
                     nim.spkNL.params = [1]; %defines beta in f(x; beta) = exp(beta*x)
                 case 'softplus'
@@ -173,7 +174,7 @@ classdef NIM
             %                 'xtarg': index of stimulus to apply the new stim_params for [default is 1]
             %                 'dims': dimensionality of stim: [Tdim, X1dim, X2dim] where Tdim is the number of temporal dimensions, etc.
             %                 'boundary_conds': boundary conditions on each stim dimension [Inf means free, 0 means tied, -1 means periodic]
-            %                 'split_pts': set of stimulus indices to specify smoothing boundaries (NOT YET IMPLEMENTED)
+            %                 'split_pts': set of stimulus indices to specify smoothing boundaries [direction split_ind boundary_cond]
             
             Xtarg = 1; %default is to apply the change to stim 1
             allowed_flags = {'dims','boundary_conds','split_pts'}; %fields of the stim_params struct that we might want to set
@@ -205,8 +206,7 @@ classdef NIM
             end
             while length(nim.stim_params(Xtarg).dims) < 3 %pad dims with 1s for book-keeping
                 nim.stim_params(Xtarg).dims = cat(2,nim.stim_params(Xtarg).dims,1);
-            end
-            
+            end            
         end
         
         %% getting methods
@@ -365,7 +365,7 @@ classdef NIM
                     init_filt = randn(stimD,1)/stimD; %initialize fitler coefs with gaussian noise
                 else
                     if iscell(init_filts)
-                    init_filt = init_filts{ii};
+                        init_filt = init_filts{ii};
                     else
                         init_filt = init_filts(ii,:);
                     end
@@ -420,7 +420,7 @@ classdef NIM
                         error('Invalid input flag');
                 end
             end
-
+            
             % COMPUTE RECTANGULAR BASIS FUNCTIONS
             bin_edges = zeros(n_bins+1,1);
             inc = init_spacing;
@@ -584,15 +584,20 @@ classdef NIM
             j = 1;
             while j <= length(varargin)
                 flag_name = varargin{j};
-                switch lower(flag_name)
-                    case ~ischar(flag_name) %if the input is not a string, assume it's eval_inds
-                        eval_inds = flag_name;
-                        j = j + 1; %account for the fact that theres no associated input value
-                    case 'gain_funs'
-                        gain_funs = varargin{j+1};
-                        j = j + 2;
-                    otherwise
-                        error('Invalid input flag');
+                if ~ischar(flag_name)
+                    eval_inds = flag_name;
+                    j = j + 1;
+                else
+                    switch lower(flag_name)
+                        case ~ischar(flag_name) %if the input is not a string, assume it's eval_inds
+                            eval_inds = flag_name;
+                            j = j + 1; %account for the fact that theres no associated input value
+                        case 'gain_funs'
+                            gain_funs = varargin{j+1};
+                            j = j + 2;
+                        otherwise
+                            error('Invalid input flag');
+                    end
                 end
             end
             if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
@@ -600,7 +605,7 @@ classdef NIM
             if nim.spk_hist.spkhstlen > 0 % add in spike history term if needed
                 Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
             end
-
+            
             if ~isnan(eval_inds) %if specifying a subset of indices to train model params
                 for nn = 1:length(Xstims)
                     Xstims{nn} = Xstims{nn}(eval_inds,:); %grab the subset of indices for each stimulus element
@@ -689,7 +694,7 @@ classdef NIM
                 [G, ~, gint] = nim.process_stimulus(Xstims,1:Nsubs,gain_funs);
                 G = G + nim.spkNL.theta; %add in constant term
                 if spkhstlen > 0 %add in spike history filter output
-                   G = G + Xspkhst*nim.spk_hist.coefs(:); 
+                    G = G + Xspkhst*nim.spk_hist.coefs(:);
                 end
             else
                 G = []; gint = [];
@@ -840,7 +845,7 @@ classdef NIM
                     if strcmp(cur_sub.NLtype,'nonpar')
                         cur_modx = cur_sub.TBx; cur_mody = cur_sub.TBy;
                     else
-                    cur_modx = gendist_x; cur_mody = cur_sub.apply_NL(cur_modx); 
+                        cur_modx = gendist_x; cur_mody = cur_sub.apply_NL(cur_modx);
                     end
                     cur_xrange = cur_modx([1 end]);
                     
@@ -1006,10 +1011,10 @@ classdef NIM
             
             % GENERATE REGULARIZATION MATRICES
             Tmats = nim.make_Tikhonov_matrices();
-           
+            
             fit_opts = struct('fit_spk_hist', fit_spk_hist, 'fit_subs',fit_subs); %put any additional fitting options into this struct
             %the function we want to optimize
-            opt_fun = @(K) nim.internal_LL_filters(K,Robs,Xstims,Xspkhst,nontarg_g,Tmats,fit_opts);
+            opt_fun = @(K) nim.internal_LL_filters(K,Robs,Xstims,Xspkhst,nontarg_g,gain_funs,Tmats,fit_opts);
             
             %determine which optimizer were going to use
             if max(lambda_L1) > 0
@@ -1051,7 +1056,7 @@ classdef NIM
             
             % PARSE MODEL FIT
             nim.spkNL.theta = params(end); %set new offset parameter
-            if fit_spk_hist 
+            if fit_spk_hist
                 nim.spk_hist.coefs = params(Nfit_filt_params + (1:spkhstlen));
             end
             kOffset = 0; %position counter for indexing param vector
@@ -1118,21 +1123,26 @@ classdef NIM
                         case 'fit_subs'
                             fit_subs = varargin{j+1};
                             assert(all(ismember(fit_subs,[poss_targets])),'specified target doesnt have non-parametric NL, or doesnt exist');
+                            j = j + 2;
                         case 'gain_funs'
                             gain_funs = varargin{j+1};
+                            j = j + 2;
                         case 'optim_params'
                             optim_params = varargin{j+1};
                             assert(isstruct(optim_params),'optim_params must be a struct');
+                            j = j + 2;
                         case 'silent'
                             silent = true;
+                            j = j + 1;
                         case 'no_rescaling'
                             rescale_NLs = false;
+                            j = j + 1;
                         case 'no_spkhist'
                             fit_spk_hist = false;
+                            j = j + 1;
                         otherwise
                             error('Invalid input flag');
                     end
-                    j = j + 2;
                 end
             end
             
@@ -1172,12 +1182,11 @@ classdef NIM
                 tar = fit_subs(ii);
                 gint = Xstims{nim.subunits(tar).Xtarg}*nim.subunits(tar).filtK;
                 % The output of the current model's internal filter projected onto the tent basis representation
-                %                 if isempty(Gmults{tar})
-                tbf_out = nim.subunits(tar).weight * nim.subunits(tar).tb_rep(gint);
-                %                 else
-                %                     %tbf_out = nim.mods(tar).sign * (Gmults{tar} .* tb_rep(gint(:,tar),nim.mods(tar).NLx));
-                %                     tbf_out = nim.mods(tar).sign * bsxfun(@times, tb_rep(gint(:,tar),nim.mods(tar).NLx), Gmults{tar} );
-                %                 end
+                if isempty(gain_funs)
+                    tbf_out = nim.subunits(tar).weight * nim.subunits(tar).tb_rep(gint);
+                else
+                    tbf_out = nim.subunits(tar).weight * bsxfun(@times,nim.subunits(tar).tb_rep(gint),gain_funs(:,tar));
+                end
                 XNL(:,((ii-1)*n_TBs + 1):(ii*n_TBs)) = tbf_out; % assemble filtered NLBF outputs into X matrix
             end
             
@@ -1208,7 +1217,7 @@ classdef NIM
             % Check for spike history coef constraints
             if fit_spk_hist
                 % negative constraint on spk history coefs
-                if nim.spk_hist.negCon 
+                if nim.spk_hist.negCon
                     spkhist_inds = Nfit_subs*n_tbfs + (1:spkhstlen);
                     LB = -Inf*ones(size(initial_params));
                     UB = Inf*ones(size(initial_params));
@@ -1289,7 +1298,7 @@ classdef NIM
                 nlmat_resc(:,ii) = thisnl';
             end
             
-            if fit_spk_hist 
+            if fit_spk_hist
                 nim.spk_hist.coefs = params((Nfit_subs*n_TBs+1):(Nfit_subs*n_TBs+spkhstlen));
             end
             
@@ -1300,7 +1309,7 @@ classdef NIM
                 G = nontarg_g + new_g_out;
                 if spkhstlen > 0
                     G = G + Xspkhst*nim.spk_hist.coefs;
-                end              
+                end
                 init_theta = params(end);
                 opts.Display = 'off';opts.GradObj = 'on'; opts.LargeScale = 'off';
                 new_theta = fminunc( @(K) nim.internal_theta_opt(K,G,Robs), init_theta, opts);
@@ -1308,14 +1317,111 @@ classdef NIM
             else
                 nim.spkNL.theta = params(end);
             end
+            
+%             [LL,pred_rate,mod_internals,LL_data] = nim.eval_model(Robs,Xstims);
+
         end
         
+        %%
+        function nim = fit_spkNL(nim, Robs, Xstims, varargin)
+            %
+            % Usage: nim_out = NMMfit_logexp_spkNL( nim, Robs, Xstim, <train_inds>, varargin)
+            % Fit any parameters of the spiking NL function
+            % INPUTS:
+            %     nim: Model structure containing the current estimates of the spiking nonlinearity parameters (spk_alpha, spk_beta, and spk_theta)
+            %     Robs: vector of binned spike counts
+            %     Xstim: time-embedded stimulus mat
+            %     <train_inds>: set of data indices to fit parameters on
+            %     Optional Flags:
+            %            <gain_funs>: matrix of gain values for each subunit
+            %            <silent>: include this flag if you want to turn off the optimization display
+            %            <optim_params>: Struct of optimization parameters
+            %            <hold const>: vector of parameter indices to hold constant
+            
+            % OUTPUTS:
+            %     nim: updated model structure with fit spk NL parameters
+            
+            % PROCESS INPUTS
+            gain_funs = []; %default has no gain_funs
+            train_inds = nan; %default nan means train on all data
+            optim_params = []; %default has no user-specified optimization parameters
+            silent = false; %default is show the optimization output
+            hold_const = []; %default is fit all spk NL params
+            j = 1;
+            while j <= length(varargin)
+                flag_name = varargin{j}; %if not a flag, it must be train_inds
+                if ~ischar(flag_name)
+                    train_inds = flag_name;
+                    j = j + 1;
+                else
+                    switch lower(flag_name)
+                        case 'gain_funs'
+                            gain_funs = varargin{j+1};
+                            j = j + 2;
+                        case 'optim_params'
+                            optim_params = varargin{j+1};
+                            assert(isstruct(optim_params),'optim_params must be a struct');
+                            j = j + 2;
+                        case 'silent'
+                            silent = true;
+                        case 'hold_const'
+                            hold_const = varargin{j+1};
+                            j = j + 2;
+                        otherwise
+                            error('Invalid input flag');
+                    end
+                end
+            end
+            
+            if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
+            nim.check_inputs(Robs,Xstims,train_inds,gain_funs); %make sure input format is correct
+            
+            [~, ~, mod_internals] = nim.eval_model(Robs, Xstims, train_inds,'gain_funs',gain_funs);
+            G = mod_internals.G;
+            if ~isnan(train_inds) %if specifying a subset of indices to train model params
+                Robs = Robs(train_inds);
+            end
+            
+            init_params = [nim.spkNL.params nim.spkNL.theta]; %initialize parameters to fit (including the offset term theta)
+            
+            %BOUND CONSTRAINTS
+            LB = -Inf*ones(size(init_params));
+            UB = Inf*ones(size(init_params));
+            if ismember(nim.spkNL.type,{'lin','rectlin','exp','softplus','logistic'})
+                LB(1) = 0; %beta is non-negative
+            end
+            if ismember(nim.spkNL.type,{'softplus'})
+                LB(2) = 0; %alpha is non-negative
+            end
+            %equality constraints
+            Aeq = []; Beq = [];
+            for i = 1:length(hold_const)
+                Aeq = [Aeq; zeros(1,length(init_params))];
+                Aeq(end,hold_const(i)) = 1;
+                Beq = [Beq; init_params(hold_const(i))];
+            end
+            
+            optimizer = 'fmincon';
+            optim_params = nim.set_optim_params(optimizer,optim_params,silent);
+            optim_params.GradObj = 'on';
+            opt_fun = @(K) nim.internal_LL_spkNL(K, Robs, G);
+            params = fmincon(opt_fun, init_params, [], [], Aeq, Beq, LB, UB, [], optim_params);
+            
+            nim.spkNL.params = params(1:end-1);
+            nim.spkNL.theta = params(end);
+            
+%             [LL,pred_rate,mod_internals,LL_data] = nim.eval_model(Robs,Xstims);
+            %             nim_out.LL_seq = cat(1,nim_out.LL_seq,LL);
+            %             nim_out.penLL_seq = cat(1,nim_out.penLL_seq,penLL);
+            %             nim_out.opt_history = cat(1,nim_out.opt_history,{'spkNL'});
+            
+        end
     end
     
     methods (Hidden)
         %% internal methods
         
-        function [penLL, penLLgrad] = internal_LL_filters(nim,params,Robs,Xstims,Xspkhst,nontarg_g,Tmats,fit_opts)
+        function [penLL, penLLgrad] = internal_LL_filters(nim,params,Robs,Xstims,Xspkhst,nontarg_g,gain_funs,Tmats,fit_opts)
             %computes the penalized LL and its gradient wrt the filters for the given nim
             %with parameter vector params
             
@@ -1361,11 +1467,11 @@ classdef NIM
             end
             
             % Multiply by weight (and multiplier, if appl) and add to generating function
-            %             if isempty(gain_funs)
-            G = G + fgint*mod_weights;
-            %             else
-            %                 error('not implemented yet')
-            %             end
+            if isempty(gain_funs)
+                G = G + fgint*mod_weights;
+            else
+                G = G + (fgint.*gain_funs(:,fit_subs))*mod_weights;
+            end
             
             % Add contribution from spike history filter
             if fit_opts.fit_spk_hist
@@ -1373,18 +1479,10 @@ classdef NIM
             end
             
             pred_rate = nim.apply_spkNL(G);
-            % Enforce minimum predicted firing rate to avoid nan LLs
-            if ismember(nim.noise_dist,{'poisson','bernoulli'})
-                min_pred_rate = 1e-50;
-                if min(pred_rate) < min_pred_rate
-                    pred_rate(pred_rate < min_pred_rate) = min_pred_rate; %minimum predicted rate
-                end
-            end
-            
             penLL = nim.internal_LL(pred_rate,Robs); %compute LL
             
             %residual = LL'[r].*F'[g]
-            residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G);
+            residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G,pred_rate <= nim.min_pred_rate);
             
             penLLgrad = zeros(length(params),1); %initialize LL gradient
             penLLgrad(end) = sum(residual);      %Calculate derivatives with respect to constant term (theta)
@@ -1400,7 +1498,11 @@ classdef NIM
                 cur_unique_NL_types = unique(cur_NL_types); %set of unique NL types
                 
                 if length(cur_sub_inds) == 1 && strcmp(cur_unique_NL_types,'lin') %if there's only a single linear subunit, this is a faster calc
-                    penLLgrad(param_inds{cur_sub_inds}) = residual'*Xstims{un_Xtargs(ii)} * nim.subunits(cur_sub_inds).weight;
+                    if isempty(gain_funs)
+                        penLLgrad(param_inds{cur_sub_inds}) = residual'*Xstims{un_Xtargs(ii)} * nim.subunits(cur_sub_inds).weight;
+                    else
+                        penLLgrad(param_inds{cur_sub_inds}) = (gain_funs.*residual)'*Xstims{un_Xtargs(ii)} * nim.subunits(cur_sub_inds).weight;
+                    end
                 else %otherwise, compute a matrix of upstream NL derivatives fpg
                     fpg = ones(length(residual),length(cur_sub_inds)); %initialize to linear NL derivative (all ones)
                     for jj = 1:length(cur_unique_NL_types) %loop over unique NL types
@@ -1415,7 +1517,11 @@ classdef NIM
                     end
                     target_params = cat(2,param_inds{cur_sub_inds}); %indices of filter coefs for current set of targeted subunits
                     %LL grad is residual * f'(.) *X *w, computed in parallel for all subunits targeting this Xtarg
-                    penLLgrad(target_params) = bsxfun(@times,(bsxfun(@times,fpg,residual)'*Xstims{un_Xtargs(ii)}),mod_weights(cur_sub_inds))';
+                    if isempty(gain_funs)
+                        penLLgrad(target_params) = bsxfun(@times,(bsxfun(@times,fpg,residual)'*Xstims{un_Xtargs(ii)}),mod_weights(cur_sub_inds))';
+                    else
+                        penLLgrad(target_params) = bsxfun(@times,(bsxfun(@times,fpg.*gain_funs(:,sub_inds),residual)'*Xstims{un_Xtargs(ii)}),mod_weights(cur_sub_inds))';
+                    end
                 end
             end
             
@@ -1442,9 +1548,28 @@ classdef NIM
             Nspks = sum(Robs);
             penLL = -penLL/Nspks;
             penLLgrad = -penLLgrad/Nspks;
-
+            
         end
         
+        
+        function [LL, LLgrad] = internal_LL_spkNL(nim,params, Robs, G)
+%         function [LL] = internal_LL_spkNL(nim,params, Robs, G)
+            % DESCRIPTION HERE
+                        
+            % ESTIMATE GENERATING FUNCTIONS (OVERALL AND INTERNAL)
+            nim.spkNL.params = params(1:end-1);
+            pred_rate = nim.apply_spkNL(G + params(end));
+            
+            LL = nim.internal_LL(pred_rate,Robs); %compute LL
+            LL_deriv = nim.internal_LL_deriv(pred_rate,Robs);
+            spkNL_grad = nim.spkNL_param_grad(params,G);
+            LLgrad = sum(bsxfun(@times,spkNL_grad,LL_deriv));
+            
+            % CONVERT TO NEGATIVE LLS AND NORMALIZE BY NSPKS
+            Nspks = sum(Robs);
+            LL = -LL/Nspks;
+            LLgrad = -LLgrad/Nspks;
+        end
         
         function [penLL, penLLgrad] = internal_LL_NLs(nim,params, Robs, XNL, Xspkhst, nontarg_g, Tmat,fit_opts)
             % DESCRIPTION HERE
@@ -1466,16 +1591,10 @@ classdef NIM
                 G = G + Xspkhst*params(Nfit_subs*n_TBs + (1:spkhstlen));
             end
             
-            pred_rate = nim.apply_spkNL(G);
-            % Enforce minimum predicted firing rate to avoid nan LLs
-            min_pred_rate = 1e-50;
-            if min(pred_rate) < min_pred_rate
-                pred_rate(pred_rate < min_pred_rate) = min_pred_rate; %minimum predicted rate
-            end
-            
+            pred_rate = nim.apply_spkNL(G);            
             penLL = nim.internal_LL(pred_rate,Robs); %compute LL
             %residual = LL'[r].*F'[g]
-            residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G);
+            residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G, pred_rate < nim.min_pred_rate);
             
             penLLgrad = zeros(length(params),1); %initialize LL gradient
             penLLgrad(1:Nfit_subs*n_TBs) = residual'*XNL;
@@ -1502,18 +1621,14 @@ classdef NIM
             penLLgrad = -penLLgrad/Nspks;
         end
         
+        
         function [LL,grad] = internal_theta_opt(nim,theta,G,Robs)
             %DESCRIPTION HERE
             G = G + theta;
             pred_rate = nim.apply_spkNL(G);
-            %enforce minimum predicted firing rate to avoid nan LLs
-            min_pred_rate = 1e-50;
-            if min(pred_rate) < min_pred_rate
-                pred_rate(pred_rate < min_pred_rate) = min_pred_rate; %minimum predicted rate
-            end
             LL = nim.internal_LL(pred_rate,Robs);
             %residual = LL'[r].*F'[g]
-            residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G);
+            residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G,pred_rate < nim.min_pred_rate);
             grad = sum(residual);
             Nspks = sum(Robs);
             LL=-LL/Nspks;
@@ -1560,7 +1675,7 @@ classdef NIM
                 end
             end
             if ~isempty(gain_funs)
-                fgint = fgint.*gain_funs; %apply gain modulation if needed
+                fgint = fgint.*gain_funs(:,sub_inds); %apply gain modulation if needed
             end
             G = fgint*[nim.subunits(sub_inds).weight]';
         end
@@ -1570,10 +1685,8 @@ classdef NIM
             switch nim.noise_dist
                 case 'poisson' %LL = Rlog(r) - r + C
                     LL = sum(Robs .* log(rPred) -rPred);
-                    
                 case 'bernoulli' %LL = R*log(r) + (1-R)*log(1-r)
                     LL = sum(Robs.*log(rPred) + (1-Robs).*log(1-rPred));
-                    
                 case 'gaussian' %LL = (r-R)^2 + c
                     LL = sum((rPred - Robs).^2);
             end
@@ -1584,11 +1697,9 @@ classdef NIM
             %predicted rate at rPred, given Robs (as a vector over time)
             switch nim.noise_dist
                 case 'poisson' %LL'[r] = R/r - 1
-                    LL_deriv = Robs./rPred - 1;
-                    
+                    LL_deriv = Robs./rPred - 1;                    
                 case 'bernoulli' %LL'[r] = R/r - (1-R)/(1-r)
                     LL_deriv = Robs./rPred - (1-Robs)./(1-rPred);
-                    
                 case 'gaussian' %LL'[r] = 2*(r-R)
                     LL_deriv = 2*(rPred - Robs);
             end
@@ -1602,9 +1713,9 @@ classdef NIM
                 case 'lin' %F[x;beta] = beta*x
                     rate = gen_signal*nim.spkNL.params(1);
                     
-                case 'rectlin' %F[x; beta] = beta*x iff x > 0; else 0
-                    rate = gen_signal*nim.spkNL.params(1);
-                    rate(rate < 0) = 0;
+                case 'rectquad' %F[x; beta] = (beta*x)^2 iff x > 0; else 0
+                    rate = (gen_signal*nim.spkNL.params(1)).^2;
+                    rate(gen_signal < 0) = 0;
                     
                 case 'exp' %F[x; beta] = exp(beta*x)
                     rate = exp(gen_signal*nim.spkNL.params(1));
@@ -1617,22 +1728,28 @@ classdef NIM
                 case 'logistic'
                     rate = 1./(1 + exp(-gen_signal*nim.spkNL.params(1)));
             end
+            if ismember(nim.noise_dist,{'poisson','bernoulli'}) %cant allow rates == 0 because LL is undefined
+               rate(rate < nim.min_pred_rate) = nim.min_pred_rate; 
+            end
+            if strcmp(nim.noise_dist,'bernoulli') %cant allow rates == 1 because LL is undefined
+               rate(rate > (1 - nim.min_pred_rate)) = 1 - nim.min_pred_rate; 
+            end
         end
         
-        function rate_deriv = apply_spkNL_deriv(nim,gen_signal)
+        function rate_deriv = apply_spkNL_deriv(nim,gen_signal,thresholded_inds)
             %apply the derivative of the spkNL to the input gen_signal.
             %Again, gen_signal should have the offset theta already added
             %in
+            if nargin < 3
+                thresholded_inds = [];
+            end
             switch nim.spkNL.type
                 case 'lin' %F'[x; beta] = beta;
                     rate_deriv = nim.spkNL.params(1)*ones(size(gen_signal));
-                    
-                case 'rectlin' %F'[x; beta] = beta iff x > 0; else 0
-                    rate_deriv = nim.spkNL.params(1)*(gen_signal > 0);
-                    
+                case 'rectquad' %F'[x; beta] = 2*beta*x iff x > 0; else 0
+                    rate_deriv = 2*nim.spkNL.params(1)*gen_signal.*(gen_signal > 0);
                 case 'exp' %F'[x; beta] = beta*exp(beta*x)
                     rate_deriv = nim.spkNL.params(1)*exp(nim.spkNL.params(1)*gen_signal);
-                    
                 case 'softplus' %F[x; beta, alpha] = alpha*beta*exp(beta*x)/(1+exp(beta*x))
                     max_g = 50; %to prevent numerical overflow
                     gint = gen_signal*nim.spkNL.params(1);
@@ -1642,6 +1759,37 @@ classdef NIM
                     rate_deriv = nim.spkNL.params(1)*exp(-gen_signal*nim.spkNL.params(1))./...
                         (1 + exp(-gen_signal*nim.spkNL.params(1))).^2; %e^(-x)/(1+e^(-x))^2
             end
+            rate_deriv(thresholded_inds) = 0; %if thresholding the rate to avoid undefined LLs, set deriv to 0 at those points
+        end
+        
+        function rate_grad = spkNL_param_grad(nim,params,x)
+            %DESCRIPTION HERE
+            
+            rate_grad = zeros(length(x),length(params));
+            switch nim.spkNL.type
+                case 'lin'
+                    rate_grad(:,1) = x; %dr/dbeta = x
+                    rate_grad(:,2) = ones(size(x)); %dr/dtheta = 1
+                case 'rectlin'
+                    rate_grad(:,1) = gen_signal; %dr/dbeta = x iff x > 0
+                    rate_grad(:,2) = ones(size(x)); %dr/dtheta = 1 iff x > 0
+                    rate_grad(x < 0,:) = 0;
+                case 'exp'
+                    temp = exp(params(1)*(x + params(end)));
+                    rate_grad(:,1) = (x + params(end)).*temp; %dr/dbeta = (x+theta)*exp(beta*(x+theta))
+                    rate_grad(:,2) = params(1).*temp; %dr/dtheta = beta*exp(beta*(x+theta))
+                case 'softplus'
+                    temp = params(2)*exp(params(1)*(x + params(3)))./(1 + exp(params(1)*(x + params(3)))); %alpha*exp(beta*(x+theta))/(1 + exp(beta*(x+theta)))
+                    rate_grad(:,1) = temp.*(x + params(3)); %dr/dbeta = temp*(x + theta)
+                    rate_grad(:,2) = log(1 + exp(params(1)*(x + params(3)))); %dr/dalpha = log[]
+                    rate_grad(:,3) = temp.*params(1); %dr/dtheta = temp*beta
+                case 'logistic'
+                    %                     nim.spkNL.params = [1]; %defines beta in f(x; beta) = 1/(1+exp(-beta*x))
+                    error('undefined yet');
+                otherwise
+                    error('unsupported spkNL type');
+            end
+            
         end
         
         function Tmats = make_Tikhonov_matrices(nim)

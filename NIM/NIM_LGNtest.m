@@ -29,10 +29,10 @@ stim_params.dt = DTstim/up_samp_fac*tent_basis_spacing; %time res of filter coef
 
 % Initialize NIM (use 'help NIMinitialize_model' for more details about the 
 % model struct components).
-params_reg = NIMcreate_reg_params( 'lambda_d2T', 1 ); % this is purposely set too low here 
-fit0 = NIMinitialize_model( params_stim, mod_signs, NL_types, params_reg ); 
+% params_reg = NIMcreate_reg_params( 'lambda_d2T', 1 ); % this is purposely set too low here 
+% fit0 = NIMinitialize_model( params_stim, mod_signs, NL_types, params_reg ); 
 
-new_fit = NIM(stim_params,NL_types,mod_signs);
+new_fit = NIM(stim_params,NL_types,mod_signs,'spkNL','softplus');
 new_fit = new_fit.set_reg_params('d2t',1);
 new_optim_params.optTol = 1e-4; 
 new_optim_params.progTol = 1e-8;
@@ -40,28 +40,37 @@ new_optim_params.progTol = 1e-8;
 % Fit stimulus filter
 tic
 silent = 0;
-fit0 = NIMfit_filters( fit0, Robs, Xstim, [], [], silent ); 
+% fit0 = NIMfit_filters( fit0, Robs, Xstim, [], [], silent ); 
 toc
 tic
-new_fit = new_fit.fit_filters(Robs,Xcell,'optim_params',new_optim_params);
+% new_fit = new_fit.fit_filters(Robs,Xcell,'optim_params',new_optim_params);
 toc
 % Plot filter -- should be less smooth than what we would like (our 'prior')
-filtfig = figure; hold on
-plot(fit0.mods(1).filtK,'r')
-plot(new_fit.subunits(1).filtK,'k--')
-
+% filtfig = figure; hold on
+% plot(fit0.mods(1).filtK,'r')
+% plot(new_fit.subunits(1).filtK,'k--')
+% 
 % Increase smoothness regularization and refit
 %   you dould do this: fit0.mods(1).reg_params.lambda_d2T = 80;
 %   but we made a function:
-fit0 = NIMadjust_regularization( fit0, 1, 'lambda_d2T', 80);
-fit0 = NIMfit_filters( fit0, Robs, Xstim, [], [], silent ); 
+% fit0 = NIMadjust_regularization( fit0, 1, 'lambda_d2T', 80);
+% fit0 = NIMfit_filters( fit0, Robs, Xstim, [], [], silent ); 
 
 new_fit = new_fit.set_reg_params('d2t',80);
 new_fit = new_fit.fit_filters(Robs,Xcell,'optim_params',new_optim_params);
 
-figure(filtfig); hold on
-plot(fit0.mods(1).filtK,'r')
-plot(new_fit.subunits(1).filtK,'k--')
+% figure(filtfig); hold on
+% plot(fit0.mods(1).filtK,'r')
+% plot(new_fit.subunits(1).filtK,'k--')
+
+%%
+gain_funs = ones(size(Robs'))*2;
+new_fit2 = new_fit.fit_filters(Robs,Xcell,'optim_params',new_optim_params,'gain_funs',gain_funs);
+%%
+% fitS = NIMfit_logexp_spkNL( fit0, Robs, Xstim );
+% new_fit.spkNL.theta = fitS.spk_NL_params(1);
+% new_fit.spkNL.params = [fitS.spk_NL_params(2:3)];
+new_fitS = new_fit.fit_spkNL(Robs,Xcell);
 
 %% GLM: add spike-history term and refit
 n_bins = 20;

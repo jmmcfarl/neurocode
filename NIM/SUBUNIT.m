@@ -40,14 +40,14 @@ classdef SUBUNIT
             end
             subunit.Xtarg = Xtarg;
             subunit.NLtype = lower(NLtype);
-            allowed_NLs = {'lin','quad','rectlin','softplus'}; %set of NL functions currently implemented
+            allowed_NLs = {'lin','quad','rectlin','rectquad','softplus'}; %set of NL functions currently implemented
             assert(ismember(subunit.NLtype,allowed_NLs),'invalid NLtype!');
             
             %if using an NLtype that has parameters, check that input
             %parameter vector is the right size, or initialize to default
             %values
             switch subunit.NLtype
-                case 'rectlin'
+                case {'rectlin','rectquad'}
                     if isempty(NLparams) %if parameters are not specified
                         NLparams = [0]; %defines threshold in f(x) = (x-c) iff x >= c
                     else
@@ -62,6 +62,7 @@ classdef SUBUNIT
             end
             subunit.NLparams = NLparams;            
             subunit.reg_lambdas = SUBUNIT.init_reg_lamdas();
+            
         end
         
         function filtK = get_filtK(subunit)
@@ -87,6 +88,10 @@ classdef SUBUNIT
                 case 'rectlin' %f(x;c) = (x-c) iff x >= c; else x = 0
                     sub_out = (gen_signal - subunit.NLparams(1));
                     sub_out(sub_out < subunit.NLparams(1)) = 0;
+                    
+                case 'rectquad' %f(x;c) = (x-c)^2 iff x >= c; else x = 0
+                    sub_out = (gen_signal - subunit.NLparams(1)).^2;
+                    sub_out(gen_signal < subunit.NLparams(1)) = 0;
                     
                 case 'softplus' %f(x;beta, c) = log(1 + exp(beta*x + c))
                     max_g = 50; %to prevent numerical overflow
@@ -124,6 +129,10 @@ classdef SUBUNIT
                     
                 case 'rectlin' %f'(x) = 1 iff x >= c; else 0
                     sub_deriv = gen_signal >= subunit.NLparams(1);
+                    
+                case 'rectquad' %f'(x) = 2x iff x >= c; else 0
+                    sub_deriv = 2*gen_signal;
+                    sub_deriv(gen_signal < subunit.NLparams(1)) = 0;
                     
                 case 'softplus' %f'(x) = beta*exp(beta*x + c)/(1 + exp(beta*x + c))
                     max_g = 50; %to prevent numerical overflow
