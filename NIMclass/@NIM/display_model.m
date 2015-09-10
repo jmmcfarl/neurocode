@@ -129,10 +129,10 @@ for tt = Xtargs(Xtargs > 0) %loop over stimuli
     dt = nim.stim_params(tt).dt; %time res
     nPix = squeeze(nim.stim_params(tt).dims(2:end)); %spatial dimensions
     %create filter time lag axis
-    if isempty(nim.stim_params.tent_spacing)
+    if isempty(nim.stim_params(tt).tent_spacing)
         tax = (0:(nLags-1))*dt;
     else
-        tax = (0:nim.stim_params.tent_spacing:(nLags-1)*nim.stim_params.tent_spacing)*dt;
+        tax = (0:nim.stim_params(tt).tent_spacing:(nLags-1)*nim.stim_params(tt).tent_spacing)*dt;
     end
     tax = tax * 1000; % put in units of ms
     

@@ -8,8 +8,8 @@ function nim = fit_spkNL(nim, Robs, Xstims, varargin)
 %            optional flags:
 %                ('gain_funs',gain_funs): matrix of multiplicative factors, one column for each subunit
 %                ('optim_params',optim_params): struct of desired optimization parameters
-%                'silent': include this flag to suppress the iterative optimization display
-%                'hold_const': vector of parameter indices to hold constant
+%                ('silent',silent): boolean variable indicating whether to suppress the iterative optimization display
+%                ('hold_const',hold_const): vector of parameter indices to hold constant
 %        OUTPUTS:
 %            nim: output model struct
 
@@ -29,31 +29,33 @@ while j <= length(varargin)
         switch lower(flag_name)
             case 'gain_funs'
                 gain_funs = varargin{j+1};
-                j = j + 2;
             case 'optim_params'
                 optim_params = varargin{j+1};
                 assert(isstruct(optim_params),'optim_params must be a struct');
-                j = j + 2;
             case 'silent'
-                silent = true;
-                j = j + 1;
+                silent = varargin{j+1};
+                assert(ismember(silent,[0 1]),'silent must be 0 or 1');
             case 'hold_const'
                 hold_const = varargin{j+1};
-                j = j + 2;
             otherwise
                 error('Invalid input flag');
         end
+        j = j + 2;
     end
 end
 
 if size(Robs,2) > size(Robs,1); Robs = Robs'; end; %make Robs a column vector
 nim.check_inputs(Robs,Xstims,train_inds,gain_funs); %make sure input format is correct
 
-[~, ~, mod_internals] = nim.eval_model(Robs, Xstims, train_inds,'gain_funs',gain_funs);
-G = mod_internals.G;
 if ~isnan(train_inds) %if specifying a subset of indices to train model params
     Robs = Robs(train_inds);
+    for nn = 1:length(Xstims)
+        Xstims{nn} = Xstims{nn}(train_inds,:); %grab the subset of indices for each stimulus element
+    end
+    if ~isempty(gain_funs); gain_funs = gain_funs(train_inds,:); end;
 end
+[~, ~, mod_internals] = nim.eval_model(Robs, Xstims,'gain_funs',gain_funs);
+G = mod_internals.G;
 
 init_params = [nim.spkNL.params nim.spkNL.theta]; %initialize parameters to fit (including the offset term theta)
 

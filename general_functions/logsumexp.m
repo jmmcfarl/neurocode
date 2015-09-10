@@ -1,4 +1,6 @@
 function L = logsumexp(x,dim)
+% L = logsumexp(x,dim)
+% compute the log(sum(exp(x))), summing across dimension dim
 
 if nargin < 2
     dim = 1;

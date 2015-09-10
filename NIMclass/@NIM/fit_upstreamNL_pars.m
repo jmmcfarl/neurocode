@@ -76,7 +76,7 @@ end
 init_params = [];
 for imod = fit_subs
     cur_params = nim.subunits(imod).NLparams;
-    init_params = [init_params; cur_params]; % add coefs to initial param vector
+    init_params = [init_params; cur_params(:)]; % add coefs to initial param vector
 end
 Nfit_filt_params = length(init_params); %number of filter coefficients in param vector
 % Add in spike history coefs
@@ -84,7 +84,7 @@ if fit_spk_hist
     init_params = [init_params; nim.spk_hist.coefs];
 end
 
-init_params(end+1) = nim.spkNL.theta; % add constant offset
+init_params = [init_params; nim.spkNL.theta]; % add constant offset
 [nontarg_g] = nim.process_stimulus(Xstims,non_fit_subs,gain_funs);
 if ~fit_spk_hist && spkhstlen > 0 %add in spike history filter output, if we're not fitting it
     nontarg_g = nontarg_g + Xspkhst*nim.spk_hist.coefs(:);
@@ -99,15 +99,17 @@ use_con = 0;
 %CONSTRAINT INIT
 
 if use_con
-optimizer = 'fmincon';
+    optimizer = 'fmincon';
 else
     optimizer = 'minFunc';
 end
+% optimizer = 'fminunc';
 fit_opts = struct('fit_spk_hist', fit_spk_hist, 'fit_subs',fit_subs); %put any additional fitting options into this struct
+
 %the function we want to optimize
 opt_fun = @(K) internal_upstreamNL_par(nim,K,Robs,gint,Xspkhst,nontarg_g,gain_funs,fit_opts);
-init_params = init_params';
 optim_params = nim.set_optim_params(optimizer,optim_params,silent);
+% optim_params.GradObj = 'on';
 if ~silent; fprintf('Running optimization using %s\n\n',optimizer); end;
 switch optimizer %run optimization
     case 'minFunc'
@@ -120,6 +122,13 @@ switch optimizer %run optimization
         [params] = fmincon(opt_fun, init_params, [], [], [], [], LB, UB, [], optim_params);
 end
 
+pcnt = 0;
+for ii = 1:length(fit_subs)
+    cur_params = 1:length(nim.subunits(fit_subs(ii)).NLparams) + pcnt;
+    pcnt = pcnt + length(cur_params);
+    nim.subunits(fit_subs(ii)).NLparams = params(cur_params);
+end
+nim.spkNL.theta = params(end);
 % opt_fun = @(K) internal_LL_spkNL(nim,K, Robs, G);
 % params = fmincon(opt_fun, init_params, [], [], Aeq, Beq, LB, UB, [], optim_params);
 [~,penGrad] = opt_fun(params);
@@ -152,9 +161,11 @@ G = theta + nontarg_g; % initialize overall generating function G with the offse
 
 pcnt = 0;
 fgint = nan(length(Robs),Nfit_subs);
+param_inds = cell(Nfit_subs,1);
 for ii = 1:Nfit_subs %
     nparams = length(nim.subunits(fit_subs(ii)).NLparams);
-    cur_params = params((1:nparams) + pcnt);
+    param_inds{ii} = (1:nparams) + pcnt;
+    cur_params = params(param_inds{ii});
     pcnt = pcnt + nparams;
     nim.subunits(fit_subs(ii)).NLparams = cur_params;
     fgint(:,ii) = nim.subunits(fit_subs(ii)).apply_NL(gint(:,ii));
@@ -162,7 +173,7 @@ end
 
 % Multiply by weight (and multiplier, if appl) and add to generating function
 if isempty(gain_funs)
-    G = G + fgint*mod_weights;
+    G = G + fgint*mod_weights';
 else
     G = G + (fgint.*gain_funs(:,fit_subs))*mod_weights;
 end
@@ -181,12 +192,9 @@ residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G,pred
 LLgrad = zeros(length(params),1); %initialize LL gradient
 LLgrad(end) = sum(residual);      %Calculate derivatives with respect to constant term (theta)
 
-pcnt = 0;
 for ii = 1:Nfit_subs
-    nparams = length(nim.subunits(fit_subs(ii)).NLparams);
-    cur_set = (1:nparams) + pcnt;
-    param_deriv = -(gint(:,ii) > params(cur_set(1)));
-    LLgrad(cur_set) = residual'*param_deriv;
+    param_grad = nim.subunits(fit_subs(ii)).NL_grad_param(gint(:,ii));
+    LLgrad(param_inds{ii}) = residual'*param_grad * mod_weights(ii);
 end
 
 % Calculate derivative with respect to spk history filter

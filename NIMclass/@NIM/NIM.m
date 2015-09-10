@@ -66,9 +66,15 @@ classdef NIM
 %                     ('Ksign_cons',Ksign_cons): vector specifying any constraints on the filter
 %                           coefs of each subunit. [-1 for neg; +1 for pos; nan for no cons]
 %                     ('NLparams',NLparams): cell array of parameter values for the corresponding NL functions
+%                     (lambda_type,lambda_vals): specify type of regularization, and then a vector
+%                           of values for each subunit (or a scalar which is assumed the same for all units
 %           OUTPUTS:
 %                nim: initialized model object
-                                     
+                   
+            if nargin == 0
+                return %handle the no-input-argument case by returning a null model. This is important when initializing arrays of objects
+            end
+
             nStims = length(stim_params); %number of stimuli
 %             stim_params = NIM.check_stim_params(stim_params); %validate and format input stim_params
             nim.stim_params = stim_params;
@@ -90,37 +96,41 @@ classdef NIM
             %parse input flags
             assert(mod(nargin - 3,2)==0,'input format for optional flags must be in pairs: ''argname'',''argval');
             j = 1; %initialize counter after required input args
+            reg_types = {}; reg_vals = [];
             while j <= length(varargin)
                 switch lower(varargin{j})
                     case 'xtargets'
                         Xtargets = varargin{j+1};
                         assert(all(ismember(Xtargets,1:nStims)),'invalid Xtargets specified');
-                        j = j + 2;
                     case 'spknl'
                         spkNL = lower(varargin{j+1});
                         assert(ischar(spkNL),'spkNL must be a string');
-                        j = j + 2;
                     case 'noise_dist'
                         noise_dist = lower(varargin{j+1});
                         assert(ischar(noise_dist),'noise_dist must be a string');
-                        j = j + 2;
                     case 'init_filts'
                         init_filts = varargin{j+1};
                         assert(iscell(init_filts),'init_filts must be a cell array');
-                        j = j + 2;
                     case 'ksign_cons',
                         Ksign_cons = varargin{j+1};
                         assert(all(ismember(Ksign_cons,[-1 1 0])),'Ksign_cons must have values -1,0, or 1');
-                        j = j + 2;
                     case 'nlparams'
                         NLparams = varargin{j+1};
                         assert(iscell(NLparams),'NLparams must be a cell array');
-                        j = j + 2;
+                    case nim.allowed_reg_types %if the flag is an allowed regularization type
+                        reg_types = cat(1,reg_types,lower(varargin{j}));
+                        cur_vals = varargin{j+1};
+                        reg_vals = cat(2,reg_vals, cur_vals(:)); %build up a [KxP] matrix, where K is the number of subunits and P is the number of reg types
                     otherwise
                         error('Invalid input flag');
                 end
+                j = j + 2;
             end
-            
+            if size(reg_vals,1) == 1 %if reg_vals are specified as scalars, assume we want the same for all subuntis
+                reg_vals = repmat(reg_vals,nSubs,1);
+            end
+            if ~isempty(reg_vals); assert(size(reg_vals,1) == nSubs,'must specify a vector of regularization lambdas for each subunit or a scalar'); end;
+
             %only use logistic spkNL for a bernoulli noise model
             if strcmp(noise_dist,'bernoulli') && ~strcmp('spkNL','logistic')
                 spkNL = 'logistic';
@@ -165,6 +175,15 @@ classdef NIM
                 nim.subunits = cat(1,nim.subunits,SUBUNIT(init_filt, mod_signs(ii), NLtypes{ii},Xtargets(ii),NLparams{ii},Ksign_cons(ii)));
             end
             
+            %if initial lambdas are specified
+            for ii = 1:length(reg_types)
+                assert(all(reg_vals(:,ii)) >= 0,'regularization hyperparameters must be non-negative');
+                for jj = 1:nSubs
+                    nim.subunits(jj).reg_lambdas = setfield(nim.subunits(jj).reg_lambdas,reg_types{ii},reg_vals(jj,ii));
+                end
+            end
+
+            
             %initialize WITHOUT spike history term
             spk_hist.coefs = [];
             spk_hist.bin_edges = [];
@@ -182,7 +201,7 @@ classdef NIM
 %               ('sub_inds',sub_inds): set of subunits to apply the new reg_params for
 %               ('lambda_type',lambda_val): first input is a string specifying the type of
 %                    regularization (e.g. 'd2t' for temporal smoothness). This must be followed by a
-%                    scalar giving the associated lambda value
+%                    scalar or vector of length (Nsubs) giving the associated lambda values
 %            OUTPUTS:
 %                nim: initialized model object
 
@@ -196,23 +215,26 @@ classdef NIM
                     case 'sub_inds'
                         sub_inds =  varargin{j+1};
                         assert(all(ismember(sub_inds,1:length(nim.subunits))),'invalid target subunits specified');
-                        j = j + 2;
                     case nim.allowed_reg_types
                         reg_types = cat(1,reg_types,lower(varargin{j}));
-                        reg_vals = cat(1,reg_vals, varargin{j+1});
-                        j = j + 2;
+                        cur_vals = varargin{j+1};
+                        reg_vals = cat(2,reg_vals, cur_vals(:));%build up a [KxP] matrix, where K is the number of subunits and P is the number of reg types
                     otherwise
                         error('Invalid input flag');
                 end
+                j = j + 2;
+            end
+            if size(reg_vals,1) == 1 %if reg_vals are specified as scalars, assume we want the same for all subuntis
+                reg_vals = repmat(reg_vals,length(sub_inds),1);
             end
             
             if isempty(reg_vals)
                 warning('No regularization values specified, no action taken');
             end
-            for ii = 1:length(reg_vals)
-                assert(reg_vals(ii) >= 0,'regularization hyperparameters must be non-negative');
+            for ii = 1:length(reg_types)
+                assert(all(reg_vals(:,ii)) >= 0,'regularization hyperparameters must be non-negative');
                 for jj = 1:length(sub_inds)
-                    nim.subunits(sub_inds(jj)).reg_lambdas = setfield(nim.subunits(sub_inds(jj)).reg_lambdas,reg_types{ii},reg_vals(ii));
+                    nim.subunits(sub_inds(jj)).reg_lambdas = setfield(nim.subunits(sub_inds(jj)).reg_lambdas,reg_types{ii},reg_vals(jj,ii));
                 end
             end
         end
@@ -244,14 +266,13 @@ classdef NIM
                 switch lower(varargin{j})
                     case 'xtarg'
                         Xtarg = varargin{j+1};
-                        j = j + 2;
                     case allowed_flags
                         fields_to_set = cat(1,fields_to_set,flag_name);
                         field_vals = cat(1,field_vals,varargin{j+1});
-                        j = j + 2;
                     otherwise
                         error('Invalid input flag');
                 end
+                j = j + 2;
             end
             
             if isempty(field_vals)
@@ -402,8 +423,8 @@ classdef NIM
 %                    ('init_filts',init_filts): cell array of initial filter values for each subunit
 %                    ('lambda_type',lambda_val): first input is a string specifying the type of
 %                        regularization (e.g. 'd2t' for temporal smoothness). This must be followed by a
-%                        scalar giving the associated lambda value. Applies these regularization
-%                        lambdas to all added subunits
+%                        scalar/vector giving the associated lambda value(s).
+%                    ('NLparams',NLparams): cell array of upstream NL parameter vectors
 %            OUPUTS: nim: new nim object
             
             if ~iscell(NLtypes) && ischar(NLtypes);
@@ -416,15 +437,15 @@ classdef NIM
                 NLtypes = repmat(NLtypes,nSubs,1); %if NLtypes is specified as a single string, assume we want this NL for all subunits
             end
             init_filts = cell(nSubs,1);
+            NLparams = cell(nSubs,1);
             
             %parse input flags
-            j = 1; reg_types = {}; reg_vals = {};
+            j = 1; reg_types = {}; reg_vals = [];
             while j <= length(varargin)
                 switch lower(varargin{j})
                     case 'xtargs'
                         Xtargets = varargin{j+1};
                         assert(all(ismember(Xtargets,1:nStims)),'invalid Xtargets specified');
-                        j = j + 2;
                     case 'init_filts'
                         if ~iscell(varargin{j+1}) %if init_filts are specified as a matrix, make them a cell array
                             init_filts = cell(length(mod_signs),1);
@@ -434,14 +455,20 @@ classdef NIM
                         else
                             init_filts = varargin{j+1};
                         end
-                        j = j + 2;
+                    case 'nlparams'
+                        NLparams = varargin{j+1};
+                        assert(iscell(NLparams),'NLparams must be input as cell array');
                     case nim.allowed_reg_types
-                        reg_types = cat(1,reg_types,lower(flag_name));
-                        reg_vals = cat(1,reg_vals, varargin{j+1});
-                        j = j + 2;
+                        reg_types = cat(1,reg_types,lower(varargin{j}));
+                        cur_vals = varargin{j+1};
+                        reg_vals = cat(2,reg_vals, cur_vals(:));
                     otherwise
                         error('Invalid input flag');
                 end
+                j = j + 2;
+            end
+            if size(reg_vals,1) == 1 %if reg_vals are specified as scalars, assume we want the same for all subuntis
+                reg_vals = repmat(reg_vals,nSubs,1);
             end
             
             assert(length(Xtargets) == nSubs,'length of mod_signs and Xtargets must be equal');
@@ -456,7 +483,7 @@ classdef NIM
                 
                %use the regularization parameters from the most similar subunit if we have one,
                %otherwise use default init
-               same_Xtarg = find(nim.subunits(:).Xtarg == Xtargets(ii),1); %find any existing subunits with this same Xtarget
+               same_Xtarg = find([nim.subunits(:).Xtarg] == Xtargets(ii),1); %find any existing subunits with this same Xtarget
                same_Xtarg_and_NL = same_Xtarg(strcmp(nim.get_NLtypes(same_Xtarg),NLtypes{ii})); %set that also have same NL type
                if ~isempty(same_Xtarg_and_NL) 
                     default_lambdas = nim.subunits(same_Xtarg_and_NL(1)).reg_lambdas;
@@ -466,15 +493,14 @@ classdef NIM
                    default_lambdas = [];
                end
                
-               nim.subunits = cat(1,nim.subunits,SUBUNIT(init_filt, mod_signs(ii), NLtypes{ii},Xtargets(ii))); %add new subunit
+               nim.subunits = cat(1,nim.subunits,SUBUNIT(init_filt, mod_signs(ii), NLtypes{ii},Xtargets(ii),NLparams{ii})); %add new subunit
                if ~isempty(default_lambdas)
                    nim.subunits(end).reg_lambdas = default_lambdas;
                end
-               for jj = 1:length(reg_vals) %add in user-specified regularization parameters
-                   assert(reg_vals(jj) >= 0,'regularization hyperparameters must be non-negative');
-                   nim.subunits(end).reg_lambdas = setfield(nim.subunits(end).reg_lambdas,reg_types{jj},reg_vals(jj));
-               end
-               
+               for jj = 1:length(reg_types) %add in user-specified regularization parameters
+                   assert(reg_vals(ii,jj) >= 0,'regularization hyperparameters must be non-negative');
+                   nim.subunits(end).reg_lambdas = setfield(nim.subunits(end).reg_lambdas,reg_types{jj},reg_vals(ii,jj));
+               end               
             end
         end
         
@@ -565,30 +591,25 @@ classdef NIM
                     case 'sub_inds'
                         sub_inds = varargin{j+1};
                         assert(all(ismember(sub_inds,[1:Nsubs])),'invalid target subunits specified');
-                        j = j + 2;
                     case 'nlmon'
                         NLmon = varargin{j+1};
                         assert(ismember(NLmon,[-1 0 1]),'NLmon must be a -1, 0 or 1');
-                        j = j + 2;
                     case 'edge_p'
                         edge_p = varargin{j+1};
                         assert(edge_p > 0 & edge_p < 100,'edge_p must be between 0 and 100');
-                        j = j + 2;
                     case 'n_bfs'
                         n_bfs = varargin{j+1};
                         assert(n_bfs > 0,'n_bfs must be greater than 0');
-                        j = j + 2;
                     case 'space_type'
                         space_type = varargin{j+1};
                         assert(ismember(space_type,{'equispace','equipop'}),'unsupported bin spacing type');
-                        j = j + 2;
                     case 'lambda_nld2'
                         lambda_nld2 = varargin{j+1};
                         assert(lambda_nld2 >= 0,'lambda must be >= 0');
-                        j = j + 2;
                     otherwise
                         error('Invalid input flag');
                 end
+                        j = j + 2;
             end
             
             %store NL tent-basis parameters
@@ -634,11 +655,15 @@ classdef NIM
                     case 'lin'
                         TBy = TBx;
                     case 'rectlin'
-                        TBy = TBx; TBy(TBx < 0) = 0;
-                    case 'rectquad'
-                        TBy = TBx.^2; TBy(TBx < 0) = 0;
+                        TBy = TBx - nim.subunits(imod).NLparams(1);
+                        TBy(TBx < nim.subunits(imod).NLparams(1)) = 0;
+                    case 'rectpow'
+                        TBy = (TBx - nim.subunits(imod).NLparams(2)).^nim.subunits(imod).NLparams(1);
+                        TBy(TBx < nim.subunits(imod).NLparams(2)) = 0;
                     case 'quad'
                         TBy = TBx.^2;
+                    case 'softplus'
+                        TBy = log(1 + exp(nim.subunits(imod).NLparams(1)*TBx + nim.subunits(imod).NLparams(2)));
                     case 'nonpar'
                         fprintf('upstream NL already set as nonparametric\n');
                     otherwise
@@ -703,13 +728,15 @@ classdef NIM
             nim.check_inputs(Robs,Xstims,eval_inds,gain_funs); %make sure input format is correct
             if nim.spk_hist.spkhstlen > 0 % add in spike history term if needed
                 Xspkhst = create_spkhist_Xmat( Robs, nim.spk_hist.bin_edges);
+            else
+                Xspkhst = [];
             end
             
             if ~isnan(eval_inds) %if specifying a subset of indices to train model params
                 for nn = 1:length(Xstims)
                     Xstims{nn} = Xstims{nn}(eval_inds,:); %grab the subset of indices for each stimulus element
                 end
-                Robs = Robs(Uindx);
+                Robs = Robs(eval_inds);
                 if ~isempty(Xspkhst); Xspkhst = Xspkhst(eval_inds,:); end;
                 if ~isempty(gain_funs); gain_funs = gain_funs(eval_inds,:); end;
             end
@@ -774,11 +801,10 @@ classdef NIM
                 gint(:,cur_subs) = Xstims{un_Xtargs(ii)} * cat(2,filtKs{cur_subs}); %apply filters to stimulus
             end
             fgint = gint; %init subunit outputs by filter outputs
-            for ii = 1:length(unique_NL_types) %loop over unique subunit NL types and apply NLs to gint in batch
-                if ~strcmp(unique_NL_types{ii},'lin') %if it's not just a linear sub, we have to do something
-                    cur_subs = find(strcmp(mod_NL_types,unique_NL_types{ii})); %set of subs with this NL type
-                    fgint(:,cur_subs) = nim.subunits(sub_inds(cur_subs(1))).apply_NL(gint(:,cur_subs)); %apply upstream NL to all subunits of this type
-                end
+            for ii = 1:Nsubs
+                 if ~strcmp(nim.subunits(sub_inds(ii)).NLtype,'lin')
+                    fgint(:,ii) = nim.subunits(sub_inds(ii)).apply_NL(gint(:,ii)); %apply upstream NL
+                 end
             end
             if ~isempty(gain_funs)
                 fgint = fgint.*gain_funs(:,sub_inds); %apply gain modulation if needed
@@ -1074,7 +1100,7 @@ classdef NIM
                     else
                         optim_params.Display = 'iter';
                     end
-                case 'L1GeneralPSSas'
+                case 'L1General_PSSas'
                     optim_params.optTol = 1e-5;
                     optim_params.progTol = 1e-8;
                     optim_params.verbose = 2;
@@ -1091,7 +1117,7 @@ classdef NIM
                         optim_params.verbose = 0;
                     else
                         optim_params.verbose = 2;
-                    end
+                    end                    
                     
                 otherwise
                     error('unsupported optimizer');

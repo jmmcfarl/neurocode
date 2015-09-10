@@ -12,14 +12,15 @@ classdef SUBUNIT
         Xtarg;       % index of stimulus the subunit filter acts on
         reg_lambdas; % struct of regularization hyperparameters
         Ksign_con;   %scalar defining any constraints on the filter coefs [-1 is negative con; +1 is positive con; 0 is no con]
-        scale;       %SD of the subunit output derived from most-recent fit
-        TBparams;    %struct of parameters associated with a 'nonparametric' NL
+        NLparam_con; %vector of constraint indicators for NL parameters (-1 is negative con, + 1 is positive con; 0 is no con]
         TBy;         %tent-basis coefficients
         TBx;         %tent-basis center positions
     end
     properties (Hidden)
         TBy_deriv;   %internally stored derivative of tent-basis NL
-    end
+        TBparams;    %struct of parameters associated with a 'nonparametric' NL
+        scale;       %SD of the subunit output derived from most-recent fit
+  end
     
     %%
     methods
@@ -55,26 +56,36 @@ classdef SUBUNIT
             %parameter vector is the right size, or initialize to default
             %values
             switch subunit.NLtype
+                case 'lin'
+                    assert(isempty(NLparams),'lin NL type has no parameters');
+                    NLparam_con = []; 
+                case 'quad'
+                    assert(isempty(NLparams),'quad NL type has no parameters');
+                    NLparam_con = [];
                 case 'rectlin'
                     if isempty(NLparams) %if parameters are not specified
-                        NLparams = [0]; %defines threshold in f(x) = (x-c) iff x >= c
+                        NLparams = [0]; %defines c in f(x) = (x-c) iff x >= c
                     else
                         assert(length(NLparams) == 1,'invalid NLparams vector');
                     end
+                    NLparam_con = [0]; %c parameter unconstrained
                 case 'softplus'
                     if isempty(NLparams)
-                        NLparams = [1 0]; %defines beta and c in f(x) = log(1 + exp(beta*x + c))
+                        NLparams = [1 0]; %defines [beta, c] in f(x) = log(1 + exp(beta*x + c))
                     else
                         assert(length(NLparams) == 2,'invalid NLparams vector');
                     end
+                    NLparam_con = [0 0]; %might want beta to be non-negative, but in principle it could be
                 case 'rectpow'
                     if isempty(NLparams)
-                        NLparams = [2]; %gamma in f(x) = x^gamma 
+                        NLparams = [2 0]; %defines [gamma,c] in f(x) = (x-c)^gamma iff x >= c
                     else
-                        assert(length(NLparams) == 1,'invalid NLparams vector');
+                        assert(length(NLparams) == 2,'invalid NLparams vector');
                     end
+                    NLparam_con = [1 0]; %make gamma non-negative
             end
             subunit.NLparams = NLparams;
+            subunit.NLparam_con = NLparam_con;
             subunit.reg_lambdas = SUBUNIT.init_reg_lamdas();
             subunit.Ksign_con = Ksign_con;
         end
@@ -102,11 +113,11 @@ classdef SUBUNIT
                     
                 case 'rectlin' %f(x;c) = (x-c) iff x >= c; else x = 0
                     sub_out = (gen_signal - subunit.NLparams(1));
-                    sub_out(sub_out < subunit.NLparams(1)) = 0;
+                    sub_out(gen_signal < subunit.NLparams(1)) = 0;
                     
-                case 'rectpow' %f(x;gamma) = x^gamma iff x >= 0; else x = 0
-                    sub_out = gen_signal.^subunit.NLparams(1);
-                    sub_out(gen_signal < 0) = 0;
+                case 'rectpow' %f(x;gamma, c) = (x-c)^gamma iff x >= c; else x = 0
+                    sub_out = (gen_signal - subunit.NLparams(2)).^subunit.NLparams(1);
+                    sub_out(gen_signal < subunit.NLparams(2)) = 0;
                     
                 case 'softplus' %f(x;beta, c) = log(1 + exp(beta*x + c))
                     max_g = 50; %to prevent numerical overflow
@@ -145,9 +156,9 @@ classdef SUBUNIT
                 case 'rectlin' %f'(x) = 1 iff x >= c; else 0
                     sub_deriv = gen_signal >= subunit.NLparams(1);
                     
-                case 'rectpow' %f'(x) = gamma*x^(gamma-1) iff x >= 0; else 0
-                    sub_deriv = subunit.NLparams(1)*gen_signal.^(subunit.NLparams(1)-1);
-                    sub_deriv(gen_signal < 0) = 0;
+                case 'rectpow' %f'(x) = gamma*(x-c)^(gamma-1) iff x >= c; else 0
+                    sub_deriv = subunit.NLparams(1)*(gen_signal - subunit.NLparams(2)).^(subunit.NLparams(1)-1);
+                    sub_deriv(gen_signal < subunit.NLparams(2)) = 0;
                     
                 case 'softplus' %f'(x) = beta*exp(beta*x + c)/(1 + exp(beta*x + c))
                     max_g = 50; %to prevent numerical overflow
@@ -163,6 +174,30 @@ classdef SUBUNIT
                     end
             end
         end
+        
+        %%
+        function NLgrad = NL_grad_param(subunit,x)
+            %calculate gradient of upstream NL wrt parameters at input
+            %value x
+            NT = length(x);
+            NLgrad = zeros(NT,length(subunit.NLparams));
+            switch subunit.NLtype
+                case 'rectlin' %f(x;c) = x-c iff x >= c
+                    NLgrad = -(x >= subunit.NLparams(1)); %df/dc
+                case 'rectpow' %f(x;gamma,c) = (x-c)^gamma iff x >= c; else 0
+                    NLgrad(:,1) = (x - subunit.NLparams(2)).^subunit.NLparams(1).* ...
+                        log(x - subunit.NLparams(2)); %df/dgamma
+                    NLgrad(:,2) = -subunit.NLparams(1)*(x - subunit.NLparams(2)).^ ...
+                        (subunit.NLparams(1) - 1); %df/dc
+                    NLgrad(x < subunit.NLparams(2),:) = 0;
+                case 'softplus' %f(x) = log(1 + exp(beta*(x + c)):
+                    temp = exp(subunit.NLparams(1)*x + subunit.NLparams(2))./ ...
+                        (1 + exp(subunit.NLparams(1)*x + subunit.NLparams(2)));
+                    NLgrad(:,1) = temp.*x; %df/dbeta
+                    NLgrad(:,2) = temp; %df/dc
+            end
+        end
+    
     end
     %%
     methods (Hidden)

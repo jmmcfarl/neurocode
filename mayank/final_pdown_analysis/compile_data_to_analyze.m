@@ -213,6 +213,10 @@ l2data(cnt).dir = strcat(base_dir,':\wc_data\2007-07-04_CWC_LFP_A\2007-07-04_CWC
 l2data(cnt).heka_data = strcat(base_dir,':\wc_data\MPascii\A2007_07_04_CWC_LFP_A');
 cnt = cnt + 1;
 
+l2data(cnt).dir = strcat(base_dir,':\wc_data\2007-07-04_CWC_LFP_A\2007-07-04_CWC_LFP_A\2007-7-4_13-21-34');
+l2data(cnt).heka_data = strcat(base_dir,':\wc_data\MPascii\A2007_07_04_CWC_LFP_A');
+cnt = cnt + 1;
+
 for ii = 1:length(l2data)
     l2data(ii).class_cert = 1; %all these recs have certain cell classification from Urliste
     l2data(ii).ctype = 'stellate'; %the above are all clear L2 stellates
@@ -240,7 +244,7 @@ cnt = cnt + 1;
 l2data(cnt).dir = strcat(base_dir,':\wc_data/2006-04-07_CWC_LFP_A/2006-4-7_14-39-42');
 l2data(cnt).heka_data = nan; %havent added yet
 l2data(cnt).ctype = 'interneuron';
-l2data(cnt).class_cert = 0;
+l2data(cnt).class_cert = 1;
 cnt = cnt + 1;
 
 l2data(cnt).dir = strcat(base_dir,':\wc_data/2006-04-07_CWC_LFP_B/2006-4-7_15-24-5');
@@ -271,6 +275,24 @@ l2data(cnt).dir = strcat(base_dir,':\wc_data/2007-05-23_CWC_LFP_A/2007-5-23_18-1
 l2data(cnt).heka_data = nan; %havent added yet
 l2data(cnt).ctype = 'stellate';
 l2data(cnt).class_cert = 0;
+cnt = cnt + 1;
+
+l2data(cnt).dir = strcat(base_dir,':\wc_data/2011-6-30/2011-6-30_17-4-49');
+l2data(cnt).heka_data = nan; %havent added yet
+l2data(cnt).ctype = 'stellate';
+l2data(cnt).class_cert = 1;
+cnt = cnt + 1;
+
+l2data(cnt).dir = strcat(base_dir,':\wc_data/2011-10-25/2011-10-25_13-46-7');
+l2data(cnt).heka_data = nan; %havent added yet
+l2data(cnt).ctype = 'stellate';
+l2data(cnt).class_cert = 1;
+cnt = cnt + 1;
+
+l2data(cnt).dir = strcat(base_dir,':\wc_data/2013-02-15/2013-2-15_14-4-33');
+l2data(cnt).heka_data = nan; %havent added yet
+l2data(cnt).ctype = 'stellate';
+l2data(cnt).class_cert = 1;
 cnt = cnt + 1;
 
 % cell locations
@@ -345,6 +367,13 @@ l2lec(cnt).dir = strcat(base_dir,':\wc_data\2009-04-29_CWC_LFP_A\2009-4-29_15-57
 l2lec(cnt).heka_dir = strcat(base_dir,':\wc_data\MPascii\2009-04-29_CWC_LFP_A');
 l2lec(cnt).heka_type = 'cont';
 l2lec(cnt).cell_type = 'multipolar';
+l2lec(cnt).class_certainty = 1;
+cnt = cnt + 1;
+
+l2lec(cnt).dir = strcat(base_dir,':\wc_data\2009-04-29_CWC_LFP_B\2009-4-29_16-56-26');
+l2lec(cnt).heka_dir = strcat(base_dir,':\wc_data\MPascii\2009-04-29_CWC_LFP_B');
+l2lec(cnt).heka_type = 'cont';
+l2lec(cnt).cell_type = 'fan';
 l2lec(cnt).class_certainty = 1;
 cnt = cnt + 1;
 

@@ -17,7 +17,7 @@ target_files = {'used_data.mat','sync_times.mat','spike_time_jmm.mat'};
 %     'pa_hsmm_state_seq_combined_fin_nd.mat','allEC_ctx_period_data_hsmm.mat'};
 % target_files = {'allEC_ctx_period_data_hsmm.mat'};
     %%
-for dd = 120:length(data)
+for dd = 1:length(data)
 cur_dir = data(dd).dir;
     
     new_dir = map_to_new_drive_locs(cur_dir);

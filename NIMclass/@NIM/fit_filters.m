@@ -9,8 +9,8 @@ function nim = fit_filters(nim, Robs, Xstims, varargin)
 %                ('sub_inds',sub_inds): set of subunits whos filters we want to optimize [default is all]
 %                ('gain_funs',gain_funs): matrix of multiplicative factors, one column for each subunit
 %                ('optim_params',optim_params): struct of desired optimization parameters
-%                'silent': include this flag to suppress the iterative optimization display
-%                'hold_spkhist': include this flat to hold the spk NL filter constant
+%                ('silent',silent): boolean variable indicating whether to suppress the iterative optimization display
+%                ('hold_spkhist',hold_spkhist): boolean indicating whether to hold the spk NL filter constant
 %         OUTPUTS:
 %            new nim object with optimized subunit filters
 %
@@ -34,23 +34,21 @@ while j <= length(varargin)
             case 'sub_inds'
                 fit_subs = varargin{j+1};
                 assert(all(ismember(fit_subs,1:Nsubs)),'invalid target subunits specified');
-                j = j + 2;
             case 'gain_funs'
                 gain_funs = varargin{j+1};
-                j = j + 2;
             case 'optim_params'
                 optim_params = varargin{j+1};
                 assert(isstruct(optim_params),'optim_params must be a struct');
-                j = j + 2;
             case 'silent'
-                silent = true;
-                j = j + 1;
+                silent = varargin{j+1};
+                assert(ismember(silent,[0 1]),'silent must be 0 or 1');
             case 'hold_spkhist'
-                fit_spk_hist = false;
-                j = j + 1;
+                fit_spk_hist = varargin{j+1};
+                assert(ismember(fit_spk_hist,[0 1]),'fit_spk_hist must be 0 or 1');
             otherwise
                 error('Invalid input flag');
         end
+        j = j + 2;
     end
 end
 
@@ -70,7 +68,7 @@ if ~isnan(train_inds) %if specifying a subset of indices to train model params
     for nn = 1:length(Xstims)
         Xstims{nn} = Xstims{nn}(train_inds,:); %grab the subset of indices for each stimulus element
     end
-    Robs = Robs(Uindx);
+    Robs = Robs(train_inds);
     if ~isempty(Xspkhst); Xspkhst = Xspkhst(train_inds,:); end;
     if ~isempty(gain_funs); gain_funs = gain_funs(train_inds,:); end;
 end
@@ -87,14 +85,16 @@ for imod = fit_subs
     lambda_L1(length(init_params) + (1:length(cur_kern))) = nim.subunits(imod).reg_lambdas.l1;
     init_params = [init_params; cur_kern]; % add coefs to initial param vector
 end
-lambda_L1 = lambda_L1/sum(Robs); % since we are dealing with LL/spk
+lambda_L1 = lambda_L1'/sum(Robs); % since we are dealing with LL/spk
 Nfit_filt_params = length(init_params); %number of filter coefficients in param vector
 % Add in spike history coefs
 if fit_spk_hist
     init_params = [init_params; nim.spk_hist.coefs];
+    lambda_L1 = [lambda_L1; zeros(size(nim.spk_hist.coefs))];
 end
 
-init_params(end+1) = nim.spkNL.theta; % add constant offset
+init_params = [init_params; nim.spkNL.theta]; % add constant offset
+lambda_L1 = [lambda_L1; 0];
 [nontarg_g] = nim.process_stimulus(Xstims,non_fit_subs,gain_funs);
 if ~fit_spk_hist && spkhstlen > 0 %add in spike history filter output, if we're not fitting it
     nontarg_g = nontarg_g + Xspkhst*nim.spk_hist.coefs(:);
@@ -150,7 +150,7 @@ optim_params = nim.set_optim_params(optimizer,optim_params,silent);
 if ~silent; fprintf('Running optimization using %s\n\n',optimizer); end;
 
 switch optimizer %run optimization
-    case 'L1General2_PSSas'
+    case 'L1General_PSSas'
         [params] = L1General2_PSSas(opt_fun,init_params,lambda_L1,optim_params);
     case 'minFunc'
         [params] = minFunc(opt_fun, init_params, optim_params);
@@ -225,12 +225,20 @@ end
 fgint = gint; %init subunit outputs by filter outputs
 for ii = 1:length(unique_NL_types) %loop over unique subunit NL types and apply NLs to gint in batch
     cur_subs = find(strcmp(mod_NL_types,unique_NL_types{ii})); %set of subs with this NL type
-    if strcmp(unique_NL_types{ii},'nonpar')
-        for jj = 1:length(cur_subs) %for TB NLs need to apply each subunit's NL individually
-            fgint(:,cur_subs(jj)) = nim.subunits(fit_subs(cur_subs(jj))).apply_NL(gint(:,cur_subs(jj)));
+    if ~strcmp(unique_NL_types{ii},'lin') %if its a linear subunit we dont have to do anything
+        NLparam_mat = cat(1,nim.subunits(fit_subs(cur_subs)).NLparams); %matrix of upstream NL parameters
+        if isempty(NLparam_mat) || (length(cur_subs) > 1 && max(max(abs(diff(NLparam_mat)))) > 0) 
+            use_batch_calc = true; %if there are no NLparams, or if all subunits have the same NLparams, use batch calc
+        else
+            use_batch_calc = false;
         end
-    elseif ~strcmp(unique_NL_types{ii},'lin') %if it's not just a linear sub, we have to do something
-        fgint(:,cur_subs) = nim.subunits(fit_subs(cur_subs(1))).apply_NL(gint(:,cur_subs)); %apply upstream NL to all subunits of this type
+        if strcmp(unique_NL_types{ii},'nonpar') || ~use_batch_calc %if were using nonpar NLs or parametric NLs with unique parameters, need to apply NLs individually
+            for jj = 1:length(cur_subs) %for TB NLs need to apply each subunit's NL individually
+                fgint(:,cur_subs(jj)) = nim.subunits(fit_subs(cur_subs(jj))).apply_NL(gint(:,cur_subs(jj)));
+            end
+        else %apply upstream NL in batch to all subunits in current set
+            fgint(:,cur_subs) = nim.subunits(fit_subs(cur_subs(1))).apply_NL(gint(:,cur_subs)); %apply upstream NL to all subunits of this type
+        end
     end
 end
 

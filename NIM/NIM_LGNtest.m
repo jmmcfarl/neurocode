@@ -92,8 +92,8 @@ silent = 1; % switching to stealth mode
 fit2 = NIMfit_filters( fit2, Robs, Xstim, [],[], silent );
 fit2 = NIMfit_upstreamNLs( fit2, Robs, Xstim, [],[],[], silent );
 
-FIT2 = FIT2.fit_filters(Robs,Xcell,'silent','optim_params',new_optim_params);
-FIT2 = FIT2.fit_upstreamNLs(Robs,Xcell,'silent','optim_params',NL_optim_params);
+FIT2 = FIT2.fit_filters(Robs,Xcell,'silent',silent,'optim_params',new_optim_params);
+FIT2 = FIT2.fit_upstreamNLs(Robs,Xcell,'silent',silent,'optim_params',NL_optim_params);
 
 % Note that LLs aren't improving much with these additional optimizations
 fprintf('nim Log-likelihoods so far: \n');
