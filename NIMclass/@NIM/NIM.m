@@ -347,9 +347,9 @@ classdef NIM
             if nargin < 2
                 sub_inds = 1:Nsubs; %default is to grab filters for all subunits
             end
-            filtKs = cell(Nsubs,1);
-            for ii = sub_inds
-                filtKs{ii} = nim.subunits(ii).get_filtK;
+            filtKs = cell(length(sub_inds),1);
+            for ii = 1:length(sub_inds)
+                filtKs{ii} = nim.subunits(sub_inds(ii)).get_filtK;
             end
         end
         

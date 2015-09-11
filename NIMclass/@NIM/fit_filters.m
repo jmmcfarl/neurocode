@@ -268,7 +268,7 @@ if fit_opts.fit_spk_hist
     penLLgrad(NKtot+(1:nim.spk_hist.spkhstlen)) = residual'*Xspkhst;
 end
 
-for ii = 1:un_Xtargs %loop over unique Xfit_subs and compute LL grad wrt stim filters
+for ii = 1:length(un_Xtargs) %loop over unique Xfit_subs and compute LL grad wrt stim filters
     cur_sub_inds = find(Xtarg_set == un_Xtargs(ii)); %set of subunits with this Xtarget
     cur_NL_types = mod_NL_types(cur_sub_inds); %NL types of current subs
     cur_unique_NL_types = unique(cur_NL_types); %set of unique NL types
@@ -314,7 +314,10 @@ end
 l2_lambdas = nim.get_reg_lambdas('l2');
 if any(l2_lambdas > 0)
     net_penalties = net_penalties + l2_lambdas.*cellfun(@(x) sum(x.^2),filtKs)';
-    net_pen_grads(cat(2,param_inds{:})) = net_pen_grads(cat(2,param_inds{:})) + reshape(2*bsxfun(@times,l2_lambdas,cat(2,filtKs{:})),[],1);
+    for ii = 1:length(un_Xtargs)
+        cur_subs = find(Xtarg_set == un_Xtargs(ii)); %set of targeted subunits that act on this Xtarg
+        net_pen_grads(cat(2,param_inds{cur_subs})) = net_pen_grads(cat(2,param_inds{cur_subs})) + reshape(2*bsxfun(@times,l2_lambdas(cur_subs),cat(2,filtKs{cur_subs})),[],1);
+    end
 end
 
 penLL = penLL - sum(net_penalties);
