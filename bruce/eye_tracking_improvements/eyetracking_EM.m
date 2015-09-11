@@ -1,9 +1,7 @@
-function [mod_fits,post_mean_EP,post_std_EP] = eyetracking_EM(init_mods,Robs_mat,stim_mat,nonstim_X,...
-    fit_data,HMM_data,ET_meas,fixation_data)
+function [fix_it_mods,fix_post_data,drift_it_mods,drift_post_data] = eyetracking_EM(...
+    init_mods,Robs_mat,stim_mat,nonstim_X,tr_units,HMM_data,ET_meas,gen_data)
 
 
-% stimulus must be first xtarget of models. any additional covariates must be associated with linear
-% filters
 % init_mods: array of initial NIM model objects
 % Robs_mat: matrix of observed spike counts across all units (Nans when a unit was not isolated)
 % stim_mat: raw stimulus matrix
@@ -14,10 +12,12 @@ function [mod_fits,post_mean_EP,post_std_EP] = eyetracking_EM(init_mods,Robs_mat
 % HMM_data: struct containing parameters for HMM eye-position inference, as well as precomputed shift-matrices
 % ET_meas: information from measured eye position signals
 % fixation_data: information needed to parse the data into separate fixations
-    
-add_usfac = HMM_data.add_usfac;
+%
+% NOTES: stimulus must be first xtarget of models. any additional covariates must be associated with linear
+% filters
+
+add_usfac = gen_data.add_usfac;
 [NT,n_units] = size(Robs_mat);
-tr_units = fit_data.tr_units;
 n_tr_units = length(tr_units); %number of units used to infer eye-pos
 
 %assuming all models have the same structure!
@@ -37,20 +37,39 @@ drift_shifts = HMM_data.drift_shifts;
 n_drift_shifts = length(drift_shifts);
 drift_dsf = HMM_data.drift_dsf;
 
+stim_dx = gen_data.stim_dx;
+
+n_trials = length(gen_data.trial_boundaries);
+
 use_coils = any(HMM_data.use_coils);
+neural_delay = gen_data.neural_delay;
 %%
-base_Xmat = NIM.create_time_embedding(stim_mat,fit_data.stim_params);
-base_Xmat = base_Xmat(fit_data.used_inds,:);
+base_Xmat = NIM.create_time_embedding(stim_mat,gen_data.stim_params);
+base_Xmat = base_Xmat(gen_data.used_inds,:);
 
 %%
 %compute fixation IDS (normal and forward-projected)
-n_fixs = size(fixation_data.fix_boundaries,1);
+fix_boundaries = gen_data.fix_boundaries;
+trial_start_inds = gen_data.trial_boundaries(:,1);
+n_fixs = size(fix_boundaries,1);
+pfix_boundaries = fix_boundaries;
+for ii = 1:n_fixs
+    next_trial = trial_start_inds(find(trial_start_inds >= fix_boundaries(ii,1),1,'first'));
+    if next_trial > fix_boundaries(ii,1) + neural_delay %if the forward projection does not push you into another trial
+        pfix_boundaries(ii,1) = fix_boundaries(ii,1) + neural_delay;
+    end
+    next_trial = trial_start_inds(find(trial_start_inds >= fix_boundaries(ii,2),1,'first'));
+    if next_trial > fix_boundaries(ii,2) + neural_delay
+        pfix_boundaries(ii,2) = fix_boundaries(ii,2) + neural_delay;
+    end
+end
+
 fix_ids = nan(NT,1);
 pfix_ids = nan(NT,1);
 for ii = 1:n_fixs
-    cur_inds = fixation_data.fix_boundaries(ii,1):fixation_data.fix_boundaries(ii,2);
+    cur_inds = fix_boundaries(ii,1):fix_boundaries(ii,2);
     fix_ids(cur_inds) = ii;
-    cur_inds = fixation_data.pfix_boundaries(ii,1):fixation_data.pfix_boundaries(ii,2);
+    cur_inds = pfix_boundaries(ii,1):pfix_boundaries(ii,2);
     pfix_ids(cur_inds) = ii;
 end
 
@@ -62,8 +81,8 @@ for ss = 1:length(init_mods)
     fix_it_LLimp(1,ss) = (init_mods(ss).fit_props.LL - init_mods(ss).fit_props.null_LL)/log(2);
 end
 
-it_fix_post_mean = nan(HMM_data.n_fix_iters+1,n_fixs);
-it_fix_post_std = nan(HMM_data.n_fix_iters+1,n_fixs);
+fix_it_post_mean = nan(HMM_data.n_fix_iters+1,n_fixs);
+fix_it_post_std = nan(HMM_data.n_fix_iters+1,n_fixs);
 for nn = 1:HMM_data.n_fix_iters
     fprintf('Inferring fixation corrections, iter %d of %d\n',nn,HMM_data.n_fix_iters);
     
@@ -136,7 +155,7 @@ for nn = 1:HMM_data.n_fix_iters
     %% INFER MICRO-SAC SEQUENCE    fix_LLs = nan(n_fixs,n_fix_shifts);
     fix_LLs = nan(n_fixs,n_fix_shifts);
     for ii = 1:n_fixs %compute total LL of each eye position for all data within each fixation
-        cur_inds = fixation_data.pfix_boundaries(ii,1):fixation_data.pfix_boundaries(ii,2); %use forward-projected fixation indices to account for neural delay
+        cur_inds = pfix_boundaries(ii,1):pfix_boundaries(ii,2); %use forward-projected fixation indices to account for neural delay
         fix_LLs(ii,:) = sum(frame_LLs(cur_inds,:)); %sum LLs for data within the fixation
     end
     
@@ -148,10 +167,10 @@ for nn = 1:HMM_data.n_fix_iters
         Lbeta = zeros(n_fixs,n_fix_shifts); %log of backward messages
         Lalpha(1,:) = HMM_data.fix_Lprior + fix_LLs(1,:); %initialize using prior
         for t=2:n_fixs %compute forward messages
-            if ~fixation_data.fix_post_blink(t) %if this fixation is NOT following a blink
+            if ~gen_data.fix_post_blink(t) %if this fixation is NOT following a blink
                 %make quadratic transition matrix centered on coil-measured deltaX, with variance
                 %given by the delta_noise_sigma^2
-                cdist = pdist2(fix_shifts'*HMM_data.stim_dx + ET_meas.fix_deltas(t),fix_shifts'*HMM_data.stim_dx);
+                cdist = pdist2(fix_shifts'*stim_dx + ET_meas.fix_deltas(t),fix_shifts'*stim_dx);
                 cur_LA = -cdist.^2/(2*HMM_data.fix_delta_noise_sigma^2);
                 cur_LA = bsxfun(@plus,cur_LA,HMM_data.fix_Lprior); %multiply this by the prior over fixation positions
                 cur_LA = bsxfun(@minus,cur_LA,logsumexp(cur_LA,2)); %normalize log transition-matrix
@@ -163,9 +182,9 @@ for nn = 1:HMM_data.n_fix_iters
         
         Lbeta(n_fixs,:)=zeros(1,n_fix_shifts); %initialize log-backward message
         for t=n_fixs-1:-1:1%compute backward messages
-            if ~fixation_data.fix_post_blink(t+1) %if the fixation isn't followed by a blink
+            if ~gen_data.fix_post_blink(t+1) %if the fixation isn't followed by a blink
                 %construct A contingent on measured deltX between current and NEXT fixation
-                cdist = pdist2(fix_shifts'*HMM_data.stim_dx + ET_meas.fix_deltas(t+1),fix_shifts'*HMM_data.stim_dx);
+                cdist = pdist2(fix_shifts'*stim_dx + ET_meas.fix_deltas(t+1),fix_shifts'*stim_dx);
                 cur_LA = -cdist.^2/(2*HMM_data.fix_delta_noise_sigma^2);
                 cur_LA = bsxfun(@plus,cur_LA,HMM_data.fix_Lprior); %multiply by log-prior
                 cur_LA = bsxfun(@minus,cur_LA,logsumexp(cur_LA,2)); %normalize
@@ -180,13 +199,13 @@ for nn = 1:HMM_data.n_fix_iters
     gamma = exp(Lgamma); %posterior on fixation positions
     
     %compute posterior mean and SD
-    it_fix_post_mean(nn,:) = sum(bsxfun(@times,gamma,fix_shifts),2);
-    cur_diff = bsxfun(@minus,it_fix_post_mean(nn,:)',fix_shifts).^2;
-    it_fix_post_std(nn,:) = sqrt(sum(cur_diff.*gamma,2));
+    fix_it_post_mean(nn,:) = sum(bsxfun(@times,gamma,fix_shifts),2);
+    cur_diff = bsxfun(@minus,fix_it_post_mean(nn,:)',fix_shifts).^2;
+    fix_it_post_std(nn,:) = sqrt(sum(cur_diff.*gamma,2));
     
     %back-project saccade-times and interpolate over saccades
     fix_post_mean_cor = nan(NT,1);
-    fix_post_mean_cor(~isnan(fix_ids)) = it_fix_post_mean(nn,fix_ids(~isnan(fix_ids)));
+    fix_post_mean_cor(~isnan(fix_ids)) = fix_it_post_mean(nn,fix_ids(~isnan(fix_ids)));
     fix_post_mean_cor = interp1(find(~isnan(fix_ids)),fix_post_mean_cor(~isnan(fix_ids)),1:NT); %interpolate position between fixations
     fix_post_mean_cor(isnan(fix_post_mean_cor)) = 0;
     
@@ -194,20 +213,20 @@ for nn = 1:HMM_data.n_fix_iters
     cur_fix_shifts = round(fix_post_mean_cor);
     shift_stim_mat = stim_mat;
     for ii=1:NT
-        shift_stim_mat(fit_data.used_inds(ii),:) = shift_matrix_Nd(stim_mat(fit_data.used_inds(ii),:),-cur_fix_shifts(ii),2);
+        shift_stim_mat(gen_data.used_inds(ii),:) = shift_matrix_Nd(stim_mat(gen_data.used_inds(ii),:),-cur_fix_shifts(ii),2);
     end
-    all_Xmat = NIM.create_time_embedding(shift_stim_mat,fit_data.stim_params);
+    all_Xmat = NIM.create_time_embedding(shift_stim_mat,gen_data.stim_params);
     if add_usfac %project onto spatial TBs if needed
-        X{1} = tb_proc_stim(all_Xmat(fit_data.used_inds,fit_data.use_kInds),add_usfac,flen);
+        X{1} = tb_proc_stim(all_Xmat(gen_data.used_inds,gen_data.use_kInds),add_usfac,flen);
     else
-        X{1} = all_Xmat(fit_data.used_inds,fit_data.use_kInds);
+        X{1} = all_Xmat(gen_data.used_inds,gen_data.use_kInds);
     end
     X(2:1+n_add_covariates) = nonstim_X;
     
     %% REFIT ALL CELLS
     silent = 1;
     for ss = 1:n_units
-        cur_fit_inds = fit_data.modfit_inds(~isnan(Robs_mat(fit_data.modfit_inds,ss))); %all non-rpt indices when current unit was isolated
+        cur_fit_inds = gen_data.modfit_inds(~isnan(Robs_mat(gen_data.modfit_inds,ss))); %all non-rpt indices when current unit was isolated
         
         fix_it_mods{nn+1}(ss) = fix_it_mods{nn}(ss);
         fix_it_mods{nn+1}(ss).spkNL.params = [1 1]; %set alpha and beta to their default values when fitting filters to avoid issues with regularization
@@ -216,19 +235,19 @@ for nn = 1:HMM_data.n_fix_iters
         newLL = fix_it_mods{nn+1}(ss).eval_model(Robs_mat(:,ss),X,cur_fit_inds);
         fix_it_LLimp(nn+1,ss) = (newLL - init_mods(ss).fit_props.null_LL)/log(2);
         if nn > 1
-            fprintf('Unit %d.  Original: %.4f  Prev: %.4f  New: %.4f\n',ss,fix_it_LLimp(1,ss),fix_it_LLimp(nn,ss),fix_it_LLimp(nn+1,ss));
+            fprintf('Unit %d LLimps.  Original LL: %.4f  Prev: %.4f  New: %.4f\n',ss,fix_it_LLimp(1,ss),fix_it_LLimp(nn,ss),fix_it_LLimp(nn+1,ss));
         else
-            fprintf('Unit %d. Original: %.4f  New: %.4f\n',ss,fix_it_LLimp(1,ss),fix_it_LLimp(nn+1,ss));
+            fprintf('Unit %d LLimps. Original: %.4f  New: %.4f\n',ss,fix_it_LLimp(1,ss),fix_it_LLimp(nn+1,ss));
         end
     end
 end
 
 %%
 if HMM_data.n_fix_iters == 0
-    all_Xmat = NIM.create_time_embedding(stim_mat,fit_data.stim_params);
+    all_Xmat = NIM.create_time_embedding(stim_mat,gen_data.stim_params); %if we havent already made this
 end
-all_Xmat = all_Xmat(fit_data.used_inds);
-
+all_Xmat = all_Xmat(gen_data.used_inds,:); %grab relevant time indices
+base_Xmat = all_Xmat;
 %%
 drift_it_mods{1} = fix_it_mods{end};
 drift_it_LLimp = nan(HMM_data.n_drift_iters+1,n_units);
@@ -307,9 +326,12 @@ for nn = 1:HMM_data.n_drift_iters
     
     %% INFER DRIFT CORRECTIONS
     Lgamma = nan(NT,n_drift_shifts);
+    reverseStr = '';
     for ff = 1:n_fixs
         if mod(ff,100)==0
-            fprintf('Fixation %d of %d\n',ff,n_fixs);
+        msg = sprintf('Inferring drift in fixation %d of %d\n',ff,n_fixs);
+        fprintf([reverseStr msg]);
+        reverseStr = repmat(sprintf('\b'),1,length(msg));
         end
         
         tset = find(pfix_ids==ff)'; %indices in this projected fixation
@@ -343,7 +365,7 @@ for nn = 1:HMM_data.n_drift_iters
                     if ~isnan(cur_drift_mean(iii))
                         %transition matrix given by gaussian posterior with mean cur_drift_mean and variance
                         %determined by post_drift_sigma (scaled by drift_dsf)
-                        cdist = pdist2(drift_shifts'*HMM_data.stim_dx + cur_drift_mean(iii),drift_shifts'*HMM_data.stim_dx);
+                        cdist = pdist2(drift_shifts'*stim_dx + cur_drift_mean(iii),drift_shifts'*stim_dx);
                         cur_LA(:,:,iii) = -cdist.^2/(2*(HMM_data.post_drift_sigma*drift_dsf)^2);
                     else
                         cur_LA(:,:,iii) = HMM_data.base_LA; %otherwise set to prior
@@ -395,9 +417,9 @@ for nn = 1:HMM_data.n_drift_iters
     
     %% construct drift-corrected X-mat   
     drift_post_cor = squeeze(drift_it_post_mean(nn,:));
-    for ii = 1:length(trial_start_inds) %for each trial, backproject drift by sac_shift
-        cur_inds = fixation_data.trial_boundaries(ii,1):fixation_data.trial_boundaries(ii,2);
-        drift_post_cor(cur_inds(1:end-HMM_data.sac_shift)) = drift_post_cor(cur_inds(HMM_data.sac_shift+1:end));
+    for ii = 1:n_trials %for each trial, backproject drift by sac_shift
+        cur_inds = gen_data.trial_boundaries(ii,1):gen_data.trial_boundaries(ii,2);
+        drift_post_cor(cur_inds(1:end - neural_delay)) = drift_post_cor(cur_inds(neural_delay + 1:end));
     end
     drift_post_cor = interp1(find(~isnan(fix_ids)),drift_post_cor(~isnan(fix_ids)),1:NT); %interpolate
     drift_post_cor(isnan(drift_post_cor)) = 0;
@@ -410,20 +432,20 @@ for nn = 1:HMM_data.n_drift_iters
     
     shift_stim_mat = stim_mat;
     for ii=1:NT
-        shift_stim_mat(fit_data.used_inds(ii),:) = shift_matrix_Nd(stim_mat(fit_data.used_inds(ii),:),-cur_fix_shifts(ii),2);
+        shift_stim_mat(gen_data.used_inds(ii),:) = shift_matrix_Nd(stim_mat(gen_data.used_inds(ii),:),-cur_fix_shifts(ii),2);
     end
-    all_Xmat = NIM.create_time_embedding(shift_stim_mat,fit_data.stim_params);
+    all_Xmat = NIM.create_time_embedding(shift_stim_mat,gen_data.stim_params);
     if add_usfac %project onto spatial TBs if needed
-        X{1} = tb_proc_stim(all_Xmat(fit_data.used_inds,fit_data.use_kInds),add_usfac,flen);
+        X{1} = tb_proc_stim(all_Xmat(gen_data.used_inds,gen_data.use_kInds),add_usfac,flen);
     else
-        X{1} = all_Xmat(fit_data.used_inds,fit_data.use_kInds);
+        X{1} = all_Xmat(gen_data.used_inds,gen_data.use_kInds);
     end
     X(2:1+n_add_covariates) = nonstim_X;
     
     %% REFIT ALL CELLS
     silent = 1;
     for ss = 1:n_units
-        cur_fit_inds = fit_data.modfit_inds(~isnan(Robs_mat(fit_data.modfit_inds,ss))); %all non-rpt indices when current unit was isolated
+        cur_fit_inds = gen_data.modfit_inds(~isnan(Robs_mat(gen_data.modfit_inds,ss))); %all non-rpt indices when current unit was isolated
         
         drift_it_mods{nn+1}(ss) = drift_it_mods{nn}(ss);
         drift_it_mods{nn+1}(ss).spkNL.params = [1 1]; %set alpha and beta to their default values when fitting filters to avoid issues with regularization
@@ -432,9 +454,15 @@ for nn = 1:HMM_data.n_drift_iters
         newLL = drift_it_mods{nn+1}(ss).eval_model(Robs_mat(:,ss),X,cur_fit_inds);
         drift_it_LLimp(nn+1,ss) = (newLL - init_mods(ss).fit_props.null_LL)/log(2);
         if nn > 1
-            fprintf('Unit %d.  Original: %.4f  Prev: %.4f  New: %.4f\n',ss,drift_it_LLimp(1,ss),drift_it_LLimp(nn,ss),drift_it_LLimp(nn+1,ss));
+            fprintf('Unit %d LLimps.  Original: %.4f  Prev: %.4f  New: %.4f\n',ss,drift_it_LLimp(1,ss),drift_it_LLimp(nn,ss),drift_it_LLimp(nn+1,ss));
         else
-            fprintf('Unit %d. Original: %.4f  New: %.4f\n',ss,drift_it_LLimp(1,ss),drift_it_LLimp(nn+1,ss));
+            fprintf('Unit %d LLimps. Original: %.4f  New: %.4f\n',ss,drift_it_LLimp(1,ss),drift_it_LLimp(nn+1,ss));
         end
     end
 end
+
+%%
+fit_post_data.mean = fix_it_post_mean;
+fix_post_data.SD = fix_it_post_std;
+drift_post_data.mean = drift_it_post_mean;
+drift_post_data.SD = drift_it_post_std;

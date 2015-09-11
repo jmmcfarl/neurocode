@@ -72,9 +72,11 @@ pop_avg_sigma = 0.05; %gaussian smoothing sigma for pop avg rates
 init_jitter_SD = 0.075; %SD for initial random EP distribution
 max_fix_shift = 0.85; %maximum shift to consider when estimating fixation-corrections (in deg)
 max_drift_shift = 0.45; %max shift for drift corrections (in deg)
+neural_delay = 0.05; %how much to shift jump points forward in time
 
 xv_frac = 0.2; %fraction of trials to use for cross-validation
 flen = 12; %number of stimulus time lags to use
+
 if ~isempty(params.rpt_seeds)
     has_rpts = true;
 else
@@ -576,26 +578,26 @@ end
 
 %% COMPUTE FORWARD-PROJECTED FIXATION INDICES
 %push the effects of saccades forward in time for inferring eye positions
-sac_shift = round(0.05/dt); %how much to shift jump points forward in time
-pfix_start_inds = fix_start_inds;
-pfix_stop_inds = fix_stop_inds;
-for i = 1:length(fix_start_inds)
-    next_trial = trial_start_inds(find(trial_start_inds >= fix_start_inds(i),1,'first'));
-    if next_trial > fix_start_inds(i) + sac_shift %if the forward projection does not push you into another trial
-        pfix_start_inds(i) = fix_start_inds(i) + sac_shift;
-    end
-    next_trial = trial_start_inds(find(trial_start_inds >= fix_stop_inds(i),1,'first'));
-    if next_trial > fix_stop_inds(i) + sac_shift
-        pfix_stop_inds(i) = fix_stop_inds(i) + sac_shift;
-    end
-end
 
-%compute forward-projected fixation ids
-pfix_ids = nan(NT,1);
-for ii = 1:n_fixs
-    cur_inds = pfix_start_inds(ii):pfix_stop_inds(ii);
-    pfix_ids(cur_inds) = ii;
-end
+% pfix_start_inds = fix_start_inds;
+% pfix_stop_inds = fix_stop_inds;
+% for i = 1:length(fix_start_inds)
+%     next_trial = trial_start_inds(find(trial_start_inds >= fix_start_inds(i),1,'first'));
+%     if next_trial > fix_start_inds(i) + sac_shift %if the forward projection does not push you into another trial
+%         pfix_start_inds(i) = fix_start_inds(i) + sac_shift;
+%     end
+%     next_trial = trial_start_inds(find(trial_start_inds >= fix_stop_inds(i),1,'first'));
+%     if next_trial > fix_stop_inds(i) + sac_shift
+%         pfix_stop_inds(i) = fix_stop_inds(i) + sac_shift;
+%     end
+% end
+% 
+% %compute forward-projected fixation ids
+% pfix_ids = nan(NT,1);
+% for ii = 1:n_fixs
+%     cur_inds = pfix_start_inds(ii):pfix_stop_inds(ii);
+%     pfix_ids(cur_inds) = ii;
+% end
 
 %% generate shift matrices. Must be applied to the stimulus (not the filters)
 %shifts for inferring fixation corrections
@@ -662,9 +664,9 @@ if any(params.use_coils)
     %forward-project measured drift so it aligns with neural data
     for ii = 1:n_fixs
         cur_inds = fix_start_inds(ii):fix_stop_inds(ii);
-        cur_pinds = cur_inds + sac_shift;
-        if length(cur_inds) > sac_shift
-            forward_measured_drift(cur_inds(sac_shift+1:end),:) = measured_drift(cur_inds(1:(end-sac_shift)),:);
+        cur_pinds = cur_inds + round(neural_delay/dt);
+        if length(cur_inds) > round(neural_delay/dt)
+            forward_measured_drift(cur_inds(round(neural_delay/dt)+1:end),:) = measured_drift(cur_inds(1:(end-round(neural_delay/dt))),:);
         end
     end
     measured_drift = [zeros(1,2); diff(forward_measured_drift)];
@@ -711,23 +713,29 @@ for ss = 1:length(all_mod_fits)
     all_mod_fits(ss).fit_props.null_LL = null_LL(ss);
 end
 %%
-fix_boundaries = [fix_start_inds fix_stop_inds];
-pfix_boundaries = [pfix_start_inds pfix_stop_inds];
-trial_boundaries = [trial_start_inds trial_end_inds];
-fix_data = struct('fix_boundaries',fix_boundaries,'pfix_boundaries',pfix_boundaries,'fix_post_blink',fix_post_blink,...
-    'trial_boundaries',trial_boundaries);
 
-fit_data = struct('tr_units',tr_units,'stim_params',stim_params,'used_inds',used_inds,'use_kInds',use_kInds,'modfit_inds',all_modfit_inds);
-HMM_data = struct('add_usfac',add_usfac,'fix_delta_noise_sigma',fix_delta_noise_sigma,'fix_shifts',fix_shifts,...
-    'n_fix_iters',n_fix_inf_it,'fix_Lprior',fix_Lprior,'use_coils',params.use_coils,'stim_dx',sp_dx,...
+% n_fix_inf_it = 1;
+% n_drift_inf_it = 1;
+% params.use_coils = [0 0];
+
+fix_boundaries = [fix_start_inds fix_stop_inds];
+trial_boundaries = [trial_start_inds trial_end_inds];
+gen_data = struct('fix_boundaries',fix_boundaries,'neural_delay',round(neural_delay/dt),'fix_post_blink',fix_post_blink,...
+    'trial_boundaries',trial_boundaries,'stim_params',stim_params,'used_inds',used_inds,'use_kInds',use_kInds,...
+    'add_usfac',add_usfac,'modfit_inds',all_modfit_inds,'stim_dx',sp_dx);
+
+HMM_data = struct('fix_delta_noise_sigma',fix_delta_noise_sigma,'fix_shifts',fix_shifts,...
+    'n_fix_iters',n_fix_inf_it,'fix_Lprior',fix_Lprior,'use_coils',params.use_coils,...
     'drift_dsf',drift_dsf,'drift_jump_Lprior',drift_jump_Lprior,'drift_shifts',drift_shifts,...
     'post_drift_sigma',post_drift_sigma,'n_drift_iters',n_drift_inf_it,'base_LA',base_LA);
 HMM_data.fix_shift_mats = fix_shift_mats;
 HMM_data.drift_shift_mats = drift_shift_mats;
 
 ET_meas = struct('fix_deltas',measured_fix_deltas,'post_drift_mean',post_drift_mean);
-[mod_fits,post_mean_EP,post_std_EP] = eyetracking_EM(all_mod_fits(tr_units),Robs_mat(:,tr_units),all_stimmat_up,X(2:end),...
-    fit_data,HMM_data,ET_meas,fix_data);
+
+[fix_mod_fits,it_post_data,drift_mod_fits,drift_post_data] = eyetracking_EM(...
+    all_mod_fits(tr_units),Robs_mat(:,tr_units),all_stimmat_up,X(2:end),...
+    tr_units,HMM_data,ET_meas,gen_data);
 
 %% ITERATE FIXATION-BASED CORRECTIONS
 Xtargs = [all_mod_fits(1).subunits(:).Xtarg];
