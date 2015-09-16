@@ -24,7 +24,8 @@ fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 % base_rname = 'rpt_variability_compact_FIN4_noxc'; %this has more time bins but no xxc
 % base_rname = 'rpt_variability_compact_FIN5'; % has some time bins with xc
 % base_rname = 'rpt_variability_compact_FIN_noextras'; % has some time bins with xc
-base_rname = 'rpt_variability_compact_FIN5'; % has some time bins with xc
+% base_rname = 'rpt_variability_compact_FIN5'; % has some time bins with xc
+base_rname = 'rpt_variability_compact_FFtest_noxc'; % has some time bins with xc
 base_sname = 'sim_variability_compact_FIN2'; %sim-calc data base
 % base_sname = 'sim_variability_compact_FIN2_noxc'; %newer sim-calc that has integral-based and no xc sim
 
@@ -178,7 +179,7 @@ min_avgRate = 5; %minimum avg rate (Hz)
 min_xvLL = 0; %minimum model xval LL improvement over null
 
 SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(:,1));
-SU_avgRates = [all_cell_data(:,1).ov_avg_BS]'/direct_bin_dts(1); %compute avg rate using first time bin res
+SU_avgRates = [all_cell_data(:,1).ov_avg_BS]'/poss_bin_dts(1); %compute avg rate using first time bin res
 SU_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_cell_data(:,1));
 SU_rpt_xvLL = arrayfun(@(x) x.rpt_LL - x.rpt_nullLL,all_cell_data(:,1));
 
@@ -200,7 +201,7 @@ SU_exptNumber = [all_cell_data(SU_uset,1).Expt_num]';
 SU_barOri = [all_cell_data(SU_uset,1).bar_ori]';
 SU_CID = [all_cell_data(SU_uset,1).cell_ID];
 SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(SU_uset,1));
-SU_avgRates = [all_cell_data(SU_uset,1).ov_avg_BS]'/direct_bin_dts(1); %compute avg rate using first time bin res
+SU_avgRates = [all_cell_data(SU_uset,1).ov_avg_BS]'/poss_bin_dts(1); %compute avg rate using first time bin res
 SU_mod_xvLLs = arrayfun(@(x) x.bestGQM.xvLLimp,all_cell_data(SU_uset,1));
 SU_numbers = arrayfun(@(x) x.unit_data.SU_number,all_cell_data(SU_uset,1)); 
 
@@ -297,7 +298,6 @@ fprintf('integral mad: %.4f SD:%.4f\n',median(abs(sim_int_diff)),std(sim_int_dif
 %within-trial EP
 sim_const_diff = sim_alphas_const(:,1) - sim_alphas(:,1);
 fprintf('const EP mad: %.4f SD:%.4f\n',median(abs(sim_const_diff)),std(sim_const_diff));
-
 
 %% compare model-predicted and direct estimates of alpha
 % close all
@@ -571,7 +571,7 @@ plot_errorbar_quantiles(poss_bin_dts,FF_bias,[25 50 75]);
 hold on
 % plot_errorbar_quantiles(0.01*sim_params.poss_ubins,sim_FF,[25 50 75],'r');
 set(gca,'xscale','log');
-xlim([0.004 2.5]);
+xlim([0.004 4]);
 xlabel('Time window (s)');
 ylabel('Relative FF bias');
 
@@ -582,12 +582,25 @@ plot_errorbar_quantiles(0.01*sim_params.poss_ubins,sim_FF_rel,[25 50 75],'k');
 % errorbar(poss_bin_dts,nanmean(FF_rel),nanstd(FF_rel)/sqrt(length(SU_uset)),'r');
 % errorbar(0.01*sim_params.poss_ubins,nanmean(sim_FF_rel),nanstd(sim_FF_rel)/sqrt(length(SU_uset)),'k');
 set(gca,'xscale','log');
-xlim([0.004 2.5]);
+xlim([0.004 4]);
 ylim([0.5 2.5]);
 xl = xlim();
 line(xl,[1 1],'color','k','linestyle','--');
 xlabel('Time window (s)');
 ylabel('Relative FF bias');
+
+f3 = figure(); hold on
+plot_errorbar_quantiles(poss_bin_dts,psth_FFs,[25 50 75],'r');
+plot_errorbar_quantiles(poss_bin_dts,ball_FFs,[25 50 75],'k');
+set(gca,'xscale','log');
+xlim([0.004 5]);
+ylim([0.4 3]);
+xl = xlim();
+line(xl,[1 1],'color','k','linestyle','--');
+xlabel('Time window (s)');
+ylabel('Fano Factor');
+
+
 
 % %get the relative firing rate variance and its var/mean ratio as a fnx of
 % %time window (for direct estimates)

@@ -6,9 +6,9 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M270';
+Expt_name = 'M287';
 monk_name = 'lem';
-bar_ori = 60; %bar orientation to use (only for UA or single-ori-LP recs)
+bar_ori = 90; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
 %if recording was split into two segments at some ori

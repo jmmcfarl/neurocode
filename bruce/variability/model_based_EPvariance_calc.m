@@ -12,7 +12,8 @@ global Expt_name bar_ori monk_name rec_type rec_number
 % %
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'sim_variability_compact_FIN2';
+% sname = 'sim_variability_compact_FIN2';
+sname = 'sim_variability_compact_nFIN';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
@@ -21,11 +22,12 @@ mod_name = 'corrected_models_comp_FIN2';
 use_MUA = false; sim_params.use_MUA = use_MUA; %use MUA in model-fitting
 use_hres_ET = true; sim_params.use_hres_ET = use_hres_ET; %use high-res eye-tracking?
 exclude_sacs = false; sim_params.exclude_sacs = exclude_sacs; %exclude data surrounding microsaccades?
+exclude_blinks = true; sim_params.exclude_blinks = exclude_blinks; %exclude data surrounding microsaccades?
 calc_Tconst = true; sim_params.calc_Tconst = calc_Tconst; %calculate trial-constant EP simulations?
 calc_simInt = true; sim_params.calc_simInt = calc_simInt; %calculate integral-based estimates of alpha?
 
 poss_SDs = [0:0.025:0.2];%range of possible EP SDs to test (last is the empirical)
-poss_ubins = [1 2 3 4 5 10 20 50 100 200]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
+poss_ubins = [1 2 4 8 16 32 64 128 256 375]; sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 % poss_ubins = logspace(log10(1),log10(100),10); sim_params.poss_ubins = poss_ubins; %range of temporal downsampling factors to test
 
 do_xcorr = true;
@@ -187,19 +189,9 @@ saccade_trial_inds = all_trialvec(used_inds(saccade_start_inds));
 used_is_blink = ET_data.is_blink(used_saccade_set); %which used events are blinks
 
 sac_durs = [saccades(:).duration];
-sac_prepos = reshape([saccades(:).pre_pos],[],length(saccades));
-sac_postpos = reshape([saccades(:).post_pos],[],length(saccades));
-sac_deltaX = sac_postpos(1,:) - sac_prepos(1,:);
-
-sacburst_set = find([saccades(:).isi] < params.sac_burst_isi | [saccades(:).next_isi] < params.sac_burst_isi);
-micro_sacs = find([saccades(:).amplitude] < params.micro_thresh & ~used_is_blink');
-
-msac_bursts = micro_sacs(ismember(micro_sacs,sacburst_set));
-% micro_sacs(ismember(micro_sacs,sacburst_set)) = []; %eliminate microsacs that are part of a 'burst'
 
 %guided saccades are those whose parallel component is large enough and
 %that aren't blinks (and whose duration is not too long to be suspicious
-big_sacs = find(abs(sac_deltaX) > params.gsac_thresh & ~used_is_blink' & sac_durs <= params.max_gsac_dur);
 used_is_blink(sac_durs >= params.max_gsac_dur) = true;
 
 %% DEFINE FIXATIONS
@@ -303,6 +295,17 @@ in_sac_inds = in_sac_inds(full_uinds);
 in_blink_inds = in_blink_inds(full_uinds);
 
 %% PROCESS MODEL FITS
+% make Robs_mat
+tot_sus = size(all_binned_sua,2);
+tot_nUnits = length(su_probes) + params.n_probes;
+Robs_mat = nan(length(used_inds),params.n_probes + tot_sus);
+for ss = 1:size(Robs_mat,2)
+    if ss > params.n_probes
+        Robs_mat(:,ss) = all_binned_sua(used_inds,ss-params.n_probes);
+    else
+        Robs_mat(:,ss) = all_binned_mua(used_inds,ss);
+    end
+end
 
 has_stim_mod = false(length(targs),1);
 for cc = 1:length(targs) %loop over units used in analysis
@@ -312,10 +315,14 @@ for cc = 1:length(targs) %loop over units used in analysis
         %remove the block-by-block variability in the model by
         %incorporating the avg output of the block-filter
         cur_block_filt = cur_mod.mods(1).filtK; %filter applied to the block index
-        cur_used_blocks = ModData(targs(cc)).unit_data.used_blocks; %which blocks was this neuron isolated during
-        poss_used_blocks = ModData(targs(cc)).unit_data.poss_used_blocks; %total set of used blocks
-        cur_used_blocks = find(ismember(poss_used_blocks,cur_used_blocks)); %indices of blocks where this neuron was isolated
-        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + mean(cur_block_filt(cur_used_blocks)); %add the average output of the block-filter to the spkNL offset
+%         cur_used_blocks = ModData(targs(cc)).unit_data.used_blocks; %which blocks was this neuron isolated during
+%         poss_used_blocks = ModData(targs(cc)).unit_data.poss_used_blocks; %total set of used blocks
+%         cur_used_blocks = find(ismember(poss_used_blocks,cur_used_blocks)); %indices of blocks where this neuron was isolated
+%         assert(length(intersect(all_blockvec(used_inds,:),poss_used_blocks)) == length(poss_used_blocks),'block alignment problem'); 
+        block_out = Xblock(used_inds,:)*cur_block_filt; %get output of block filter
+        block_out(isnan(Robs_mat(:,targs(cc)))) = nan;
+        avg_blockfilt_out = nanmean(block_out);
+        cur_mod.spk_NL_params(1) = cur_mod.spk_NL_params(1) + avg_blockfilt_out; %add the average output of the block-filter to the spkNL offset
         cur_mod.mods(1) = []; %eliminate block filter
         
         %store model data
@@ -413,7 +420,10 @@ for sd = 1:length(poss_SDs)
             [~,~,ep_rates(:,cc)] = NMMmodel_eval(stim_mod(cc),[],all_Xmat_shift);
         end
     end
-    uset1 = ~inblink_tbt;
+    uset1 = true(size(inblink_tbt));
+    if exclude_blinks
+        uset1 = ~inblink_tbt;
+    end
     if exclude_sacs
         uset1 = uset1 & ~insac_tbt;
     end
@@ -429,7 +439,10 @@ for sd = 1:length(poss_SDs)
     
     cur_inblink = inblink_tbt(:,tperm);
     cur_insac = insac_tbt(:,tperm);
-    uset2 = ~cur_inblink;
+    uset2 = true(size(inblink_tbt));
+    if exclude_blinks
+        uset2 = ~cur_inblink;
+    end
     if exclude_sacs
         uset2 = uset2 & ~inblink_tbt;
     end
