@@ -28,10 +28,10 @@ classdef NIM
     properties (Hidden)
         init_props;         %struct containing details about model initialization
         allowed_reg_types = {'nld2','d2xt','d2x','d2t','l2','l1'}; %set of allowed regularization types
-        version = '0.0';    %source code version used to generate the model
+        version = '0.1';    %source code version used to generate the model
         create_on = date;    %date model was generated
         min_pred_rate = 1e-50; %minimum predicted rate (for non-negative data) to avoid NAN LL values
-        opt_check_FO = 1e-3; %threshold on first-order optimality for fit-checking
+        opt_check_FO = 1e-2; %threshold on first-order optimality for fit-checking
     end
     
     %% METHODS DEFINED IN SEPARATE FILES
@@ -76,7 +76,6 @@ classdef NIM
             end
 
             nStims = length(stim_params); %number of stimuli
-%             stim_params = NIM.check_stim_params(stim_params); %validate and format input stim_params
             nim.stim_params = stim_params;
             
             nSubs = length(mod_signs); %number of subunits
@@ -834,7 +833,6 @@ classdef NIM
                 case 'gaussian' %LL'[r] = 2*(r-R)
                     LL_deriv = 2*(rPred - Robs);
             end
-            
         end
         
         function rate = apply_spkNL(nim,gen_signal)

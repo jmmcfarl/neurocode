@@ -243,10 +243,12 @@ for ii = 1:length(unique_NL_types) %loop over unique subunit NL types and apply 
 end
 
 % Multiply by weight (and multiplier, if appl) and add to generating function
+if ~isempty(fit_subs)
 if isempty(gain_funs)
     G = G + fgint*mod_weights;
 else
     G = G + (fgint.*gain_funs(:,fit_subs))*mod_weights;
+end
 end
 
 % Add contribution from spike history filter
@@ -305,13 +307,15 @@ net_penalties = zeros(size(fit_subs));
 net_pen_grads = zeros(length(params),1);
 for ii = 1:length(Tmats) %loop over the derivative regularization matrices
     cur_subs = find([nim.subunits(fit_subs).Xtarg] == Tmats(ii).Xtarg); %set of subunits acting on the stimulus given by this Tmat
+    if ~isempty(cur_subs)
     penalties = sum((Tmats(ii).Tmat * cat(2,filtKs{cur_subs})).^2);
     pen_grads = 2*(Tmats(ii).Tmat' * Tmats(ii).Tmat * cat(2,filtKs{cur_subs}));
     cur_lambdas = nim.get_reg_lambdas(Tmats(ii).type,'sub_inds',fit_subs(cur_subs)); %current lambdas
     net_penalties(cur_subs) = net_penalties(cur_subs) + penalties.*cur_lambdas;
     net_pen_grads(cat(2,param_inds{cur_subs})) = net_pen_grads(cat(2,param_inds{cur_subs})) + reshape(bsxfun(@times,pen_grads,cur_lambdas),[],1);
+    end
 end
-l2_lambdas = nim.get_reg_lambdas('l2');
+l2_lambdas = nim.get_reg_lambdas('sub_inds',fit_subs,'l2');
 if any(l2_lambdas > 0)
     net_penalties = net_penalties + l2_lambdas.*cellfun(@(x) sum(x.^2),filtKs)';
     for ii = 1:length(un_Xtargs)

@@ -456,7 +456,9 @@ for ii = 1:length(unique_NL_types) %loop over unique subunit NL types
     elseif strcmp(unique_NL_types{ii},'lin')
         %do nothing
     elseif strcmp(unique_NL_types{ii},'threshlin')
-        fgint(fgint(:,cur_mods) < 0,cur_mods) = 0; %threshold at 0
+        fgint_subset = fgint(:,cur_mods);
+        fgint_subset(fgint_subset < 0) = 0;
+        fgint(:,cur_mods) = fgint_subset;
     else
         error('Invalid internal NL');
     end
@@ -570,7 +572,7 @@ end
 %     placeholder = placeholder + filtLen(ii);
 % end
 
-for ii = 1:un_Xtargs %loop over unique Xtargets
+for ii = 1:1:length(un_Xtargs) %loop over unique Xtargets
     cur_mod_inds = find(Xtarg_set == un_Xtargs(ii)); %set of subunits with this Xtarget
     cur_NL_types = mod_NL_types(cur_mod_inds); %current NL types
     cur_unique_NL_types = unique(cur_NL_types); %set of unique NL types

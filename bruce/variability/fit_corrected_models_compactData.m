@@ -3,9 +3,9 @@ close all
 % 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-Expt_name = 'M320';
-monk_name = 'lem';
-bar_ori = 100; %bar orientation to use (only for UA recs)
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
 rec_number = 1;
 
 fit_unCor = false; %also fit models without eye corrections?

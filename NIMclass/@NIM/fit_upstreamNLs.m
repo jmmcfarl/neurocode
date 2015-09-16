@@ -259,7 +259,7 @@ if fit_spk_hist
 end
 
 % If rescaling the Nls, we need to resestimate the offset theta after scaling
-if rescale_NLs
+if rescale_NLs && ~isempty(nonpar_subs)
     resc_nlvec = nlmat_resc(:);
     new_g_out = XNL*resc_nlvec;
     G = nontarg_g + new_g_out;
@@ -296,15 +296,17 @@ fit_subs = fit_opts.fit_subs; nonpar_subs = fit_opts.nonpar_subs; par_subs = fit
 param_inds = fit_opts.param_inds;
 n_par_pars = sum(cellfun(@(x) length(x),param_inds)); %total number of parametric NL params
 Nfit_subs = length(fit_subs);
-n_TBs = length(nim.subunits(fit_subs(nonpar_subs(1))).TBx);
+if ~isempty(nonpar_subs); n_TBs = length(nim.subunits(fit_subs(nonpar_subs(1))).TBx); end;
 spkhstlen = nim.spk_hist.spkhstlen;
 mod_weights = [nim.subunits(fit_subs).weight]';
 
 % ESTIMATE GENERATING FUNCTIONS (OVERALL AND INTERNAL)
 theta = params(end); %offset
 G = theta + nontarg_g;
-all_TBy = params(1:length(nonpar_subs)*n_TBs);
-G = G + XNL*all_TBy;
+if ~isempty(nonpar_subs)
+    all_TBy = params(1:length(nonpar_subs)*n_TBs);
+    G = G + XNL*all_TBy;
+end
 
 %Add contributions from target subunits with parametric NLs
 if ~isempty(par_subs)
@@ -333,7 +335,9 @@ penLL = nim.internal_LL(pred_rate,Robs); %compute LL
 residual = nim.internal_LL_deriv(pred_rate,Robs) .* nim.apply_spkNL_deriv(G, pred_rate < nim.min_pred_rate);
 
 penLLgrad = zeros(length(params),1); %initialize LL gradient
-penLLgrad(1:length(nonpar_subs)*n_TBs) = residual'*XNL;
+if ~isempty(nonpar_subs)
+    penLLgrad(1:length(nonpar_subs)*n_TBs) = residual'*XNL; %gradient for tent-basis coefs
+end
 for ii = 1:length(par_subs)
     param_grad = nim.subunits(fit_subs(par_subs(ii))).NL_grad_param(par_gint(:,ii));
     penLLgrad(param_inds{ii}) = residual'*param_grad * mod_weights(par_subs(ii));
