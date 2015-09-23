@@ -11,7 +11,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_nFIN';
+sname = 'rpt_variability_compact_nFIN_noxc';
 % sname = 'rpt_variability_compact_FIN_noextras';
 
 % et_mod_data_name = 'full_eyetrack_initmods_Rinit';
@@ -26,12 +26,12 @@ use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-track
 exclude_sacs = false; EP_params.exclude_sacs = exclude_sacs; %exclude data surrounding saccades?
 exclude_blinks = true; EP_params.exclude_blinks = exclude_blinks; %exclude data surrounding blinks
 sub_trialavgs = false; EP_params.sub_trialavgs = sub_trialavgs; %subtract out trial avg spike counts?
-do_xcorrs = true; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
+do_xcorrs = false; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
 compute_PF_rate = false;
 
 poss_bin_dts =   [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
 direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-mod_bin_dts =    [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+mod_bin_dts =    []; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
 % poss_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
 % direct_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
 % mod_bin_dts = [0.01 0.02 0.05 0.1]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
@@ -42,8 +42,9 @@ sim_n_rpts = 500; EP_params.sim_n_rpts = sim_n_rpts; %number of repeats for simu
 
 maxD_prc = 100; %maximum delta_X percentile to model with spline fit
 n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins; %number of quantiles of delta_X for binned estimates
-poss_eps_sizes = [.005 .01 .02 .04]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
-ball_nboots = 0; EP_params.ball_nboots = ball_nboots; %number of bootstrap samples for computing eps ball vars
+% poss_eps_sizes = [.005 .01 .02 .04]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
+poss_eps_sizes = [.01]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
+ball_nboots = 5000; EP_params.ball_nboots = ball_nboots; %number of bootstrap samples for computing eps ball vars
 
 % n_spline_knots = 4; EP_params.n_spline_knots = 4;  %number of spline knot pts
 % n_eval_pts = 100; EP_params.n_eval_pts = n_eval_pts; %number of points to evaluate spline fit
