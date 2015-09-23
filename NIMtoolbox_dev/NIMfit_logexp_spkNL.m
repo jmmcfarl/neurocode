@@ -49,7 +49,11 @@ end
 [~, ~, ~, G] = NIMmodel_eval(nim,Robs,Xstim,XLin);
 G = G - nim.spk_NL_params(1);
 
+if display
 opts.Display = 'iter';
+else
+    opts.Display = 'off';
+end
 opts.GradObj = 'on';
 opts.Algorithm = 'active-set';
 fit_params = fmincon(@(K) spkNL_internal_LL(K,G,Robs), initial_params,[],[],Aeq,Beq,LB,UB,[],opts);
