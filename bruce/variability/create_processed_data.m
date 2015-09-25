@@ -6,9 +6,9 @@ addpath('~/James_scripts/bruce/saccade_modulation/');
 
 global Expt_name bar_ori monk_name rec_type
 
-Expt_name = 'M287';
-monk_name = 'lem';
-bar_ori = 90; %bar orientation to use (only for UA or single-ori-LP recs)
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA or single-ori-LP recs)
 rec_number = 1;
 
 %if recording was split into two segments at some ori
@@ -455,7 +455,7 @@ for ee = 1:n_blocks;
     if strcmp(rec_type,'LP')
         trial_toffset(ee) = all_t_bin_edges(end);
         cur_toffset = trial_toffset(ee);
-        cur_spkind_offset = cur_spkind_offset+ round(32e3*(max(trial_end_times)-min(trial_start_times) + 50));
+        cur_spkind_offset = cur_spkind_offset + round(32e3*(max(trial_end_times)-min(trial_start_times) + 50));
     end
 end
 
@@ -586,7 +586,7 @@ time_data.trial_flip_inds = [1; find(all_trialvec(2:end) > all_trialvec(1:end-1)
 time_data.trial_flip_ids = all_trialvec(time_data.trial_flip_inds+1);
 time_data.block_flip_inds = [1; find(all_blockvec(2:end) > all_blockvec(1:end-1))];
 time_data.block_flip_ids = all_blockvec(time_data.block_flip_inds+1);
-
+time_data.trial_toffset = trial_toffset;
 %% package stimulus
 stimComp = compressTernNoise(all_stim_mat);
 

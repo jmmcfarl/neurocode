@@ -52,7 +52,7 @@ for ii = 1:length(poss_SFs)
     env_sigma = 1/sf*bandwidth; %spatial envelope SD
     
     %make gabor filter
-    gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*sf + spatial_phase);
+    gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*(2*pi*xax*sf + spatial_phase));
     
     %output of gabor filter (complex-valued)
     Xconv = convn(Xstim_up,gabor_filt(:),'same');
@@ -137,7 +137,7 @@ N = length(xax); %number of spatial samples
 fax = 0:Fs/N:Fs/2; %frequency axis (single sided)
 
 env_sigma = 1/examp_sf*bandwidth; %spatial envelope SD
-gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*examp_sf + spatial_phase);
+gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*(2*pi*xax*examp_sf + spatial_phase));
 
 % get amplitude spectrum of the gabor filter (analytically)
 fft_bandwidth = 1/(2*pi*env_sigma); %frequency-domain width (SD) of gabor
@@ -317,7 +317,7 @@ Xstim_up = Xstim_up';
 
 %make gabor filter
 env_sigma = 1/examp_sf*bandwidth; %spatial envelope SD
-gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*examp_sf + spatial_phase);
+gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*(2*pi*xax*examp_sf + spatial_phase));
 
 % get amplitude spectrum of the gabor filter (analytically)
 fft_bandwidth = 1/(2*pi*env_sigma); %frequency-domain width (SD) of gabor
@@ -462,7 +462,7 @@ npix = length(xax);
 
 % make gabor filter and compute its spectrum
 env_sigma = 1/examp_sf*bandwidth; %spatial envelope SD
-gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*examp_sf + spatial_phase);
+gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*(2*pi*xax*examp_sf + spatial_phase));
 % get amplitude spectrum of the gabor filter (analytically)
 fft_bandwidth = 1/(2*pi*env_sigma); %frequency-domain width (SD) of gabor
 gabor_fft = exp(-(fax-examp_sf).^2/(2*fft_bandwidth^2)); %gaussian centered on SF
@@ -582,7 +582,7 @@ fax = 0:Fs/N:Fs/2;
 
 % make gabor filter and compute its spectrum
 env_sigma = 1/examp_sf*bandwidth; %spatial envelope SD
-gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*examp_sf + spatial_phase);
+gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*(2*pi*xax*examp_sf + spatial_phase));
 
 % compute eye position distribution and its spectrum
 ep_dist = exp(-xax.^2/(2*eye_pos_sigma^2)); %EP distribution
@@ -638,7 +638,7 @@ for jj = 1:length(poss_SFs)
     env_sigma = 1/sf*bandwidth; %spatial envelope SD
     
     %make gabor filter and its fft
-    gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*xax*sf + spatial_phase);
+    gabor_filt = exp(-xax.^2/(2*env_sigma^2)).*exp(sqrt(-1)*(2*pi*xax*sf + spatial_phase));
 %     gabor_fft = abs(fft(gabor_filt));
 %     gabor_fft = gabor_fft(1:N/2+1);
     
@@ -728,7 +728,7 @@ xax = -10:pix_dx:10;
 Xp = X*cosd(orientation) + Y*sind(orientation);
 Yp = -X*sind(orientation) + Y*cosd(orientation);
 
-gabor_filt = exp(-(Xp.^2 + spatial_AR*Yp.^2)/(2*env_sigma^2)).*exp(sqrt(-1)*2*pi*Xp*sf + spatial_phase);
+gabor_filt = exp(-(Xp.^2 + spatial_AR*Yp.^2)/(2*env_sigma^2)).*exp(sqrt(-1)*(2*pi*Xp*sf + spatial_phase));
 gabor_filt = gabor_filt - mean(gabor_filt(:));
 
 gabor_fft = abs(fftshift(fft2(real(gabor_filt))));
