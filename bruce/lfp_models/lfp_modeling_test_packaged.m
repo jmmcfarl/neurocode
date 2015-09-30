@@ -561,7 +561,7 @@ if ~isempty(cc_uinds)
     gqm2_xvLL = gqm2.eval_model(cur_Robs,Xmat,cur_xv_inds);
 
     %%
-    cur_gam = 1.5;
+    cur_gam = 1;
     optim_params.MaxIter = 500;
     optim_params.optTol = 1e-4;
     optim_params.progTol = 1e-8;
@@ -585,6 +585,7 @@ if ~isempty(cc_uinds)
     %%
     grm2 = grm2.fit_NLparams(cur_Robs,Xmat,cur_tr_inds,'optim_params',optim_params);
     grm2 = grm2.fit_filters(cur_Robs,Xmat,cur_tr_inds,'fit_offsets',1,'optim_params',optim_params);
+%     grm2 = grm2.fit_weights(cur_Robs,Xmat,cur_tr_inds,'optim_params',optim_params);
 
     %%
     optim_params.MaxIter = 1000;
