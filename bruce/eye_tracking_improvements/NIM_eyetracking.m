@@ -1,9 +1,9 @@
 clear all
-addpath('~/James_scripts/NIMclass/')
+addpath('~/NIMclass/')
 
-Expt_name = 'M012';
-monk_name = 'jbe';
-bar_ori = 0; %bar orientation to use (only for UA recs)
+Expt_name = 'M296';
+monk_name = 'lem';
+bar_ori = 45; %bar orientation to use (only for UA recs)
 rec_number = 1;
 
 use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
@@ -67,6 +67,7 @@ if rec_number > 1
     ET_results_name = strcat(ET_results_name,sprintf('r%d',rec_number));
 end
 
+params.use_coils = [0 0];
 %%
 min_trial_dur = 0.75; %minimal trial dur (s)
 %exclude data at beginning and end of each trial (numbers in sec)
@@ -74,9 +75,16 @@ beg_buffer = 0.2;
 end_buffer = 0.05;
 trial_dur = 4;
 
+if ~isempty(params.rpt_seeds)
+    has_rpts = true;
+else
+    has_rpts = false;
+end
+
 stim_fs = 100; %in Hz
 dt = 0.01; %in sec
 Fr = 1;
+flen = 12; %number of stimulus time lags to use
 
 %number of spatial pixels to use for models
 if strcmp(rec_type,'LP')
@@ -103,28 +111,7 @@ if use_nPix > full_nPix
     fprintf('Using npix == full_nPix\n');
     use_nPix = full_nPix;
 end
-full_nPix = full_nPix; 
-use_nPix = use_nPix;
-
-%for bar widths bigger than this do additional spatial upsampling (using
-%interpolation, no filter up-sampling)
-if mode(expt_data.expt_dw)/params.scale_fac > 1.5*.0565
-    add_usfac = 2;
-else
-    add_usfac = 1;
-end
-if ~isempty(params.rpt_seeds)
-    has_rpts = true;
-else
-    has_rpts = false;
-end
-
-base_spatial_usfac = 2; %baseline spatial up-sampling (up-sampling of filters)
-spatial_usfac = add_usfac*base_spatial_usfac; %total spatial up-sampling
-full_nPix_us = spatial_usfac*full_nPix;
-use_nPix_us = use_nPix*spatial_usfac;
-flen = 12; %number of stimulus time lags to use
-klen_us = use_nPix_us*flen;
+% modfit_usfac = 2; %spatial up-sampling for modeling stimulus filters
 
 %%
 %model-fiting parameters
@@ -141,17 +128,13 @@ sac_forlag = round(0.3/dt);
 sac_lag_set = -sac_backlag:sac_forlag;
 n_sac_lags = length(sac_lag_set);
 
-base_sp_dx = mode(expt_data.expt_dw); %size of bars in pixels
-if length(unique(expt_data.expt_dw)) > 1
-    fprintf('Warning, multiple different dws detected, using %.3f\n',base_sp_dx);
-end
-sp_dx = base_sp_dx/spatial_usfac/params.scale_fac; %model dx in deg
-
 %%
+HMM_params.desired_fix_res = 0.025; %resolution of fixation inference grid
+HMM_params.desired_drift_res = 0.025/3; %resolution of drift inference grid
 HMM_params.max_fix_shift = 0.85; %maximum shift to consider when estimating fixation-corrections (in deg)
-HMM_params.max_drift_shift = 0.45; %max shift for drift corrections (in deg)
+HMM_params.max_drift_shift = 0.3; %max shift for drift corrections (in deg)
 HMM_params.neural_delay = 0.05; %how much to shift jump points forward in time
-HMM_params.n_fix_iter = 3; %3 number of iterations to estimate fixation-based EP
+HMM_params.n_fix_iter = 2; %3 number of iterations to estimate fixation-based EP
 HMM_params.n_drift_iter = 1; %1 number of iterations to estimate within-fixation drift
 % set priors on EP (all values in deg)
 HMM_params.fix_prior_sigma = 0.15; %prior sigma on fixation-based EP
@@ -167,20 +150,29 @@ elseif any(params.use_coils) %if just using one coil
     HMM_params.drift_noise_sigma = sqrt(0.004^2*2);
 end
 HMM_params.drift_jump_sigma = 0.075; %gaussian prior sigma on change in EP between fixations during drift-corrections
-HMM_params.drift_dsf = 3; %temporal down-sampling for estimating drift
+HMM_params.drift_dsf = 1; %temporal down-sampling for estimating drift
 
 %%
 all_stim_mat = decompressTernNoise(stimComp);
 
 %% get stim-matrix for initial model estimation
-if spatial_usfac > 1
+bar_width = mode(expt_data.expt_dw)/params.scale_fac; %size of bars in pixels
+fix_stim_usfac = round(bar_width/HMM_params.desired_fix_res); %initial stimulus up-sampling for fixation inference
+stim_dx = bar_width/fix_stim_usfac; %model dx in deg
+modfit_usfac = fix_stim_usfac;
+mod_TB_ds = fix_stim_usfac/modfit_usfac; %tent-basis down-samling of model filters
+
+full_nPix_us = fix_stim_usfac*full_nPix; %initial up-sampled nPix
+use_nPix_us = use_nPix*fix_stim_usfac; %initial number of up-sampled used pixels
+
+if fix_stim_usfac > 1
     all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
     for ii = 1:size(all_stim_mat,2)
-        for jj = 1:spatial_usfac
-            all_stimmat_up(:,spatial_usfac*(ii-1)+jj) = all_stim_mat(:,ii);
+        for jj = 1:fix_stim_usfac
+            all_stimmat_up(:,fix_stim_usfac*(ii-1)+jj) = all_stim_mat(:,ii);
         end
     end
-elseif spatial_usfac == 1
+elseif fix_stim_usfac == 1
     all_stimmat_up = all_stim_mat;
 end
 stim_params = NIM.create_stim_params([flen full_nPix_us],'stim_dt',dt);
@@ -290,12 +282,12 @@ init_eyepos = zeros(NT,1);
 all_stimmat_shift = all_stimmat_up;
 if MP.init_jitter_SD > 0
     init_eyepos(used_inds(~isnan(fix_ids))) = rand_fixpos(fix_ids(~isnan(fix_ids)));
-    max_sim_pos = full_nPix*sp_dx/2;%maximum initial corrections (deg)
+    max_sim_pos = full_nPix*stim_dx/2;%maximum initial corrections (deg)
     init_eyepos(init_eyepos > max_sim_pos) = max_sim_pos; 
     init_eyepos(init_eyepos < - max_sim_pos) = -max_sim_pos;
     
     %incorporate initial eye position
-    init_eyepos_rnd = round(init_eyepos/sp_dx); %in pixels
+    init_eyepos_rnd = round(init_eyepos/stim_dx); %in pixels
     for ii = 1:NT
         all_stimmat_shift(used_inds(ii),:) = shift_matrix_Nd(all_stimmat_up(used_inds(ii),:),-init_eyepos_rnd(used_inds(ii)),2);
     end
@@ -361,14 +353,14 @@ else
 end
 
 %% create X matrices
-if add_usfac > 1
+if mod_TB_ds > 1
     %if doing additional spatial up-sampling use tent basis functions
-    X{1} = tb_proc_stim(all_Xmat(used_inds,use_kInds),add_usfac,flen);
+    X{1} = tb_proc_stim(all_Xmat(used_inds,use_kInds),mod_TB_ds,flen);
 else
     X{1} = all_Xmat(used_inds,use_kInds);
 end
-mod_stim_params(1) = NIM.create_stim_params([flen use_nPix_us/add_usfac],...
-    'stim_dt',dt,'stim_dx',sp_dx*add_usfac);
+mod_stim_params(1) = NIM.create_stim_params([flen use_nPix_us/mod_TB_ds],...
+    'stim_dt',dt,'stim_dx',stim_dx*mod_TB_ds);
 if MP.model_pop_avg
     X{2} = [Xblock pop_rate]; %if using a pop-rate predictor, add it to the block-index predictors
 else
@@ -399,7 +391,7 @@ end
 
 %stimulus subunits
 MP.n_Esquared_filts = 2; %number of excitatory squared filters
-MP.n_Isquared_filts = 0; %number of inhibitory squared filters
+MP.n_Isquared_filts = 2; %number of inhibitory squared filters
 mod_signs = [1 ones(1,MP.n_Esquared_filts) -1*ones(1,MP.n_Isquared_filts)];
 NL_types = [{'lin'} repmat({'quad'},1,MP.n_Esquared_filts+MP.n_Isquared_filts)]; %NL types for full model
 Xtargs = ones(1, MP.n_Esquared_filts + MP.n_Isquared_filts + 1);
@@ -418,89 +410,90 @@ init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT);
 % MP.poss_lambda_scales = logspace(-2,2,10);
 MP.poss_lambda_scales = 1;
 
-if ~exist(['./' init_mods_name '.mat'],'file') || MP.recompute_init_mods == 1
-all_mod_SU = zeros(tot_nUnits,1);
-all_mod_SUnum = zeros(tot_nUnits,1);
-[all_mod_xvLLimp,all_mod_LLimp,null_LL,null_xvLL] = deal(nan(tot_nUnits,1));
-for ss = 1:tot_nUnits
-    fprintf('Computing base LLs for Unit %d of %d\n',ss,tot_nUnits);
-    cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss))); %set of indices where this unit was isolated
-    cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
-    all_modfit_inds = union(cur_tr_inds,cur_xv_inds);
-    tr_NT = length(cur_tr_inds);
-    xv_NT = length(cur_xv_inds);
-    
-    if ss > n_probes && ss <= length(su_probes) + n_probes
-        all_mod_SU(ss) = su_probes(ss-n_probes);
-        all_mod_SUnum(ss) = SU_numbers(ss-n_probes);
+init_mods_data_loc = strcat(anal_dir,init_mods_name);
+if ~exist([init_mods_data_loc '.mat'],'file') || MP.recompute_init_mods == 1
+    all_mod_SU = zeros(tot_nUnits,1);
+    all_mod_SUnum = zeros(tot_nUnits,1);
+    [all_mod_xvLLimp,all_mod_LLimp,null_LL,null_xvLL] = deal(nan(tot_nUnits,1));
+    for ss = 1:tot_nUnits
+        fprintf('Computing initial model for Unit %d of %d\n',ss,tot_nUnits);
+        cur_tr_inds = tr_inds(~isnan(Robs_mat(tr_inds,ss))); %set of indices where this unit was isolated
+        cur_xv_inds = xv_inds(~isnan(Robs_mat(xv_inds,ss)));
+        all_modfit_inds = union(cur_tr_inds,cur_xv_inds);
+        tr_NT = length(cur_tr_inds);
+        xv_NT = length(cur_xv_inds);
+        
+        if ss > n_probes && ss <= length(su_probes) + n_probes
+            all_mod_SU(ss) = su_probes(ss-n_probes);
+            all_mod_SUnum(ss) = SU_numbers(ss-n_probes);
+        end
+        if ~isempty(cur_tr_inds)
+            Robs = Robs_mat(:,ss);
+            
+            %estimate null model
+            if MP.use_sac_kerns
+                null_mod = NIM(mod_stim_params,repmat({'lin'},1,2),[1 1],'Xtargets',[2 3],...
+                    'd2t',[0 MP.sac_d2t_lambda],'l2',[MP.block_L2_lambda 0]);
+            else
+                null_mod = NIM(mod_stim_params,'lin',1,'Xtargets',2); %otherwise null model just has block predictors
+            end
+            null_mod = null_mod.fit_filters(Robs,X,cur_tr_inds,'silent',silent);
+            null_xvLL(ss) = null_mod.eval_model(Robs,X,cur_xv_inds);
+            
+            %% estimate initial models and adjust base reg strength
+            init_gqm = NIM(mod_stim_params,NL_types,mod_signs,'Xtargets',Xtargs,...
+                'd2xt',MP.init_lambda_d2XT*(Xtargs==1),'l2',MP.block_L2_lambda*(Xtargs == 2));
+            init_gqm = init_gqm.fit_filters(Robs,X,all_modfit_inds,'silent',silent);
+            
+            %adjust regularization stregnths of each stimulus filter relative to the scale of filter outputs
+            [~,~,mod_internals] = init_gqm.eval_model(Robs,X,all_modfit_inds);
+            new_lambda_d2xt = MP.base_lambda_d2XT./var(mod_internals.gint(:,Xtargs == 1));
+            new_lambda_l1 = MP.base_lambda_L1./std(mod_internals.gint(:,Xtargs == 1));
+            init_gqm = init_gqm.set_reg_params('sub_inds',find(Xtargs == 1),'d2xt',new_lambda_d2xt,'l1',new_lambda_l1);
+            
+            %% scan a range of smoothness regularization strengths and pick the best using xval
+            cur_lambda_d2XT = init_gqm.get_reg_lambdas('sub_inds',find(Xtargs == 1),'d2xt');
+            new_gqm = init_gqm;
+            new_gqm_xvLL = nan(length(MP.poss_lambda_scales),1);
+            clear all_gqms
+            for ll = 1:length(MP.poss_lambda_scales) %loop over possible range of smoothness lambdas
+                fprintf('%d ',ll);
+                new_lambda_d2XT = cur_lambda_d2XT*MP.poss_lambda_scales(ll);
+                new_gqm = new_gqm.set_reg_params('sub_inds',find(Xtargs == 1),'d2xt',new_lambda_d2XT);
+                new_gqm = new_gqm.fit_filters(Robs,X,cur_tr_inds,'silent',silent);
+                new_gqm_xvLL(ll) = new_gqm.eval_model(Robs,X,cur_xv_inds);
+                all_gqms(ll) = new_gqm;
+            end
+            [best_xvLL,best_scale] = max(new_gqm_xvLL);
+            fprintf('. Best at %d\n',best_scale);
+            new_gqm = all_gqms(best_scale);
+            up_gqm = new_gqm;
+            
+            %% add saccade kernels and fit the model
+            if MP.use_sac_kerns
+                up_gqm = up_gqm.add_subunits('lin',[1],'xtargs',[3],'d2t',MP.sac_d2t_lambda);
+                up_gqm = up_gqm.fit_filters(Robs,X,cur_tr_inds,'silent',silent);
+            end
+            xvLL = up_gqm.eval_model(Robs,X,cur_xv_inds);
+            all_mod_xvLLimp(ss) = (xvLL - null_xvLL(ss))/log(2);
+            
+            %% refit models using all data
+            up_gqm = up_gqm.fit_filters(Robs,X,all_modfit_inds,'silent',silent);
+            null_mod = null_mod.fit_filters(Robs,X,all_modfit_inds,'silent',silent);
+            
+            %% store results
+            all_nullmod(ss) = null_mod;
+            all_mod_fits(ss) = up_gqm.fit_spkNL(Robs,X,all_modfit_inds,'silent',silent); %fit spkNL params
+            null_LL(ss) = null_mod.eval_model(Robs,X,all_modfit_inds);
+            LL = all_mod_fits(ss).eval_model(Robs,X,all_modfit_inds);
+            all_mod_LLimp(ss) = (LL - null_LL(ss))/log(2); %LL improvement in bits per spike
+            all_mod_fits(ss).fit_props.null_LL = null_LL(ss); %set the null using the complete null model
+        end
     end
-    if ~isempty(cur_tr_inds)
-        Robs = Robs_mat(:,ss);
-        
-        %estimate null model
-        if MP.use_sac_kerns
-            null_mod = NIM(mod_stim_params,repmat({'lin'},1,2),[1 1],'Xtargets',[2 3],...
-                'd2t',[0 MP.sac_d2t_lambda],'l2',[MP.block_L2_lambda 0]);
-        else
-            null_mod = NIM(mod_stim_params,'lin',1,'Xtargets',2); %otherwise null model just has block predictors
-        end
-        null_mod = null_mod.fit_filters(Robs,X,cur_tr_inds,'silent',silent);
-        null_xvLL(ss) = null_mod.eval_model(Robs,X,cur_xv_inds);
-        
-        %% estimate initial models and adjust base reg strength
-        init_gqm = NIM(mod_stim_params,NL_types,mod_signs,'Xtargets',Xtargs,...
-            'd2xt',MP.init_lambda_d2XT*(Xtargs==1),'l2',MP.block_L2_lambda*(Xtargs == 2));
-        init_gqm = init_gqm.fit_filters(Robs,X,all_modfit_inds,'silent',silent);
-        
-        %adjust regularization stregnths of each stimulus filter relative to the scale of filter outputs
-        [~,~,mod_internals] = init_gqm.eval_model(Robs,X,all_modfit_inds);
-        new_lambda_d2xt = MP.base_lambda_d2XT./var(mod_internals.gint(:,Xtargs == 1));
-        new_lambda_l1 = MP.base_lambda_L1./std(mod_internals.gint(:,Xtargs == 1));
-        init_gqm = init_gqm.set_reg_params('sub_inds',find(Xtargs == 1),'d2xt',new_lambda_d2xt,'l1',new_lambda_l1);
-        
-        %% scan a range of smoothness regularization strengths and pick the best using xval
-        cur_lambda_d2XT = init_gqm.get_reg_lambdas('sub_inds',find(Xtargs == 1),'d2xt');
-        new_gqm = init_gqm;
-        new_gqm_xvLL = nan(length(MP.poss_lambda_scales),1);
-        clear all_gqms
-        for ll = 1:length(MP.poss_lambda_scales) %loop over possible range of smoothness lambdas
-            fprintf('%d ',ll);
-            new_lambda_d2XT = cur_lambda_d2XT*MP.poss_lambda_scales(ll);
-            new_gqm = new_gqm.set_reg_params('sub_inds',find(Xtargs == 1),'d2xt',new_lambda_d2XT);
-            new_gqm = new_gqm.fit_filters(Robs,X,cur_tr_inds,'silent',silent);
-            new_gqm_xvLL(ll) = new_gqm.eval_model(Robs,X,cur_xv_inds);
-            all_gqms(ll) = new_gqm;
-        end
-        [best_xvLL,best_scale] = max(new_gqm_xvLL);
-        fprintf('. Best at %d\n',best_scale);
-        new_gqm = all_gqms(best_scale);
-        up_gqm = new_gqm;
-        
-        %% add saccade kernels and fit the model
-        if MP.use_sac_kerns
-            up_gqm = up_gqm.add_subunits('lin',[1],'xtargs',[3],'d2t',MP.sac_d2t_lambda);
-            up_gqm = up_gqm.fit_filters(Robs,X,cur_tr_inds,'silent',silent);
-        end
-        xvLL = up_gqm.eval_model(Robs,X,cur_xv_inds);
-        all_mod_xvLLimp(ss) = (xvLL - null_xvLL(ss))/log(2);
-        
-        %% refit models using all data
-        up_gqm = up_gqm.fit_filters(Robs,X,all_modfit_inds,'silent',silent);
-        null_mod = null_mod.fit_filters(Robs,X,all_modfit_inds,'silent',silent);
-        
-        %% store results
-        all_nullmod(ss) = null_mod;
-        all_mod_fits(ss) = up_gqm.fit_spkNL(Robs,X,all_modfit_inds,'silent',silent); %fit spkNL params
-        null_LL(ss) = null_mod.eval_model(Robs,X,all_modfit_inds);
-        LL = all_mod_fits(ss).eval_model(Robs,X,all_modfit_inds);
-        all_mod_LLimp(ss) = (LL - null_LL(ss))/log(2); %LL improvement in bits per spike
-        all_mod_fits(ss).fit_props.null_LL = null_LL(ss); %set the null using the complete null model
-    end
-end
-    save(init_mods_name,'all_mod_*','all_nullmod','Clust_data','null_*LL','*_trials','rand_fixpos','MP');
+    save(init_mods_data_loc,'all_mod_*','all_nullmod','Clust_data','null_*LL','*_trials','rand_fixpos','MP');
 else
     fprintf('Loading pre-computed initial models\n');
-    load(init_mods_name);
+    load(init_mods_data_loc);
 end
 
 %%
@@ -538,7 +531,7 @@ end
 full_prates = nan(NT,n_tr_chs);
 full_nullrates = nan(NT,n_tr_chs);
 for cc = 1:n_tr_chs
-    [~,full_prates(:,cc)] = all_mod_fits_withspkNL(tr_units(cc)).eval_model(Robs_mat(:,cc),X);
+    [~,full_prates(:,cc)] = all_mod_fits(tr_units(cc)).eval_model(Robs_mat(:,cc),X);
     [~,full_nullrates(:,cc)] = all_nullmod(tr_units(cc)).eval_model(Robs_mat(:,cc),X);
 end
 full_modLL = Robs_mat.*log(full_prates) - full_prates;
@@ -623,9 +616,9 @@ end
 ET_meas = struct('fix_deltas',measured_fix_deltas,'drift',measured_drift,'n_used_coils',n_coil_samps);
 
 %% package data structure to pass into the EM algo
-gen_data = struct('stim_dx',sp_dx,'add_usfac',add_usfac,'trial_boundaries',trial_boundaries,...
+gen_data = struct('bar_width',bar_width,'stim_dx',stim_dx,'trial_boundaries',trial_boundaries,...
     'fix_boundaries',fix_boundaries,'used_inds',used_inds,'stim_params',stim_params,'dt',dt,...
-    'use_kInds',use_kInds,'fix_post_break',fix_post_break,'modfit_inds',all_modfit_inds);
+    'use_kInds',use_kInds,'fix_post_break',fix_post_break,'modfit_inds',all_modfit_inds,'modfit_usfac',modfit_usfac);
 
 %% run EM algo using all units to infer EP
 [EP_pos,mod_fits] = eyetracking_EM(...
@@ -640,25 +633,25 @@ drift_post_std = squeeze(EP_pos.drift_std(end,:));
     drift_post_mean,drift_post_std,fix_ids,trial_start_inds,trial_end_inds,round(HMM_params.neural_delay/dt));
 
 %% Run the algo on all sets of units (one different set for each unit we want to compute LOO estimates for)
-if use_LOOXV %if doing LOO on each SU
-    loo_set = find(all_mod_SU(tr_units) > 0); %subset of tr_units that are SUs
-else
-    loo_set = [];
-end
-for xv = 1:length(loo_set)
-    fprintf('Running ET EM on xv set %d of %d\n',xv,length(loo_set));
-    use_set = setdiff(1:length(tr_units),loo_set(xv));
-    [EP_pos_xv{xv},mod_fits_xv{xv}] = eyetracking_EM(...
-        all_mod_fits(tr_units),Robs_mat(:,tr_units),all_stimmat_up,X(2:end),...
-        use_set,HMM_params,ET_meas,gen_data);
-    fix_post_mean = squeeze(EP_pos_xv{xv}.fix_mean(end,:));
-    fix_post_std = squeeze(EP_pos_xv{xv}.fix_std(end,:));
-    drift_post_mean = squeeze(EP_pos_xv{xv}.drift_mean(end,:));
-    drift_post_std = squeeze(EP_pos_xv{xv}.drift_std(end,:));
-    [fin_tot_corr_xv(xv,:),fin_tot_std_xv(xv,:)] = construct_eye_position(fix_post_mean,fix_post_std,...
-        drift_post_mean,drift_post_std,fix_ids,trial_start_inds,trial_end_inds,round(HMM_params.neural_delay/dt));
-    
-end
-
-
+% if use_LOOXV %if doing LOO on each SU
+%     loo_set = find(all_mod_SU(tr_units) > 0); %subset of tr_units that are SUs
+% else
+%     loo_set = [];
+% end
+% for xv = 1:length(loo_set)
+%     fprintf('Running ET EM on xv set %d of %d\n',xv,length(loo_set));
+%     use_set = setdiff(1:length(tr_units),loo_set(xv));
+%     [EP_pos_xv{xv},mod_fits_xv{xv}] = eyetracking_EM(...
+%         all_mod_fits(tr_units),Robs_mat(:,tr_units),all_stimmat_up,X(2:end),...
+%         use_set,HMM_params,ET_meas,gen_data);
+%     fix_post_mean = squeeze(EP_pos_xv{xv}.fix_mean(end,:));
+%     fix_post_std = squeeze(EP_pos_xv{xv}.fix_std(end,:));
+%     drift_post_mean = squeeze(EP_pos_xv{xv}.drift_mean(end,:));
+%     drift_post_std = squeeze(EP_pos_xv{xv}.drift_std(end,:));
+%     [fin_tot_corr_xv(xv,:),fin_tot_std_xv(xv,:)] = construct_eye_position(fix_post_mean,fix_post_std,...
+%         drift_post_mean,drift_post_std,fix_ids,trial_start_inds,trial_end_inds,round(HMM_params.neural_delay/dt));
+%     
+% end
+% 
+% 
 

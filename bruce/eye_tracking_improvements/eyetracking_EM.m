@@ -1,5 +1,5 @@
-function [EP_post,mod_fits] = eyetracking_EM(...
-    init_mods,Robs_mat,stim_mat,nonstim_X,tr_units,HMM_params,ET_meas,gen_data)
+% function [EP_post,mod_fits] = eyetracking_EM(...
+%     init_mods,Robs_mat,stim_mat,nonstim_X,tr_units,HMM_params,ET_meas,gen_data)
 % [EP_pos,mod_fits] = eyetracking_EM(init_mods,Robs_mat,stim_mat,nonstim_X,tr_units,HMM_params,ET_meas,gen_data)
 % Runs HMM-based EM algorithm iteratively on neural data to infer eye position.
 % INPUTS:   
@@ -53,25 +53,25 @@ function [EP_post,mod_fits] = eyetracking_EM(...
 %             mod_fits.drift_iters: same for drift-iterations
 
 %unpack some useful variables from structs
-add_usfac = gen_data.add_usfac;
-%assuming all models have the same structure!
-mod_stim_params = init_mods(1).stim_params;
-drift_dsf = HMM_params.drift_dsf;
+mod_stim_params = init_mods(1).stim_params;%assuming all models have the same structure!
 stim_dx = gen_data.stim_dx;
 neural_delay = (HMM_params.neural_delay/gen_data.dt); %in units of time bins
 
 n_tr_units = length(tr_units); %number of units used to infer eye-pos
 [NT,n_units] = size(Robs_mat);
-nPix = size(stim_mat,2); %total number of spatial pixels in the stimulus
+stim_nPix = size(stim_mat,2); %total number of spatial pixels in the stimulus
 n_add_covariates = length(nonstim_X); %number of additional "Xmats" (beyond the visual stim)
 n_trials = length(gen_data.trial_boundaries);
 use_coils = ET_meas.n_used_coils > 0;
 
-stim_klen = prod(mod_stim_params(1).dims); %number of coefs in stimulus filters. visual stimulus must be the first Xtarg
+filt_klen = prod(mod_stim_params(1).dims); %number of coefs in stimulus filters. visual stimulus must be the first Xtarg
 flen = mod_stim_params(1).dims(1); %number of time lags
+mod_nPix = mod_stim_params(1).dims(2); %number of spatial positions in model filters
 Xtargs = [init_mods(1).subunits(:).Xtarg]; %vector of Xtargets for model subunits (all models must have same structure)
-stim_mod_signs = [init_mods(1).subunits(find(Xtargs == 1)).weight]; %subunit weightss
-stim_NL_types = init_mods(1).get_NLtypes(find(Xtargs == 1)); %subunit NL types
+stim_mod_inds = find(Xtargs == 1); %set of stimulus-targeting subunits
+stim_mod_signs = [init_mods(1).subunits(stim_mod_inds).weight]; %subunit weights
+stim_NL_types = init_mods(1).get_NLtypes(stim_mod_inds); %subunit NL types
+unique_NL_types = unique(stim_NL_types(~strcmp(stim_NL_types,'lin')));
 n_stim_subs = sum(Xtargs == 1); %number of stimulus-targeting subunits
 assert(strcmp(init_mods(1).spkNL.type,'softplus'),'only works with softplus spkNL at this point');
 
@@ -103,30 +103,29 @@ end
 
 %% generate shift matrices. Must be applied to the stimulus (not the filters)
 %shifts for inferring fixation corrections
+fix_usfac = round(gen_data.bar_width/HMM_params.desired_fix_res);
+assert(gen_data.bar_width/fix_usfac == stim_dx,'stimulus not initialized at desired spatial resolution');
 max_fix_shift_pix = round(HMM_params.max_fix_shift/stim_dx); %max eye pos deviation (deg)
 fix_shifts = -max_fix_shift_pix:max_fix_shift_pix; %shift-range
 n_fix_shifts = length(fix_shifts); %number of shifts
 
-%shifts for inferring drift
-max_drift_shift_pix = round(HMM_params.max_drift_shift/stim_dx);
-drift_shifts = -max_drift_shift_pix:max_drift_shift_pix;
-n_drift_shifts = length(drift_shifts);
+mod_TB_ds = fix_usfac/gen_data.modfit_usfac; %tent-basis down-samling of model filters
+assert(mod_TB_ds == round(mod_TB_ds) && mod_TB_ds >= 1,'fixation up-sampling must be integer multiple of model up-sampling');
 
-It = speye(flen); 
-
-fix_shift_mats = cell(n_fix_shifts,1);
-for xx = 1:n_fix_shifts
-    temp = spdiags( ones(nPix,1), -fix_shifts(xx),nPix,nPix);
-    temp = kron(temp,It);
-    fix_shift_mats{xx} = temp(:,gen_data.use_kInds);
+if mod_TB_ds == 1 %we'll use this method if were not doing TB up-sampling of the models
+    It = speye(flen);
+    fix_shift_mats = cell(n_fix_shifts,1);
+    for xx = 1:n_fix_shifts
+        temp = spdiags( ones(stim_nPix,1), -fix_shifts(xx),stim_nPix,stim_nPix);
+        temp = kron(temp,It);
+        fix_shift_mats{xx} = temp(:,gen_data.use_kInds);
+    end
 end
 
-drift_shift_mats = cell(n_drift_shifts,1);
-for xx = 1:n_drift_shifts
-    temp = spdiags( ones(nPix,1), -drift_shifts(xx), nPix, nPix);
-    temp = kron(temp,It);
-    drift_shift_mats{xx} = temp(:,gen_data.use_kInds);
-end
+fix_use_nPix = length(gen_data.use_kInds)/flen;
+[Xinds,~] = meshgrid(1:stim_nPix,1:flen); %Xindex associated with each filter element
+buffer_pix = floor((stim_nPix - fix_use_nPix)/2); %number of pixels to ignore at beginning of stim (half the excess pixels)
+use_pix_set = (1:fix_use_nPix) + buffer_pix; %set of pixels we want to use
 
 %% precompute HMM priors
 %define updated posteriors (incorporating measured coil data)
@@ -141,19 +140,11 @@ end
 fix_Lprior = -(fix_shifts*stim_dx).^2./(2*HMM_params.fix_prior_sigma^2); %log-prior on within-fixation eye-pos
 fix_Lprior = fix_Lprior - logsumexp(fix_Lprior); %normalize
 
-%log prior dist on drift-corrections
-drift_jump_Lprior = -(drift_shifts*stim_dx).^2./(2*HMM_params.drift_jump_sigma^2); %log-prior on initial position (after a jump) during drift-inference
-drift_jump_Lprior = drift_jump_Lprior - logsumexp(drift_jump_Lprior);
-
-%log prior matrix for drift (not including coil-signals)
-cdist = squareform(pdist(drift_shifts'*stim_dx));
-base_LA = -cdist.^2/(2*(HMM_params.drift_prior_sigma*drift_dsf)^2); %baseline log-prior matrix on drift position changes
-base_LA = bsxfun(@minus,base_LA,logsumexp(base_LA,2)); %normalize
-
 %% construct initial stimulus Xmat
-base_Xmat = NIM.create_time_embedding(stim_mat,gen_data.stim_params);
-base_Xmat = base_Xmat(gen_data.used_inds,:);
-
+if mod_TB_ds == 1
+    base_Xmat = NIM.create_time_embedding(stim_mat,gen_data.stim_params);
+    base_Xmat = base_Xmat(gen_data.used_inds,:);
+end
 %% ITERATE FIXATION-BASED CORRECTIONS
 
 fix_it_mods{1} = init_mods;
@@ -168,7 +159,7 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
     fprintf('Inferring fixation corrections, iter %d of %d\n',nn,HMM_params.n_fix_iter);
     
     %% PREPROCESS MODEL COMPONENTS
-    filt_bank = zeros(stim_klen/add_usfac,sum(Xtargs==1),n_tr_units); %compile all stimulus filters
+    filt_bank = zeros(filt_klen,n_stim_subs,n_tr_units); %compile all stimulus filters
     lin_kerns = cell(n_add_covariates,1);
     for ii = 1:n_add_covariates %compile linear filters for all additional model covariates
         n_preds = prod(mod_stim_params(ii+1).dims);
@@ -176,7 +167,7 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
     end
     mod_spkNL_params = nan(3,n_tr_units); %assuming softplus spkNL (with three params including offset)
     for ss = 1:n_tr_units
-        filt_bank(:,:,ss) = cell2mat(fix_it_mods{nn}(tr_units(ss)).get_filtKs(find(Xtargs == 1))');
+        filt_bank(:,:,ss) = cell2mat(fix_it_mods{nn}(tr_units(ss)).get_filtKs(stim_mod_inds)');
         mod_spkNL_params(:,ss) = [fix_it_mods{nn}(tr_units(ss)).spkNL.params fix_it_mods{nn}(tr_units(ss)).spkNL.theta];
         for ii = 1:n_add_covariates
            lin_kerns{ii}(:,ss) = cell2mat(fix_it_mods{nn}(tr_units(ss)).get_filtKs(find(Xtargs == ii + 1))); 
@@ -186,7 +177,7 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
     for ii = 1:n_add_covariates %precompute output of additional linear terms
         lin_pred_out = lin_pred_out + nonstim_X{ii}*lin_kerns{ii};
     end
-    
+        
     %% ESTIMATE LL for each shift in each stimulus frame
     %precompute LL at all shifts summed over units
     frame_LLs = nan(NT,n_fix_shifts);
@@ -196,16 +187,20 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
         fprintf([reverseStr msg]);
         reverseStr = repmat(sprintf('\b'),1,length(msg));
         
-        cur_stim_shift = base_Xmat*fix_shift_mats{xx}; %shift stimulus matrix
-        
-        %process stimulus with spatial tent-basis if doing additional up-sampling
-        if add_usfac > 1
-            cur_stim_shift = tb_proc_stim(cur_stim_shift,add_usfac,flen);
+        if mod_TB_ds > 1 %if were doing TB up-sampling, compute shifted Xmat this way (it's slower, but less mem-intensive)
+            cur_stim_shift = shift_matrix_Nd(stim_mat,-fix_shifts(xx),2); %shift fixation-corrected stimulus by desired number of pixels
+            cur_stim_shift = cur_stim_shift(:,use_pix_set); %take only set of pixels within RF-model range
+            cur_stim_shift = tb_proc_stim(cur_stim_shift,mod_TB_ds,1);
+            cur_stim_shift = NIM.create_time_embedding(cur_stim_shift,mod_stim_params(1));
+            cur_stim_shift = cur_stim_shift(gen_data.used_inds,:);
+        else
+            cur_stim_shift = base_Xmat*fix_shift_mats{xx}; %shift stimulus matrix
         end
         
         %outputs of stimulus models at current X-matrix shift
         gfuns = ones(NT,n_tr_units);
         gfuns = bsxfun(@times,gfuns,mod_spkNL_params(3,:)); %add in constant offset terms
+                
         for ff = 1:n_stim_subs %add in contribution from all stimulus filters
             cur_filt_outs = cur_stim_shift*squeeze(filt_bank(:,ff,:));
             if ~strcmp(stim_NL_types{ff},'lin')
@@ -297,12 +292,12 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
     for ii=1:NT %apply inferred fixation corrections
         shift_stim_mat(gen_data.used_inds(ii),:) = shift_matrix_Nd(stim_mat(gen_data.used_inds(ii),:),-cur_fix_shifts(ii),2);
     end
-    all_Xmat = NIM.create_time_embedding(shift_stim_mat,gen_data.stim_params);
-    if add_usfac %project onto spatial TBs if needed
-        X{1} = tb_proc_stim(all_Xmat(gen_data.used_inds,gen_data.use_kInds),add_usfac,flen);
-    else
-        X{1} = all_Xmat(gen_data.used_inds,gen_data.use_kInds);
+    shift_stim_mat = shift_stim_mat(:,use_pix_set);
+    if mod_TB_ds > 1 %compute output of spatial TBs on shifted stim matrix
+       shift_stim_mat = tb_proc_stim(shift_stim_mat,mod_TB_ds,1); 
     end
+    X{1} = NIM.create_time_embedding(shift_stim_mat,mod_stim_params(1)); %make time-embedded Xmat
+    X{1} = X{1}(gen_data.used_inds,:); %used time indices
     X(2:1+n_add_covariates) = nonstim_X;
     
     %% REFIT ALL CELLS
@@ -312,7 +307,7 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
         
         fix_it_mods{nn+1}(ss) = fix_it_mods{nn}(ss); %initialize model from previous iteration
         fix_it_mods{nn+1}(ss).spkNL.params = [1 1]; %set alpha and beta to their default values when fitting filters to avoid issues with regularization
-        fix_it_mods{nn+1}(ss) = fix_it_mods{nn+1}(ss).fit_filters(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent,'sub_inds',[]); %fit constant offset first to get back our original model (sans other spkNL params)
+        fix_it_mods{nn+1}(ss) = fix_it_mods{nn+1}(ss).fit_filters(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent,'fit_subs',[]); %fit constant offset first to get back our original model (sans other spkNL params)
         fix_it_mods{nn+1}(ss) = fix_it_mods{nn+1}(ss).fit_filters(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent); %fit stimulus filters
         fix_it_mods{nn+1}(ss) = fix_it_mods{nn+1}(ss).fit_spkNL(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent);  %refit spk NL
         newLL = fix_it_mods{nn+1}(ss).eval_model(Robs_mat(:,ss),X,cur_fit_inds);
@@ -326,11 +321,67 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
 end
 
 %% parse stimulus matrix with best-estimate of fixation correctoins applied
-if HMM_params.n_fix_iter == 0 %if were not doing any fixation corrections, need to create a new Xmat
-    all_Xmat = NIM.create_time_embedding(stim_mat,gen_data.stim_params); 
+HMM_params.desired_drift_res = HMM_params.desired_fix_res/3;
+drift_usfac = fix_usfac*round(HMM_params.desired_fix_res/HMM_params.desired_drift_res);
+drift_stim_nPix = stim_nPix/fix_usfac*drift_usfac;
+drift_stim_dx = stim_dx*fix_usfac/drift_usfac;
+drift_use_nPix = length(gen_data.use_kInds)/flen*drift_usfac/fix_usfac;
+drift_use_kInds = get_used_kInds([flen drift_stim_nPix],drift_use_nPix);
+
+drift_mod_TB_ds = drift_usfac/gen_data.modfit_usfac; %tent-basis down-samling of model filters
+
+if drift_usfac > fix_usfac
+    orig_stim_mat = stim_mat(:,1:fix_usfac:end);
+    stim_mat_up = zeros(size(orig_stim_mat,1),drift_stim_nPix);
+    for ii = 1:size(orig_stim_mat,2)
+        for jj = 1:drift_usfac
+            stim_mat_up(:,drift_usfac*(ii-1)+jj) = orig_stim_mat(:,ii);
+        end
+    end
+else
+    stim_mat_up = stim_mat;
 end
-all_Xmat = all_Xmat(gen_data.used_inds,:); %grab relevant time indices
-base_Xmat = all_Xmat; %this is our new 'base' Xmat
+
+cur_fix_shifts = round(fix_post_mean_cor*drift_usfac/fix_usfac); %round to new pixels
+shift_stim_mat = stim_mat_up;
+for ii=1:NT %apply inferred fixation corrections
+    shift_stim_mat(gen_data.used_inds(ii),:) = shift_matrix_Nd(stim_mat_up(gen_data.used_inds(ii),:),-cur_fix_shifts(ii),2);
+end
+
+[Xinds,~] = meshgrid(1:drift_stim_nPix,1:flen); %Xindex associated with each filter element
+buffer_pix = floor((drift_stim_nPix - drift_use_nPix)/2); %number of pixels to ignore at beginning of stim (half the excess pixels)
+use_pix_set = (1:drift_use_nPix) + buffer_pix; %set of pixels we want to use
+
+if drift_mod_TB_ds == 1
+    base_Xmat = NIM.create_time_embedding(shift_stim_mat,gen_data.stim_params);
+    base_Xmat = base_Xmat(gen_data.used_inds,:);
+end
+
+%%
+drift_dsf = HMM_params.drift_dsf;
+%shifts for inferring drift
+max_drift_shift_pix = round(HMM_params.max_drift_shift/drift_stim_dx);
+drift_shifts = -max_drift_shift_pix:max_drift_shift_pix;
+n_drift_shifts = length(drift_shifts);
+
+if drift_mod_TB_ds == 1 %we'll use this method if were not doing TB up-sampling of the models
+    It = speye(flen);
+    drift_shift_mats = cell(n_drift_shifts,1);
+    for xx = 1:n_drift_shifts
+        temp = spdiags( ones(drift_stim_nPix,1), -drift_shifts(xx),drift_stim_nPix,drift_stim_nPix);
+        temp = kron(temp,It);
+        drift_shift_mats{xx} = temp(:,drift_use_kInds);
+    end
+end
+
+%log prior dist on drift-corrections
+drift_jump_Lprior = -(drift_shifts*drift_stim_dx).^2./(2*HMM_params.drift_jump_sigma^2); %log-prior on initial position (after a jump) during drift-inference
+drift_jump_Lprior = drift_jump_Lprior - logsumexp(drift_jump_Lprior);
+
+%log prior matrix for drift (not including coil-signals)
+cdist = squareform(pdist(drift_shifts'*drift_stim_dx));
+base_LA = -cdist.^2/(2*(HMM_params.drift_prior_sigma*drift_dsf)^2); %baseline log-prior matrix on drift position changes
+base_LA = bsxfun(@minus,base_LA,logsumexp(base_LA,2)); %normalize
 
 %% now apply iteractive drift-based corrections
 drift_it_mods{1} = fix_it_mods{end}; %initialize models from last fixation iteration
@@ -344,7 +395,7 @@ for nn = 1:HMM_params.n_drift_iter
     fprintf('Inferring fixation corrections, iter %d of %d\n',nn,HMM_params.n_drift_iter);
     
     %% PREPROCESS MODEL COMPONENTS
-    filt_bank = zeros(stim_klen/add_usfac,sum(Xtargs==1),n_tr_units); %compile all stimulus filters
+    filt_bank = zeros(filt_klen,n_stim_subs,n_tr_units); %compile all stimulus filters
     lin_kerns = cell(n_add_covariates,1);
     for ii = 1:n_add_covariates
         n_preds = prod(mod_stim_params(ii+1).dims);
@@ -352,7 +403,7 @@ for nn = 1:HMM_params.n_drift_iter
     end
     mod_spkNL_params = nan(3,n_tr_units); %assuming softplus spkNL (with three params including offset)
     for ss = 1:n_tr_units
-        filt_bank(:,:,ss) = cell2mat(drift_it_mods{nn}(tr_units(ss)).get_filtKs(find(Xtargs == 1))');
+        filt_bank(:,:,ss) = cell2mat(drift_it_mods{nn}(tr_units(ss)).get_filtKs(stim_mod_inds)');
         mod_spkNL_params(:,ss) = [drift_it_mods{nn}(tr_units(ss)).spkNL.params drift_it_mods{nn}(tr_units(ss)).spkNL.theta];
         for ii = 1:n_add_covariates
            lin_kerns{ii}(:,ss) = cell2mat(drift_it_mods{nn}(tr_units(ss)).get_filtKs(find(Xtargs == ii + 1))); 
@@ -371,11 +422,17 @@ for nn = 1:HMM_params.n_drift_iter
         msg = sprintf('Calculating LLs for drift shift %d of %d\n',xx,n_drift_shifts);
         fprintf([reverseStr msg]);
         reverseStr = repmat(sprintf('\b'),1,length(msg));
-        cur_stim_shift = base_Xmat*drift_shift_mats{xx};
-        
-        %process with spatial TB if doing additional up-sampling
-        if add_usfac > 1
-            cur_stim_shift = tb_proc_stim(cur_stim_shift,add_usfac,flen);
+               
+        if drift_mod_TB_ds > 1
+            cur_shift_stim = shift_matrix_Nd(shift_stim_mat,-drift_shifts(xx),2); %shift fixation-corrected stimulus by desired number of pixels
+            cur_shift_stim = cur_shift_stim(:,use_pix_set); %take only set of pixels within RF-model range
+            if drift_mod_TB_ds > 1 %if using tent-basis spatial interpolation
+                cur_shift_stim = tb_proc_stim(cur_shift_stim,drift_mod_TB_ds,1);
+            end
+            cur_stim_shift = NIM.create_time_embedding(cur_shift_stim,mod_stim_params(1));
+            cur_stim_shift = cur_stim_shift(gen_data.used_inds,:);
+        else
+            cur_stim_shift = base_Xmat*drift_shift_mats{xx}; %shift stimulus matrix
         end
         
         %outputs of stimulus models at current X-matrix shift
@@ -505,24 +562,19 @@ for nn = 1:HMM_params.n_drift_iter
         cur_inds = gen_data.trial_boundaries(ii,1):gen_data.trial_boundaries(ii,2);
         drift_post_cor(cur_inds(1:end - neural_delay)) = drift_post_cor(cur_inds(neural_delay + 1:end));
     end
-    drift_post_cor = interp1(find(~isnan(fix_ids)),drift_post_cor(~isnan(fix_ids)),1:NT); %interpolate
+    drift_post_cor = round(interp1(find(~isnan(fix_ids)),drift_post_cor(~isnan(fix_ids)),1:NT)); %interpolate
     drift_post_cor(isnan(drift_post_cor)) = 0;
-    
-    if HMM_params.n_fix_iter == 0
-        fix_post_mean_cor = zeros(NT,1);
-    end
-    cur_fix_shifts = round(fix_post_mean_cor + drift_post_cor); %total shift to apply to raw stimulus (both fixation and drift corrections)
-    
-    shift_stim_mat = stim_mat;
+
+    cur_shift_stim = shift_stim_mat;
     for ii=1:NT %apply shifts to stimulus
-        shift_stim_mat(gen_data.used_inds(ii),:) = shift_matrix_Nd(stim_mat(gen_data.used_inds(ii),:),-cur_fix_shifts(ii),2);
+        cur_shift_stim(gen_data.used_inds(ii),:) = shift_matrix_Nd(shift_stim_mat(gen_data.used_inds(ii),:),-drift_post_cor(ii),2);
     end
-    all_Xmat = NIM.create_time_embedding(shift_stim_mat,gen_data.stim_params);
-    if add_usfac %project onto spatial TBs if needed
-        X{1} = tb_proc_stim(all_Xmat(gen_data.used_inds,gen_data.use_kInds),add_usfac,flen);
-    else
-        X{1} = all_Xmat(gen_data.used_inds,gen_data.use_kInds);
+    cur_shift_stim = cur_shift_stim(:,use_pix_set); %take set of central pixels used for RF models
+    if drift_mod_TB_ds > 1 %if using spatial TB interpolation
+        cur_shift_stim = tb_proc_stim(cur_shift_stim,drift_mod_TB_ds,1);
     end
+    X{1} = NIM.create_time_embedding(cur_shift_stim,mod_stim_params(1));
+    X{1} = X{1}(gen_data.used_inds,:);    
     X(2:1+n_add_covariates) = nonstim_X;
     
     %% REFIT ALL CELLS
@@ -532,7 +584,7 @@ for nn = 1:HMM_params.n_drift_iter
         
         drift_it_mods{nn+1}(ss) = drift_it_mods{nn}(ss);
         drift_it_mods{nn+1}(ss).spkNL.params = [1 1]; %set alpha and beta to their default values when fitting filters to avoid issues with regularization
-        drift_it_mods{nn+1}(ss) = drift_it_mods{nn+1}(ss).fit_filters(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent,'sub_inds',[]); %fit constant offset first to get back our original model (sans other spkNL params)
+        drift_it_mods{nn+1}(ss) = drift_it_mods{nn+1}(ss).fit_filters(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent,'fit_subs',[]); %fit constant offset first to get back our original model (sans other spkNL params)
         drift_it_mods{nn+1}(ss) = drift_it_mods{nn+1}(ss).fit_filters(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent); %fit stimulus filters
         drift_it_mods{nn+1}(ss) = drift_it_mods{nn+1}(ss).fit_spkNL(Robs_mat(:,ss),X,cur_fit_inds,'silent',silent);  %refit spk NL
         newLL = drift_it_mods{nn+1}(ss).eval_model(Robs_mat(:,ss),X,cur_fit_inds);
@@ -544,6 +596,11 @@ for nn = 1:HMM_params.n_drift_iter
         end
     end
 end
+
+%%
+drift_up_ratio = drift_usfac/fix_usfac;
+[fin_tot_corr,fin_tot_std] = construct_eye_position(drift_up_ratio*fix_it_post_mean(end,:),drift_up_ratio*fix_it_post_std(end,:),...
+    drift_it_post_mean(end,:),drift_it_post_std(end,:),fix_ids,trial_start_inds,trial_end_inds,round(HMM_params.neural_delay/gen_data.dt));
 
 %%
 mod_fits.fix_iters = fix_it_mods;

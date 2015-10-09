@@ -25,7 +25,7 @@ fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 % base_rname = 'rpt_variability_compact_FIN5'; % has some time bins with xc
 % base_rname = 'rpt_variability_compact_FIN_noextras'; % has some time bins with xc
 % base_rname = 'rpt_variability_compact_FIN5'; % has some time bins with xc
-base_rname = 'rpt_variability_compact_nFIN'; % has some time bins with xc
+base_rname = 'rpt_variability_compact_nFIN_noxc'; % has some time bins with xc
 base_sname = 'sim_variability_compact_nFIN'; %sim-calc data base
 % base_sname = 'sim_variability_compact_FIN2_noxc'; %newer sim-calc that has integral-based and no xc sim
 
@@ -176,7 +176,7 @@ direct_used_dts = find(ismember(poss_bin_dts,direct_bin_dts));
 %selection criteria
 min_nTrials = 25; %minimum number of repeat trials
 min_avgRate = 5; %minimum avg rate (Hz)
-min_xvLL = 0; %minimum model xval LL improvement over null
+min_xvLL = -Inf; %minimum model xval LL improvement over null
 
 SU_nTrials = arrayfun(@(x) sum(x.n_utrials),all_cell_data(:,1));
 SU_avgRates = [all_cell_data(:,1).ov_avg_BS]'/poss_bin_dts(1); %compute avg rate using first time bin res

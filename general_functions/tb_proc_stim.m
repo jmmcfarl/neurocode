@@ -16,12 +16,21 @@ end
 tent_filter = [(1:tent_space)/tent_space 1-(1:tent_space-1)/tent_space]/tent_space;
 
 nPix = size(X,2)/flen;
-X = reshape(X,size(X,1),flen,nPix);
 
-%apply to the stimulus
-new_X = zeros(size(X));
-for i = 1:length(tent_filter)
-    new_X = new_X + shift_matrix_Nd(X,i-tent_space,3)*tent_filter(i);
+if flen > 1
+    X = reshape(X,size(X,1),flen,nPix);
+    
+    %apply to the stimulus
+    new_X = zeros(size(X));
+    for i = 1:length(tent_filter)
+        new_X = new_X + shift_matrix_Nd(X,i-tent_space,3)*tent_filter(i);
+    end
+    new_X = new_X(:,:,1:tent_space:end); %no apply spatial downsampling
+    new_X = reshape(new_X,size(new_X,1),[]);
+else %if we dont have a time-embedded stimulus dont have to worry about reshaping
+    new_X = zeros(size(X));
+    for i = 1:length(tent_filter)
+        new_X = new_X + shift_matrix_Nd(X,i-tent_space,2)*tent_filter(i);
+    end
+    new_X = new_X(:,1:tent_space:end); %no apply spatial downsampling
 end
-new_X = new_X(:,:,1:tent_space:end); %no apply spatial downsampling
-new_X = reshape(new_X,size(new_X,1),[]);

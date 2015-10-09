@@ -29,13 +29,13 @@ expt_rnum = cat(1,expt_rnum,[1 1; 1 1; 1 1; 1 1; 1 2; 1 2; 1 1';1 1;1 1]);
 % batch_function = 'full_eyetracking_hres_compactData';
 % batch_function = 'fit_corrected_models_compactData';
 % batch_function = 'variability_model_compactData';
-batch_function = 'variability_rpt_anal_compact';
+% batch_function = 'variability_rpt_anal_compact';
 % batch_function = 'rpt_stimprops_sim_test';
 % batch_function = 'full_eyetracking_hres_compactData_allSULOO';
 % batch_function = 'drift_grating_simulations';
 % batch_function = 'fit_microsac_models_compactData';
 %  batch_function = 'model_based_EPvariance_calc';
-%  batch_function = 'quick_calc_expt_props';
+ batch_function = 'quick_calc_expt_props';
 
 for Elist_cnt = 1:length(Expt_list)
 %  Elist_cnt = 2
