@@ -11,7 +11,7 @@ global Expt_name bar_ori monk_name rec_type rec_number
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_nFIN';
+sname = 'rpt_variability_compact_nFIN_xconly';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
@@ -25,9 +25,12 @@ sub_trialavgs = false; EP_params.sub_trialavgs = sub_trialavgs; %subtract out tr
 do_xcorrs = true; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
 compute_PF_rate = false;
 
-poss_bin_dts =   [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-mod_bin_dts =    [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+% poss_bin_dts =   [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+% direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+% mod_bin_dts =    [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+poss_bin_dts =   [0.01]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+mod_bin_dts =    [0.01]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
 
 max_tlag = 10; EP_params.max_tlag = max_tlag; %max time lag for computing xcorrs (units of dt bins)
 
@@ -36,8 +39,9 @@ sim_n_rpts = 500; EP_params.sim_n_rpts = sim_n_rpts; %number of repeats for simu
 maxD_prc = 100; %maximum delta_X percentile to model with spline fit
 n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins; %number of quantiles of delta_X for binned estimates
 poss_eps_sizes = [.005 .01 .02 .04]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
-ball_nboots = 5000; EP_params.ball_nboots = ball_nboots; %number of bootstrap samples for computing eps ball vars
+ball_nboots = 0; EP_params.ball_nboots = ball_nboots; %number of bootstrap samples for computing eps ball vars
 
+sym_EP_win = 0.02; EP_params.sym_EP_win = 0.02; %add an additional window before and after t for evaluating deltaE (for shifted xc)
 % n_spline_knots = 4; EP_params.n_spline_knots = 4;  %number of spline knot pts
 % n_eval_pts = 100; EP_params.n_eval_pts = n_eval_pts; %number of points to evaluate spline fit
 
@@ -614,7 +618,9 @@ rpt_data.N_rptframe_trials = N_rptframe_trials;
 rpt_data.N_wrong_start_trials = N_wrong_start_trials;
 
 %% get eye-position SD values for each unit
+EP_xc_maxlag = 500;
 [rpt_EP_SD,rpt_EP_SD_GS,rpt_EP_SD_fix,EP_SD,EP_SD_GS,EP_SD_fix] = deal(nan(length(targs),1));
+rpt_EP_ac = nan(length(targs),2*EP_xc_maxlag+1);
 if ~isempty(loo_set)
     for cc = 1:length(targs)
         loo_ind = find(loo_set == targs(cc));
@@ -623,6 +629,8 @@ if ~isempty(loo_set)
             rpt_EP_SD_GS(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds_GS)); %only during guided sac rpts
             rpt_EP_SD_fix(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds_fix)); %only during fixation rpts
         
+            rpt_EP_ac(cc,:) = xcov(post_mean_EP_LOO(loo_ind,used_rpt_inds),EP_ac_maxlag,'coeff');
+            
             EP_SD(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,:)); %during all trials
             EP_SD_GS(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_inds_GS)); %only during guided sac trials
             EP_SD_fix(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_inds_fix)); %only during fixation trials
@@ -644,8 +652,8 @@ for bbb = 1:length(poss_bin_dts)
     fprintf('Running analysis at dt = %.3f sec\n',bin_dt);
     
     %% Construct Time embedded eye position sequences for repeat trials
-    emb_win = (bin_dt + 0.05); EP_params.emb_win = emb_win; %look back this many time steps to parse EP trajectories
-    emb_shift = 0.03; EP_params.emb_shift = emb_shift; %account for neural delay (relevant EP data is this far in the past relative to spiking data)
+    emb_win = (bin_dt + 0.05 + 2*sym_EP_win); EP_params.emb_win = emb_win; %look back this many time steps to parse EP trajectories
+    emb_shift = 0.03 - sym_EP_win; EP_params.emb_shift = emb_shift; %account for neural delay (relevant EP data is this far in the past relative to spiking data)
     emb_win = round(emb_win/orig_dt); %in units of original time bins
     emb_shift = round(emb_shift/orig_dt);
    
@@ -915,6 +923,7 @@ for bbb = 1:length(poss_bin_dts)
         EP_data(cc,1).all_EP_SD = EP_SD(cc); %overall eye position SD
         EP_data(cc,1).all_EP_SD_GS = EP_SD_GS(cc); %eye position SD during guided sac trials
         EP_data(cc,1).all_EP_SD_fix = EP_SD_fix(cc); %eye position SD during fixation trials
+        EP_data(cc,1).EP_ac = rpt_EP_ac(cc,:); %autocorr of EP during rpts
         EP_data(cc,bbb).tlags = tlags;
     end
     for rr = 1:n_rpt_seeds %for each repeat sequence
