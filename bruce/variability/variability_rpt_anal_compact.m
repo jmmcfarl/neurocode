@@ -618,9 +618,9 @@ rpt_data.N_rptframe_trials = N_rptframe_trials;
 rpt_data.N_wrong_start_trials = N_wrong_start_trials;
 
 %% get eye-position SD values for each unit
-EP_xc_maxlag = 500;
+EP_ac_maxlag = 500;
 [rpt_EP_SD,rpt_EP_SD_GS,rpt_EP_SD_fix,EP_SD,EP_SD_GS,EP_SD_fix] = deal(nan(length(targs),1));
-rpt_EP_ac = nan(length(targs),2*EP_xc_maxlag+1);
+rpt_EP_ac = nan(length(targs),2*EP_ac_maxlag+1);
 if ~isempty(loo_set)
     for cc = 1:length(targs)
         loo_ind = find(loo_set == targs(cc));
