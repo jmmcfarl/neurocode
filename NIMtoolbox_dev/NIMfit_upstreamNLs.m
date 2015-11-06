@@ -325,17 +325,24 @@ if strcmp(nim.spk_NL_type,'logexp')
 elseif strcmp(nim.spk_NL_type,'exp')
     expg = exp(G);
     r = expg;
+elseif strcmp(nim.spk_NL_type,'linear')
+    r = G;
 else
     error('invalid spk nl');
 end
 %enforce minimum predicted firing rate to avoid nan LLs
 min_pred_rate = 1e-50;
-if min(r) < min_pred_rate
+if min(r) < min_pred_rate && ~strcmp(nim.spk_NL_type,'linear')
     r(r < min_pred_rate) = min_pred_rate; %minimum predicted rate
 end
 
 %% COMPUTE LL and LL gradient
-LL = sum(Robs.* log(r) - r); %up to an overall constant
+if strcmp(nim.spk_NL_type,'linear') % use MSE as cost function
+    LL = -sum( (Robs - r).^2 );
+else
+    LL = sum(Robs.* log(r) - r); %up to an overall constant
+    %'residual' = (R/r - 1)*F'[] where F[.] is the spk NL
+end
 
 %'residual' = dLL/dr
 if strcmp(nim.spk_NL_type,'logexp')
@@ -343,6 +350,8 @@ if strcmp(nim.spk_NL_type,'logexp')
     residual(too_large) = nim.spk_NL_params(3)*nim.spk_NL_params(2)*(Robs(too_large)./r(too_large) - 1);
 elseif strcmp(nim.spk_NL_type,'exp')
     residual = Robs - r;
+elseif strcmp(nim.spk_NL_type,'linear')
+    residual = 2*(Robs - r);
 else
     error('Unsupported spiking NL')
 end
@@ -400,17 +409,23 @@ if strcmp(nim.spk_NL_type,'logexp')
 elseif strcmp(nim.spk_NL_type,'exp')
     expg = exp(G);
     r = expg;
+elseif strcmp(nim.spk_NL_type,'linear')
+    r = G;
 else
     error('invalid spk nl');
 end
 %enforce minimum predicted firing rate to avoid nan LLs
 min_pred_rate = 1e-50;
-if min(r) < min_pred_rate
+if min(r) < min_pred_rate && ~strcmp(nim.spk_NL_type,'linear')
     r(r < min_pred_rate) = min_pred_rate; %minimum predicted rate
 end
 
 %% COMPUTE LL and LL gradient
-LL = sum(Robs.* log(r) - r); %up to an overall constant
+if strcmp(nim.spk_NL_type,'linear') % use MSE as cost function
+    LL = -sum( (Robs - r).^2 );
+else
+    LL = sum(Robs.* log(r) - r); %up to an overall constant
+end
 
 %'residual' = dLL/dr
 if strcmp(nim.spk_NL_type,'logexp')
@@ -418,6 +433,8 @@ if strcmp(nim.spk_NL_type,'logexp')
     residual(too_large) = nim.spk_NL_params(3)*nim.spk_NL_params(2)*(Robs(too_large)./r(too_large) - 1);
 elseif strcmp(nim.spk_NL_type,'exp')
     residual = Robs - r;
+elseif strcmp(nim.spk_NL_type,'linear')
+    residual = 2*(Robs - r);
 else
     error('Unsupported spiking NL')
 end

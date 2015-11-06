@@ -88,7 +88,7 @@ if strcmp(spk_NL_type,'logexp')
 elseif strcmp(spk_NL_type,'exp')
     spk_NL_params = [0]; %[theta]
 elseif strcmp(spk_NL_type,'linear')
-    spk_nl_params = [0 1]; %[theta sigma]
+    spk_NL_params = [0 1]; %[theta sigma]
 else
     error('Unsupported spiking NL type')
 end

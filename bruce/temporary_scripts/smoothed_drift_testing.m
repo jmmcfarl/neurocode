@@ -5,13 +5,13 @@ close all
 drift_jump_Lprior = -(drift_shifts*drift_stim_dx).^2./(2*HMM_params.drift_jump_sigma^2); %log-prior on initial position (after a jump) during drift-inference
 drift_jump_Lprior = drift_jump_Lprior - logsumexp(drift_jump_Lprior);
 
-drift_prior_sigma = 0.0075;
+drift_prior_sigma = 0.02;
 %log prior matrix for drift (not including coil-signals)
 cdist = squareform(pdist(drift_shifts'*drift_stim_dx));
 base_LA = -cdist.^2/(2*drift_prior_sigma^2); %baseline log-prior matrix on drift position changes
 base_LA = bsxfun(@minus,base_LA,logsumexp(base_LA,2)); %normalize
 
-acc_prior_sigma = 0.01;
+acc_prior_sigma = 0.002;
 [XX,YY,ZZ] = ndgrid(drift_shifts*drift_stim_dx);
 sec_deriv = XX - 2*YY + ZZ;
 LA = -sec_deriv.^2/(2*acc_prior_sigma^2);
@@ -24,7 +24,7 @@ vdrift_mean = nan(NT,1);
 vdrift_std = nan(NT,1);
 adrift_mean = nan(NT,1);
 adrift_std = nan(NT,1);
-for ff = 1:1000;
+for ff = 1:n_fixs;
     ff
     % ff = 30
     tset = find(pfix_ids==ff)'; %indices in this projected fixation
@@ -108,65 +108,65 @@ for ff = 1:1000;
 %         % prior2 = -cdist.^2/(2*(HMM_params.drift_prior_sigma*drift_dsf)^2); %baseline log-prior matrix on drift position changes
 %         % prior2 = bsxfun(@minus,base_LA,logsumexp(base_LA,2)); %normalize
 %         
-%         % INFER DRIFT CORRECTIONS
-%         % close all
-%         Lgamma = nan(NT,n_drift_shifts);
-%         reverseStr = '';
-%         % for ff = 1:n_fixs
-%         %     if mod(ff,100)==0
-%         %         msg = sprintf('Inferring drift in fixation %d of %d\n',ff,n_fixs);
-%         %         fprintf([reverseStr msg]);
-%         %         reverseStr = repmat(sprintf('\b'),1,length(msg));
-%         %     end
-%         %     ff = 30;
-%         tset = find(pfix_ids==ff)'; %indices in this projected fixation
-%         ntset = length(tset);
-%         cur_LL_set = frame_LLs(tset,:);
-%         
-%         [talpha,tbeta] = deal(zeros(ntset,n_drift_shifts,n_drift_shifts)); %initialize forward and backward messages
-%         
-%         %forward messages
-%         talpha(1,:,:) = bsxfun(@plus,base_prior,cur_LL_set(1,:)); %initialize forward messages within this fixation
-%         talpha(2,:,:) = bsxfun(@plus,base_prior,cur_LL_set(2,:)); %initialize forward messages within this fixation
-%         for t = 3:ntset
-%             temp = bsxfun(@plus,squeeze(talpha(t-1,:,:)),LA);
-%             temp = bsxfun(@plus,temp,reshape(cur_LL_set(t,:),1,1,[]));
-%             talpha(t,:,:) = logsumexp(temp,1);
-%             
-%             %         cur_mat = talpha(t,:,:);
-%             %         cur_mat = cur_mat - max(cur_mat(:));
-%             %         imagesc(squeeze(exp(cur_mat)))
-%             %         t
-%             %         pause
-%         end
-%         
-%         %     for_probs = squeeze(logsumexp(talpha,2));
-%         %     for_probs = bsxfun(@minus,for_probs,logsumexp(for_probs,2));
-%         %     for_probs = exp(for_probs);
-%         
-%         %backward messages
-%         tbeta(end,:,:) = zeros(1,n_drift_shifts,n_drift_shifts);
-%         %     tbeta(end-1,:,:) = zeros(1,n_drift_shifts,n_drift_shifts);
-%         %     tbeta(end,:,:) = base_prior; %initialize forward messages within this fixation
-%         tbeta(end-1,:,:) = bsxfun(@plus,base_prior',cur_LL_set(end,:)); %initialize forward messages within this fixation
-%         for t = (ntset-2):-1:1
-%             temp = bsxfun(@plus,squeeze(tbeta(t+1,:,:)),reshape(cur_LL_set(t+1,:),1,[]));
-%             %         temp = bsxfun(@plus,temp,permute(LA,[3 1 2]));
-%             temp = bsxfun(@plus,reshape(temp,1,n_drift_shifts,n_drift_shifts),LA);
-%             tbeta(t,:,:) = logsumexp(temp,3);
-%         end
-%         
-%         %     back_probs = squeeze(logsumexp(tbeta,2));
-%         %     back_probs = bsxfun(@minus,back_probs,logsumexp(back_probs,2));
-%         %     back_probs = exp(back_probs);
-%         
-%         
-%         temp_gamma = talpha + tbeta;
-%         temp_gamma = squeeze(logsumexp(temp_gamma,2));
-%         temp_gamma = bsxfun(@minus,temp_gamma,logsumexp(temp_gamma,2));
-%         gamma = exp(temp_gamma);
-%         adrift_mean(tset) = sum(bsxfun(@times,gamma,drift_shifts),2);
-%         adrift_std(tset) = sqrt(sum(bsxfun(@times,gamma,drift_shifts.^2),2) - adrift_mean(tset).^2);
+        % INFER DRIFT CORRECTIONS
+        % close all
+        Lgamma = nan(NT,n_drift_shifts);
+        reverseStr = '';
+        % for ff = 1:n_fixs
+        %     if mod(ff,100)==0
+        %         msg = sprintf('Inferring drift in fixation %d of %d\n',ff,n_fixs);
+        %         fprintf([reverseStr msg]);
+        %         reverseStr = repmat(sprintf('\b'),1,length(msg));
+        %     end
+        %     ff = 30;
+        tset = find(pfix_ids==ff)'; %indices in this projected fixation
+        ntset = length(tset);
+        cur_LL_set = frame_LLs(tset,:);
+        
+        [talpha,tbeta] = deal(zeros(ntset,n_drift_shifts,n_drift_shifts)); %initialize forward and backward messages
+        
+        %forward messages
+        talpha(1,:,:) = bsxfun(@plus,base_prior,cur_LL_set(1,:)); %initialize forward messages within this fixation
+        talpha(2,:,:) = bsxfun(@plus,base_prior,cur_LL_set(2,:)); %initialize forward messages within this fixation
+        for t = 3:ntset
+            temp = bsxfun(@plus,squeeze(talpha(t-1,:,:)),LA);
+            temp = bsxfun(@plus,temp,reshape(cur_LL_set(t,:),1,1,[]));
+            talpha(t,:,:) = logsumexp(temp,1);
+            
+            %         cur_mat = talpha(t,:,:);
+            %         cur_mat = cur_mat - max(cur_mat(:));
+            %         imagesc(squeeze(exp(cur_mat)))
+            %         t
+            %         pause
+        end
+        
+        %     for_probs = squeeze(logsumexp(talpha,2));
+        %     for_probs = bsxfun(@minus,for_probs,logsumexp(for_probs,2));
+        %     for_probs = exp(for_probs);
+        
+        %backward messages
+        tbeta(end,:,:) = zeros(1,n_drift_shifts,n_drift_shifts);
+        %     tbeta(end-1,:,:) = zeros(1,n_drift_shifts,n_drift_shifts);
+        %     tbeta(end,:,:) = base_prior; %initialize forward messages within this fixation
+        tbeta(end-1,:,:) = bsxfun(@plus,base_prior',cur_LL_set(end,:)); %initialize forward messages within this fixation
+        for t = (ntset-2):-1:1
+            temp = bsxfun(@plus,squeeze(tbeta(t+1,:,:)),reshape(cur_LL_set(t+1,:),1,[]));
+            %         temp = bsxfun(@plus,temp,permute(LA,[3 1 2]));
+            temp = bsxfun(@plus,reshape(temp,1,n_drift_shifts,n_drift_shifts),LA);
+            tbeta(t,:,:) = logsumexp(temp,3);
+        end
+        
+        %     back_probs = squeeze(logsumexp(tbeta,2));
+        %     back_probs = bsxfun(@minus,back_probs,logsumexp(back_probs,2));
+        %     back_probs = exp(back_probs);
+        
+        
+        temp_gamma = talpha + tbeta;
+        temp_gamma = squeeze(logsumexp(temp_gamma,2));
+        temp_gamma = bsxfun(@minus,temp_gamma,logsumexp(temp_gamma,2));
+        gamma = exp(temp_gamma);
+        adrift_mean(tset) = sum(bsxfun(@times,gamma,drift_shifts),2);
+        adrift_std(tset) = sqrt(sum(bsxfun(@times,gamma,drift_shifts.^2),2) - adrift_mean(tset).^2);
 %         %     Lgamma(tset,:) = repmat(temp_gamma,ntset,1);
 %         % end
 %         %
@@ -240,8 +240,9 @@ close all
 
 uNT = 2e4;
 figure;hold on
-% shadedErrorBar(1:uNT,afin_tot_corr(1:uNT)*drift_stim_dx,afin_tot_std(1:uNT)*drift_stim_dx,{'color','k'});
 shadedErrorBar(1:uNT,vfin_tot_corr(1:uNT)*drift_stim_dx,vfin_tot_std(1:uNT)*drift_stim_dx,{'color','r'});
+shadedErrorBar(1:uNT,afin_tot_corr(1:uNT)*drift_stim_dx,afin_tot_std(1:uNT)*drift_stim_dx,{'color','k'});
+% shadedErrorBar(1:uNT,fin_tot_corr(1:uNT)*drift_stim_dx,fin_tot_std(1:uNT)*drift_stim_dx,{'color','b'});
 plot(1:uNT,corrected_eye_vals_interp(used_inds(1:uNT),[2]),'g','linewidth',2)
 plot(1:uNT,corrected_eye_vals_interp(used_inds(1:uNT),[4]),'b','linewidth',2)
 

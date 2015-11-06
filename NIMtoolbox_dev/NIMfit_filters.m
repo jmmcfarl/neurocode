@@ -380,16 +380,14 @@ end
 %enforce minimum predicted firing rate to avoid nan LLs
 min_pred_rate = 1e-50;
 if ~strcmp(nim.spk_NL_type,'linear')
-if min(r) < min_pred_rate
-    r(r < min_pred_rate) = min_pred_rate; %minimum predicted rate
-end
+    if min(r) < min_pred_rate
+        r(r < min_pred_rate) = min_pred_rate; %minimum predicted rate
+    end
 end
 %% COMPUTE LL and LL gradient
 if strcmp(nim.spk_NL_type,'linear') % use MSE as cost function
-    Nspks = length(Robs);
     LL = -sum( (Robs - r).^2 );
 else
-    Nspks = sum(Robs);
     LL = sum(Robs.* log(r) - r); %up to an overall constant
     %'residual' = (R/r - 1)*F'[] where F[.] is the spk NL
 end

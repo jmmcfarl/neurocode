@@ -108,16 +108,22 @@ if strcmp(nim.spk_NL_type,'logexp')
 elseif strcmp(nim.spk_NL_type,'exp')
     expg = exp(G);
     pred_rate = expg;
+elseif strcmp(nim.spk_NL_type,'linear')
+    pred_rate = G;
 else
     error('invalid spk nl');
 end
 %enforce minimum predicted firing rate to avoid nan LLs
 min_pred_rate = 1e-50;
-if min(pred_rate) < min_pred_rate
+if min(pred_rate) < min_pred_rate && ~strcmp(nim.spk_NL_type,'linear')
     pred_rate(pred_rate < min_pred_rate) = min_pred_rate; %minimum predicted rate
 end
-
-LL = sum(Robs.* log(pred_rate) - pred_rate); %up to an overall constant
+if strcmp(nim.spk_NL_type,'linear') % use MSE as cost function
+    LL = -sum( (Robs - pred_rate).^2 );
+else
+    LL = sum(Robs.* log(pred_rate) - pred_rate); %up to an overall constant
+    %'residual' = (R/r - 1)*F'[] where F[.] is the spk NL
+end
 
 %% COMPUTE L2 PENALTIES
 smooth_penalty = zeros(Nmods,1);

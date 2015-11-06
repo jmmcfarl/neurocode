@@ -16,6 +16,7 @@ setydir = 0;
 nbins = [50 50];
 sx = 0; sy = 0;
 sqrt_scale = 0;
+log_scale = 0;
 plot_on = 1;
 handles = [];
 details = [];
@@ -41,6 +42,8 @@ while j <= length(varargin)
         yrange = varargin{j};
     elseif strncmpi(varargin{j},'sqrtsc',6)
         sqrt_scale = 1; 
+    elseif strncmpi(varargin{j},'logsc',5)
+        log_scale = 1;
     elseif strncmpi(varargin{j},'noplot',6)
         plot_on = 0;
     end
@@ -81,6 +84,10 @@ if sx+sy > 0
 end
 if sqrt_scale == 1
     z = sqrt(z);
+end
+if log_scale == 1
+    eps = 1/numel(gx);
+    z = log(z + eps);
 end
 if plot_on
 handles(1) = imagesc([xrange(1) xrange(2)+xtra(1)],[yrange(1) yrange(2)+xtra(2)],z);

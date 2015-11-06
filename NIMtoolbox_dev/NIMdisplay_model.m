@@ -257,8 +257,10 @@ if ~isempty(G)
     if strcmp(nim.spk_NL_type,'logexp')
         cur_y = nim.spk_NL_params(3)*log(1 + ...
             exp(nim.spk_NL_params(2)*Gdist_x + theta));
-    elseif strcmp(nim.spk_NL_params,'exp')
+    elseif strcmp(nim.spk_NL_type,'exp')
         cur_y = exp(Gdist_x + theta);
+    elseif strcmp(nim.spk_NL_type,'linear')
+        cur_y = Gdist_x + theta;
     else
         error('Unsupported spk NL type');
     end

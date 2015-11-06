@@ -4,14 +4,14 @@
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M012';
-% monk_name = 'jbe';
-% bar_ori = 0; %bar orientation to use (only for UA recs)
+% Expt_name = 'M294';
+% monk_name = 'lem';
+% bar_ori = 40; %bar orientation to use (only for UA recs)
 % rec_number = 1;
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_nFIN_xconly';
+sname = 'rpt_variability_compact_nFIN_EPdata';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
@@ -22,15 +22,15 @@ use_hres_ET = true; EP_params.use_hres_ET = use_hres_ET; %use high-res eye-track
 exclude_sacs = false; EP_params.exclude_sacs = exclude_sacs; %exclude data surrounding saccades?
 exclude_blinks = true; EP_params.exclude_blinks = exclude_blinks; %exclude data surrounding blinks
 sub_trialavgs = false; EP_params.sub_trialavgs = sub_trialavgs; %subtract out trial avg spike counts?
-do_xcorrs = true; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
+do_xcorrs = false; EP_params.do_xcorrs = do_xcorrs; %compute pairwise stats
 compute_PF_rate = false;
 
 % poss_bin_dts =   [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
 % direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
 % mod_bin_dts =    [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
-poss_bin_dts =   [0.01]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-mod_bin_dts =    [0.01]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+poss_bin_dts =   []; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+direct_bin_dts = []; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+mod_bin_dts =    []; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
 
 max_tlag = 10; EP_params.max_tlag = max_tlag; %max time lag for computing xcorrs (units of dt bins)
 
@@ -346,11 +346,15 @@ rpt_trial_block = [trial_data(all_rpt_trials).block_nums]; %which block was each
 if params.is_TBT_expt %for expts with trial-by-trial interleaving of conditions
     guided_sac_trials = find([trial_data(all_rpt_trials).Ff] > 0); 
     guided_sac_alltrials = find([trial_data(:).Ff] > 0);
+    imback_gs_alltrials = find([trial_data(:).Ff] > 0 & [trial_data(:).back_type] == 1);
+    grayback_gs_alltrials = find([trial_data(:).Ff] > 0 & [trial_data(:).back_type] == 0);
 else
     gs_blocks = [expt_data.imback_gs_expts; expt_data.grayback_gs_expts]; %blocks with guided sacs
     rpt_block_nums = [trial_data(all_rpt_trials).block_nums]; %block number of each rpt trial
     guided_sac_trials = find(ismember(rpt_block_nums,gs_blocks)); 
-    guided_sac_alltrials = find(ismember([trial_data(:).block_nums],gs_blocks)); 
+    guided_sac_alltrials = find(ismember([trial_data(:).block_nums],gs_blocks));
+    imback_gs_alltrials = find(ismember([trial_data(:).block_nums],expt_data.imback_gs_expts));
+    grayback_gs_alltrials = find(ismember([trial_data(:).block_nums],expt_data.grayback_gs_expts));
 end
 fixation_trials = setdiff(1:length(all_rpt_trials),guided_sac_trials); %trials without guided sacs
 fixation_alltrials = setdiff(1:length(trial_data),guided_sac_alltrials); %trials without guided sacs
@@ -384,8 +388,11 @@ end
 used_rpt_inds = find(ismember(all_trialvec(used_inds),all_rpt_trials)); %indices of repeat trials within used_inds vector
 used_rpt_inds_GS = find(ismember(all_trialvec(used_inds),all_rpt_trials(guided_sac_trials))); %indices of repeat trials within used_inds vector
 used_rpt_inds_fix = find(ismember(all_trialvec(used_inds),all_rpt_trials(fixation_trials))); %indices of repeat trials within used_inds vector
+
 used_inds_GS = find(ismember(all_trialvec(used_inds),guided_sac_alltrials));
 used_inds_fix = find(ismember(all_trialvec(used_inds),fixation_alltrials));
+used_inds_imback = find(ismember(all_trialvec(used_inds),imback_gs_alltrials));
+used_inds_grayback = find(ismember(all_trialvec(used_inds),grayback_gs_alltrials));
 
 nf = 400; %number of frames per trial
 used_nf = nf-(params.beg_buffer + params.end_buffer)/params.dt; %number of frames per trial used in analysis
@@ -641,10 +648,16 @@ else %if not using LOO
     rpt_EP_SD_GS(:) = robust_std_dev(post_mean_EP(used_rpt_inds_GS));
     rpt_EP_SD_fix(:) = robust_std_dev(post_mean_EP(used_rpt_inds_fix));
   
-    EP_SD(:) = robust_std_dev(post_mean_EP(used_inds));
+    EP_SD(:) = robust_std_dev(post_mean_EP);
     EP_SD_GS(:) = srobust_std_devtd(post_mean_EP(used_inds_GS));
     EP_SD_fix(:) = robust_std_dev(post_mean_EP(used_inds_fix));
 end
+
+rpt_data.ov_EP_SD = robust_std_dev(post_mean_EP);
+rpt_data.grayback_EP_SD = robust_std_dev(post_mean_EP(used_inds_grayback));
+rpt_data.imback_EP_SD = robust_std_dev(post_mean_EP(used_inds_imback));
+rpt_data.gs_EP_SD = robust_std_dev(post_mean_EP(used_inds_GS));
+rpt_data.fix_EP_SD = robust_std_dev(post_mean_EP(used_inds_fix));
 
 %% loop over possible time windows
 for bbb = 1:length(poss_bin_dts)

@@ -1,9 +1,9 @@
 clear all
 addpath('~/NIMclass/')
 
-Expt_name = 'M296';
-monk_name = 'lem';
-bar_ori = 45; %bar orientation to use (only for UA recs)
+Expt_name = 'G086';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
 rec_number = 1;
 
 use_LOOXV = 0; %[0 no LOOXV; 1 SU LOOXV; 2 all LOOXV]
@@ -134,7 +134,7 @@ HMM_params.desired_drift_res = 0.025/3; %resolution of drift inference grid
 HMM_params.max_fix_shift = 0.85; %maximum shift to consider when estimating fixation-corrections (in deg)
 HMM_params.max_drift_shift = 0.3; %max shift for drift corrections (in deg)
 HMM_params.neural_delay = 0.05; %how much to shift jump points forward in time
-HMM_params.n_fix_iter = 2; %3 number of iterations to estimate fixation-based EP
+HMM_params.n_fix_iter = 3; %3 number of iterations to estimate fixation-based EP
 HMM_params.n_drift_iter = 1; %1 number of iterations to estimate within-fixation drift
 % set priors on EP (all values in deg)
 HMM_params.fix_prior_sigma = 0.15; %prior sigma on fixation-based EP
