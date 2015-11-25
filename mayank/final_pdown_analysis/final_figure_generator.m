@@ -3,7 +3,7 @@ addpath(genpath('~/James_scripts/figuremaker/'))
 fig_dir = '/Users/james/Analysis/Mayank/final_pdown_analysis/figures/';
 
 min_rec_dur = 500; %minimum total duration of recording (in sec)
-max_med_ctx_down = 2.5; %maximum median duration of ctx LFP down states (in sec) 
+max_med_ctx_down = Inf; %maximum median duration of ctx LFP down states (in sec) 
 
 %% load EC data and select usable recs
 load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
@@ -59,11 +59,11 @@ fprintf('L3MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l3mec),[50 25 7
 fprintf('L2MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2mec),[50 25 75]));
 fprintf('L3LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l3lec),[50 25 75]));
 fprintf('L2LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2lec),[50 25 75]));
-
-g1 = layer;
-g2 = {data.loc};
+% 
+% g1 = layer;
+% g2 = {data.loc};
+% % [p,tbl,stats] = anovan(fract_rt2_ups,{g1,g2})
 % [p,tbl,stats] = anovan(fract_rt2_ups,{g1,g2})
-[p,tbl,stats] = anovan(fract_rt2_ups,{g1,g2})
 
 %% load in cortical MP data and get regions
 ctx_data = load('~/Analysis/Mayank/final_pdown_analysis/compiled_corticalMP_data.mat');
@@ -160,13 +160,13 @@ set(findobj(gca,'Type','text'),'FontSize',10)
 fig_width = 6;
 rel_heigh = 0.8;
 
-fname = [fig_dir 'allcell_pUp_dist_all.pdf'];
-exportfig(h1,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
-close(h1);
-
-fname = [fig_dir 'allcell_pDown_dist_all.pdf'];
-exportfig(h2,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
-close(h2);
+% fname = [fig_dir 'allcell_pUp_dist_all.pdf'];
+% exportfig(h1,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
+% close(h1);
+% 
+% fname = [fig_dir 'allcell_pDown_dist_all.pdf'];
+% exportfig(h2,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
+% close(h2);
 
 %% scatter plots of pers prob vs transition latency
 mSize = 2;
