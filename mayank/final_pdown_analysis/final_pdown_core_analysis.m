@@ -1,8 +1,4 @@
-% addpath('C:/WC_Germany/parietal_cortical_2010/');
-% addpath('C:/Code/general_functions/');
-% addpath('C:/WC_Germany/persistent_9_27_2010/');
-% addpath('C:/WC_Germany/hsmm_state_detection/');
-% addpath('C:/WC_Germany/persistent_downs/');
+
 addpath('~/James_scripts/mayank/parietal_cortical_2010/');
 addpath('~/James_scripts/mayank/persistent_9_27_2010/');
 addpath('~/James_scripts/mayank/hsmm_state_detection/');
@@ -10,7 +6,6 @@ addpath('~/James_scripts/mayank/persistent_downs/');
 addpath('~/James_scripts/mayank/final_pdown_analysis/');
 
 clear all
-% load C:/WC_Germany/final_pdown_analysis/compiled_data.mat
 load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
 
 min_rec_dur = 500; %minimum recording duration (in sec)
