@@ -1,17 +1,17 @@
-% clear all
-% close all
-% addpath('~/other_code/fastBSpline/');
+clear all
+close all
+addpath('~/other_code/fastBSpline/');
 
 global Expt_name bar_ori monk_name rec_type rec_number
 
-% Expt_name = 'M294';
-% monk_name = 'lem';
-% bar_ori = 40; %bar orientation to use (only for UA recs)
-% rec_number = 1;
+Expt_name = 'M012';
+monk_name = 'jbe';
+bar_ori = 0; %bar orientation to use (only for UA recs)
+rec_number = 1;
 
 % [266-80 270-60 275-135 277-70 281-140 287-90 289-160 294-40 296-45 297-0/90 5-50 9-0 10-60 11-160 12-0 13-100 14-40 320-100]
 
-sname = 'rpt_variability_compact_nFIN_EPdata';
+sname = 'rpt_variability_compact_nFIN';
 
 et_mod_data_name = 'full_eyetrack_initmods_FIN2_Rinit';
 et_anal_name = 'full_eyetrack_FIN2_Rinit';
@@ -28,9 +28,9 @@ compute_PF_rate = false;
 % poss_bin_dts =   [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
 % direct_bin_dts = [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
 % mod_bin_dts =    [0.005 0.01 0.02 0.04 0.08 0.16 0.32 0.64 1.28 2.56 3.75]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
-poss_bin_dts =   []; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
-direct_bin_dts = []; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
-mod_bin_dts =    []; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
+poss_bin_dts =   [0.01]; EP_params.poss_bin_dts = poss_bin_dts; %possible time bins to test
+direct_bin_dts = [0.01]; EP_params.direct_bin_dts = direct_bin_dts; %time bins to use for direct estimates
+mod_bin_dts =    [0.01]; EP_params.mod_bin_dts = mod_bin_dts; %possible time bins for model-based analysis
 
 max_tlag = 10; EP_params.max_tlag = max_tlag; %max time lag for computing xcorrs (units of dt bins)
 
@@ -41,7 +41,7 @@ n_EP_bins = 100; EP_params.n_EP_bins = n_EP_bins; %number of quantiles of delta_
 poss_eps_sizes = [.005 .01 .02 .04]; EP_params.poss_eps_sizes = poss_eps_sizes;   %possible epsilon balls to test
 ball_nboots = 0; EP_params.ball_nboots = ball_nboots; %number of bootstrap samples for computing eps ball vars
 
-sym_EP_win = 0.02; EP_params.sym_EP_win = 0.02; %add an additional window before and after t for evaluating deltaE (for shifted xc)
+sym_EP_win = 0; EP_params.sym_EP_win = 0.02; %add an additional window before and after t for evaluating deltaE (for shifted xc)
 % n_spline_knots = 4; EP_params.n_spline_knots = 4;  %number of spline knot pts
 % n_eval_pts = 100; EP_params.n_eval_pts = n_eval_pts; %number of points to evaluate spline fit
 
@@ -1389,57 +1389,57 @@ for bbb = 1:length(poss_bin_dts)
     end
     
     %% export trial-by-trial data for making figures
-    %     fig_dname = [anal_dir 'tbt_fig_data'];
-    %     fig_data.tbt_EP = tbt_EP;
-    %     fig_data.tbt_EP_emb = tbt_EP_emb;
-    %     fig_data.pred_rates = new_mod_prates;
-    %     fig_data.binned_spks = tbt_binned_spikes;
-    %     fig_data.binned_spks_nan = new_BS_ms;
-    %     fig_data.EP_data = EP_data;
-    %     fig_data.EP_params = EP_params;
-    %     fig_data.modFitParams = modFitParams;
-    %
-    %     if compute_PF_rate
-    %         fig_data.PF_prates = all_mod_PF_prates;
-    %     end
-    %
-    %     n_probes = 24;
-    %     trial_dur = 4;
-    %     poss_targs = (n_probes + 1):(n_probes + length(SU_numbers));
-    %     for ss = 1:length(targs)
-    %         cur_SU_ind = find(targs(ss) == poss_targs);
-    %         cur_spk_times = spike_data.SU_spk_times{cur_SU_ind};
-    %         for ii = 1:tot_nrpts
-    %             trial_start_time = trial_data(all_rpt_trials(ii)).start_times;
-    %             trial_spk_times = cur_spk_times(cur_spk_times >= trial_start_time & cur_spk_times <= (trial_start_time + trial_dur));
-    %             tbt_spk_times{ss,ii} = trial_spk_times - trial_start_time;
-    %         end
-    %     end
-    %     fig_data.tbt_spk_times = tbt_spk_times;
-    %
-    %     %handle any trials with repeat frames
-    %     to_eliminate = [];
-    %     for ii = 1:length(rptframe_trials)
-    %         cur_trial = all_rpt_trials(rptframe_trials(ii));
-    %         cur_rpt_frames = trial_data(cur_trial).rpt_frames;
-    %         if all(cur_rpt_frames == 0) %zero values indicate which frame the trial really started on
-    %             spk_shift_amount = length(cur_rpt_frames)*dt_uf; %number of up-sampled time steps to shift by
-    %             for ss = 1:length(targs)
-    %                 tbt_spk_times{ss,rptframe_trials(ii)} = tbt_spk_times{ss,rptframe_trials(ii)} + spk_shift_amount*bin_dt;
-    %             end
-    %         elseif ~any(cur_rpt_frames == 0) %in this case if there's a repeat frame in the middle of the trial, just remove the trial (for plotting purposes this would be a mess)
-    %             to_eliminate = [to_eliminate rptframe_trials(ii)];
-    %         end
-    %     end
-    %
-    %     fig_data.tbt_spk_times(:,to_eliminate) = [];
-    %     fig_data.tbt_EP(:,to_eliminate) = [];
-    %     fig_data.tbt_EP_emb(:,to_eliminate) = [];
-    %     fig_data.pred_rates(:,to_eliminate,:) = [];
-    %     fig_data.binned_spks(:,to_eliminate,:) = [];
-    %
-    %     fprintf('Saving %s\n',fig_dname);
-    %     save(fig_dname,'fig_data');
+%         fig_dname = [anal_dir 'tbt_fig_data'];
+%         fig_data.tbt_EP = tbt_EP;
+%         fig_data.tbt_EP_emb = tbt_EP_emb;
+%         fig_data.pred_rates = new_mod_prates;
+%         fig_data.binned_spks = tbt_binned_spikes;
+%         fig_data.binned_spks_nan = new_BS_ms;
+%         fig_data.EP_data = EP_data;
+%         fig_data.EP_params = EP_params;
+%         fig_data.modFitParams = modFitParams;
+%     
+%         if compute_PF_rate
+%             fig_data.PF_prates = all_mod_PF_prates;
+%         end
+%     
+%         n_probes = 24;
+%         trial_dur = 4;
+%         poss_targs = (n_probes + 1):(n_probes + length(SU_numbers));
+%         for ss = 1:length(targs)
+%             cur_SU_ind = find(targs(ss) == poss_targs);
+%             cur_spk_times = spike_data.SU_spk_times{cur_SU_ind};
+%             for ii = 1:tot_nrpts
+%                 trial_start_time = trial_data(all_rpt_trials(ii)).start_times;
+%                 trial_spk_times = cur_spk_times(cur_spk_times >= trial_start_time & cur_spk_times <= (trial_start_time + trial_dur));
+%                 tbt_spk_times{ss,ii} = trial_spk_times - trial_start_time;
+%             end
+%         end
+%         fig_data.tbt_spk_times = tbt_spk_times;
+%     
+%         %handle any trials with repeat frames
+%         to_eliminate = [];
+%         for ii = 1:length(rptframe_trials)
+%             cur_trial = all_rpt_trials(rptframe_trials(ii));
+%             cur_rpt_frames = trial_data(cur_trial).rpt_frames;
+%             if all(cur_rpt_frames == 0) %zero values indicate which frame the trial really started on
+%                 spk_shift_amount = length(cur_rpt_frames)*dt_uf; %number of up-sampled time steps to shift by
+%                 for ss = 1:length(targs)
+%                     tbt_spk_times{ss,rptframe_trials(ii)} = tbt_spk_times{ss,rptframe_trials(ii)} + spk_shift_amount*bin_dt;
+%                 end
+%             elseif ~any(cur_rpt_frames == 0) %in this case if there's a repeat frame in the middle of the trial, just remove the trial (for plotting purposes this would be a mess)
+%                 to_eliminate = [to_eliminate rptframe_trials(ii)];
+%             end
+%         end
+%     
+%         fig_data.tbt_spk_times(:,to_eliminate) = [];
+%         fig_data.tbt_EP(:,to_eliminate) = [];
+%         fig_data.tbt_EP_emb(:,to_eliminate) = [];
+%         fig_data.pred_rates(:,to_eliminate,:) = [];
+%         fig_data.binned_spks(:,to_eliminate,:) = [];
+%     
+%         fprintf('Saving %s\n',fig_dname);
+%         save(fig_dname,'fig_data');
 end
 
 %%

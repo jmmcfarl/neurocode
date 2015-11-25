@@ -2,18 +2,19 @@ clear all
 close all
 
 addpath('~/other_code/fastBSpline/');
-
-fig_dname = 'tbt_fig_data';
 fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 
 Expt_name = 'M012';
 bar_ori = 0;
 rec_number = 1;
 
+%load tbt repeat data dumped from variability_rpt_anal_compact.m for this rec
 anal_dir = ['~/Analysis/bruce/' Expt_name '/variability/'];
 cd(anal_dir)
+fig_dname = 'tbt_fig_data'; 
 load(fig_dname);
 
+%load packaged data
 data_dir = ['~/Data/bruce/' Expt_name];
 if ~exist(data_dir,'dir')
     data_dir = ['/media/NTlab_data3/Data/bruce/' Expt_name];
@@ -27,7 +28,7 @@ load(data_name);
 
 
 %% parse EP data
-nf = size(fig_data.tbt_EP,1);%total number of frames
+nf = size(fig_data.tbt_EP,1); %total number of frames
 dt = fig_data.EP_params.direct_bin_dts(1); %time res
 tax = (1:nf)*dt; %time axis
 trange = [1 4]; %range of time points to use (sec)
@@ -35,25 +36,27 @@ trange = [1 4]; %range of time points to use (sec)
 tbt_EP = fig_data.tbt_EP;
 used_tinds = find(tax >= trange(1) & tax <= trange(2));
 tbt_EP = tbt_EP(used_tinds,:);
-bad_trials = find(any(isnan(tbt_EP))); %get rid of trials where there are NANs during the used portion
 
+%get rid of trials where there are NANs during the used portion of the data (i.e., blinks in this
+%case)
+bad_trials = find(any(isnan(tbt_EP))); 
 tbt_EP(:,bad_trials) = [];
 n_rpts = size(tbt_EP,2);
 
+%shuffle trials on eye position data for visualization
 seed = 1;
 rng(seed);
 tbt_EP = tbt_EP(:,randperm(n_rpts));
 
 %% parse stim params
-n_uf = length(used_tinds);
-tax = (1:n_uf)*dt; %time axis
-npix = params.full_nPix;
-usfac = fig_data.modFitParams.spatial_usfac*fig_data.modFitParams.add_usfac;
-use_nPix = fig_data.modFitParams.use_nPix_us/fig_data.modFitParams.spatial_usfac;
-dds = mode(expt_data.expt_dds);
-flen = fig_data.modFitParams.flen;
+n_uf = length(used_tinds); %number of used stim frames
+npix = params.full_nPix; %total number of stim pix
+usfac = fig_data.modFitParams.spatial_usfac*fig_data.modFitParams.add_usfac; %spatial up-sampling factor
+use_nPix = fig_data.modFitParams.use_nPix_us/fig_data.modFitParams.spatial_usfac; %number of pixels used in model filters
+dds = mode(expt_data.expt_dds); %stimulus dot-density
+flen = fig_data.modFitParams.flen; %number of time-lags in stim-filters
 
-%create RLS stimulus for repeat trials
+%create RLS stimulus for repeat trials simulation
 seed = 1;
 stim = generate_RLS_stim(n_uf,npix,dds,usfac,seed);
 stim = repmat(stim,n_rpts,1);
@@ -88,7 +91,7 @@ if fig_data.modFitParams.add_usfac > 1
     all_Xmat = tb_proc_stim(all_Xmat,fig_data.modFitParams.add_usfac,flen);
 end
 
-%% make SU simulated firing rates
+%% make SU simulated firing rates from models
 n_SUs = size(fig_data.EP_data,1);
 mod_prates_shift = nan(length(all_EP_shifts),n_SUs);
 mod_prates = nan(length(all_EP_shifts),n_SUs);
@@ -98,6 +101,7 @@ for cc = 1:n_SUs
         [~,~,mod_prates(:,cc)] = NMMmodel_eval(fig_data.EP_data(cc,1).useMod,[],all_Xmat);
     end
 end
+%reshape to tbt arrays
 mod_prates = reshape(mod_prates,n_uf,n_rpts,n_SUs);
 mod_prates_shift = reshape(mod_prates_shift,n_uf,n_rpts,n_SUs);
 
@@ -109,33 +113,35 @@ n_uf = size(mod_prates,1);
 tax = (0:(n_uf-1))*dt; %time axis
 tbt_EP(1:flen,:) = [];
 
-%adjust to desired avg spk rates
+%adjust to desired avg spk rates 
 meanrates = mean(reshape(mod_prates_shift,[],n_SUs));
-target_mrate = 0.4;
+target_mrate = 0.4; %in units of spks/bin
 mod_prates = bsxfun(@times,mod_prates,reshape(target_mrate./meanrates,1,1,n_SUs));
 mod_prates_shift = bsxfun(@times,mod_prates_shift,reshape(target_mrate./meanrates,1,1,n_SUs));
 mod_prates = mod_prates/dt;
 mod_prates_shift = mod_prates_shift/dt;
 
 %% compute tbt-stats
-atvars = squeeze(nanvar(mod_prates_shift,[],2));
+atvars = squeeze(nanvar(mod_prates_shift,[],2)); %across-trial variance
 psths = squeeze(nanmean(mod_prates_shift,2));
-PF_psth = squeeze(mod_prates(:,1,:));
-psthvars = nanvar(psths);
-totvars = nanvar(reshape(mod_prates_shift,[],n_SUs));
+PF_psth = squeeze(mod_prates(:,1,:)); %PSTH for perfect fixation
+psthvars = nanvar(psths); %across-time variance of psth
+totvars = nanvar(reshape(mod_prates_shift,[],n_SUs)); %total variance
 PF_psthvars = nanvar(PF_psth);
-alphas = psthvars./totvars;
-actual_alphas = arrayfun(@(x) x.pair_psth_var./x.eps_ball_var(2),fig_data.EP_data(:,1));
+alphas = psthvars./totvars; %for the simulation
+actual_alphas = arrayfun(@(x) x.pair_psth_var./x.eps_ball_var(2),fig_data.EP_data(:,1)); %for the actual unit
 
 %% select example unit and plotting ranges
-ex_su = 3;
-ex_tind = 209;
-ep_range = [-0.35 0.35];
-plot_trange = [0 1];
-plot_trials = [1 150];
+ex_su = 3; %index of example SU to use for simulation
+% ex_tind = 209;
+ep_range = [-0.35 0.35]; %eye-position axis range
+plot_trange = [0 1]; %range of times to plot 
+plot_trials = [1 150]; %range of trials to plot
 
 %% plot EP fig
-ex_trials = [9 83 157];
+ex_trials = [9 83 157]; %example trials to plot EP traces
+
+%plot example EP traces
 f1 = figure();
 subplot(2,1,1); hold on
 plot(tax,tbt_EP(:,ex_trials(1)),'r');
@@ -144,6 +150,7 @@ plot(tax,tbt_EP(:,ex_trials(3)),'k');
 xlim(plot_trange); ylim(ep_range);
 xlabel('Time (s)'); ylabel('Eye position (deg)');
 
+%plot distribution of EPs
 nbins = 25;
 bin_edges = linspace(ep_range(1),ep_range(2),nbins+1);
 n = histc(tbt_EP(:),bin_edges);
@@ -156,15 +163,16 @@ xlabel('Eye position (deg)');
 ylabel('Relative frequency');
 set(gca,'ytick',[]);
 
-fname = [fig_dir sprintf('Illust_EPdata_%s.pdf',Expt_name)];
-fig_width = 4; rel_height = 1.6;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fname = [fig_dir sprintf('Illust_EPdata_%s.pdf',Expt_name)];
+% fig_width = 4; rel_height = 1.6;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% plot psths
 f1 = figure();
 
+%plot PSTH (with FEM)
 subplot(2,2,1); hold on
 plot(tax,psths(:,ex_su)); 
 xlim(plot_trange);
@@ -172,6 +180,7 @@ ylim([0 200]);
 xlabel('Time (s)');
 ylabel('Firing rate (Hz)');
 
+%plot PSTH (without FEM)
 subplot(2,2,2); hold on
 plot(tax,PF_psth(:,ex_su),'r');
 xlim(plot_trange);
@@ -179,6 +188,7 @@ ylim([0 200]);
 xlabel('Time (s)');
 ylabel('Firing rate (Hz)');
 
+%plot across-trial variance (with FEM)
 subplot(2,2,3); hold on
 plot(tax,atvars(:,ex_su));
 xlim(plot_trange);
@@ -186,6 +196,7 @@ ylim([0 1e4]);
 xlabel('Time (s)');
 ylabel('Rate variance (Hz^2)');
 
+%across-trial variance without FEM is just 0
 subplot(2,2,4); hold on
 plot(tax,zeros(size(tax)),'r');
 xlim(plot_trange);
@@ -193,21 +204,24 @@ ylim([0 1e4]);
 xlabel('Time (s)');
 ylabel('Rate variance (Hz^2)');
 
-fname = [fig_dir sprintf('Illust_PSTHs_%s.pdf',Expt_name)];
-fig_width = 6; rel_height = 0.8;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fname = [fig_dir sprintf('Illust_PSTHs_%s.pdf',Expt_name)];
+% fig_width = 6; rel_height = 0.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% plot tbt firing rates
 
 f1 = figure();
+%plot matrix of tbt firing rates without FEM
 subplot(2,1,1);
 imagesc(tax,1:n_rpts,squeeze(mod_prates(:,:,ex_su))');
 xlim(plot_trange); ylim(plot_trials);
 set(gca,'ydir','normal');
 caxis([0 200]); colorbar
 xlabel('Time (s)'); ylabel('Trial number');
+
+%plot matrix of tbt firing rates with FEM
 subplot(2,1,2);
 imagesc(tax,1:n_rpts,squeeze(mod_prates_shift(:,:,ex_su))');
 xlim(plot_trange); ylim(plot_trials);
@@ -215,16 +229,16 @@ caxis([0 200]); colorbar
 xlabel('Time (s)'); ylabel('Trial number');
 set(gca,'ydir','normal');
 
-fname = [fig_dir sprintf('Illust_tbtRates_%s.pdf',Expt_name)];
-fig_width = 4; rel_height = 1.8;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fname = [fig_dir sprintf('Illust_tbtRates_%s.pdf',Expt_name)];
+% fig_width = 4; rel_height = 1.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
-%%
-ex_time = 0.7;
-ex_tind = find(tax >= ex_time,1);
-rate_vals = squeeze(mod_prates_shift(ex_tind,:,ex_su));
+%% plot across trial rate distribution at example time point
+ex_time = 0.7; %example time point
+ex_tind = find(tax >= ex_time,1); %its index value
+rate_vals = squeeze(mod_prates_shift(ex_tind,:,ex_su)); %across trial rates
 
 f1 = figure();
 nbins = 25;
@@ -239,34 +253,33 @@ ylabel('Relative frequency');
 set(gca,'ytick',[]);
 
 
-fname = [fig_dir sprintf('Illust_ratedist_%s.pdf',Expt_name)];
-fig_width = 4; rel_height = 0.8;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
-
-%% plot tbt-EP
-% f1 = figure();
-% imagesc(tax,1:n_rpts,tbt_EP');
-% xlim(plot_trange); ylim(plot_trials); 
-% caxis(ep_range);
+% fname = [fig_dir sprintf('Illust_ratedist_%s.pdf',Expt_name)];
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 %% plot simulated spike rasters
-dt_usfac = 5; %temporal up-sampling factor
+dt_usfac = 5; %temporal up-sampling factor (takes us to 2ms resolution)
 tax_up = (1:1/dt_usfac:n_uf)*dt; %new time axis
-dt_up = dt/dt_usfac;
+dt_up = dt/dt_usfac; %up-sampled time res
 
-shift_prate_up = interp1(tax,squeeze(mod_prates_shift(:,:,ex_su)),tax_up);
-prate_up = interp1(tax,squeeze(mod_prates(:,:,ex_su)),tax_up);
+%get up-sampled firing rates (in spks/bin)
+shift_prate_up = interp1(tax,squeeze(mod_prates_shift(:,:,ex_su)),tax_up)*dt/dt_usfac;
+prate_up = interp1(tax,squeeze(mod_prates(:,:,ex_su)),tax_up)*dt/dt_usfac;
 
-shift_binned_spks = poissrnd(shift_prate_up*dt/dt_usfac);
+%sample poisson spikes and cap counts at 1. This is a cheap way of just getting something like
+%refractoriness. Obiously just for visualization purposes.
+shift_binned_spks = poissrnd(shift_prate_up);
 shift_binned_spks(shift_binned_spks > 1) = 1;
-binned_spks = poissrnd(prate_up*dt/dt_usfac);
+binned_spks = poissrnd(prate_up);
 binned_spks(binned_spks > 1) = 1;
 
 tick_height = 0.7;
 
 f1 = figure(); 
+
+%make raster of spikes without FEM
 subplot(1,2,1); hold on
 for ii = 1:n_rpts
    cur_spk_times = tax_up(binned_spks(:,ii) == 1);
@@ -280,6 +293,7 @@ ylabel('Trial');
 xlim(plot_trange);
 ylim(plot_trials);
 
+%make raster of spikes with FEM
 subplot(1,2,2); hold on
 for ii = 1:n_rpts
    cur_spk_times = tax_up(shift_binned_spks(:,ii) == 1);
@@ -293,11 +307,11 @@ ylabel('Trial');
 xlim(plot_trange);
 ylim(plot_trials);
 
-fname = [fig_dir sprintf('Illust_rasters_%s.pdf',Expt_name)];
-fig_width = 6; rel_height = 0.5;
-figufy(f1);
-exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1);
+% fname = [fig_dir sprintf('Illust_rasters_%s.pdf',Expt_name)];
+% fig_width = 6; rel_height = 0.5;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 
 
