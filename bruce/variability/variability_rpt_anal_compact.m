@@ -625,39 +625,39 @@ rpt_data.N_rptframe_trials = N_rptframe_trials;
 rpt_data.N_wrong_start_trials = N_wrong_start_trials;
 
 %% get eye-position SD values for each unit
-EP_ac_maxlag = 500;
-[rpt_EP_SD,rpt_EP_SD_GS,rpt_EP_SD_fix,EP_SD,EP_SD_GS,EP_SD_fix] = deal(nan(length(targs),1));
-rpt_EP_ac = nan(length(targs),2*EP_ac_maxlag+1);
-if ~isempty(loo_set)
-    for cc = 1:length(targs)
-        loo_ind = find(loo_set == targs(cc));
-        if ~isempty(loo_ind)
-            rpt_EP_SD(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds)); %during all rpt trials
-            rpt_EP_SD_GS(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds_GS)); %only during guided sac rpts
-            rpt_EP_SD_fix(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds_fix)); %only during fixation rpts
-        
-            rpt_EP_ac(cc,:) = xcov(post_mean_EP_LOO(loo_ind,used_rpt_inds),EP_ac_maxlag,'coeff');
-            
-            EP_SD(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,:)); %during all trials
-            EP_SD_GS(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_inds_GS)); %only during guided sac trials
-            EP_SD_fix(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_inds_fix)); %only during fixation trials
-        end
-    end
-else %if not using LOO
-    rpt_EP_SD(:) = robust_std_dev(post_mean_EP(used_rpt_inds));
-    rpt_EP_SD_GS(:) = robust_std_dev(post_mean_EP(used_rpt_inds_GS));
-    rpt_EP_SD_fix(:) = robust_std_dev(post_mean_EP(used_rpt_inds_fix));
-  
-    EP_SD(:) = robust_std_dev(post_mean_EP);
-    EP_SD_GS(:) = srobust_std_devtd(post_mean_EP(used_inds_GS));
-    EP_SD_fix(:) = robust_std_dev(post_mean_EP(used_inds_fix));
-end
-
-rpt_data.ov_EP_SD = robust_std_dev(post_mean_EP);
-rpt_data.grayback_EP_SD = robust_std_dev(post_mean_EP(used_inds_grayback));
-rpt_data.imback_EP_SD = robust_std_dev(post_mean_EP(used_inds_imback));
-rpt_data.gs_EP_SD = robust_std_dev(post_mean_EP(used_inds_GS));
-rpt_data.fix_EP_SD = robust_std_dev(post_mean_EP(used_inds_fix));
+% EP_ac_maxlag = 500;
+% [rpt_EP_SD,rpt_EP_SD_GS,rpt_EP_SD_fix,EP_SD,EP_SD_GS,EP_SD_fix] = deal(nan(length(targs),1));
+% rpt_EP_ac = nan(length(targs),2*EP_ac_maxlag+1);
+% if ~isempty(loo_set)
+%     for cc = 1:length(targs)
+%         loo_ind = find(loo_set == targs(cc));
+%         if ~isempty(loo_ind)
+%             rpt_EP_SD(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds)); %during all rpt trials
+%             rpt_EP_SD_GS(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds_GS)); %only during guided sac rpts
+%             rpt_EP_SD_fix(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_rpt_inds_fix)); %only during fixation rpts
+%         
+%             rpt_EP_ac(cc,:) = xcov(post_mean_EP_LOO(loo_ind,used_rpt_inds),EP_ac_maxlag,'coeff');
+%             
+%             EP_SD(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,:)); %during all trials
+%             EP_SD_GS(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_inds_GS)); %only during guided sac trials
+%             EP_SD_fix(cc) = robust_std_dev(post_mean_EP_LOO(loo_ind,used_inds_fix)); %only during fixation trials
+%         end
+%     end
+% else %if not using LOO
+%     rpt_EP_SD(:) = robust_std_dev(post_mean_EP(used_rpt_inds));
+%     rpt_EP_SD_GS(:) = robust_std_dev(post_mean_EP(used_rpt_inds_GS));
+%     rpt_EP_SD_fix(:) = robust_std_dev(post_mean_EP(used_rpt_inds_fix));
+%   
+%     EP_SD(:) = robust_std_dev(post_mean_EP);
+%     EP_SD_GS(:) = srobust_std_devtd(post_mean_EP(used_inds_GS));
+%     EP_SD_fix(:) = robust_std_dev(post_mean_EP(used_inds_fix));
+% end
+% 
+% rpt_data.ov_EP_SD = robust_std_dev(post_mean_EP);
+% rpt_data.grayback_EP_SD = robust_std_dev(post_mean_EP(used_inds_grayback));
+% rpt_data.imback_EP_SD = robust_std_dev(post_mean_EP(used_inds_imback));
+% rpt_data.gs_EP_SD = robust_std_dev(post_mean_EP(used_inds_GS));
+% rpt_data.fix_EP_SD = robust_std_dev(post_mean_EP(used_inds_fix));
 
 %% loop over possible time windows
 for bbb = 1:length(poss_bin_dts)

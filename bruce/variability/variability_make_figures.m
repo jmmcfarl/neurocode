@@ -317,7 +317,7 @@ fprintf('abs overfitting quantiles [25 50 75]: %.4f %.4f %.4f\n',prctile(abs_ove
 %look at simulated alpha calcs based on integrating the FT, compared to the
 %normal way
 sim_int_diff = (sim_int_alphas - sim_alphas(:,sim_dt_ind))./sim_alphas(:,sim_dt_ind);
-fprintf('integral mad: %.4f SD:%.4f\n',median(sim_int_diff),std(sim_int_diff));
+fprintf('integral mad: %.4f SD:%.4f\n',median(abs(sim_int_diff)),std(sim_int_diff));
 
 %compare alpha simulations based on measured EPs vs assuming constant
 %within-trial EP
@@ -877,6 +877,7 @@ plot(psth_sigcorrs_val,EP_sigcorrs_val,'.','markersize',mSize);
 % [slope,intercept] = GMregress(psth_sigcorrs_val,EP_sigcorrs_val);
 r1 = regress(EP_sigcorrs_val,[ones(size(psth_sigcorrs_val)) psth_sigcorrs_val]);
 xx = linspace(-0.35,0.35,100);
+sig_corr_slope = r1(2);
 % plot(xx,intercept + slope*xx,'r');
 plot(xx,r1(1) + r1(2)*xx,'r');
 xlim(xl); ylim(xl);
@@ -893,6 +894,7 @@ xl = [-0.25 0.25];
 plot(psth_noisecorrs_val,EP_noisecorrs_val,'.','markersize',mSize);
 % [slope,intercept] = GMregress(psth_noisecorrs_val,EP_noisecorrs_val);
 r1 = regress(EP_noisecorrs_val,[ones(size(psth_noisecorrs_val)) psth_noisecorrs_val]);
+noise_corr_slope = r1(2);
 xx = linspace(-0.25,0.25,100);
 % plot(xx,intercept + slope*xx,'r');
 plot(xx,r1(1) + r1(2)*xx,'r');
@@ -915,6 +917,7 @@ line(yl,yl,'color','k');
 xlabel('Noise corr bias')
 ylabel('Signal corr');
 r1 = regress(EP_sigcorrs_val,[ones(size(FEM_noisecorr_bias)) FEM_noisecorr_bias]);
+noisebias_corr_slope = r1(2);
 % [slope,intercept] = GMregress(FEM_noisecorr_bias(:),EP_sigcorrs_val(:));
 xx = linspace(-0.25,0.25,100);
 % plot(xx,intercept + slope*xx,'r');
@@ -922,24 +925,24 @@ plot(xx,r1(1) + r1(2)*xx,'r');
 % line(median(FEM_noisecorr_bias) + [0 0],yl,'color','m');
 
 
-fig_width = 4; rel_height = 1;
-figufy(f1a);
-fname = [fig_dir 'sigcorr_scatter.pdf'];
-exportfig(f1a,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1a);
-
-
-fig_width = 4; rel_height = 1;
-figufy(f1b);
-fname = [fig_dir 'noisecorr_scatter.pdf'];
-exportfig(f1b,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1b);
-
-fig_width = 4; rel_height = 1;
-figufy(f1c);
-fname = [fig_dir 'noisebias_sigcorr.pdf'];
-exportfig(f1c,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-close(f1c);
+% fig_width = 4; rel_height = 1;
+% figufy(f1a);
+% fname = [fig_dir 'sigcorr_scatter.pdf'];
+% exportfig(f1a,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1a);
+% 
+% 
+% fig_width = 4; rel_height = 1;
+% figufy(f1b);
+% fname = [fig_dir 'noisecorr_scatter.pdf'];
+% exportfig(f1b,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1b);
+% 
+% fig_width = 4; rel_height = 1;
+% figufy(f1c);
+% fname = [fig_dir 'noisebias_sigcorr.pdf'];
+% exportfig(f1c,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1c);
 
 %%
 % BOOTSTAT = bootstrp(5000,@GMregress,psth_noisecorrs_val,EP_noisecorrs_val);
@@ -1067,27 +1070,29 @@ close(f1c);
 %
 
 %% compare avg xcorrs for sets of pairs that have high or low residual noise corr (Fig 9X)
-high_tot_corr = find(tot_corrs_val > prctile(tot_corrs_val,50)); %set of neurons with high xcorr
+high_tot_corr = find(tot_corrs_val > prctile(tot_corrs_val,50)); %set of pairs with high (positive) cross-corr
+
+%now split these pairs into high and low noisecorr groups
 noise_corr_splitpt = median(EP_noisecorrs_val(high_tot_corr)); %split pt for dividing into high and low noise corr
 high_noise_corr = high_tot_corr(EP_noisecorrs_val(high_tot_corr) > noise_corr_splitpt);
 low_noise_corr = high_tot_corr(EP_noisecorrs_val(high_tot_corr) < noise_corr_splitpt);
 
-highest_tot_corr = high_tot_corr(tot_corrs_val(high_tot_corr) > median(tot_corrs_val(high_tot_corr)));
-next_tot_corr = high_tot_corr(tot_corrs_val(high_tot_corr) < median(tot_corrs_val(high_tot_corr)));
+% highest_tot_corr = high_tot_corr(tot_corrs_val(high_tot_corr) > median(tot_corrs_val(high_tot_corr)));
+% next_tot_corr = high_tot_corr(tot_corrs_val(high_tot_corr) < median(tot_corrs_val(high_tot_corr)));
 
-f1 = figure();
-subplot(2,1,1); hold on
-shadedErrorBar(tlags*dt*1e3,mean(all_tot_corrs(high_noise_corr,:)),std(all_tot_corrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','k'});
-shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(high_noise_corr,:)),std(all_EP_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','b'});
-shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(high_noise_corr,:)),std(all_psth_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','r'});
-ylabel('Correlation');
-xlabel('Time lag (ms)');
-subplot(2,1,2); hold on
-shadedErrorBar(tlags*dt*1e3,mean(all_tot_corrs(low_noise_corr,:)),std(all_tot_corrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','k'});
-shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(low_noise_corr,:)),std(all_EP_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','b'});
-shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(low_noise_corr,:)),std(all_psth_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
-ylabel('Correlation');
-xlabel('Time lag (ms)');
+% f1 = figure();
+% subplot(2,1,1); hold on
+% shadedErrorBar(tlags*dt*1e3,mean(all_tot_corrs(high_noise_corr,:)),std(all_tot_corrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','k'});
+% shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(high_noise_corr,:)),std(all_EP_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','b'});
+% shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(high_noise_corr,:)),std(all_psth_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','r'});
+% ylabel('Correlation');
+% xlabel('Time lag (ms)');
+% subplot(2,1,2); hold on
+% shadedErrorBar(tlags*dt*1e3,mean(all_tot_corrs(low_noise_corr,:)),std(all_tot_corrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','k'});
+% shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(low_noise_corr,:)),std(all_EP_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','b'});
+% shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(low_noise_corr,:)),std(all_psth_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
+% ylabel('Correlation');
+% xlabel('Time lag (ms)');
 
 
 % fig_width = 4; rel_height = 2;
@@ -1096,7 +1101,7 @@ xlabel('Time lag (ms)');
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
 
-norm_EP_noisecorrs = bsxfun(@rdivide,all_EP_noisecorrs,max(abs(all_EP_noisecorrs),[],2));
+% norm_EP_noisecorrs = bsxfun(@rdivide,all_EP_noisecorrs,max(abs(all_EP_noisecorrs),[],2));
 
 f1 = figure();
 subplot(3,1,1); hold on

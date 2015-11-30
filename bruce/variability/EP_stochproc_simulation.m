@@ -220,7 +220,7 @@ hold on
 % plot(fax_up,simppsth_fft_interp,'r');
 plot(fax,ep_dist_fft/max(ep_dist_fft),'k');
 plot(fax,simprate_fft/max(simprate_fft),'b')
-plot(fax,simppsth_fft/max(simppsth_fft),'r');
+plot(fax,simppsth_fft/max(simprate_fft),'r');
 xlim(freq_range);
 xlabel('Frequency (cyc/deg)');
 ylabel('Relative amplitude');
