@@ -2,6 +2,7 @@ clear all
 close all
 
 addpath('~/other_code/fastBSpline/');
+rmpath('~/James_scripts/bruce/bruce_code');
 fig_dir = '/home/james/Analysis/bruce/variability/figures/';
 
 Expt_name = 'M012';
@@ -270,6 +271,7 @@ prate_up = interp1(tax,squeeze(mod_prates(:,:,ex_su)),tax_up)*dt/dt_usfac;
 
 %sample poisson spikes and cap counts at 1. This is a cheap way of just getting something like
 %refractoriness. Obiously just for visualization purposes.
+rng(1);
 shift_binned_spks = poissrnd(shift_prate_up);
 shift_binned_spks(shift_binned_spks > 1) = 1;
 binned_spks = poissrnd(prate_up);
@@ -306,24 +308,39 @@ xlabel('Time (s)');
 ylabel('Trial');
 xlim(plot_trange);
 ylim(plot_trials);
+yl = ylim();
+line(ex_time+[-dt/2 -dt/2],yl,'color','r')
+line(ex_time+[dt/2 dt/2],yl,'color','r')
 
 % fname = [fig_dir sprintf('Illust_rasters_%s.pdf',Expt_name)];
 % fig_width = 6; rel_height = 0.5;
 % figufy(f1);
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
+% 
+%% plot across trial spike count distribution at example time point
+addpath('~/James_scripts/bruce/bruce_code/')
+% binned_spks_ds = smooth(binned_spks',dt_usfac)'*dt_usfac;
+% binned_spks_ds = downsample(binned_spks_ds,dt_usfac);
+shift_binned_spks_ds = smooth(shift_binned_spks',dt_usfac)'*dt_usfac;
+shift_binned_spks_ds = downsample(shift_binned_spks_ds,dt_usfac);
 
+poss_n_spks = 0:max([shift_binned_spks_ds(:); binned_spks_ds(:)]);
+n = hist(shift_binned_spks_ds(ex_tind,:),poss_n_spks);
+f1 = figure();
+hobj = bar(poss_n_spks,n);
+set(hobj,'faceColor','k','barwidth',0.75);
+xlim([-0.75 4.75]);
+xlabel('Spike counts');
+ylabel('Relative frequency');
+set(gca,'ytick',[]);
 
-
-
-
-
-
-
-
-
-
-
+% 
+% fname = [fig_dir sprintf('Illust_cntdist_%s.pdf',Expt_name)];
+% fig_width = 4; rel_height = 0.8;
+% figufy(f1);
+% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f1);
 
 
 

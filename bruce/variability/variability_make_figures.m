@@ -1109,25 +1109,34 @@ shadedErrorBar(tlags*dt*1e3,mean(all_tot_corrs(high_noise_corr,:)),std(all_tot_c
 shadedErrorBar(tlags*dt*1e3,mean(all_tot_corrs(low_noise_corr,:)),std(all_tot_corrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
 ylabel('Correlation');
 xlabel('Time lag (ms)');
-ylim([-0.005 0.1]);
+ylim([-0.0075 0.1]);
 xl = xlim(); yl = ylim();
 line(xl,[0 0],'color','k','linestyle','--');
 line([0 0],yl,'color','k','linestyle','--');
+% subplot(3,1,2); hold on
+% shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(high_noise_corr,:)),std(all_psth_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','k'});
+% shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(low_noise_corr,:)),std(all_psth_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
+% ylabel('Correlation');
+% xlabel('Time lag (ms)');
+% ylim([-0.005 0.06]);
+% xl = xlim(); yl = ylim();
+% line(xl,[0 0],'color','k','linestyle','--');
+% line([0 0],yl,'color','k','linestyle','--');
 subplot(3,1,2); hold on
-shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(high_noise_corr,:)),std(all_EP_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','k'});
-shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(low_noise_corr,:)),std(all_EP_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
+shadedErrorBar(tlags*dt*1e3,mean(all_EP_sigcorrs(high_noise_corr,:)),std(all_EP_sigcorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','k'});
+shadedErrorBar(tlags*dt*1e3,mean(all_EP_sigcorrs(low_noise_corr,:)),std(all_EP_sigcorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
 ylabel('Correlation');
 xlabel('Time lag (ms)');
-ylim([-0.005 0.06]);
+ylim([-0.0075 0.06]);
 xl = xlim(); yl = ylim();
 line(xl,[0 0],'color','k','linestyle','--');
 line([0 0],yl,'color','k','linestyle','--');
 subplot(3,1,3); hold on
-shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(high_noise_corr,:)),std(all_psth_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','k'});
-shadedErrorBar(tlags*dt*1e3,mean(all_psth_noisecorrs(low_noise_corr,:)),std(all_psth_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
+shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(high_noise_corr,:)),std(all_EP_noisecorrs(high_noise_corr,:))/sqrt(length(high_noise_corr)),{'color','k'});
+shadedErrorBar(tlags*dt*1e3,mean(all_EP_noisecorrs(low_noise_corr,:)),std(all_EP_noisecorrs(low_noise_corr,:))/sqrt(length(low_noise_corr)),{'color','r'});
 ylabel('Correlation');
 xlabel('Time lag (ms)');
-ylim([-0.005 0.06]);
+ylim([-0.0075 0.06]);
 xl = xlim(); yl = ylim();
 line(xl,[0 0],'color','k','linestyle','--');
 line([0 0],yl,'color','k','linestyle','--');
@@ -1137,7 +1146,7 @@ line([0 0],yl,'color','k','linestyle','--');
 % fname = [fig_dir 'avg_xcorrs_groups.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-
+% % 
 %% calculate width of central cross-corr peak
 close all
 interp_lags = (tlags(1):.25:tlags(end))*dt;

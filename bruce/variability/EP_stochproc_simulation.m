@@ -305,6 +305,7 @@ xl = xlim(); line(xl,[0 0],'color','k','linestyle','--');
 %% analysis for grating stim
 gr_sf = 2; %grating spatial frequency
 gr_tf = 4; %grating temporal frequency (irrelevant, but including for sim-purposes)
+examp_sf = 2; %spatial freq
 
 pix_dx = .01; %pixel size (deg)
 xax = -10:pix_dx:10; %spatial axis (deg)

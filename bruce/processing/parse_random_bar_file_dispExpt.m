@@ -1,7 +1,10 @@
 function [trial_ids,seed_nums,frame_trialid,frame_nums,left_pix,right_pix,trial_ds,has_mtrS] = parse_random_bar_file_dispExpt(fname)
 %
-%% Same as parse_random_bar_file, but adjusted to handle new data from disparity expts.
-
+%% Same as parse_random_bar_file, but adjusted to handle new data from disparity expts. These files have extra
+% In these files there's an extra L0R0 at the end of the lines. In Bruce's words:
+% The extra L0R0 lines have been added to deal with cases that did not happen that day.  
+% [ If the disparity is not a integer multipe of the bar width, then (a) the pattern will start with a partial bar, and (b) the size of this will be different in the two eyes.  The L/R numbers record this. But I was careful that the disparity was always an even multiple. 
+% So, this should be handled properly at some point! (Bruce probably has code to do this
 
 %open rls.rc file and read in text data
 fid = fopen(fname);

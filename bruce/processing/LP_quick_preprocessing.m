@@ -3,9 +3,9 @@ close all
 
 addpath(genpath('~/Bruce_matlab'));
 
-Expt_name = 'M320';
+Expt_name = 'M309';
 monName = 'lem';
-data_dir = '/media/NTlab_data3/Data/bruce/';
+data_dir = '~/rawData_test/';
 stim_dir = strcat(data_dir,Expt_name,'/stims');
 
 cd([data_dir Expt_name]);
@@ -39,7 +39,7 @@ cur_file_names = arrayfun(@(x) x.name,cur_files,'uniformoutput',0);
 [startinds,~,token,expt_chunk,tokenname] = regexp(cur_file_names,'rls.rc([0-9]{1,3})');
 rls_list = sort(cellfun(@(x) str2num(cell2mat((x{1}))),tokenname));
 
-disparity_flag = false;
+disparity_flag = false; %set to true when parsing experiments with random disparities (like Sid's new data). 
 process_rls_files(stim_dir,rls_list,disparity_flag);
 
 %%
