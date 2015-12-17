@@ -72,12 +72,15 @@ for ss = 1:length(SU_numbers)
         SU_block_probes(ss,cur_blocks) = cur_probe; %store which probe was used for this cluster on these blocks
                 
         all_su_inds = all_clust_ids{cur_probe} == cur_clust_label; %all spikes in this cluster
-        cur_su_spk_times = all_spk_times{cur_probe}(all_su_inds); 
-        cur_su_spk_inds = all_spk_inds{cur_probe}(all_su_inds);
-        spk_block_inds = round(interp1(all_t_axis,all_blockvec,cur_su_spk_times));
-        cur_su_spk_times = cur_su_spk_times(ismember(spk_block_inds,cur_blocks));
+        cur_su_spk_times = all_spk_times{cur_probe}(all_su_inds); %set of spike times
+        cur_su_spk_inds = all_spk_inds{cur_probe}(all_su_inds); %set of spike index values (wont have absolute alignment to fullV anymore, just need to check for overlap)
+        spk_block_inds = round(interp1(all_t_axis,all_blockvec,cur_su_spk_times)); %block index for each spike
+        
+        %only keep SU spikes from isolated blocks
+        cur_su_spk_times = cur_su_spk_times(ismember(spk_block_inds,cur_blocks)); 
         cur_su_spk_inds = cur_su_spk_inds(ismember(spk_block_inds,cur_blocks));
         
+        %store this cluster's spikes for this SU
         all_su_spk_times{ss} = cat(1,all_su_spk_times{ss},cur_su_spk_times(:));
         all_su_spk_inds{ss} = cat(1,all_su_spk_inds{ss},cur_su_spk_inds(:));
     end
@@ -86,13 +89,13 @@ for ss = 1:length(SU_numbers)
     if ~isempty(all_su_spk_times{ss})
         cur_suahist = histc(all_su_spk_times{ss},all_t_bin_edges);
         cur_suahist(all_bin_edge_pts) = []; %account for trial edges in binning
-        cur_id_set = ismember(all_blockvec,cur_blocks);
+        cur_id_set = ismember(all_blockvec,cur_blocks); %ids from blocks where SU was clustered
         all_binned_sua(cur_id_set,ss) = cur_suahist(cur_id_set);
         su_probes(ss) = mode(SU_block_probes(ss,~isnan(SU_block_probes(ss,:)))); %use the mode as a best rep of the probe associated with this SU
     end
 end
 
-double_spike_buffer = 3; %number of samples (in either direction) to exclude double spikes from adjacent-probe SUs
+double_spike_buffer = 3; %number of samples (in either direction) to exclude double spikes from adjacent-probe SUs, relative to raw fullV data
 all_binned_mua = nan(length(all_t_axis),n_probes);
 all_mu_spk_times = cell(n_probes,1);
 for cc = 1:n_probes
@@ -105,7 +108,7 @@ for cc = 1:n_probes
         cur_SS = [];
     end
     unique_su_nums = unique(cur_SS); %su numbers clustered on this probe
-    cur_mua_inds = find(all_clust_ids{cc} >= 1); %anything that's not noise counts as MU (clust_id of 1 or above)
+    cur_mua_inds = find(all_clust_ids{cc} >= 1); %anything that's not noise/artifact counts as MU (clust_id of 1 or above)
     
     %remove spikes from isolated SUs on the same probe from the MU
     for ss = 1:length(unique_su_nums)

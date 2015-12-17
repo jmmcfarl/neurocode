@@ -41,11 +41,11 @@ for i = 1:n_rc_files
         
         if disparity_flag
             fprintf('Using disparity-stim parsing\n');
-        [trial_ids,seed_ids,cur_frame_trial_nums,cur_frame_nums,left_pix,right_pix,trial_ds,rc_has_mtrS(i)] = ...
-            parse_random_bar_file_dispExpt(file_names(i).name);
+            [trial_ids,seed_ids,cur_frame_trial_nums,cur_frame_nums,left_pix,right_pix,trial_ds,rc_has_mtrS(i)] = ...
+                parse_random_bar_file_dispExpt(file_names(i).name);
         else
-        [trial_ids,seed_ids,cur_frame_trial_nums,cur_frame_nums,left_pix,right_pix,trial_ds,rc_has_mtrS(i)] = ...
-            parse_random_bar_file(file_names(i).name);
+            [trial_ids,seed_ids,cur_frame_trial_nums,cur_frame_nums,left_pix,right_pix,trial_ds,rc_has_mtrS(i)] = ...
+                parse_random_bar_file(file_names(i).name);
         end
         
         trial_trial_ids = [trial_trial_ids; trial_ids];

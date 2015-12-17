@@ -37,16 +37,13 @@ end
 fprintf('Loading %s\n',data_name);
 load(data_name);
 
-%data name!
-
 if strcmp(rec_type,'LP')
     n_probes = 24;
 elseif strcmp(rec_type,'UA')
     n_probes = 96;
 end
 
-% load([data_dir '/stims/expt_data.mat']); %load in stim-alignment meta-data
-
+%get additional directory names
 anal_dir = ['~/Analysis/bruce/' Expt_name '/ET_final_imp/'];
 if ~exist(anal_dir,'dir')
     system(['mkdir ' anal_dir]);
@@ -57,9 +54,9 @@ if rec_number > 1
     cluster_dir = [cluster_dir sprintf('/rec%d',rec_number)];
 end
 
+%names for results files
 init_mods_name = 'NIM_ET_initmods';
 ET_results_name = 'NIM_ET';
-
 init_mods_name = [init_mods_name sprintf('_ori%d',bar_ori)];
 ET_results_name = [ET_results_name sprintf('_ori%d',bar_ori)];
 if rec_number > 1
@@ -67,7 +64,8 @@ if rec_number > 1
     ET_results_name = strcat(ET_results_name,sprintf('r%d',rec_number));
 end
 
-params.use_coils = [0 0];
+% params.use_coils = [0 0]; %if you want to hard-code whether or not to use the eye-coils
+% (otherwise, packaged data sets those params)
 %%
 min_trial_dur = 0.75; %minimal trial dur (s)
 %exclude data at beginning and end of each trial (numbers in sec)
@@ -133,14 +131,18 @@ HMM_params.desired_fix_res = 0.025; %resolution of fixation inference grid
 HMM_params.desired_drift_res = 0.025/3; %resolution of drift inference grid
 HMM_params.max_fix_shift = 0.85; %maximum shift to consider when estimating fixation-corrections (in deg)
 HMM_params.max_drift_shift = 0.3; %max shift for drift corrections (in deg)
-HMM_params.neural_delay = 0.05; %how much to shift jump points forward in time
-HMM_params.n_fix_iter = 3; %3 number of iterations to estimate fixation-based EP
-HMM_params.n_drift_iter = 1; %1 number of iterations to estimate within-fixation drift
+HMM_params.neural_delay = 0.05; %how much to shift jump points forward in time (a neural response delay). Maybe should be lowered a bit (40 ms)?
+HMM_params.n_fix_iter = 3; %number of iterations to estimate fixation-based EP (3 works well)
+HMM_params.n_drift_iter = 1; %number of iterations to estimate within-fixation drift (1 works well)
+
 % set priors on EP (all values in deg)
-HMM_params.fix_prior_sigma = 0.15; %prior sigma on fixation-based EP
-HMM_params.fix_delta_noise_sigma = 0.1; %sigma on noise of eye-trackers in measuring change in EP between fixations
+HMM_params.fix_prior_sigma = 0.15; %prior sigma on fixation-based EP (0.15 good)
+HMM_params.fix_delta_noise_sigma = 0.1; %sigma on noise of eye-trackers in measuring change in EP between fixations (I use 0.1)
+HMM_params.drift_jump_sigma = 0.075; %gaussian prior sigma on change in EP between fixations during drift-corrections
+HMM_params.drift_dsf = 1; %temporal down-sampling for estimating drift (with new code, can use 1 here, so long as you have a fine enough drift grid)
+
 %this sets the posterior sigma to be ~0.004 in all cases (just a heuristic)
-HMM_params.drift_noise_sigma = 0; %gaussian noise sigma on coil-measured drift
+HMM_params.drift_noise_sigma = 0; %gaussian noise sigma on coil-measured drift (only matters if using coils)
 HMM_params.drift_prior_sigma = 0.004; %sigma of gaussian prior on diff of eye-pos
 if all(params.use_coils) %if using both coils
     HMM_params.drift_prior_sigma = sqrt(0.004^2*3);
@@ -149,13 +151,9 @@ elseif any(params.use_coils) %if just using one coil
     HMM_params.drift_prior_sigma = sqrt(0.004^2*2);
     HMM_params.drift_noise_sigma = sqrt(0.004^2*2);
 end
-HMM_params.drift_jump_sigma = 0.075; %gaussian prior sigma on change in EP between fixations during drift-corrections
-HMM_params.drift_dsf = 1; %temporal down-sampling for estimating drift
-
-%%
+%% get stimulus 
 all_stim_mat = decompressTernNoise(stimComp);
 
-%% get stim-matrix for initial model estimation
 bar_width = mode(expt_data.expt_dw)/params.scale_fac; %size of bars in pixels
 fix_stim_usfac = round(bar_width/HMM_params.desired_fix_res); %initial stimulus up-sampling for fixation inference
 stim_dx = bar_width/fix_stim_usfac; %model dx in deg
@@ -165,17 +163,9 @@ mod_TB_ds = fix_stim_usfac/modfit_usfac; %tent-basis down-samling of model filte
 full_nPix_us = fix_stim_usfac*full_nPix; %initial up-sampled nPix
 use_nPix_us = use_nPix*fix_stim_usfac; %initial number of up-sampled used pixels
 
-if fix_stim_usfac > 1
-    all_stimmat_up = zeros(size(all_stim_mat,1),full_nPix_us);
-    for ii = 1:size(all_stim_mat,2)
-        for jj = 1:fix_stim_usfac
-            all_stimmat_up(:,fix_stim_usfac*(ii-1)+jj) = all_stim_mat(:,ii);
-        end
-    end
-elseif fix_stim_usfac == 1
-    all_stimmat_up = all_stim_mat;
-end
-stim_params = NIM.create_stim_params([flen full_nPix_us],'stim_dt',dt);
+all_stimmat_up = up_sample_stimulus(all_stim_mat,fix_stim_usfac); %up-sample stimulus
+
+stim_params = NIM.create_stim_params([flen full_nPix_us],'stim_dt',dt); %
 
 %pick out the predictors (of the time-embedded stimulus-matrices)
 %corresponding to the central pixels we're using in the models
@@ -185,16 +175,18 @@ use_kInds = get_used_kInds([flen full_nPix_us],use_nPix_us);
 all_binned_mua = spikes_int82double(spike_data.binned_mua);
 all_binned_sua = spikes_int82double(spike_data.binned_sua);
 Clust_data = spike_data.Clust_data;
-su_probes = Clust_data.SU_probes;
-SU_numbers = Clust_data.SU_numbers;
+su_probes = Clust_data.SU_probes; %probe number of each SU
+SU_numbers = Clust_data.SU_numbers; %unique numbering assigned to each SU
 
 %% get trial and block data
-NT = length(used_inds);
-fullNT = size(all_binned_mua,1);
+NT = length(used_inds); %number of used time samples
+fullNT = size(all_binned_mua,1); %all time samples
 n_trials = length(time_data.trial_flip_ids);
 n_blocks = length(time_data.block_flip_ids);
 
 all_t_axis = time_data.t_axis;
+
+%make indicator vector for trial number
 trial_start_inds = [1; 1+time_data.trial_flip_inds(2:end)];
 trial_end_inds = [time_data.trial_flip_inds(2:end); fullNT];
 all_trialvec = nan(fullNT,1);
@@ -202,6 +194,7 @@ for ii = 1:n_trials
     all_trialvec(trial_start_inds(ii):trial_end_inds(ii)) = time_data.trial_flip_ids(ii);
 end
 
+%make indicator vector for block number
 block_start_inds = [1; 1+time_data.block_flip_inds(2:end)];
 block_end_inds = [time_data.block_flip_inds(2:end); fullNT];
 all_blockvec = nan(fullNT,1);
@@ -277,6 +270,10 @@ fix_boundaries = [fix_start_inds fix_stop_inds]; %store [Nx2] mat of fixation bo
 trial_boundaries = [trial_start_inds trial_end_inds]; %store [Nx2] mat of trial boundary indices
 
 %% INITIALIZE STIMULUS FOR INITIAL MODEL FITTING
+%note: applying a little bit of spatial jitter in the initial model fitting can help avoid some
+%local minima in the overall EM optimization. I think this is just because the model has trouble
+%fitting filter coefficients at higher spatial resolution if the bar boundaries are always at the
+%same pixels.
 rand_fixpos = randn(n_fixs,1)*MP.init_jitter_SD; %draw a random position for each fixation
 init_eyepos = zeros(NT,1);
 all_stimmat_shift = all_stimmat_up;
@@ -305,19 +302,12 @@ use_trials = unique(all_trialvec(used_inds));
 use_trials(ismember(use_trials,rpt_trials)) = []; %don't use rpt trials for model fitting
 nuse_trials = length(use_trials);
 
-%set aside a fraction of trials for xval
-n_xv_trials = round(MP.xv_frac*nuse_trials);
-xv_trials = randperm(nuse_trials);
-xv_trials(n_xv_trials+1:end) = [];
-xv_trials = use_trials(xv_trials);
-tr_trials = setdiff(use_trials,xv_trials);
-n_tr_trials = length(tr_trials);
-fprintf('Initializing models with %d training trials and %d xval trials\n',n_tr_trials,n_xv_trials);
-
+%get train/test split
+[tr_trials, xv_trials] = split_trials_xval(use_trials,MP.xv_frac);
 tr_inds = find(ismember(all_trialvec(used_inds),tr_trials));
 xv_inds = find(ismember(all_trialvec(used_inds),xv_trials));
 
-%%
+%% create Robs_mat and get population rate if needed
 % make Robs_mat
 tot_sus = size(all_binned_sua,2);
 tot_nUnits = length(su_probes) + n_probes;
@@ -330,7 +320,7 @@ for ss = 1:size(Robs_mat,2)
     end
 end
 
-if MP.model_pop_avg
+if MP.model_pop_avg %if using the population avg rate as a predictor
     norm_rates = Robs_mat(:,1:n_probes); %define pop rate over MUA only
     for tt = 1:length(trial_data) %loop over trials
         cur_trial_inds = find(all_trialvec(used_inds) == tt);
@@ -378,9 +368,9 @@ MP.sac_d2t_lambda = 100; %temporal smoothness regularization on saccade kernels
 MP.block_L2_lambda = 1; %slight penalty on block coefs to ensure convergence
 
 %baseline regularization strengths
-MP.base_lambda_d2XT = 100;
 MP.base_lambda_L1 = 5;
-MP.init_lambda_d2XT = 100;
+MP.base_lambda_d2XT = 100; %target lambda
+MP.init_lambda_d2XT = 100; %for initial fit
 %if using sparser stimuli, reduce base reg strenghts to approximately
 %account for difference in stimulus marginal variance
 if unique(expt_data.expt_dds) == 12
@@ -406,9 +396,10 @@ Xtargs = [Xtargs 2];
 init_d2XT = [MP.init_lambda_d2XT*ones(MP.n_Esquared_filts + MP.n_Isquared_filts + 1,1); 0;];
 init_reg_params = NMMcreate_reg_params('lambda_d2XT',init_d2XT);
 
-%range of smoothness regularization 'rescaling' to try
-% MP.poss_lambda_scales = logspace(-2,2,10);
-MP.poss_lambda_scales = 1;
+%range of smoothness regularization 'rescaling' to try (these are multiplicative factors on the
+%baseline strength
+% MP.poss_lambda_scales = logspace(-2,2,10); %use log-space grid
+MP.poss_lambda_scales = 1; %specify just one value
 
 init_mods_data_loc = strcat(anal_dir,init_mods_name);
 if ~exist([init_mods_data_loc '.mat'],'file') || MP.recompute_init_mods == 1
@@ -504,6 +495,8 @@ end
 all_Xmat = all_Xmat(used_inds,:);
 
 %% SELECT USABLE UNITS AND make Robs_mat
+%you can select a subset of units here to use for eye-tracking (if some MUs are garbage for
+%instance). I think it works fine to just use everything (things that are crap get ignored anyways).
 % usable_units = find(all_mod_xvLLimp > 0);
 tr_units = find(~isnan(all_mod_xvLLimp)); %use all units we have data for
 
@@ -519,15 +512,18 @@ Robs_mat = Robs_mat(:,tr_units);
 all_modfit_inds = union(tr_inds,xv_inds);
 
 %% set of units to perform LOO xval on
-if use_LOOXV == 2
+if use_LOOXV == 2 %use all units
     loo_set = 1:length(tr_set);
-elseif use_LOOXV == 1
+elseif use_LOOXV == 1 %use only SUs
     loo_set = find(all_mod_SU(tr_set) > 0);
-else
+else %none
     loo_set = [];
 end
 
 %% DIAGNOSTICS
+%computes some stuff that you can use to check for problems of various kinds (e.g. if all the models
+%for all the neurons suddenly get bad for a set of blocks, its possible something changed about the
+%experiment/stimulus, so it should be looked into further.
 full_prates = nan(NT,n_tr_chs);
 full_nullrates = nan(NT,n_tr_chs);
 for cc = 1:n_tr_chs
@@ -544,10 +540,11 @@ for tt = 1:n_blocks
     block_LLimp(tt,:) = nanmean(full_LLimp(cur_used_inds,:)); %compute within-block avg LL imps
 end
 
+%note: it's not 
 block_LLimp_zscore = nanzscore(block_LLimp);
 avg_LLimp_zscore = nanmean(block_LLimp_zscore,2);
 questionable_blocks = find(avg_LLimp_zscore <= -1);
-if ~isempty(questionable_blocks)
+if ~isempty(questionable_blocks) 
     fprintf('Warning, found %d questionable blocks\n',length(questionable_blocks));
     fprintf('Avg z-score LL: %.3f\n',avg_LLimp_zscore(questionable_blocks));
 end
@@ -625,6 +622,7 @@ gen_data = struct('bar_width',bar_width,'stim_dx',stim_dx,'trial_boundaries',tri
     all_mod_fits(tr_units),Robs_mat(:,tr_units),all_stimmat_up,X(2:end),...
     tr_units,HMM_params,ET_meas,gen_data);
 
+% reconstruct final (fix+drift) inferred eye-positions
 fix_post_mean = squeeze(EP_pos.fix_mean(end,:));
 fix_post_std = squeeze(EP_pos.fix_std(end,:));
 drift_post_mean = squeeze(EP_pos.drift_mean(end,:));

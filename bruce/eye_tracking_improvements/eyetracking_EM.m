@@ -1,5 +1,4 @@
-% function [EP_post,mod_fits] = eyetracking_EM(...
-%     init_mods,Robs_mat,stim_mat,nonstim_X,tr_units,HMM_params,ET_meas,gen_data)
+function [EP_post,mod_fits] = eyetracking_EM(init_mods,Robs_mat,stim_mat,nonstim_X,tr_units,HMM_params,ET_meas,gen_data)
 % [EP_pos,mod_fits] = eyetracking_EM(init_mods,Robs_mat,stim_mat,nonstim_X,tr_units,HMM_params,ET_meas,gen_data)
 % Runs HMM-based EM algorithm iteratively on neural data to infer eye position.
 % INPUTS:   
@@ -101,15 +100,15 @@ for ii = 1:n_fixs
     pfix_ids(cur_inds) = ii;
 end
 
-%% generate shift matrices. Must be applied to the stimulus (not the filters)
+%% generate fixation-shift matrices. Must be applied to the stimulus (not the filters)
 %shifts for inferring fixation corrections
-fix_usfac = round(gen_data.bar_width/HMM_params.desired_fix_res);
-assert(gen_data.bar_width/fix_usfac == stim_dx,'stimulus not initialized at desired spatial resolution');
+fix_usfac = round(gen_data.bar_width/HMM_params.desired_fix_res); %spatial up-sampling factor
+assert(gen_data.bar_width/fix_usfac == stim_dx,'stimulus not initialized at desired spatial resolution'); %stimulus must be supplied at the fixation inference res
 max_fix_shift_pix = round(HMM_params.max_fix_shift/stim_dx); %max eye pos deviation (deg)
 fix_shifts = -max_fix_shift_pix:max_fix_shift_pix; %shift-range
 n_fix_shifts = length(fix_shifts); %number of shifts
 
-mod_TB_ds = fix_usfac/gen_data.modfit_usfac; %tent-basis down-samling of model filters
+mod_TB_ds = fix_usfac/gen_data.modfit_usfac; %tent-basis down-sampling of model filters
 assert(mod_TB_ds == round(mod_TB_ds) && mod_TB_ds >= 1,'fixation up-sampling must be integer multiple of model up-sampling');
 
 if mod_TB_ds == 1 %we'll use this method if were not doing TB up-sampling of the models
@@ -141,13 +140,13 @@ fix_Lprior = -(fix_shifts*stim_dx).^2./(2*HMM_params.fix_prior_sigma^2); %log-pr
 fix_Lprior = fix_Lprior - logsumexp(fix_Lprior); %normalize
 
 %% construct initial stimulus Xmat
-if mod_TB_ds == 1
+if mod_TB_ds == 1 %if were using the method of applying fixation shifts through matrix mults, precompute base_Xmat here
     base_Xmat = NIM.create_time_embedding(stim_mat,gen_data.stim_params);
     base_Xmat = base_Xmat(gen_data.used_inds,:);
 end
 %% ITERATE FIXATION-BASED CORRECTIONS
 
-fix_it_mods{1} = init_mods;
+fix_it_mods{1} = init_mods; %initialize model fits
 fix_it_LLimp = nan(HMM_params.n_fix_iter+1,n_units); %initialize matrix of LL improvements
 for ss = 1:length(init_mods) %store initial model LL improvemens
     fix_it_LLimp(1,ss) = (init_mods(ss).fit_props.LL - init_mods(ss).fit_props.null_LL)/log(2);
@@ -166,7 +165,7 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
         lin_kerns{ii} = nan(n_preds,n_tr_units);
     end
     mod_spkNL_params = nan(3,n_tr_units); %assuming softplus spkNL (with three params including offset)
-    for ss = 1:n_tr_units
+    for ss = 1:n_tr_units %compile relevant model components across all units
         filt_bank(:,:,ss) = cell2mat(fix_it_mods{nn}(tr_units(ss)).get_filtKs(stim_mod_inds)');
         mod_spkNL_params(:,ss) = [fix_it_mods{nn}(tr_units(ss)).spkNL.params fix_it_mods{nn}(tr_units(ss)).spkNL.theta];
         for ii = 1:n_add_covariates
@@ -174,7 +173,7 @@ for nn = 1:HMM_params.n_fix_iter %loop over EM iterations
         end
     end
     lin_pred_out = zeros(NT,n_tr_units);
-    for ii = 1:n_add_covariates %precompute output of additional linear terms
+    for ii = 1:n_add_covariates %precompute output of additional linear terms for all units
         lin_pred_out = lin_pred_out + nonstim_X{ii}*lin_kerns{ii};
     end
         
@@ -598,9 +597,9 @@ for nn = 1:HMM_params.n_drift_iter
 end
 
 %%
-drift_up_ratio = drift_usfac/fix_usfac;
-[fin_tot_corr,fin_tot_std] = construct_eye_position(drift_up_ratio*fix_it_post_mean(end,:),drift_up_ratio*fix_it_post_std(end,:),...
-    drift_it_post_mean(end,:),drift_it_post_std(end,:),fix_ids,trial_start_inds,trial_end_inds,round(HMM_params.neural_delay/gen_data.dt));
+% drift_up_ratio = drift_usfac/fix_usfac; 
+% [fin_tot_corr,fin_tot_std] = construct_eye_position(drift_up_ratio*fix_it_post_mean(end,:),drift_up_ratio*fix_it_post_std(end,:),...
+%     drift_it_post_mean(end,:),drift_it_post_std(end,:),fix_ids,trial_start_inds,trial_end_inds,round(HMM_params.neural_delay/gen_data.dt));
 
 %%
 mod_fits.fix_iters = fix_it_mods;

@@ -137,7 +137,7 @@ ex_su = 3; %index of example SU to use for simulation
 % ex_tind = 209;
 ep_range = [-0.35 0.35]; %eye-position axis range
 plot_trange = [0 1]; %range of times to plot 
-plot_trials = [1 150]; %range of trials to plot
+plot_trials = [0.5 100.5]; %range of trials to plot
 
 %% plot EP fig
 ex_trials = [9 83 157]; %example trials to plot EP traces
@@ -317,7 +317,7 @@ line(ex_time+[dt/2 dt/2],yl,'color','r')
 % figufy(f1);
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
-% 
+
 %% plot across trial spike count distribution at example time point
 addpath('~/James_scripts/bruce/bruce_code/')
 % binned_spks_ds = smooth(binned_spks',dt_usfac)'*dt_usfac;
@@ -329,7 +329,7 @@ poss_n_spks = 0:max([shift_binned_spks_ds(:); binned_spks_ds(:)]);
 n = hist(shift_binned_spks_ds(ex_tind,:),poss_n_spks);
 f1 = figure();
 hobj = bar(poss_n_spks,n);
-set(hobj,'faceColor','k','barwidth',0.75);
+set(hobj,'faceColor','k','barwidth',0.5);
 xlim([-0.75 4.75]);
 xlabel('Spike counts');
 ylabel('Relative frequency');
