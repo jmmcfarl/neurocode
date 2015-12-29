@@ -19,14 +19,15 @@ used_dirs = find([data(:).ep] > min_rec_dur & [data(:).dp] > min_rec_dur);
 used_dirs(ismember(data_ids(used_dirs),no_cell) | ismember(data_ids(used_dirs),unclear_uds)) = [];
 
 data = data(used_dirs);
+used_dirs_nl2 = used_dirs([data.layer] ~= 2);
 
 %get MUA data from the set of used recordings
-peak_hpcmua_loc = peak_hpcmua_loc(used_dirs);
-peak_hpcmua_rate = peak_hpcmua_rate(used_dirs);
-usable_mua = usable_mua(used_dirs,:);
-avg_spkwidths = avg_spkwidths(used_dirs,:);
-avg_spkwidth_fwhm = avg_spkwidth_fwhm(used_dirs,:);
-avg_spkwidth_fwqm = avg_spkwidth_fwqm(used_dirs,:);
+peak_hpcmua_loc = peak_hpcmua_loc(used_dirs_nl2);
+peak_hpcmua_rate = peak_hpcmua_rate(used_dirs_nl2);
+usable_mua = usable_mua(used_dirs_nl2,:);
+avg_spkwidths = avg_spkwidths(used_dirs_nl2,:);
+avg_spkwidth_fwhm = avg_spkwidth_fwhm(used_dirs_nl2,:);
+avg_spkwidth_fwqm = avg_spkwidth_fwqm(used_dirs_nl2,:);
 
 % load C:/WC_Germany/final_pdown_analysis/fin_pdown_core_analysis.mat
 load ~/Analysis/Mayank/final_pdown_analysis/fin_pdown_core_analysis_fin.mat

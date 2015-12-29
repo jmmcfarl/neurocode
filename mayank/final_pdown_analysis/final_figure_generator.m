@@ -3,7 +3,7 @@ addpath(genpath('~/James_scripts/figuremaker/'))
 fig_dir = '/Users/james/Analysis/Mayank/final_pdown_analysis/figures/';
 
 min_rec_dur = 500; %minimum total duration of recording (in sec)
-max_med_ctx_down = Inf; %maximum median duration of ctx LFP down states (in sec) 
+max_med_ctx_down = 2.5; %maximum median duration of ctx LFP down states (in sec) 
 
 %% load EC data and select usable recs
 load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
@@ -11,6 +11,7 @@ load ~/Analysis/Mayank/final_pdown_analysis/compiled_data.mat
 data_ids = [data(:).id];
 used_dirs = find([data(:).ep] > min_rec_dur & [data(:).dp] > min_rec_dur);
 used_dirs(ismember(data_ids(used_dirs),no_cell) | ismember(data_ids(used_dirs),unclear_uds)) = [];
+used_dirs_nl2 = used_dirs([data(used_dirs).layer] ~= 2);
 
 data = data(used_dirs);
 data_ids = data_ids(used_dirs);
@@ -25,6 +26,8 @@ end
 med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),core_data);
 tot_uds_dur = [core_data(:).tot_uds_dur];
 use_ec_recs = find(med_ctx_downdur < max_med_ctx_down & tot_uds_dur > min_rec_dur);
+use_ec_recs_nl2 = use_ec_recs([data(use_ec_recs).layer] ~= 2);
+
 data = data(use_ec_recs);
 data_ids = data_ids(use_ec_recs);
 core_data = core_data(use_ec_recs);
@@ -59,11 +62,47 @@ fprintf('L3MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l3mec),[50 25 7
 fprintf('L2MEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2mec),[50 25 75]));
 fprintf('L3LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l3lec),[50 25 75]));
 fprintf('L2LEC: %.2f  %.2f - %.2f\n',100*prctile(fract_rt2_downs(l2lec),[50 25 75]));
-% 
+
+[a,b] = corr(fract_rt2_ups(l3mec)',fract_rt2_downs(l3mec)','type','spearman');
+fprintf('L3MEC pup pdown corr: %.4f  p: %.4f\n',a,b);
+
+p = ranksum(fract_rt2_downs(l3mec),fract_rt2_downs(l3lec));
+fprintf('L3MEC vs L3LEC pdowns, p: %.4f\n',p)
 % g1 = layer;
 % g2 = {data.loc};
 % % [p,tbl,stats] = anovan(fract_rt2_ups,{g1,g2})
 % [p,tbl,stats] = anovan(fract_rt2_ups,{g1,g2})
+
+%% plot pers ups vs pers downs probabilities
+mSize = 17;
+fig_width = 3.5;
+rel_heigh = 1;
+
+fract_rt2_ups = [core_data(:).fract_rt2_ups];
+fract_rt2_downs = [core_data(:).fract_rt2_downs];
+
+% eps = 1e-3;
+% fract_rt2_ups(fract_rt2_ups < eps) = eps;
+% fract_rt2_downs(fract_rt2_downs < eps) = eps;
+
+h = figure;hold on
+plot(fract_rt2_ups(l3mec),fract_rt2_downs(l3mec),'r.','markersize',mSize,'linewidth',1.5);
+plot(fract_rt2_ups(l3lec),fract_rt2_downs(l3lec),'b.','markersize',mSize,'linewidth',1.5);
+legend('L3MEC','L3LEC');
+xlabel('Prob. persistent Up');
+ylabel('Prob. persistent Down');
+xlim([0 0.6]);
+ylim([0 0.6]);
+line([0 0.6],[0 0.6],'color','k');
+set(gca,'xtick',[0:0.1:0.6],'ytick',[0:0.1:0.6])
+% xlim([eps 0.6]);
+% ylim([eps 0.6]);
+% set(gca,'xscale','log','yscale','log');
+% 
+% figufy(h);
+% fname = [fig_dir 'pers_ups_vs_pers_downs.pdf'];
+% exportfig(fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
+
 
 %% load in cortical MP data and get regions
 ctx_data = load('~/Analysis/Mayank/final_pdown_analysis/compiled_corticalMP_data.mat');
@@ -77,9 +116,9 @@ ctx_core_data = ctx_core_data.core_data;
 ctx_cell_type = arrayfun(@(x) x.cell_type,ctx_data,'uniformoutput',0);
 ctx_interneurons = find(strcmp(ctx_cell_type,'interneuron')); 
 
-% %get rid of ctx interneurons
-% ctx_data(ctx_interneurons) = [];
-% ctx_core_data(ctx_interneurons) = [];
+%get rid of ctx interneurons
+ctx_data(ctx_interneurons) = [];
+ctx_core_data(ctx_interneurons) = [];
 
 %exclude sessions where the anesthesia was too deep
 med_ctx_downdur = arrayfun(@(x) nanmedian(x.lfp_down_durs),ctx_core_data);
@@ -93,35 +132,6 @@ prefrontal = find(strcmp({ctx_data(:).region},'prefrontal'));
 parietal = find(strcmp({ctx_data(:).region},'parietal'));
 barrel = find(strcmp({ctx_data(:).region},'barrel'));
 
-%% plot pers ups vs pers downs probabilities
-mSize = 3;
-fig_width = 3.5;
-rel_heigh = 1;
-
-fract_rt2_ups = [core_data(:).fract_rt2_ups];
-fract_rt2_downs = [core_data(:).fract_rt2_downs];
-
-% eps = 1e-3;
-% fract_rt2_ups(fract_rt2_ups < eps) = eps;
-% fract_rt2_downs(fract_rt2_downs < eps) = eps;
-
-h = figure;hold on
-plot(fract_rt2_ups(l3mec),fract_rt2_downs(l3mec),'ro','markersize',mSize,'linewidth',1.5);
-plot(fract_rt2_ups(l3lec),fract_rt2_downs(l3lec),'bo','markersize',mSize,'linewidth',1.5);
-legend('L3MEC','L3LEC');
-xlabel('Prob. persistent Up');
-ylabel('Prob. persistent Down');
-xlim([0 0.6]);
-ylim([0 0.6]);
-
-% xlim([eps 0.6]);
-% ylim([eps 0.6]);
-% set(gca,'xscale','log','yscale','log');
-
-% figufy(h);
-% fname = [fig_dir 'pers_ups_vs_pers_downs.pdf'];
-% exportfig(fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
-
 %% plot boxplot comparison of EC and ctx persistence probs
 all_fract_ups = [ctx_core_data(:).fract_rt2_ups core_data(:).fract_rt2_ups];
 all_fract_downs = [ctx_core_data(:).fract_rt2_downs core_data(:).fract_rt2_downs];
@@ -133,14 +143,26 @@ ctx_group(parietal) = 5;
 EC_group = nan(length(core_data),1);
 EC_group(l3mec) = 1;
 EC_group(l3lec) = 2;
-EC_group(l2mec) = 6;
-EC_group(l2lec) = 7;
+% EC_group(l2mec) = 6;
+% EC_group(l2lec) = 7;
 
 all_group = [ctx_group; EC_group];
 uset = find(~isnan(all_group));
+used_ctx = find(ismember(all_group,[3,4,5]));
+
+fprintf('Pers Ups:\n');
+fprintf('prefrontal: n=%d, %.2f  %.2f - %.2f\n',sum(all_group == 3),100*prctile(all_fract_ups(all_group == 3),[50 25 75]));
+fprintf('frontal: n=%d, %.2f  %.2f - %.2f\n',sum(all_group == 4),100*prctile(all_fract_ups(all_group == 4),[50 25 75]));
+fprintf('parietal: n=%d, %.2f  %.2f - %.2f\n',sum(all_group == 5),100*prctile(all_fract_ups(all_group == 5),[50 25 75]));
+
+fprintf('Pers Downs:\n');
+fprintf('prefrontal: n=%d, %.2f  %.2f - %.2f\n',sum(all_group == 3),100*prctile(all_fract_downs(all_group == 3),[50 25 75]));
+fprintf('frontal: n=%d, %.2f  %.2f - %.2f\n',sum(all_group == 4),100*prctile(all_fract_downs(all_group == 4),[50 25 75]));
+fprintf('parietal: n=%d, %.2f  %.2f - %.2f\n',sum(all_group == 5),100*prctile(all_fract_downs(all_group == 5),[50 25 75]));
 
 close all
-names = {'L3-MEC','L3-LEC','Prefrontal','Frontal','Parietal','L2-MEC','L2-LEC'};
+% names = {'L3-MEC','L3-LEC','Prefrontal','Frontal','Parietal','L2-MEC','L2-LEC'};
+names = {'L3-MEC','L3-LEC','Prefrontal','Frontal','Parietal'};
 h1 = figure;
 % boxplot(all_fract_ups(uset)',names(all_group(uset)),'plotstyle','compact');
 boxplot(all_fract_ups(uset)',names(all_group(uset)));
@@ -157,9 +179,8 @@ ylim([0 0.6])
 figufy(h2);
 set(findobj(gca,'Type','text'),'FontSize',10)
 
-fig_width = 6;
-rel_heigh = 0.8;
-
+% fig_width = 6;
+% rel_heigh = 0.8;
 % fname = [fig_dir 'allcell_pUp_dist_all.pdf'];
 % exportfig(h1,fname,'width',fig_width,'height',rel_heigh*fig_width,'fontmode','scaled','fontsize',1);
 % close(h1);
@@ -232,10 +253,11 @@ ylabel('Prob. pers. Down');
 
 %% plot ctx up-trig avg ctx LFP spectra
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_spec_fin_noconst_newpeaks_wch5_fin.mat
-spec_data = spec_data(use_ec_recs);
-if length(spec_data) ~= length(data)
-    error('data misalignment');
-end
+% use_ec_nl2_recs = use_ec_recs([data(:).layer] ~= 2);
+spec_data = spec_data(use_ec_recs_nl2);
+% if length(spec_data) ~= length(data([data(:).layer] ~= 2))
+%     error('data misalignment');
+% end
 
 xr = [-0.5 1.5]; %time axis range
 
@@ -279,23 +301,22 @@ ylabel('Frequency (Hz)');
 title('Skipped');
 colorbar
 
-% fig_width = 4.36;
-% rel_height = 1.5;
-% 
-% figufy(h1);
-% fname1 = [fig_dir 'utrig_ctx_spec_5s'];
-% exportfig(h1,fname1,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(h1);
+fig_width = 4.36;
+rel_height = 1.5;
+figufy(h1);
+fname1 = [fig_dir 'utrig_ctx_spec_5s'];
+exportfig(h1,fname1,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(h1);
 
 %% plot ctx up-trig avg hpc LFP spectra
 load ~/Analysis/Mayank/final_pdown_analysis/mua_classification_fin.mat
-peak_hpcmua_loc = peak_hpcmua_loc(used_dirs);
-peak_hpcmua_rate = peak_hpcmua_rate(used_dirs);
-peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs);
-peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs);
-if length(peak_hpcmua_loc) ~= length(data)
-    error('data alignment mismatch');
-end
+peak_hpcmua_loc = peak_hpcmua_loc(used_dirs_nl2);
+peak_hpcmua_rate = peak_hpcmua_rate(used_dirs_nl2);
+peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs_nl2);
+peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs_nl2);
+% if length(peak_hpcmua_loc) ~= length(data([data(:).layer] ~= 2))
+%     error('data alignment mismatch');
+% end
 
 %get set of recs that have enough pers downs and usable hpc MUA channels
 good_hpc_lfp = ~isnan(peak_hpcmua_loc);
@@ -333,7 +354,6 @@ colorbar
 
 % fig_width = 4.36;
 % rel_height = 1.5;
-% 
 % figufy(h1);
 % fname1 = [fig_dir 'utrig_hpc_spec_5s'];
 % exportfig(h1,fname1,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -375,7 +395,6 @@ colorbar
 
 % fig_width = 4.36;
 % rel_height = 1.5;
-% 
 % figufy(h1);
 % fname1 = [fig_dir 'dtrig_ctx_spec_5s'];
 % exportfig(h1,fname1,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
@@ -383,13 +402,13 @@ colorbar
 
 %% plot ctx DOWN-trig avg hpc LFP spectra
 load ~/Analysis/Mayank/final_pdown_analysis/mua_classification_fin.mat
-peak_hpcmua_loc = peak_hpcmua_loc(used_dirs);
-peak_hpcmua_rate = peak_hpcmua_rate(used_dirs);
-peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs);
-peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs);
-if length(peak_hpcmua_loc) ~= length(data)
-    error('data alignment mismatch');
-end
+peak_hpcmua_loc = peak_hpcmua_loc(used_dirs_nl2);
+peak_hpcmua_rate = peak_hpcmua_rate(used_dirs_nl2);
+peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs_nl2);
+peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs_nl2);
+% if length(peak_hpcmua_loc) ~= length(data)
+%     error('data alignment mismatch');
+% end
 
 %get set of recs that have enough pers downs and usable hpc MUA channels
 good_hpc_lfp = ~isnan(peak_hpcmua_loc);
@@ -434,11 +453,12 @@ colorbar
 % close(h1);
 
 %% plot prob of persistence vs HF power of ctx LFP
+addpath('~/James_scripts/mayank/final_pdown_analysis/');
 load ~/Analysis/Mayank/final_pdown_analysis/final_cortical_state_data_fin_nobuff_wc5_fin.mat
-cfun_data = cfun_data(use_ec_recs);
-if length(cfun_data) ~= length(data)
-    error('data alignment mismatch');
-end
+cfun_data = cfun_data(use_ec_recs_nl2);
+% if length(cfun_data) ~= length(data)
+%     error('data alignment mismatch');
+% end
 %for pup and pdown-conditional analysis, only use those cells that had at
 %least a min number of pers states
 min_states = 5;
@@ -466,13 +486,13 @@ n_nonnan = sum(~isnan(avg_fun)); %number of cells contributing to avg
 
 %plot pers down prob vs HF-power relationship
 h = figure(); 
-subplot(2,1,1);hold on
+subplot(2,1,2);hold on
 xax = nanmean(avg_xvals); %across-cell avg of the avg x-val within each bin
-shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan));
-plot(xax,nanmean(avg_fun),'ko')
-subplot(2,1,2); hold on
+shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan),{'color','g'});
+% plot(xax,nanmean(avg_fun),'ko')
+subplot(2,1,1); hold on
 n_nonnan = sum(~isnan(avg_upamp_dist)); %number of cells contributing to density estimates
-shadedErrorBar(state_amp_xx,nanmean(avg_upamp_dist),nanstd(avg_upamp_dist)./sqrt(n_nonnan));
+shadedErrorBar(state_amp_xx,nanmean(avg_upamp_dist),nanstd(avg_upamp_dist)./sqrt(n_nonnan),{'color','g'});
 
 %non repeat for pups
 used_data = l3mec_pups;
@@ -492,25 +512,26 @@ end
 n_nonnan = sum(~isnan(avg_fun)); %number of cells contributing to avg
 
 % figure(h);
-subplot(2,1,1);
+subplot(2,1,2);
 xax = nanmean(avg_xvals);
-shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan),{'color','r'});
-plot(xax,nanmean(avg_fun),'ko')
+shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan),{'color','m'});
+% plot(xax,nanmean(avg_fun),'ko')
 xlabel('Ctx state amplitude (z)');
 ylabel('Prob. skipped');
 
 % figure(h2); hold on
-subplot(2,1,2);
+subplot(2,1,1);
 n_nonnan = sum(~isnan(avg_downamp_dist));
-shadedErrorBar(state_amp_xx,nanmean(avg_downamp_dist),nanstd(avg_downamp_dist)./sqrt(n_nonnan),{'color','r'});
+shadedErrorBar(state_amp_xx,nanmean(avg_downamp_dist),nanstd(avg_downamp_dist)./sqrt(n_nonnan),{'color','m'});
 xlabel('Ctx state amplitude (z)');
 ylabel('Probability');
 
-subplot(2,1,1);
-xlim([-1.5 2]);
 subplot(2,1,2);
 xlim([-1.5 2]);
-% 
+ylim([0 0.6])
+subplot(2,1,1);
+xlim([-1.5 2]);
+
 % fig_width = 4; rel_height = 1.6;
 % figufy(h);
 % fname = [fig_dir 'prob_skip_vs_hfpow_fin_5s.pdf'];
@@ -518,10 +539,10 @@ xlim([-1.5 2]);
 
 %% plot prob of persistence vs time since previous MP state transition
 load ~/Analysis/Mayank/final_pdown_analysis/final_cortical_state_data_fin_nobuff_wc5_fin.mat
-cfun_data = cfun_data(use_ec_recs);
-if length(cfun_data) ~= length(data)
-    error('data alignment mismatch');
-end
+cfun_data = cfun_data(use_ec_recs_nl2);
+% if length(cfun_data) ~= length(data)
+%     error('data alignment mismatch');
+% end
 %for pup and pdown-conditional analysis, only use those cells that had at
 %least a min number of pers states
 min_states = 5;
@@ -550,13 +571,13 @@ n_nonnan = sum(~isnan(avg_fun)); %number of cells contributing to avg
 
 %plot pers down prob vs time-since last MP down-trans relationship
 h = figure(); 
-subplot(2,1,1);hold on
+subplot(2,1,2);hold on
 xax = nanmean(avg_xvals); %across-cell avg of the avg x-val within each bin
-shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan));
-plot(xax,nanmean(avg_fun),'ko')
-subplot(2,1,2); hold on
+shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan),{'color','g'});
+% plot(xax,nanmean(avg_fun),'ko')
+subplot(2,1,1); hold on
 n_nonnan = sum(~isnan(avg_upamp_dist)); %number of cells contributing to density estimates
-shadedErrorBar(state_dur_xx,nanmean(avg_tsl_dist),nanstd(avg_tsl_dist)./sqrt(n_nonnan));
+shadedErrorBar(state_dur_xx,nanmean(avg_tsl_dist),nanstd(avg_tsl_dist)./sqrt(n_nonnan),{'color','g'});
 
 %non repeat for pups
 used_data = l3mec_pups;
@@ -576,27 +597,28 @@ end
 n_nonnan = sum(~isnan(avg_fun)); %number of cells contributing to avg
 
 % figure(h);
-subplot(2,1,1);
+subplot(2,1,2);
 xax = nanmean(avg_xvals);
-shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan),{'color','r'});
-plot(xax,nanmean(avg_fun),'ko')
+shadedErrorBar(xax,nanmean(avg_fun),nanstd(avg_fun)./sqrt(n_nonnan),{'color','m'});
+% plot(xax,nanmean(avg_fun),'ko')
 xlabel('Ctx state amplitude (z)');
 ylabel('Prob. skipped');
 
 % figure(h2); hold on
-subplot(2,1,2);
+subplot(2,1,1);
 n_nonnan = sum(~isnan(avg_downamp_dist));
-shadedErrorBar(state_dur_xx,nanmean(avg_tsl_dist),nanstd(avg_tsl_dist)./sqrt(n_nonnan),{'color','r'});
+shadedErrorBar(state_dur_xx,nanmean(avg_tsl_dist),nanstd(avg_tsl_dist)./sqrt(n_nonnan),{'color','m'});
 xlabel('Ctx state amplitude (z)');
 ylabel('Probability');
 
+subplot(2,1,2);
+xlim([0.1 5]); 
+ylim([0 0.3])
+set(gca,'xscale','log');
 subplot(2,1,1);
 xlim([0.1 5]); 
 set(gca,'xscale','log');
-subplot(2,1,2);
-xlim([0.1 5]); 
-set(gca,'xscale','log');
-% 
+
 % fig_width = 4; rel_height = 1.6;
 % figufy(h);
 % fname = [fig_dir 'prob_skip_vs_tsl_fin_5s.pdf'];
@@ -604,20 +626,20 @@ set(gca,'xscale','log');
 
 %% boxplot of effect of EC and ctx states on hpc MUA rates
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_avg_data4_nocon_nobuff_newpeaks_wch5_dcmp_noORDrej_fin.mat
-trig_data = trig_data(use_ec_recs);
-if length(trig_data) ~= length(data)
-    error('data alignment mismatch');
-end
+trig_data = trig_data(use_ec_recs_nl2);
+% if length(trig_data) ~= length(data)
+%     error('data alignment mismatch');
+% end
 
 %load MUA classification data
 load ~/Analysis/Mayank/final_pdown_analysis/mua_classification_fin.mat
-peak_hpcmua_loc = peak_hpcmua_loc(used_dirs);
-peak_hpcmua_rate = peak_hpcmua_rate(used_dirs);
-peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs);
-peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs);
-if length(peak_hpcmua_loc) ~= length(data)
-    error('data alignment mismatch');
-end
+peak_hpcmua_loc = peak_hpcmua_loc(used_dirs_nl2);
+peak_hpcmua_rate = peak_hpcmua_rate(used_dirs_nl2);
+peak_hpcmua_loc = peak_hpcmua_loc(use_ec_recs_nl2);
+peak_hpcmua_rate = peak_hpcmua_rate(use_ec_recs_nl2);
+% if length(peak_hpcmua_loc) ~= length(data)
+%     error('data alignment mismatch');
+% end
 
 %get set of recs that have enough pers downs and usable hpc MUA channels
 good_hpc_mua = ~isnan(peak_hpcmua_loc);
@@ -663,6 +685,7 @@ h = figure();
 boxplot(all_data,groups);
 ylabel('Hpc MUA (z)');
 xl = xlim();
+% ylim([-1 2])
 line(xl,[0 0],'color','k','linestyle','--');
 
 % fig_width = 3.5; rel_height = 0.8;
@@ -673,8 +696,9 @@ line(xl,[0 0],'color','k','linestyle','--');
 
 %% up-trig avgs
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_avg_data4_nocon_nobuff_newpeaks_wch5_dcmp_noORDrej_fin.mat
-trig_data = trig_data(use_ec_recs);
-if length(trig_data) ~= length(data)
+use_ec_nl2_recs = use_ec_recs([data(:).layer] ~= 2);
+trig_data = trig_data(use_ec_nl2_recs);
+if length(trig_data) ~= length(data([data(:).layer] ~= 2))
     error('data alignment mismatch');
 end
 
@@ -734,17 +758,19 @@ l3mec_sk_utrig_mprate = bsxfun(@times,l3mec_sk_utrig_mprate,l3mec_stdrate);
 l3mec_sk_utrig_mprate = bsxfun(@plus,l3mec_sk_utrig_mprate,l3mec_meanrate);
 
 f1 = figure(); 
-subplot(3,3,1);hold on
+hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_ctx,2),nanstd(l3mec_non_sk_utrig_ctx,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_ctx),2)));
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_ctx,2),nanstd(l3mec_sk_utrig_ctx,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_ctx),2)),{'color','r'});
 xlim(xr);
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Ctx MUA');
-ylabel('MUA rate (z)');
+% title('Ctx LF');
+ylabel('Amplitude (z)');
+xlabel('Time (s)');
 
-subplot(3,3,2);hold on
+f2 = figure();
+subplot(3,2,1);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_ctxhf,2),nanstd(l3mec_non_sk_utrig_ctxhf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_ctxhf),2)));
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_ctxhf,2),nanstd(l3mec_sk_utrig_ctxhf,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_ctxhf),2)),{'color','r'});
 xlim(xr);
@@ -752,30 +778,68 @@ ylim([-1 1.5])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Ctx MUA');
-ylabel('MUA rate (z)');
+% title('Ctx HF');
+ylabel('HF power (z)');
 
-subplot(3,3,3);hold on
+subplot(3,2,2);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_ctxmua,2),nanstd(l3mec_non_sk_utrig_ctxmua,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_ctxmua),2)));
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_ctxmua,2),nanstd(l3mec_sk_utrig_ctxmua,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_ctxmua),2)),{'color','r'});
 xlim(xr);
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Ctx MUA');
+% title('Ctx MUA');
 ylabel('MUA rate (z)');
 
-subplot(3,3,4);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_hpc,2),nanstd(l3mec_non_sk_utrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_hpc),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_hpc,2),nanstd(l3mec_sk_utrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_hpc),2)),{'color','r'});
+%MP
+subplot(3,2,3);hold on
+shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_mp,2),nanstd(l3mec_non_sk_utrig_mp,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_mp),2)),{'color','k'});
+shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_mp,2),nanstd(l3mec_sk_utrig_mp,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_mp),2)),{'color','r'});
 xlim(xr);
+ylim([-5 20])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Hpc HF-power');
-ylabel('HF-power (z)');
+% title('MP amp');
+ylabel('Relative amplitude (mV)');
+xlabel('Time (s)');
 
-subplot(3,3,5);hold on
+% subplot(3,3,8);hold on
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_mphf,2),nanstd(l3mec_non_sk_utrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_mphf),2)),{'color','k'});
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_mphf,2),nanstd(l3mec_sk_utrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_mphf),2)),{'color','r'});
+% xlim(xr);
+% % ylim([-0.75 0.75])
+% yl = ylim();
+% line([0 0],yl,'color','k','linestyle','--');
+% line(xr,[0 0],'color','k','linestyle','--');
+% title('MP HF-power');
+% ylabel('HF power (z)');
+% xlabel('Time (s)');
+
+subplot(3,2,4);hold on
+shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_mprate,2),nanstd(l3mec_non_sk_utrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_mprate),2)),{'color','k'});
+shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_mprate,2),nanstd(l3mec_sk_utrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_mprate),2)),{'color','r'});
+xlim(xr);
+% ylim([-0.75 0.75])
+ylim([0 7])
+yl = ylim();
+line([0 0],yl,'color','k','linestyle','--');
+line(xr,[0 0],'color','k','linestyle','--');
+% title('MP spiking');
+ylabel('Spike rate (Hz)');
+xlabel('Time (s)');
+
+% subplot(3,3,4);hold on
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_hpc,2),nanstd(l3mec_non_sk_utrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_hpc),2)),{'color','k'});
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_hpc,2),nanstd(l3mec_sk_utrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_hpc),2)),{'color','r'});
+% xlim(xr);
+% yl = ylim();
+% line([0 0],yl,'color','k','linestyle','--');
+% line(xr,[0 0],'color','k','linestyle','--');
+% title('Hpc');
+% ylabel('Amplitude (z)');
+
+subplot(3,2,5);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_hpchf,2),nanstd(l3mec_non_sk_utrig_hpchf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_hpchf),2)),{'color','k'});
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_hpchf,2),nanstd(l3mec_sk_utrig_hpchf,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_hpchf),2)),{'color','r'});
 xlim(xr);
@@ -783,69 +847,40 @@ ylim([-0.75 1.25])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Hpc HF-power');
+% title('Hpc HF-power');
 ylabel('HF-power (z)');
 
-subplot(3,3,6);hold on
+subplot(3,2,6);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_hpcmua,2),nanstd(l3mec_non_sk_utrig_hpcmua,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_hpcmua),2)),{'color','k'});
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_hpcmua,2),nanstd(l3mec_sk_utrig_hpcmua,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_hpcmua),2)),{'color','r'});
 xlim(xr);
-ylim([-0.5 0.5])
+ylim([-0.5 0.4])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Hpc MUA');
+% title('Hpc MUA');
 ylabel('MUA rate (z)');
 
-subplot(3,3,7);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_mp,2),nanstd(l3mec_non_sk_utrig_mp,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_mp),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_mp,2),nanstd(l3mec_sk_utrig_mp,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_mp),2)),{'color','r'});
-xlim(xr);
-yl = ylim();
-line([0 0],yl,'color','k','linestyle','--');
-line(xr,[0 0],'color','k','linestyle','--');
-title('MP HF-power');
-ylabel('HF power (z)');
-xlabel('Time (s)');
-
-subplot(3,3,8);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_mphf,2),nanstd(l3mec_non_sk_utrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_mphf),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_mphf,2),nanstd(l3mec_sk_utrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_mphf),2)),{'color','r'});
-xlim(xr);
-% ylim([-0.75 0.75])
-yl = ylim();
-line([0 0],yl,'color','k','linestyle','--');
-line(xr,[0 0],'color','k','linestyle','--');
-title('MP HF-power');
-ylabel('HF power (z)');
-xlabel('Time (s)');
-
-subplot(3,3,9);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_utrig_mprate,2),nanstd(l3mec_non_sk_utrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_non_sk_utrig_mprate),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_utrig_mprate,2),nanstd(l3mec_sk_utrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_sk_utrig_mprate),2)),{'color','r'});
-xlim(xr);
-% ylim([-0.75 0.75])
-yl = ylim();
-line([0 0],yl,'color','k','linestyle','--');
-line(xr,[0 0],'color','k','linestyle','--');
-title('MP spiking');
-ylabel('spike rate (z)');
-xlabel('Time (s)');
-
-% %
-% fig_width = 3.5; rel_height = 2.4;
+%
+% fig_width = 3.5; rel_height = 0.8;
 % figufy(f1);
-% fname = [fig_dir 'utrig_signal_fin_5s_np_wch5_v2.pdf'];
+% fname = [fig_dir 'utrig_ctx_lf.pdf'];
 % exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
 % close(f1);
+% 
+% fig_width = 8; rel_height = 1.4;
+% figufy(f2);
+% fname = [fig_dir 'utrig_signal_fin_5s_np_wch5_v2.pdf'];
+% exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+% close(f2);
 
 
 %% down-trig avgs
 load ~/Analysis/Mayank/final_pdown_analysis/final_trig_avg_data4_nocon_nobuff_newpeaks_wch5_dcmp_noORDrej_fin.mat
-trig_data = trig_data(use_ec_recs);
-if length(trig_data) ~= length(data)
-    error('data alignment mismatch');
-end
+trig_data = trig_data(use_ec_recs_nl2);
+% if length(trig_data) ~= length(data([data(:).layer] ~= 2))
+%     error('data alignment mismatch');
+% end
 
 %get L3MEC recs with usable MUA signals
 min_rate = 1;
@@ -903,17 +938,18 @@ l3mec_sk_dtrig_mprate = bsxfun(@times,l3mec_sk_dtrig_mprate,l3mec_stdrate);
 l3mec_sk_dtrig_mprate = bsxfun(@plus,l3mec_sk_dtrig_mprate,l3mec_meanrate);
 
 f1 = figure(); 
-subplot(3,3,1);hold on
+hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_ctx,2),nanstd(l3mec_non_sk_dtrig_ctx,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_ctx),2)));
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_ctx,2),nanstd(l3mec_sk_dtrig_ctx,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_ctx),2)),{'color','r'});
 xlim(xr);
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Ctx MUA');
-ylabel('MUA rate (z)');
+title('Ctx LF');
+ylabel('Amplitude (z)');
 
-subplot(3,3,2);hold on
+f2 = figure();
+subplot(3,2,1);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_ctxhf,2),nanstd(l3mec_non_sk_dtrig_ctxhf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_ctxhf),2)));
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_ctxhf,2),nanstd(l3mec_sk_dtrig_ctxhf,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_ctxhf),2)),{'color','r'});
 xlim(xr);
@@ -921,30 +957,67 @@ ylim([-1 1.5])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Ctx MUA');
-ylabel('MUA rate (z)');
+% title('Ctx HF');
+ylabel('HF power (z)');
 
-subplot(3,3,3);hold on
+subplot(3,2,2);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_ctxmua,2),nanstd(l3mec_non_sk_dtrig_ctxmua,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_ctxmua),2)));
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_ctxmua,2),nanstd(l3mec_sk_dtrig_ctxmua,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_ctxmua),2)),{'color','r'});
 xlim(xr);
+ylim([-1 1.5])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Ctx MUA');
+% title('Ctx MUA');
 ylabel('MUA rate (z)');
 
-subplot(3,3,4);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_hpc,2),nanstd(l3mec_non_sk_dtrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_hpc),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_hpc,2),nanstd(l3mec_sk_dtrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_hpc),2)),{'color','r'});
+subplot(3,2,3);hold on
+shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_mp,2),nanstd(l3mec_non_sk_dtrig_mp,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_mp),2)),{'color','k'});
+shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_mp,2),nanstd(l3mec_sk_dtrig_mp,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_mp),2)),{'color','r'});
 xlim(xr);
+ylim([0 25])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
-line(xr,[0 0],'color','k','linestyle','--');
-title('Hpc HF-power');
-ylabel('HF-power (z)');
+% line(xr,[0 0],'color','k','linestyle','--');
+% title('MP amplitude');
+ylabel('Rel. Amp. (mV)');
+xlabel('Time (s)');
 
-subplot(3,3,5);hold on
+% subplot(3,3,8);hold on
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_mphf,2),nanstd(l3mec_non_sk_dtrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_mphf),2)),{'color','k'});
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_mphf,2),nanstd(l3mec_sk_dtrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_mphf),2)),{'color','r'});
+% xlim(xr);
+% % ylim([-0.75 0.75])
+% yl = ylim();
+% line([0 0],yl,'color','k','linestyle','--');
+% line(xr,[0 0],'color','k','linestyle','--');
+% title('MP HF-power');
+% ylabel('HF power (z)');
+% xlabel('Time (s)');
+
+subplot(3,2,4);hold on
+shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_mprate,2),nanstd(l3mec_non_sk_dtrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_mprate),2)),{'color','k'});
+shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_mprate,2),nanstd(l3mec_sk_dtrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_mprate),2)),{'color','r'});
+xlim(xr);
+ylim([0 7])
+yl = ylim();
+line([0 0],yl,'color','k','linestyle','--');
+% line(xr,[0 0],'color','k','linestyle','--');
+% title('MP spiking');
+ylabel('Spike rate (Hz)');
+xlabel('Time (s)');
+
+% subplot(3,3,4);hold on
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_hpc,2),nanstd(l3mec_non_sk_dtrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_hpc),2)),{'color','k'});
+% shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_hpc,2),nanstd(l3mec_sk_dtrig_hpc,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_hpc),2)),{'color','r'});
+% xlim(xr);
+% yl = ylim();
+% line([0 0],yl,'color','k','linestyle','--');
+% line(xr,[0 0],'color','k','linestyle','--');
+% title('Hpc LF');
+% ylabel('Amplitude (z)');
+
+subplot(3,2,5);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_hpchf,2),nanstd(l3mec_non_sk_dtrig_hpchf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_hpchf),2)),{'color','k'});
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_hpchf,2),nanstd(l3mec_sk_dtrig_hpchf,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_hpchf),2)),{'color','r'});
 xlim(xr);
@@ -952,60 +1025,26 @@ ylim([-0.75 1.25])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Hpc HF-power');
+% title('Hpc HF-power');
 ylabel('HF-power (z)');
 
-subplot(3,3,6);hold on
+subplot(3,2,6);hold on
 shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_hpcmua,2),nanstd(l3mec_non_sk_dtrig_hpcmua,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_hpcmua),2)),{'color','k'});
 shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_hpcmua,2),nanstd(l3mec_sk_dtrig_hpcmua,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_hpcmua),2)),{'color','r'});
 xlim(xr);
-ylim([-0.5 0.5])
+% ylim([-0.5 0.5])
 yl = ylim();
 line([0 0],yl,'color','k','linestyle','--');
 line(xr,[0 0],'color','k','linestyle','--');
-title('Hpc MUA');
+% title('Hpc MUA');
 ylabel('MUA rate (z)');
 
-subplot(3,3,7);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_mp,2),nanstd(l3mec_non_sk_dtrig_mp,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_mp),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_mp,2),nanstd(l3mec_sk_dtrig_mp,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_mp),2)),{'color','r'});
-xlim(xr);
-yl = ylim();
-line([0 0],yl,'color','k','linestyle','--');
-line(xr,[0 0],'color','k','linestyle','--');
-title('MP HF-power');
-ylabel('HF power (z)');
-xlabel('Time (s)');
 
-subplot(3,3,8);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_mphf,2),nanstd(l3mec_non_sk_dtrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_mphf),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_mphf,2),nanstd(l3mec_sk_dtrig_mphf,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_mphf),2)),{'color','r'});
-xlim(xr);
-% ylim([-0.75 0.75])
-yl = ylim();
-line([0 0],yl,'color','k','linestyle','--');
-line(xr,[0 0],'color','k','linestyle','--');
-title('MP HF-power');
-ylabel('HF power (z)');
-xlabel('Time (s)');
-
-subplot(3,3,9);hold on
-shadedErrorBar(lags/Fsd,nanmean(l3mec_non_sk_dtrig_mprate,2),nanstd(l3mec_non_sk_dtrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_non_sk_dtrig_mprate),2)),{'color','k'});
-shadedErrorBar(lags/Fsd,nanmean(l3mec_sk_dtrig_mprate,2),nanstd(l3mec_sk_dtrig_mprate,[],2)./sqrt(sum(~isnan(l3mec_sk_dtrig_mprate),2)),{'color','r'});
-xlim(xr);
-% ylim([-0.75 0.75])
-yl = ylim();
-line([0 0],yl,'color','k','linestyle','--');
-line(xr,[0 0],'color','k','linestyle','--');
-title('MP spiking');
-ylabel('spike rate (z)');
-xlabel('Time (s)');
-
-% %
-% fig_width = 3.5; rel_height = 2.4;
-% figufy(f1);
-% fname = [fig_dir 'dtrig_spikerates_fin_5s_np_wch5_v2.pdf'];
-% exportfig(f1,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
-% close(f1);
+%
+fig_width = 8; rel_height = 1.4;
+figufy(f2);
+fname = [fig_dir 'dtrig_spikerates_fin_5s_np_wch5_v2.pdf'];
+exportfig(f2,fname,'width',fig_width,'height',rel_height*fig_width,'fontmode','scaled','fontsize',1);
+close(f2);
 
 
